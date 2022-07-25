@@ -1,0 +1,36 @@
+html,
+body {
+  margin: 0;
+  /*background-color: black;*/
+  /*z-index: -999;*/
+}
+
+.copper3D_canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: -1;
+}
+.copper3D_container_root {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+.copper3D_scene_div {
+  border: 1px solid grey;
+  position: relative;
+}
+
+.coppper3D_container_root > div {
+  border: 1px solid grey;
+  position: relative;
+}
+
+.force-touch-styles {
+  position: fixed;
+  z-index: 1000;
+}
