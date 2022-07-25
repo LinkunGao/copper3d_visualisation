@@ -1,0 +1,52 @@
+/* override table width restrictions */
+@media screen and (min-width: 767px) {
+  .wy-table-responsive table td {
+    /* !important prevents the common CSS stylesheets from overriding
+         this as on RTD they are loaded after this stylesheet */
+    white-space: normal !important;
+  }
+
+  .wy-table-responsive {
+    overflow: visible !important;
+  }
+}
+
+a {
+  color: #36a172 !important;
+}
+.navbar-brand-box {
+  background-color: #7189FF !important;
+  padding: 10px;
+}
+/* .bd-sidebar__top{
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+} */
+.container-xl{
+  padding-left: 0 ;
+  margin-left: 0;
+}
+#site-navigation h1.site-logo {
+  font-size: 0.9em !important;
+  color:#fff;
+}
+
+/* Sidebar header (and topbar for mobile) */
+/* .wy-side-nav-search,
+.wy-nav-top {
+  background: #36a172;
+}
+
+.wy-menu-vertical header,
+.wy-menu-vertical p.caption {
+  color: #36a172;
+} */
+
+/* Sidebar */
+/* .wy-side-nav-search input[type="text"] {
+  border-color: #36a172;
+}
+
+.highlight {
+  background: rgba(220, 220, 220, 0.1) !important;
+}
