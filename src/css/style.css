@@ -34,3 +34,87 @@ body {
   position: fixed;
   z-index: 1000;
 }
+
+/* loading */
+.copper3D_flex-center {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-direction: column;
+  height: 100px;
+  position: absolute;
+  left: 45%;
+  top: 45%;
+}
+.copper3D_three-balls-bounce {
+  position: relative;
+  width: 200px;
+  height: 62px;
+}
+.copper3D_three-balls-bounce .copper3D_circle {
+  width: 20px;
+  height: 20px;
+  position: absolute;
+  border-radius: 50%;
+  background-color: #ff4a69;
+  left: 15%;
+  transform-origin: 50%;
+  animation: balls-circle 0.5s alternate ease infinite;
+}
+.copper3D_three-balls-bounce .copper3D_shadow {
+  width: 20px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.4);
+  position: absolute;
+  transform-origin: 50%;
+  top: 62px;
+  z-index: 1;
+  left: 15%;
+  filter: blur(1px);
+  animation: balls-shadow 0.5s alternate ease infinite;
+}
+.copper3D_three-balls-bounce .copper3D_circle:nth-child(2),
+.copper3D_three-balls-bounce .copper3D_shadow:nth-child(4) {
+  left: 45%;
+  animation-delay: 0.2s;
+}
+.copper3D_three-balls-bounce .copper3D_circle:nth-child(3),
+.copper3D_three-balls-bounce .copper3D_shadow:nth-child(5) {
+  left: auto;
+  right: 15%;
+  animation-delay: 0.3s;
+}
+
+@keyframes balls-circle {
+  from {
+    top: 60px;
+    height: 5px;
+    border-radius: 50px 50px 25px 25px;
+    transform: scaleX(1.7);
+  }
+  40% {
+    height: 20px;
+    border-radius: 50%;
+    transform: scaleX(1);
+  }
+  to {
+    top: 0%;
+  }
+}
+
+@keyframes balls-shadow {
+  from {
+    transform: scaleX(1.5);
+  }
+  40% {
+    transform: scaleX(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scaleX(0.2);
+    opacity: 0.4;
+  }
+}
+/* loading end */

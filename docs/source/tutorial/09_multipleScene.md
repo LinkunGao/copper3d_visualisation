@@ -34,8 +34,8 @@
 - config copper
 
 ```ts
-import * as Copper from "gltfloader-plugin-test";
-import "gltfloader-plugin-test/dist/css/style.css";
+import * as Copper from "copper3d_visualisation";
+import "copper3d_visualisation/dist/css/style.css";
 import { getCurrentInstance, onMounted } from "vue";
 
 let refs = null;

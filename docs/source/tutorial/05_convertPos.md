@@ -17,7 +17,7 @@
 - setup copper environment
 
 ```ts
-import * as Copper from "gltfloader-plugin-test";
+import * as Copper from "copper3d_visualisation";
 import * as THREE from "three";
 import { getCurrentInstance, onMounted } from "vue";
 
