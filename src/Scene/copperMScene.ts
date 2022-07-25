@@ -245,7 +245,7 @@ export default class copperMScene {
     ) => void,
     opts?: optsType
   ) {
-    copperNrrdLoader(url, this.scene, callback, opts);
+    copperNrrdLoader(url, this.scene, this.container, callback, opts);
   }
 
   loadNrrd1(url: string, callback?: (volume: any, gui?: GUI) => void) {
@@ -273,7 +273,7 @@ export default class copperMScene {
     this.controls.maxZoom = 4;
     this.controls.enablePan = false;
     this.renderNrrdVolume = true;
-    copperNrrdLoader1(url, this.scene, callback);
+    copperNrrdLoader1(url, this.scene, this.container, callback);
   }
 
   dragImage(slice: any, opts?: nrrdDragImageOptType) {

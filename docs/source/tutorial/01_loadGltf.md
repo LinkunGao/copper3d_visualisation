@@ -19,7 +19,7 @@ In Vue environment.
 - load `GLTF` model
 
   ```ts
-  import * as Copper from "gltfloader-plugin-test";
+  import * as Copper from "copper3d_visualisation";
   import { getCurrentInstance, onMounted } from "vue";
   let refs = null;
   let appRenderer;

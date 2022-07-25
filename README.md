@@ -4,7 +4,7 @@ A 3d visualisation package base on threejs provides multiple scenes and Nrrd ima
 
 ### Documentation:
 
-https://gltfloader-plugin.readthedocs.io/en/latest/
+https://copper3d-visualisation.readthedocs.io/en/latest/
 
 ### Previous versions
 
@@ -21,7 +21,7 @@ see: https://www.npmjs.com/package/gltfloader-plugin-test
 - Load demo
 
 ```ts
-import * as Copper from "gltfloader-plugin-test";
+import * as Copper from "copper3d_visualisation";
 import { getCurrentInstance, onMounted } from "vue";
 let refs = null;
 let appRenderer;
@@ -45,7 +45,7 @@ appRenderer = new Copper.copperRenderer(bg, { guiOpen: true });
 - Load multiple scenes with gltf-loader
 
 ```ts
-import * as Copper from "gltfloader-plugin-test";
+import * as Copper from "copper3d_visualisation";
 import { getCurrentInstance, onMounted } from "vue";
 
 let refs = null;

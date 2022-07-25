@@ -17,3 +17,4 @@ Tutorial
     10_kiwriousHeart
     10_kiwriousInNuxtjs
     11_dragAndResetNrrd
+    12_drawOnNrrdSlice

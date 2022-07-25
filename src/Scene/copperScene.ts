@@ -85,7 +85,7 @@ export default class copperScene extends baseScene {
     ) => void,
     opts?: optsType
   ) {
-    copperNrrdLoader(url, this.scene, callback, opts);
+    copperNrrdLoader(url, this.scene, this.container, callback, opts);
   }
 
   loadVtk(url: string) {

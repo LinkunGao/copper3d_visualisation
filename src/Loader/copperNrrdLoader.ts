@@ -18,6 +18,7 @@ import {
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import copperMScene from "../Scene/copperMScene";
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
+import { loading } from "../Utils/utils";
 
 let cube: THREE.Mesh;
 let gui: GUI;
@@ -47,6 +48,7 @@ export interface optsType {
 export function copperNrrdLoader(
   url: string,
   scene: THREE.Scene,
+  container: HTMLDivElement,
   callback?: (
     volume: any,
     nrrdMeshes: nrrdMeshesType,
@@ -59,31 +61,13 @@ export function copperNrrdLoader(
   let nrrdMeshes: nrrdMeshesType;
   let nrrdSlices: nrrdSliceType;
 
-  let progress = document.createElement("div");
-  progress.style.position = "fixed";
-  progress.style.top = "50%";
-  progress.style.left = "50%";
-  progress.style.display = "none";
-  progress.style.color = "#000";
-  progress.style.zIndex = "1000";
-  document.body.appendChild(progress);
+  let { loadingContainer, progress } = loading();
+  container.appendChild(loadingContainer);
 
   loader.load(
     url,
     function (volume: any) {
       configGui(opts);
-
-      const geometry = new THREE.BoxGeometry(
-        volume.xLength,
-        volume.yLength,
-        volume.zLength
-      );
-      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-
-      cube = new THREE.Mesh(geometry, material);
-      cube.visible = false;
-
-      // scene.add(cube);
 
       volume.axisOrder = ["x", "y", "z"];
 
@@ -164,12 +148,12 @@ export function copperNrrdLoader(
       }
     },
     function (xhr: ProgressEvent<EventTarget>) {
-      progress.style.display = "block";
-      progress.innerHTML = `${Math.ceil(
+      loadingContainer.style.display = "flex";
+      progress.innerText = `${Math.ceil(
         (xhr.loaded / xhr.total) * 100
       )} % loaded`;
       if (xhr.loaded / xhr.total === 1) {
-        progress.style.display = "none";
+        loadingContainer.style.display = "none";
       }
     }
   );
@@ -178,6 +162,7 @@ export function copperNrrdLoader(
 export function copperNrrdLoader1(
   url: string,
   scene: THREE.Scene,
+  container: HTMLDivElement,
   callback?: (volume: any, gui?: GUI) => void
 ) {
   const volconfig = {
@@ -194,110 +179,122 @@ export function copperNrrdLoader1(
   //   isothreshold: -0.15,
   //   colormap: "viridis",
   // };
-
+  let { loadingContainer, progress } = loading();
+  container.appendChild(loadingContainer);
   let cmtextures: { [key: string]: any };
   let material: THREE.ShaderMaterial;
 
   let mesh: THREE.Mesh;
 
-  new NRRDLoader().load(url, function (volume: any) {
-    volume.axisOrder = ["x", "y", "z"];
+  new NRRDLoader().load(
+    url,
+    function (volume: any) {
+      volume.axisOrder = ["x", "y", "z"];
 
-    const is_Int16Array = volume.data.byteLength / volume.data.length === 2;
-    volume.lowerThreshold = 19;
-    volume.upperThreshold = 498;
-    volume.windowLow = 0;
-    volume.windowHigh = 354;
+      const is_Int16Array = volume.data.byteLength / volume.data.length === 2;
+      volume.lowerThreshold = 19;
+      volume.upperThreshold = 498;
+      volume.windowLow = 0;
+      volume.windowHigh = 354;
 
-    let data = is_Int16Array
-      ? int16ToFloat32(volume.data, 0, volume.data.length)
-      : volume.data;
+      let data = is_Int16Array
+        ? int16ToFloat32(volume.data, 0, volume.data.length)
+        : volume.data;
 
-    const texture = new THREE.Data3DTexture(
-      data as any,
-      volume.xLength,
-      volume.yLength,
-      volume.zLength
-    );
+      const texture = new THREE.Data3DTexture(
+        data as any,
+        volume.xLength,
+        volume.yLength,
+        volume.zLength
+      );
 
-    texture.format = THREE.RedFormat;
-    texture.type = THREE.FloatType;
-    texture.minFilter = texture.magFilter = THREE.LinearFilter;
-    texture.unpackAlignment = 1;
-    texture.needsUpdate = true;
+      texture.format = THREE.RedFormat;
+      texture.type = THREE.FloatType;
+      texture.minFilter = texture.magFilter = THREE.LinearFilter;
+      texture.unpackAlignment = 1;
+      texture.needsUpdate = true;
 
-    // colormap texture
-    cmtextures = {
-      viridis: new THREE.TextureLoader().load(cm_viridis),
-      gray: new THREE.TextureLoader().load(cm_gray),
-    };
+      // colormap texture
+      cmtextures = {
+        viridis: new THREE.TextureLoader().load(cm_viridis),
+        gray: new THREE.TextureLoader().load(cm_gray),
+      };
 
-    // Material
-    const shader = VolumeRenderShader1;
+      // Material
+      const shader = VolumeRenderShader1;
 
-    const uniforms = THREE.UniformsUtils.clone(shader.uniforms);
+      const uniforms = THREE.UniformsUtils.clone(shader.uniforms);
 
-    uniforms["u_data"].value = texture;
-    uniforms["u_size"].value.set(
-      volume.xLength,
-      volume.yLength,
-      volume.zLength
-    );
+      uniforms["u_data"].value = texture;
+      uniforms["u_size"].value.set(
+        volume.xLength,
+        volume.yLength,
+        volume.zLength
+      );
 
-    uniforms["u_clim"].value.set(volconfig.clim1, volconfig.clim2);
-    uniforms["u_renderstyle"].value = volconfig.renderStyle === "mip" ? 0 : 1; // mip 0, iso 1
-    uniforms["u_renderthreshold"].value = volconfig.isothreshold; // for iso render style
-    uniforms["u_cmdata"].value = cmtextures[volconfig.colormap];
+      uniforms["u_clim"].value.set(volconfig.clim1, volconfig.clim2);
+      uniforms["u_renderstyle"].value = volconfig.renderStyle === "mip" ? 0 : 1; // mip 0, iso 1
+      uniforms["u_renderthreshold"].value = volconfig.isothreshold; // for iso render style
+      uniforms["u_cmdata"].value = cmtextures[volconfig.colormap];
 
-    material = new THREE.ShaderMaterial({
-      uniforms: uniforms,
-      vertexShader: shader.vertexShader,
-      fragmentShader: shader.fragmentShader,
-      side: THREE.BackSide, // The volume shader uses the backface as its "reference point"
-    });
+      material = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: shader.vertexShader,
+        fragmentShader: shader.fragmentShader,
+        side: THREE.BackSide, // The volume shader uses the backface as its "reference point"
+      });
 
-    // Mesh
-    const geometry = new THREE.BoxGeometry(
-      volume.xLength,
-      volume.yLength,
-      volume.zLength
-    );
-    geometry.translate(
-      volume.xLength / 2 - 0.5,
-      volume.yLength / 2 - 0.5,
-      volume.zLength / 2 - 0.5
-    );
-    mesh = new THREE.Mesh(geometry, material);
+      // Mesh
+      const geometry = new THREE.BoxGeometry(
+        volume.xLength,
+        volume.yLength,
+        volume.zLength
+      );
+      geometry.translate(
+        volume.xLength / 2 - 0.5,
+        volume.yLength / 2 - 0.5,
+        volume.zLength / 2 - 0.5
+      );
+      mesh = new THREE.Mesh(geometry, material);
 
-    const boxHelper = new THREE.BoxHelper(mesh);
-    scene.add(boxHelper);
-    boxHelper.applyMatrix4((volume as any).matrix);
+      const boxHelper = new THREE.BoxHelper(mesh);
+      scene.add(boxHelper);
+      boxHelper.applyMatrix4((volume as any).matrix);
 
-    scene.add(mesh);
+      scene.add(mesh);
 
-    const gui = new GUI();
-    gui.add(volconfig, "clim1", -1, 1, 0.01).onChange(updateUniforms);
-    gui.add(volconfig, "clim2", -1, 1, 0.01).onChange(updateUniforms);
-    // gui.add(volconfig, "clim1", -50, 400, 1).onChange(updateUniforms);
-    // gui.add(volconfig, "clim2", -50, 400, 1).onChange(updateUniforms);
-    gui
-      .add(volconfig, "colormap", { gray: "gray", viridis: "viridis" })
-      .onChange(updateUniforms);
-    gui
-      .add(volconfig, "renderStyle", { mip: "mip", iso: "iso" })
-      .onChange(updateUniforms);
-    gui.add(volconfig, "isothreshold", -1, 1, 0.01).onChange(updateUniforms);
+      const gui = new GUI();
+      gui.add(volconfig, "clim1", -1, 1, 0.01).onChange(updateUniforms);
+      gui.add(volconfig, "clim2", -1, 1, 0.01).onChange(updateUniforms);
+      // gui.add(volconfig, "clim1", -50, 400, 1).onChange(updateUniforms);
+      // gui.add(volconfig, "clim2", -50, 400, 1).onChange(updateUniforms);
+      gui
+        .add(volconfig, "colormap", { gray: "gray", viridis: "viridis" })
+        .onChange(updateUniforms);
+      gui
+        .add(volconfig, "renderStyle", { mip: "mip", iso: "iso" })
+        .onChange(updateUniforms);
+      gui.add(volconfig, "isothreshold", -1, 1, 0.01).onChange(updateUniforms);
 
-    function updateUniforms() {
-      material.uniforms["u_clim"].value.set(volconfig.clim1, volconfig.clim2);
-      material.uniforms["u_renderstyle"].value =
-        volconfig.renderStyle == "mip" ? 0 : 1; // 0: MIP, 1: ISO
-      material.uniforms["u_renderthreshold"].value = volconfig.isothreshold; // For ISO renderstyle
-      material.uniforms["u_cmdata"].value = cmtextures[volconfig.colormap];
+      function updateUniforms() {
+        material.uniforms["u_clim"].value.set(volconfig.clim1, volconfig.clim2);
+        material.uniforms["u_renderstyle"].value =
+          volconfig.renderStyle == "mip" ? 0 : 1; // 0: MIP, 1: ISO
+        material.uniforms["u_renderthreshold"].value = volconfig.isothreshold; // For ISO renderstyle
+        material.uniforms["u_cmdata"].value = cmtextures[volconfig.colormap];
+      }
+      callback && callback(volume, gui);
+    },
+    function (xhr: ProgressEvent<EventTarget>) {
+      loadingContainer.style.display = "flex";
+      progress.innerText = `${Math.ceil(
+        (xhr.loaded / xhr.total) * 100
+      )} % loaded`;
+      if (xhr.loaded / xhr.total === 1) {
+        loadingContainer.style.display = "none";
+      }
     }
-
-    callback && callback(volume, gui);
-  });
+  );
 }
 
 export function dragImageWithMode(
@@ -489,6 +486,17 @@ export function getWholeSlices(
   }
 
   scene.add(sliceGroup);
+
+  // scene.add(nrrdSlices.z.mesh);
+
+  // for (let i = 0; i < timeZ; i++) {
+  //   setTimeout(() => {
+  //     nrrdSlices.z.index = i;
+  //     nrrdSlices.z.repaint(nrrdSlices.z);
+  //     nrrdSlices.z.mesh.position.set(0, 0, 0.5);
+  //     console.log(nrrdSlices.z.mesh);
+  //   }, 100);
+  // }
 
   const zz = {
     indexX: 0,
