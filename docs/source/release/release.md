@@ -366,4 +366,4 @@ See tutorial 12 - drag and reset nrrd image.
   - use eraser.
   - clear all drawing.
   - download current image.
-- create loader animation.
+- create loading animation.
