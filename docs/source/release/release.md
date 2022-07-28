@@ -367,3 +367,7 @@ See tutorial 12 - drag and reset nrrd image.
   - clear all drawing.
   - download current image.
 - create loading animation.
+
+## Release v1.8.19
+
+- update threejs version to latest.
