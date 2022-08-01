@@ -14,11 +14,13 @@ import {
   nrrdDragImageOptType,
   paintImagesType,
   paintImageType,
+  mouseMovePositionType,
 } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import copperMScene from "../Scene/copperMScene";
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
+import { throttle } from "../Utils/raycaster";
 
 let cube: THREE.Mesh;
 let gui: GUI;
@@ -37,7 +39,14 @@ let textureNormal: THREE.Texture | undefined;
 
 // for drawing on canvas
 let drawingCanvas = document.createElement("canvas");
+let displayCanvas = document.createElement("canvas");
+let originWidth = 0;
+let originHeight = 0;
+let paintedImage: any;
 
+/**
+ * To store the painted images on empty drawing canvas
+ */
 let images: paintImagesType = { x: [], y: [], z: [] };
 
 export interface optsType {
@@ -85,6 +94,7 @@ export function copperNrrdLoader(
         Math.floor(volume.RASDimensions[0] / 2)
       );
 
+      console.log(volume);
       nrrdMeshes = {
         x: sliceX.mesh,
         y: sliceY.mesh,
@@ -404,12 +414,18 @@ export function dragImageWithMode(
           slice.repaint.call(slice);
           drawingCanvas.width = drawingCanvas.width;
           drawingCanvas.height = drawingCanvas.height;
+          if (originWidth === 0) {
+            originWidth = slice.canvas.width;
+            originHeight = slice.canvas.height;
+          }
+          displayCanvas
+            .getContext("2d")
+            ?.drawImage(slice.canvas, 0, 0, originWidth, originHeight);
           if (
             images.x.length > 0 ||
             images.y.length > 0 ||
             images.z.length > 0
           ) {
-            let paintedImage;
             if (images.x.length > 0) {
               paintedImage = filterDrawedImage(images.x, slice.index);
             } else if (images.y.length > 0) {
@@ -424,8 +440,8 @@ export function dragImageWithMode(
                   paintedImage.image,
                   0,
                   0,
-                  slice.canvas.width,
-                  slice.canvas.height
+                  originWidth,
+                  originHeight
                 );
               drawingCanvas
                 .getContext("2d")
@@ -433,8 +449,8 @@ export function dragImageWithMode(
                   paintedImage.image,
                   0,
                   0,
-                  slice.canvas.width,
-                  slice.canvas.height
+                  originWidth,
+                  originHeight
                 );
             }
           }
@@ -463,31 +479,31 @@ export function getWholeSlices(
   let slicesX: Array<THREE.Mesh> = [];
   let sliceGroup: THREE.Group = new THREE.Group();
 
-  const volume = nrrdSlices.x.volume;
-  volume.lowerThreshold = 19;
-  volume.upperThreshold = 498;
-  volume.windowLow = 0;
-  volume.windowHigh = 354;
-  for (let i = 0; i < timeZ; i++) {
-    const slicez = volume.extractSlice("z", i);
-    slicez.mesh.index = i;
-    sliceGroup.add(slicez.mesh);
+  // const volume = nrrdSlices.x.volume;
+  // volume.lowerThreshold = 19;
+  // volume.upperThreshold = 498;
+  // volume.windowLow = 0;
+  // volume.windowHigh = 354;
+  // for (let i = 0; i < timeZ; i++) {
+  //   const slicez = volume.extractSlice("z", i);
+  //   slicez.mesh.index = i;
+  //   sliceGroup.add(slicez.mesh);
 
-    slicesX.push(slicez.mesh);
-  }
-  for (let i = 0; i < timeX; i++) {
-    const slicex = volume.extractSlice("x", i);
+  //   slicesX.push(slicez.mesh);
+  // }
+  // for (let i = 0; i < timeX; i++) {
+  //   const slicex = volume.extractSlice("x", i);
 
-    sliceGroup.add(slicex.mesh);
-  }
-  for (let i = 0; i < timeY; i++) {
-    const slicey = volume.extractSlice("y", i);
-    sliceGroup.add(slicey.mesh);
-  }
+  //   sliceGroup.add(slicex.mesh);
+  // }
+  // for (let i = 0; i < timeY; i++) {
+  //   const slicey = volume.extractSlice("y", i);
+  //   sliceGroup.add(slicey.mesh);
+  // }
 
-  scene.add(sliceGroup);
+  // scene.add(sliceGroup);
 
-  // scene.add(nrrdSlices.z.mesh);
+  scene.add(nrrdSlices.z.mesh);
 
   // for (let i = 0; i < timeZ; i++) {
   //   setTimeout(() => {
@@ -497,6 +513,30 @@ export function getWholeSlices(
   //     console.log(nrrdSlices.z.mesh);
   //   }, 100);
   // }
+  let up = true;
+  function rederZ() {
+    requestAnimationFrame(rederZ);
+    if (i < 0) {
+      i = 0;
+      up = true;
+    }
+    if (i > timeZ) {
+      i = timeZ;
+      up = false;
+    }
+
+    setTimeout(() => {
+      nrrdSlices.z.index = i;
+      nrrdSlices.z.repaint(nrrdSlices.z);
+      nrrdSlices.z.mesh.position.set(0, 0, 0.5);
+    }, 100);
+    if (up) {
+      i++;
+    } else {
+      i--;
+    }
+  }
+  rederZ();
 
   const zz = {
     indexX: 0,
@@ -534,11 +574,12 @@ function paintOnCanvas(
   slice: any,
   drawingCanvasContainer: HTMLDivElement,
   controls: TrackballControls,
-  color: string,
   modeFolder: GUI
 ) {
   const stateMode2 = {
-    color,
+    size: "1.0",
+    color: "#f50a86",
+    fillColor: "#8ED6FF",
     lineWidth: 1,
     Eraser: false,
     clearAll: function () {
@@ -552,29 +593,100 @@ function paintOnCanvas(
   const axis = slice.axis;
 
   const originCanvas = slice.canvas;
-  originCanvas.style.position = "absolute";
+
+  originWidth = originCanvas.width * Number(stateMode2.size);
+  originHeight = originCanvas.height * Number(stateMode2.size);
+
+  /**
+   * displaying canvas
+   */
+  displayCanvas.style.position = "absolute";
+  displayCanvas.style.zIndex = "9";
+  displayCanvas.width = originWidth;
+  displayCanvas.height = originHeight;
+  const displayCtx = displayCanvas.getContext("2d");
+  /**
+   * drawing canvas
+   */
   drawingCanvas.style.zIndex = "10";
   drawingCanvas.style.position = "absolute";
-  drawingCanvas.width = originCanvas.width;
-  drawingCanvas.height = originCanvas.height;
-  drawingCanvasContainer.style.width = "300px";
-  drawingCanvasContainer.style.height = "300px";
-  drawingCanvasContainer.style.backgroundColor = "rgba(10,10,10,0.3)";
+  drawingCanvas.width = originWidth;
+  drawingCanvas.height = originHeight;
   drawingCanvas.style.cursor = "crosshair";
+
+  /**
+   * display and drawing canvas container
+   */
+  drawingCanvasContainer.style.width = originWidth + "px";
+  drawingCanvasContainer.style.height = originHeight + "px";
+  drawingCanvasContainer.appendChild(displayCanvas);
   drawingCanvasContainer.appendChild(drawingCanvas);
-  drawingCanvasContainer.appendChild(originCanvas);
+  // drawingCanvasContainer.appendChild(originCanvas);
+  displayCtx?.drawImage(originCanvas, 0, 0, originWidth, originHeight);
   const downloadImage: HTMLAnchorElement = document.createElement("a");
   downloadImage.href = "";
   downloadImage.target = "_blank";
 
   const drawStartPos: THREE.Vector2 = new THREE.Vector2(1, 1);
 
-  const drawingContext = drawingCanvas.getContext(
-    "2d"
-  ) as CanvasRenderingContext2D;
+  const drawingCtx = drawingCanvas.getContext("2d") as CanvasRenderingContext2D;
 
   if (modeFolder.__controllers.length > 0) removeModeChilden(modeFolder);
+  modeFolder
+    .add(stateMode2, "size", {
+      "1.0": "1.0",
+      "1.25": "1.25",
+      "1.5": "1.5",
+      "1.75": "1.75",
+      "2.0": "2.0",
+    })
+    .onChange((factor) => {
+      slice.repaint.call(slice);
+      const size = Number(factor);
+
+      originHeight = slice.canvas.width * size;
+      originWidth = slice.canvas.height * size;
+      /**
+       * clear canvas
+       */
+      displayCanvas.width = displayCanvas.width;
+      displayCanvas.height = displayCanvas.height;
+      drawingCanvas.width = drawingCanvas.width;
+      drawingCanvas.height = drawingCanvas.height;
+      /**
+       * resize canvas
+       */
+      displayCanvas.width = originWidth;
+      displayCanvas.height = originHeight;
+      drawingCanvas.width = originWidth;
+      drawingCanvas.height = originHeight;
+      drawingCanvasContainer.style.width = originWidth + "px";
+      drawingCanvasContainer.style.height = originHeight + "px";
+      displayCtx?.drawImage(originCanvas, 0, 0, originWidth, originHeight);
+      if (!paintedImage?.image) {
+        if (images.x.length > 0) {
+          paintedImage = filterDrawedImage(images.x, slice.index);
+        } else if (images.y.length > 0) {
+          paintedImage = filterDrawedImage(images.y, slice.index);
+        } else if (images.z.length > 0) {
+          paintedImage = filterDrawedImage(images.z, slice.index);
+        }
+      }
+      if (paintedImage?.image) {
+        drawingCtx?.drawImage(
+          paintedImage.image,
+          0,
+          0,
+          originWidth,
+          originHeight
+        );
+        originCanvas
+          .getContext("2d")
+          ?.drawImage(paintedImage.image, 0, 0, originWidth, originHeight);
+      }
+    });
   modeFolder.addColor(stateMode2, "color");
+  modeFolder.addColor(stateMode2, "fillColor");
   modeFolder.add(stateMode2, "lineWidth").min(0.1).max(3).step(0.01);
   modeFolder.add(stateMode2, "Eraser").onChange((value) => {
     stateMode2.Eraser = value;
@@ -589,30 +701,34 @@ function paintOnCanvas(
   modeFolder.add(stateMode2, "downloadCurrentImage");
 
   function drawOnCanvas(
-    drawContext: CanvasRenderingContext2D,
+    drawingCtx: CanvasRenderingContext2D,
     x: number,
     y: number
   ) {
-    drawingContext.beginPath();
-    drawContext.lineWidth = stateMode2.lineWidth;
-    drawContext.lineCap = "round";
-    drawContext.moveTo(drawStartPos.x, drawStartPos.y);
-    drawContext.strokeStyle = stateMode2.color;
-    drawContext.lineTo(x, y);
-    drawContext.stroke();
+    drawingCtx.beginPath();
+    drawingCtx.lineWidth = stateMode2.lineWidth;
+    drawingCtx.lineCap = "round";
+    drawingCtx.moveTo(drawStartPos.x, drawStartPos.y);
+    drawingCtx.strokeStyle = stateMode2.color;
+    drawingCtx.lineTo(x, y);
+    // drawContext.fill();
+    drawingCtx.stroke();
+
     // reset drawing start position to current position.
     drawStartPos.set(x, y);
-    drawContext.closePath();
+    drawingCtx.closePath();
     // need to flag the map as needing updating.
     slice.mesh.material.map.needsUpdate = true;
   }
 
   let paint = false;
+  let lines: Array<mouseMovePositionType> = [];
 
   // add canvas event listeners
   drawingCanvas.addEventListener(
     "pointerdown",
     function (e: MouseEvent) {
+      lines = [];
       paint = true;
       controls.enabled = false;
       drawStartPos.set(e.offsetX, e.offsetY);
@@ -620,22 +736,49 @@ function paintOnCanvas(
     true
   );
 
-  drawingCanvas.addEventListener("pointermove", function (e: MouseEvent) {
+  function handleOnPainterMove(e: MouseEvent) {
     if (paint) {
       if (stateMode2.Eraser) {
-        drawingContext.clearRect(e.offsetX - 5, e.offsetY - 5, 25, 25);
+        drawingCtx.clearRect(e.offsetX - 5, e.offsetY - 5, 25, 25);
         slice.mesh.material.map.needsUpdate = true;
         slice.repaint.call(slice);
       } else {
-        drawOnCanvas(drawingContext, e.offsetX, e.offsetY);
+        lines.push({ x: e.offsetX, y: e.offsetY });
+        drawOnCanvas(drawingCtx, e.offsetX, e.offsetY);
       }
+      originCanvas
+        .getContext("2d")
+        ?.drawImage(
+          drawingCanvas,
+          0,
+          0,
+          originCanvas.width,
+          originCanvas.height
+        );
     }
-    originCanvas
-      .getContext("2d")
-      ?.drawImage(drawingCanvas, 0, 0, originCanvas.width, originCanvas.height);
-  });
+  }
+
+  drawingCanvas.addEventListener(
+    "pointermove",
+    throttle(handleOnPainterMove, 80)
+  );
 
   drawingCanvas.addEventListener("pointerup", function () {
+    if (!stateMode2.Eraser) {
+      drawingCtx.beginPath();
+      drawingCtx.moveTo(lines[0].x, lines[0].y);
+      for (let i = 1; i < lines.length; i++) {
+        drawingCtx.lineTo(lines[i].x, lines[i].y);
+      }
+      drawingCtx.closePath();
+      drawingCtx.lineWidth = 1;
+      drawingCtx.fillStyle = stateMode2.fillColor;
+      drawingCtx.fill();
+
+      console.log(
+        drawingCtx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height)
+      );
+    }
     storeAllImages();
     paint = false;
   });
@@ -685,7 +828,6 @@ function paintOnCanvas(
 
   return drawingCanvas;
 }
-
 export function draw(
   container: HTMLDivElement,
   controls: TrackballControls,
@@ -693,285 +835,60 @@ export function draw(
   slice: any,
   gui: GUI
 ) {
-  let circles: THREE.Mesh[] = [];
-  let circlesMode1: THREE.Mesh[] = [];
   let modeFolder: GUI;
-  let modeState: string = "mode0";
-  let worldPos: THREE.Vector3 = new THREE.Vector3();
-  let orientation: THREE.Euler = new THREE.Euler();
-  let size: THREE.Vector3 = new THREE.Vector3(10, 10, 10);
-  let mouseHelper = new THREE.Mesh(
-    new THREE.BoxGeometry(1, 1, 10),
-    new THREE.MeshNormalMaterial()
-  );
-  mouseHelper.visible = false;
-  sceneIn.scene.add(mouseHelper);
 
+  let is_call_mode2 = false;
   const drawingCanvasContainer = document.createElement("div");
   container.appendChild(drawingCanvasContainer);
-  drawingCanvasContainer.style.display = "none";
+  drawingCanvasContainer.className = "copper3D_drawingCanvasContainer";
+
+  // const originCanvas = slice.canvas;
+  // originCanvas.style.position = "fixed";
+  // originCanvas.style.top = "0";
+  // container.appendChild(originCanvas);
+
   const state = {
-    mode: "mode0",
-    undo: function () {
-      undoLastDrawing();
-    },
-    clearAll: function () {
-      removeAllDrawing();
-    },
     resetView: function () {
       sceneIn.resetView();
     },
   };
-  let handleOnMouseClick: (ev: MouseEvent) => void;
-  let defaultOnMouseClick: (ev: MouseEvent) => void;
-  let mode1OnMouseClick: (ev: MouseEvent) => void;
-  let mode2OnMouseClick: (ev: MouseEvent) => void;
 
   let mode2DrawingCavas: HTMLCanvasElement;
 
-  const stateMode0 = {
-    color: "#47FF63",
-    radius: 5,
-  };
+  slice.mesh.visible = false;
 
-  const stateMode1 = {
-    size: 10,
-    color: 0xffff00,
-    randomColor: false,
-    texture: "decal",
-  };
-
-  const stateMode2 = {
-    color: "#ffff00",
-  };
-
-  /**
-   * texture for mode1
-   */
-  const decalDiffuse = textureLoader.load(decalDiffusePng);
-  const decalNormal = textureLoader.load(decalNormalPng);
-  const pikachu = textureLoader.load(pikachuPng);
-
-  // slice.mesh.material.map = pikachu;
-
-  if (!textureMap) {
-    textureMap = decalDiffuse;
-    textureNormal = decalNormal;
-  }
   /**
    * GUI
    */
 
-  gui
-    .add(state, "mode", { mode0: "mode0", mode1: "mode1", mode2: "mode2" })
-    .onChange((mode) => {
-      modeState = mode;
-      removeModeChilden(modeFolder);
-      drawingCanvasContainer.style.display = "none";
-      container.removeEventListener("click", handleOnMouseClick, false);
-      if (mode === "mode0") {
-        addMode0();
-        if (!Is_Control_Enabled) {
-          mode0Controller();
-        }
-      } else if (mode === "mode1") {
-        addMode1();
-        if (!Is_Control_Enabled) mode1Controller();
-      } else if (mode === "mode2") {
-        drawingCanvasContainer.style.display = "block";
-        if (!Is_Control_Enabled)
-          mode2DrawingCavas = paintOnCanvas(
-            slice,
-            drawingCanvasContainer,
-            controls,
-            stateMode2.color,
-            modeFolder
-          );
-      }
-    });
-
-  gui.add(state, "undo");
-  gui.add(state, "clearAll");
   gui.add(state, "resetView");
 
   modeFolder = gui.addFolder("Mode Parameters");
 
-  function addMode0() {
-    modeFolder
-      .add(stateMode0, "radius")
-      .min(1)
-      .max(9)
-      .step(0.01)
-      .onChange(regenerateGeometry);
-    modeFolder.addColor(stateMode0, "color");
-  }
-  addMode0();
+  paintOnCanvas(slice, drawingCanvasContainer, controls, modeFolder);
 
-  function addMode1() {
-    modeFolder.add(stateMode1, "size").min(1).max(40).step(0.1);
-    modeFolder.addColor(stateMode1, "color");
-    modeFolder.add(stateMode1, "randomColor");
-    modeFolder
-      .add(stateMode1, "texture", { decal: "decal", pikachu: "pikachu" })
-      .onChange((mapName) => {
-        switch (mapName) {
-          case "pikachu":
-            textureMap = pikachu;
-            textureNormal = undefined;
-            break;
+  // container.addEventListener("keypress", (ev: KeyboardEvent) => {
+  //   if (ev.key === "d") {
+  //     Is_Control_Enabled = !Is_Control_Enabled;
+  //     controls.enabled = Is_Control_Enabled;
+  //     sceneIn.changedControlsState(Is_Control_Enabled);
+  //     if (!Is_Draw) {
+  //       Is_Draw = true;
 
-          default:
-            textureMap = decalDiffuse;
-            textureNormal = decalNormal;
-            break;
-        }
-      });
-  }
-
-  /***
-   * mode controls
-   */
-
-  function mode0Controller() {
-    handleOnMouseClick = defaultOnMouseClick;
-    container.addEventListener("click", handleOnMouseClick, false);
-  }
-  function mode1Controller() {
-    container.removeEventListener("click", handleOnMouseClick, false);
-    handleOnMouseClick = mode1OnMouseClick;
-    container.addEventListener("click", handleOnMouseClick, false);
-  }
-  /**
-   * mode0
-   * */
-  defaultOnMouseClick = handleOnMouseClick = (ev: MouseEvent) => {
-    // ev.stopPropagation();
-    if (!Is_Shift_Pressed) {
-      const x = ev.offsetX;
-      const y = ev.offsetY;
-      const { intersectedObject, intersects } = sceneIn.pickSpecifiedModel(
-        slice.mesh,
-        { x, y }
-      );
-      if (intersects.length > 0) {
-        const p = intersects[0].point;
-        worldPos.copy(p);
-        const circle = createRingCircle(stateMode0.color);
-        circle.position.set(worldPos.x, worldPos.y, worldPos.z + 0.1);
-        circles.push(circle);
-        circlesMode1.push(circle);
-        sceneIn.scene.add(circle);
-      }
-    }
-  };
-
-  /**
-   * mode1
-   */
-  mode1OnMouseClick = (ev: MouseEvent) => {
-    if (!Is_Shift_Pressed) {
-      const x = ev.offsetX;
-      const y = ev.offsetY;
-      const { intersectedObject, intersects } = sceneIn.pickSpecifiedModel(
-        slice.mesh,
-        { x, y }
-      );
-      if (intersects.length > 0) {
-        const p = intersects[0].point;
-        worldPos.copy(p);
-        mouseHelper.position.copy(p);
-        const n = intersects[0].face?.normal.clone();
-        n?.transformDirection(slice.mesh.matrixWorld);
-        n?.multiplyScalar(10);
-        n?.add(intersects[0].point);
-        n && mouseHelper.lookAt(n);
-
-        orientation.copy(mouseHelper.rotation);
-
-        size.set(stateMode1.size, stateMode1.size, stateMode1.size);
-
-        const mesh = createDecalMesh(
-          textureMap,
-          textureNormal as THREE.Texture,
-          slice.mesh,
-          worldPos,
-          orientation,
-          size,
-          stateMode1
-        );
-        circles.push(mesh);
-        sceneIn.scene.add(mesh);
-      }
-    }
-  };
-
-  container.addEventListener("keypress", (ev: KeyboardEvent) => {
-    if (ev.key === "d") {
-      Is_Control_Enabled = !Is_Control_Enabled;
-      controls.enabled = Is_Control_Enabled;
-      sceneIn.changedControlsState(Is_Control_Enabled);
-      if (!Is_Draw) {
-        Is_Draw = true;
-        switch (modeState) {
-          case "mode0":
-            mode0Controller();
-            break;
-          case "mode1":
-            mode1Controller();
-            break;
-          case "mode2":
-            mode2DrawingCavas = paintOnCanvas(
-              slice,
-              drawingCanvasContainer,
-              controls,
-              stateMode2.color,
-              modeFolder
-            );
-            break;
-          default:
-            mode0Controller();
-            break;
-        }
-      } else {
-        Is_Draw = false;
-        container.removeEventListener("click", handleOnMouseClick, false);
-      }
-    }
-  });
-
-  function undoLastDrawing() {
-    const old = circles.pop();
-    circlesMode1 = circlesMode1.filter((mesh) => {
-      return mesh !== old;
-    });
-
-    old?.geometry.dispose();
-    !!old && sceneIn.scene.remove(old as THREE.Mesh);
-  }
-
-  function removeAllDrawing() {
-    circles.forEach((mesh) => {
-      !!mesh && sceneIn.scene.remove(mesh);
-    });
-    circles = [];
-    circlesMode1 = [];
-  }
-
-  function regenerateGeometry(radius: number) {
-    const innerRadius = radius;
-    const outerRadius = radius + 1;
-    const newCircleGeometry = new THREE.RingGeometry(
-      innerRadius,
-      outerRadius,
-      30
-    );
-    CircleGeometry.dispose();
-    CircleGeometry = newCircleGeometry;
-    circlesMode1.forEach((mesh) => {
-      mesh.geometry.dispose();
-      mesh.geometry = newCircleGeometry;
-    });
-  }
+  //       if (!is_call_mode2) {
+  //         is_call_mode2 = true;
+  //         mode2DrawingCavas = paintOnCanvas(
+  //           slice,
+  //           drawingCanvasContainer,
+  //           controls,
+  //           modeFolder
+  //         );
+  //       }
+  //     } else {
+  //       Is_Draw = false;
+  //     }
+  //   }
+  // });
 }
 
 export function addBoxHelper(
@@ -1119,4 +1036,300 @@ function removeModeChilden(modeFolder: GUI) {
         modeFolder.remove(c);
       }, 100);
     });
+}
+
+/**
+ *
+ * pending functions
+ *  */
+
+function draw_pending(
+  container: HTMLDivElement,
+  controls: TrackballControls,
+  sceneIn: copperMScene,
+  slice: any,
+  gui: GUI
+) {
+  let circles: THREE.Mesh[] = [];
+  let circlesMode1: THREE.Mesh[] = [];
+  let modeFolder: GUI;
+  let modeState: string = "mode0";
+  let worldPos: THREE.Vector3 = new THREE.Vector3();
+  let orientation: THREE.Euler = new THREE.Euler();
+  let size: THREE.Vector3 = new THREE.Vector3(10, 10, 10);
+  let mouseHelper = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 10),
+    new THREE.MeshNormalMaterial()
+  );
+  let is_call_mode2 = false;
+  mouseHelper.visible = false;
+  sceneIn.scene.add(mouseHelper);
+
+  const drawingCanvasContainer = document.createElement("div");
+  container.appendChild(drawingCanvasContainer);
+  drawingCanvasContainer.style.display = "none";
+  const state = {
+    mode: "mode0",
+    undo: function () {
+      undoLastDrawing();
+    },
+    clearAll: function () {
+      removeAllDrawing();
+    },
+    resetView: function () {
+      sceneIn.resetView();
+    },
+  };
+  let handleOnMouseClick: (ev: MouseEvent) => void;
+  let defaultOnMouseClick: (ev: MouseEvent) => void;
+  let mode1OnMouseClick: (ev: MouseEvent) => void;
+  let mode2OnMouseClick: (ev: MouseEvent) => void;
+
+  let mode2DrawingCavas: HTMLCanvasElement;
+
+  const stateMode0 = {
+    color: "#47FF63",
+    radius: 5,
+  };
+
+  const stateMode1 = {
+    size: 10,
+    color: 0xffff00,
+    randomColor: false,
+    texture: "decal",
+  };
+
+  /**
+   * texture for mode1
+   */
+  const decalDiffuse = textureLoader.load(decalDiffusePng);
+  const decalNormal = textureLoader.load(decalNormalPng);
+  const pikachu = textureLoader.load(pikachuPng);
+
+  // slice.mesh.material.map = pikachu;
+
+  if (!textureMap) {
+    textureMap = decalDiffuse;
+    textureNormal = decalNormal;
+  }
+  /**
+   * GUI
+   */
+
+  gui
+    .add(state, "mode", { mode0: "mode0", mode1: "mode1", mode2: "mode2" })
+    .onChange((mode) => {
+      modeState = mode;
+      removeModeChilden(modeFolder);
+      drawingCanvasContainer.style.display = "none";
+      container.removeEventListener("click", handleOnMouseClick, false);
+      if (mode === "mode0") {
+        addMode0();
+        if (!Is_Control_Enabled) {
+          mode0Controller();
+        }
+      } else if (mode === "mode1") {
+        addMode1();
+        if (!Is_Control_Enabled) mode1Controller();
+      } else if (mode === "mode2") {
+        drawingCanvasContainer.style.display = "block";
+        if (!Is_Control_Enabled && !is_call_mode2) {
+          mode2DrawingCavas = paintOnCanvas(
+            slice,
+            drawingCanvasContainer,
+            controls,
+            modeFolder
+          );
+        }
+      }
+    });
+
+  gui.add(state, "undo");
+  gui.add(state, "clearAll");
+  gui.add(state, "resetView");
+
+  modeFolder = gui.addFolder("Mode Parameters");
+
+  function addMode0() {
+    modeFolder
+      .add(stateMode0, "radius")
+      .min(1)
+      .max(9)
+      .step(0.01)
+      .onChange(regenerateGeometry);
+    modeFolder.addColor(stateMode0, "color");
+  }
+  addMode0();
+
+  function addMode1() {
+    modeFolder.add(stateMode1, "size").min(1).max(40).step(0.1);
+    modeFolder.addColor(stateMode1, "color");
+    modeFolder.add(stateMode1, "randomColor");
+    modeFolder
+      .add(stateMode1, "texture", { decal: "decal", pikachu: "pikachu" })
+      .onChange((mapName) => {
+        switch (mapName) {
+          case "pikachu":
+            textureMap = pikachu;
+            textureNormal = undefined;
+            break;
+
+          default:
+            textureMap = decalDiffuse;
+            textureNormal = decalNormal;
+            break;
+        }
+      });
+  }
+
+  /***
+   * mode controls
+   */
+
+  function mode0Controller() {
+    handleOnMouseClick = defaultOnMouseClick;
+    container.addEventListener("click", handleOnMouseClick, false);
+  }
+  function mode1Controller() {
+    container.removeEventListener("click", handleOnMouseClick, false);
+    handleOnMouseClick = mode1OnMouseClick;
+    container.addEventListener("click", handleOnMouseClick, false);
+  }
+  /**
+   * mode0
+   * */
+  defaultOnMouseClick = handleOnMouseClick = (ev: MouseEvent) => {
+    // ev.stopPropagation();
+    if (!Is_Shift_Pressed) {
+      const x = ev.offsetX;
+      const y = ev.offsetY;
+      const { intersectedObject, intersects } = sceneIn.pickSpecifiedModel(
+        slice.mesh,
+        { x, y }
+      );
+      if (intersects.length > 0) {
+        const p = intersects[0].point;
+        worldPos.copy(p);
+        const circle = createRingCircle(stateMode0.color);
+        circle.position.set(worldPos.x, worldPos.y, worldPos.z + 0.1);
+        circles.push(circle);
+        circlesMode1.push(circle);
+        sceneIn.scene.add(circle);
+      }
+    }
+  };
+
+  /**
+   * mode1
+   */
+  mode1OnMouseClick = (ev: MouseEvent) => {
+    if (!Is_Shift_Pressed) {
+      const x = ev.offsetX;
+      const y = ev.offsetY;
+      const { intersectedObject, intersects } = sceneIn.pickSpecifiedModel(
+        slice.mesh,
+        { x, y }
+      );
+      if (intersects.length > 0) {
+        const p = intersects[0].point;
+        worldPos.copy(p);
+        mouseHelper.position.copy(p);
+        const n = intersects[0].face?.normal.clone();
+        n?.transformDirection(slice.mesh.matrixWorld);
+        n?.multiplyScalar(10);
+        n?.add(intersects[0].point);
+        n && mouseHelper.lookAt(n);
+
+        orientation.copy(mouseHelper.rotation);
+
+        size.set(stateMode1.size, stateMode1.size, stateMode1.size);
+
+        const mesh = createDecalMesh(
+          textureMap,
+          textureNormal as THREE.Texture,
+          slice.mesh,
+          worldPos,
+          orientation,
+          size,
+          stateMode1
+        );
+        circles.push(mesh);
+        sceneIn.scene.add(mesh);
+      }
+    }
+  };
+
+  container.addEventListener("keypress", (ev: KeyboardEvent) => {
+    if (ev.key === "d") {
+      Is_Control_Enabled = !Is_Control_Enabled;
+      controls.enabled = Is_Control_Enabled;
+      sceneIn.changedControlsState(Is_Control_Enabled);
+      if (!Is_Draw) {
+        Is_Draw = true;
+        switch (modeState) {
+          case "mode0":
+            mode0Controller();
+            break;
+          case "mode1":
+            mode1Controller();
+            break;
+          case "mode2":
+            drawingCanvasContainer.style.display = "block";
+            if (!is_call_mode2) {
+              is_call_mode2 = true;
+              console.log("aaa");
+              mode2DrawingCavas = paintOnCanvas(
+                slice,
+                drawingCanvasContainer,
+                controls,
+                modeFolder
+              );
+            }
+            break;
+          default:
+            mode0Controller();
+            break;
+        }
+      } else {
+        Is_Draw = false;
+        drawingCanvasContainer.style.display = "none";
+        // removeModeChilden(modeFolder);
+        container.removeEventListener("click", handleOnMouseClick, false);
+      }
+    }
+  });
+
+  function undoLastDrawing() {
+    const old = circles.pop();
+    circlesMode1 = circlesMode1.filter((mesh) => {
+      return mesh !== old;
+    });
+
+    old?.geometry.dispose();
+    !!old && sceneIn.scene.remove(old as THREE.Mesh);
+  }
+
+  function removeAllDrawing() {
+    circles.forEach((mesh) => {
+      !!mesh && sceneIn.scene.remove(mesh);
+    });
+    circles = [];
+    circlesMode1 = [];
+  }
+
+  function regenerateGeometry(radius: number) {
+    const innerRadius = radius;
+    const outerRadius = radius + 1;
+    const newCircleGeometry = new THREE.RingGeometry(
+      innerRadius,
+      outerRadius,
+      30
+    );
+    CircleGeometry.dispose();
+    CircleGeometry = newCircleGeometry;
+    circlesMode1.forEach((mesh) => {
+      mesh.geometry.dispose();
+      mesh.geometry = newCircleGeometry;
+    });
+  }
 }

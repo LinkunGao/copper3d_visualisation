@@ -35,6 +35,13 @@ body {
   z-index: 1000;
 }
 
+/* copper3D_drawingCanvasContainer */
+.copper3D_drawingCanvasContainer {
+  position: relative;
+  display: block;
+  background-color: rgba(10, 10, 10, 0.3);
+}
+
 /* loading */
 .copper3D_flex-center {
   display: flex;
