@@ -371,3 +371,9 @@ See tutorial 12 - drag and reset nrrd image.
 ## Release v1.8.19
 
 - update threejs version to latest.
+
+## Release v1.8.20
+
+- update drawing funtion
+- currently only has mode2.
+- add segmentation method.
