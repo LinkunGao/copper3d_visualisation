@@ -25,6 +25,18 @@ body {
   position: relative;
 }
 
+.copper3D_sub_axes {
+  width: 200px;
+  height: 200px;
+  margin: 20px;
+  padding: 0px;
+  position: absolute;
+  left: 0px;
+  bottom: 0px;
+  z-index: 10;
+  pointer-events: none;
+}
+
 .coppper3D_container_root > div {
   border: 1px solid grey;
   position: relative;
