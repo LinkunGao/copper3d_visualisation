@@ -47,6 +47,12 @@ export default class copperMScene {
   isHalfed: boolean = false;
   controls: TrackballControls | OrbitControls;
 
+  subDiv: HTMLDivElement | null = null;
+  subScene: THREE.Scene = new THREE.Scene();
+  subCamera: THREE.PerspectiveCamera | null = null;
+  subRender: THREE.WebGLRenderer | null = null;
+  subCopperControl: Controls | null = null;
+
   private pickableObjects: THREE.Mesh[] = [];
   private color1: string = "#5454ad";
   private color2: string = "#18e5a7";
@@ -92,19 +98,20 @@ export default class copperMScene {
     this.container.appendChild(this.guiContainer);
 
     this.Is_Control_Enabled = this.controls.enabled;
+
     this.guiContainer.addEventListener(
-      "mousedown",
-      () => {
+      "pointerover",
+      throttle(() => {
         this.controls.enabled = false;
-      },
-      true
+      }, 100),
+      false
     );
     this.guiContainer.addEventListener(
-      "mouseup",
+      "pointerleave",
       () => {
-        if (this.Is_Control_Enabled) this.controls.enabled = true;
+        this.controls.enabled = true;
       },
-      true
+      false
     );
 
     this.addLights();
@@ -155,6 +162,16 @@ export default class copperMScene {
             this.camera as THREE.PerspectiveCamera,
             [center.x, center.y, center.z]
           );
+          if (this.subCamera) {
+            this.subCamera?.position.copy(this.camera.position);
+            this.subCamera?.lookAt(this.subScene.position);
+            this.subCamera.near = size / 100;
+            this.subCamera.far = size * 100;
+            this.subCamera?.updateProjectionMatrix();
+            const copy = new THREE.Group().copy(gltf.scene);
+            copy.scale.set(size, size, size);
+            this.subScene.add(copy);
+          }
         }
 
         // this.mixer = new THREE.AnimationMixer(gltf.scene);
@@ -172,6 +189,31 @@ export default class copperMScene {
         // console.log(error);
       }
     );
+  }
+
+  /**
+   * create a new sub view to display models
+   */
+  addSubView() {
+    this.subDiv = document.createElement("div");
+    this.container.appendChild(this.subDiv);
+    this.subDiv.classList.add("copper3D_sub_axes");
+
+    const { clientWidth, clientHeight } = this.subDiv;
+    this.subCamera = new THREE.PerspectiveCamera(
+      50,
+      clientWidth / clientHeight,
+      0.1,
+      10
+    );
+    this.subScene.add(this.subCamera);
+
+    this.subCopperControl = new Controls(this.subCamera);
+    this.subRender = new THREE.WebGLRenderer({ alpha: true });
+    this.subRender.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.subRender.setSize(this.subDiv.clientWidth, this.subDiv.clientWidth);
+    this.subCamera.up = this.camera.up;
+    this.subDiv.appendChild(this.subRender.domElement);
   }
 
   pickModel(
@@ -352,6 +394,9 @@ export default class copperMScene {
     viewpoint.targetPosition = viewpointData.targetPosition;
     viewpoint.upVector = viewpointData.upVector;
     this.copperControl.updateCameraViewPoint(viewpoint);
+    if (this.subCopperControl) {
+      this.subCopperControl.updateCameraViewPoint(viewpoint);
+    }
   }
   updateCamera(viewpoint: CameraViewPoint) {
     this.cameraPositionFlag = true;
@@ -385,6 +430,13 @@ export default class copperMScene {
     }
     this.camera.updateProjectionMatrix();
 
+    if (this.subDiv && this.subCamera && this.subRender) {
+      this.subCamera.aspect =
+        this.subDiv.clientWidth / this.subDiv.clientHeight;
+      this.subCamera.updateProjectionMatrix();
+      this.subRender.setSize(this.subDiv.clientWidth, this.subDiv.clientHeight);
+    }
+
     this.controls.update();
   };
 
@@ -395,5 +447,11 @@ export default class copperMScene {
     //   this.mixer && this.mixer.update(this.clock.getDelta() * this.playRate);
     // }
     this.renderer.render(this.scene, this.camera);
+
+    if (this.subDiv && this.subCamera && this.subRender) {
+      this.subCamera.position.copy(this.camera.position);
+      this.subCamera.lookAt(this.subScene.position);
+      this.subRender.render(this.subScene, this.subCamera);
+    }
   }
 }

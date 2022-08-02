@@ -548,8 +548,6 @@ export function getWholeSlices(
     .name("indexZ")
     .onChange((index) => {
       controls.enabled = false;
-
-      console.log(index);
       // if (index < a) {
       //   a = index;
       //   slicesX[a].visible = true;
@@ -579,7 +577,7 @@ function paintOnCanvas(
   const stateMode2 = {
     size: "1.0",
     color: "#f50a86",
-    fillColor: "#8ED6FF",
+    fillColor: "rgba(30, 128, 156, 0.3)",
     lineWidth: 1,
     Eraser: false,
     clearAll: function () {
@@ -711,7 +709,6 @@ function paintOnCanvas(
     drawingCtx.moveTo(drawStartPos.x, drawStartPos.y);
     drawingCtx.strokeStyle = stateMode2.color;
     drawingCtx.lineTo(x, y);
-    // drawContext.fill();
     drawingCtx.stroke();
 
     // reset drawing start position to current position.
@@ -774,6 +771,16 @@ function paintOnCanvas(
       drawingCtx.lineWidth = 1;
       drawingCtx.fillStyle = stateMode2.fillColor;
       drawingCtx.fill();
+      slice.repaint.call(slice);
+      originCanvas
+        .getContext("2d")
+        ?.drawImage(
+          drawingCanvas,
+          0,
+          0,
+          originCanvas.width,
+          originCanvas.height
+        );
 
       console.log(
         drawingCtx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height)
@@ -785,6 +792,7 @@ function paintOnCanvas(
 
   drawingCanvas.addEventListener("pointerleave", function () {
     paint = false;
+    controls.enabled = true;
   });
 
   function clearAllPaint() {
@@ -836,8 +844,8 @@ export function draw(
   gui: GUI
 ) {
   let modeFolder: GUI;
+  let subViewFolder: GUI;
 
-  let is_call_mode2 = false;
   const drawingCanvasContainer = document.createElement("div");
   container.appendChild(drawingCanvasContainer);
   drawingCanvasContainer.className = "copper3D_drawingCanvasContainer";
@@ -848,14 +856,12 @@ export function draw(
   // container.appendChild(originCanvas);
 
   const state = {
+    subView: true,
+    scale: 1.0,
     resetView: function () {
       sceneIn.resetView();
     },
   };
-
-  let mode2DrawingCavas: HTMLCanvasElement;
-
-  slice.mesh.visible = false;
 
   /**
    * GUI
@@ -865,30 +871,26 @@ export function draw(
 
   modeFolder = gui.addFolder("Mode Parameters");
 
+  subViewFolder = gui.addFolder("Sub View");
+  subViewFolder.add(state, "subView").onChange((value) => {
+    if (value) {
+      sceneIn.subDiv && (sceneIn.subDiv.style.display = "block");
+    } else {
+      sceneIn.subDiv && (sceneIn.subDiv.style.display = "none");
+    }
+  });
+
+  subViewFolder
+    .add(state, "scale")
+    .min(0.25)
+    .max(2)
+    .step(0.01)
+    .onFinishChange((value) => {
+      sceneIn.subDiv && (sceneIn.subDiv.style.width = 200 * value + "px");
+      sceneIn.subDiv && (sceneIn.subDiv.style.height = 200 * value + "px");
+    });
+
   paintOnCanvas(slice, drawingCanvasContainer, controls, modeFolder);
-
-  // container.addEventListener("keypress", (ev: KeyboardEvent) => {
-  //   if (ev.key === "d") {
-  //     Is_Control_Enabled = !Is_Control_Enabled;
-  //     controls.enabled = Is_Control_Enabled;
-  //     sceneIn.changedControlsState(Is_Control_Enabled);
-  //     if (!Is_Draw) {
-  //       Is_Draw = true;
-
-  //       if (!is_call_mode2) {
-  //         is_call_mode2 = true;
-  //         mode2DrawingCavas = paintOnCanvas(
-  //           slice,
-  //           drawingCanvasContainer,
-  //           controls,
-  //           modeFolder
-  //         );
-  //       }
-  //     } else {
-  //       Is_Draw = false;
-  //     }
-  //   }
-  // });
 }
 
 export function addBoxHelper(

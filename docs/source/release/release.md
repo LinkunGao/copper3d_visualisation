@@ -377,3 +377,16 @@ See tutorial 12 - drag and reset nrrd image.
 - update drawing funtion
 - currently only has mode2.
 - add segmentation method.
+
+## Release v1.8.21
+
+- add subview function in copperMScene
+  when we use it, we can call addSubView(), after we initialise copperMSceneRenderer.
+- Then when the model loaded, we can add it to subScene.
+
+See toturial 14
+
+## Release v1.8.22
+
+- fixed gui bug
+- update drawing function colors.
