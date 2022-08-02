@@ -385,3 +385,8 @@ See tutorial 12 - drag and reset nrrd image.
 - Then when the model loaded, we can add it to subScene.
 
 See toturial 14
+
+## Release v1.8.22
+
+- fixed gui bug
+- update drawing function colors.

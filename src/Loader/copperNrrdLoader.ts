@@ -548,8 +548,6 @@ export function getWholeSlices(
     .name("indexZ")
     .onChange((index) => {
       controls.enabled = false;
-
-      console.log(index);
       // if (index < a) {
       //   a = index;
       //   slicesX[a].visible = true;
@@ -579,7 +577,7 @@ function paintOnCanvas(
   const stateMode2 = {
     size: "1.0",
     color: "#f50a86",
-    fillColor: "#8ED6FF",
+    fillColor: "rgba(30, 128, 156, 0.3)",
     lineWidth: 1,
     Eraser: false,
     clearAll: function () {

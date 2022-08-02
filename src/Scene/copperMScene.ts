@@ -98,19 +98,20 @@ export default class copperMScene {
     this.container.appendChild(this.guiContainer);
 
     this.Is_Control_Enabled = this.controls.enabled;
+
     this.guiContainer.addEventListener(
-      "mousedown",
-      () => {
+      "pointerover",
+      throttle(() => {
         this.controls.enabled = false;
-      },
-      true
+      }, 100),
+      false
     );
     this.guiContainer.addEventListener(
-      "mouseup",
+      "pointerleave",
       () => {
-        if (this.Is_Control_Enabled) this.controls.enabled = true;
+        this.controls.enabled = true;
       },
-      true
+      false
     );
 
     this.addLights();
