@@ -395,3 +395,4 @@ See toturial 14
 
 - add vtk loader
 - create a load multiple vtks function
+- fixed drawing function bugs.

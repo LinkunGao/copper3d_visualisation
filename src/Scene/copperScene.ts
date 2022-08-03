@@ -59,6 +59,7 @@ export default class copperScene extends baseScene {
           ]);
         }
 
+        console.log(gltf.scene);
         this.mixer = new THREE.AnimationMixer(gltf.scene);
         gltf.animations.forEach((a: THREE.AnimationClip, index: number) => {
           if (index === 0) this.clipAction = this.mixer?.clipAction(a).play();
