@@ -19,6 +19,8 @@ export function copperVtkLoader(
     // const material = new THREE.MeshLambertMaterial({
     //   color: 0xffffff,
     // });
+    console.log(geometry);
+
     const mesh = new THREE.Mesh(geometry, vtkmaterial);
     // mesh.position.set(5, 5, 0);
     mesh.scale.multiplyScalar(0.1);

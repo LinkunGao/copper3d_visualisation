@@ -38,10 +38,13 @@ let textureMap: THREE.Texture;
 let textureNormal: THREE.Texture | undefined;
 
 // for drawing on canvas
-let drawingCanvas = document.createElement("canvas");
-let displayCanvas = document.createElement("canvas");
-let originWidth = 0;
-let originHeight = 0;
+let drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
+let displayCanvas: HTMLCanvasElement = document.createElement("canvas");
+let originWidth: number = 0;
+let originHeight: number = 0;
+let changedWidth: number = 0;
+let changedHeight: number = 0;
+
 let paintedImage: any;
 
 /**
@@ -323,6 +326,9 @@ export function dragImageWithMode(
   let handleOnMouseDown: (ev: MouseEvent) => void;
   let handleOnMouseMove: (ev: MouseEvent) => void;
 
+  originWidth = slice.canvas.width;
+  originHeight = slice.canvas.height;
+
   container.tabIndex = 1;
 
   switch (slice.axis) {
@@ -411,16 +417,20 @@ export function dragImageWithMode(
           newIndex = min;
         } else {
           slice.index = newIndex;
+          /**
+           * clear and redraw canvas
+           */
           slice.repaint.call(slice);
           drawingCanvas.width = drawingCanvas.width;
           drawingCanvas.height = drawingCanvas.height;
-          if (originWidth === 0) {
-            originWidth = slice.canvas.width;
-            originHeight = slice.canvas.height;
+
+          if (changedWidth === 0) {
+            changedWidth = originWidth;
+            changedHeight = originHeight;
           }
           displayCanvas
             .getContext("2d")
-            ?.drawImage(slice.canvas, 0, 0, originWidth, originHeight);
+            ?.drawImage(slice.canvas, 0, 0, changedWidth, changedHeight);
           if (
             images.x.length > 0 ||
             images.y.length > 0 ||
@@ -449,8 +459,8 @@ export function dragImageWithMode(
                   paintedImage.image,
                   0,
                   0,
-                  originWidth,
-                  originHeight
+                  changedWidth,
+                  changedHeight
                 );
             }
           }
@@ -591,36 +601,38 @@ function paintOnCanvas(
   const axis = slice.axis;
 
   const originCanvas = slice.canvas;
+  originWidth = originCanvas.width;
+  originHeight = originCanvas.height;
 
-  originWidth = originCanvas.width * Number(stateMode2.size);
-  originHeight = originCanvas.height * Number(stateMode2.size);
+  changedWidth = originCanvas.width * Number(stateMode2.size);
+  changedHeight = originCanvas.height * Number(stateMode2.size);
 
   /**
    * displaying canvas
    */
   displayCanvas.style.position = "absolute";
   displayCanvas.style.zIndex = "9";
-  displayCanvas.width = originWidth;
-  displayCanvas.height = originHeight;
+  displayCanvas.width = changedWidth;
+  displayCanvas.height = changedHeight;
   const displayCtx = displayCanvas.getContext("2d");
   /**
    * drawing canvas
    */
   drawingCanvas.style.zIndex = "10";
   drawingCanvas.style.position = "absolute";
-  drawingCanvas.width = originWidth;
-  drawingCanvas.height = originHeight;
+  drawingCanvas.width = changedWidth;
+  drawingCanvas.height = changedHeight;
   drawingCanvas.style.cursor = "crosshair";
 
   /**
    * display and drawing canvas container
    */
-  drawingCanvasContainer.style.width = originWidth + "px";
-  drawingCanvasContainer.style.height = originHeight + "px";
+  drawingCanvasContainer.style.width = changedWidth + "px";
+  drawingCanvasContainer.style.height = changedHeight + "px";
   drawingCanvasContainer.appendChild(displayCanvas);
   drawingCanvasContainer.appendChild(drawingCanvas);
   // drawingCanvasContainer.appendChild(originCanvas);
-  displayCtx?.drawImage(originCanvas, 0, 0, originWidth, originHeight);
+  displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
   const downloadImage: HTMLAnchorElement = document.createElement("a");
   downloadImage.href = "";
   downloadImage.target = "_blank";
@@ -642,8 +654,8 @@ function paintOnCanvas(
       slice.repaint.call(slice);
       const size = Number(factor);
 
-      originHeight = slice.canvas.width * size;
-      originWidth = slice.canvas.height * size;
+      changedWidth = originWidth * size;
+      changedHeight = originHeight * size;
       /**
        * clear canvas
        */
@@ -654,13 +666,13 @@ function paintOnCanvas(
       /**
        * resize canvas
        */
-      displayCanvas.width = originWidth;
-      displayCanvas.height = originHeight;
-      drawingCanvas.width = originWidth;
-      drawingCanvas.height = originHeight;
-      drawingCanvasContainer.style.width = originWidth + "px";
-      drawingCanvasContainer.style.height = originHeight + "px";
-      displayCtx?.drawImage(originCanvas, 0, 0, originWidth, originHeight);
+      displayCanvas.width = changedWidth;
+      displayCanvas.height = changedHeight;
+      drawingCanvas.width = changedWidth;
+      drawingCanvas.height = changedHeight;
+      drawingCanvasContainer.style.width = changedWidth + "px";
+      drawingCanvasContainer.style.height = changedHeight + "px";
+      displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
       if (!paintedImage?.image) {
         if (images.x.length > 0) {
           paintedImage = filterDrawedImage(images.x, slice.index);
@@ -675,8 +687,8 @@ function paintOnCanvas(
           paintedImage.image,
           0,
           0,
-          originWidth,
-          originHeight
+          changedWidth,
+          changedHeight
         );
         originCanvas
           .getContext("2d")
