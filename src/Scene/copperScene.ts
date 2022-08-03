@@ -5,7 +5,7 @@ import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { pickModelDefault } from "../Utils/raycaster";
 import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
-import { copperVtkLoader } from "../Loader/copperVtkLoader";
+import { copperVtkLoader, copperMultipleVtk } from "../Loader/copperVtkLoader";
 import baseScene from "./baseScene";
 import { GUI } from "dat.gui";
 import { nrrdMeshesType, nrrdSliceType } from "../types/types";
@@ -89,7 +89,29 @@ export default class copperScene extends baseScene {
   }
 
   loadVtk(url: string) {
-    copperVtkLoader(url, this.scene);
+    copperVtkLoader(url, this.scene, this.content);
+  }
+
+  loadVtks(urls: Array<string>) {
+    const { vtkLoader, vtkmaterial } = copperMultipleVtk();
+
+    const geometries: Array<THREE.BufferGeometry> = [];
+    urls.forEach((url) => {
+      vtkLoader.load(url, (geometry) => {
+        geometry.center();
+        geometry.computeVertexNormals();
+        geometries.push(geometry);
+      });
+    });
+    const mesh = new THREE.Mesh(geometries[0], vtkmaterial);
+    mesh.scale.multiplyScalar(0.1);
+    let i = 1;
+    this.scene.add(mesh);
+    setInterval(() => {
+      if (i >= geometries.length) i = 0;
+      mesh.geometry = geometries[i];
+      i = i + 1;
+    }, 300);
   }
 
   // pickModel
