@@ -390,3 +390,8 @@ See toturial 14
 
 - fixed gui bug
 - update drawing function colors.
+
+## Release v1.8.23
+
+- add vtk loader
+- create a load multiple vtks function

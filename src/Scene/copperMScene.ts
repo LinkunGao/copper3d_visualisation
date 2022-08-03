@@ -6,6 +6,7 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
+import { copperVtkLoader } from "../Loader/copperVtkLoader";
 import { pickModelDefault, isPickedModel, throttle } from "../Utils/raycaster";
 import {
   nrrdMeshesType,
