@@ -585,7 +585,7 @@ function paintOnCanvas(
   modeFolder: GUI
 ) {
   const stateMode2 = {
-    size: "1.0",
+    size: 1,
     color: "#f50a86",
     fillColor: "rgba(30, 128, 156, 0.3)",
     lineWidth: 1,
@@ -633,6 +633,9 @@ function paintOnCanvas(
   drawingCanvasContainer.appendChild(drawingCanvas);
   // drawingCanvasContainer.appendChild(originCanvas);
   displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
+  const previousDrawingImage: HTMLImageElement = new Image();
+  previousDrawingImage.src = drawingCanvas.toDataURL();
+
   const downloadImage: HTMLAnchorElement = document.createElement("a");
   downloadImage.href = "";
   downloadImage.target = "_blank";
@@ -643,19 +646,15 @@ function paintOnCanvas(
 
   if (modeFolder.__controllers.length > 0) removeModeChilden(modeFolder);
   modeFolder
-    .add(stateMode2, "size", {
-      "1.0": "1.0",
-      "1.25": "1.25",
-      "1.5": "1.5",
-      "1.75": "1.75",
-      "2.0": "2.0",
-    })
-    .onChange((factor) => {
+    .add(stateMode2, "size")
+    .min(1)
+    .max(8)
+    .onFinishChange((factor) => {
       slice.repaint.call(slice);
-      const size = Number(factor);
+      // const size = Number(factor);
 
-      changedWidth = originWidth * size;
-      changedHeight = originHeight * size;
+      changedWidth = originWidth * factor;
+      changedHeight = originHeight * factor;
       /**
        * clear canvas
        */
@@ -733,19 +732,7 @@ function paintOnCanvas(
   let paint = false;
   let lines: Array<mouseMovePositionType> = [];
 
-  // add canvas event listeners
-  drawingCanvas.addEventListener(
-    "pointerdown",
-    function (e: MouseEvent) {
-      lines = [];
-      paint = true;
-      controls.enabled = false;
-      drawStartPos.set(e.offsetX, e.offsetY);
-    },
-    true
-  );
-
-  function handleOnPainterMove(e: MouseEvent) {
+  const handleOnPainterMove = throttle((e: MouseEvent) => {
     if (paint) {
       if (stateMode2.Eraser) {
         drawingCtx.clearRect(e.offsetX - 5, e.offsetY - 5, 25, 25);
@@ -765,15 +752,33 @@ function paintOnCanvas(
           originCanvas.height
         );
     }
-  }
+  }, 80);
 
+  // add canvas event listeners
   drawingCanvas.addEventListener(
-    "pointermove",
-    throttle(handleOnPainterMove, 80)
+    "pointerdown",
+    function (e: MouseEvent) {
+      lines = [];
+      paint = true;
+      controls.enabled = false;
+      drawStartPos.set(e.offsetX, e.offsetY);
+      drawingCanvas.addEventListener("pointermove", handleOnPainterMove);
+    },
+    true
   );
-
   drawingCanvas.addEventListener("pointerup", function () {
+    drawingCanvas.removeEventListener("pointermove", handleOnPainterMove);
     if (!stateMode2.Eraser) {
+      drawingCanvas.width = drawingCanvas.width;
+      drawingCanvas.height = drawingCanvas.height;
+      drawingCtx.drawImage(
+        previousDrawingImage,
+        0,
+        0,
+        changedWidth,
+        changedHeight
+      );
+
       drawingCtx.beginPath();
       drawingCtx.moveTo(lines[0].x, lines[0].y);
       for (let i = 1; i < lines.length; i++) {
@@ -783,27 +788,24 @@ function paintOnCanvas(
       drawingCtx.lineWidth = 1;
       drawingCtx.fillStyle = stateMode2.fillColor;
       drawingCtx.fill();
+      previousDrawingImage.src = drawingCanvas.toDataURL();
       slice.repaint.call(slice);
       originCanvas
         .getContext("2d")
-        ?.drawImage(
-          drawingCanvas,
-          0,
-          0,
-          originCanvas.width,
-          originCanvas.height
-        );
+        ?.drawImage(drawingCanvas, 0, 0, originWidth, originHeight);
 
       console.log(
         drawingCtx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height)
       );
     }
+    previousDrawingImage.src = drawingCanvas.toDataURL();
     storeAllImages();
     paint = false;
   });
 
   drawingCanvas.addEventListener("pointerleave", function () {
     paint = false;
+
     controls.enabled = true;
   });
 
@@ -886,9 +888,11 @@ export function draw(
   subViewFolder = gui.addFolder("Sub View");
   subViewFolder.add(state, "subView").onChange((value) => {
     if (value) {
+      controls.enabled = true;
       sceneIn.subDiv && (sceneIn.subDiv.style.display = "block");
     } else {
       sceneIn.subDiv && (sceneIn.subDiv.style.display = "none");
+      controls.enabled = false;
     }
   });
 
