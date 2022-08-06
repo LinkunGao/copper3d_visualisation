@@ -86,4 +86,7 @@ function loadModel(url, name) {
 }
 ```
 
+---
+
+[npm]: https://img.shields.io/npm/v/copper3d_visualisation
 [npm-url]: https://www.npmjs.com/package/copper3d_visualisation
