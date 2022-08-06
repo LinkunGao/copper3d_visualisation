@@ -1,6 +1,7 @@
 # copper3d_visualisation
 
 [![NPM Package][npm]][npm-url]
+[![Read the Docs][readthedocs]][readthedocs-url]
 
 A 3d visualisation package base on threejs provides multiple scenes and Nrrd image load funtion.
 
@@ -90,3 +91,5 @@ function loadModel(url, name) {
 
 [npm]: https://img.shields.io/npm/v/copper3d_visualisation
 [npm-url]: https://www.npmjs.com/package/copper3d_visualisation
+[readthedocs]: https://img.shields.io/readthedocs/copper3d_visualisation
+[readthedocs-url]: https://copper3d-visualisation.readthedocs.io/en/latest/
