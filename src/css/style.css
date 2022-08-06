@@ -52,6 +52,9 @@ body {
   position: relative;
   display: block;
   background-color: rgba(10, 10, 10, 0.3);
+  max-width: 80vw;
+  max-height: 80vh;
+  overflow: scroll;
 }
 
 /* loading */
