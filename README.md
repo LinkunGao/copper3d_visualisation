@@ -85,3 +85,5 @@ function loadModel(url, name) {
   upVector: Array<number> = [0.0, 1.0, 0.0];
 }
 ```
+
+[npm-url]: https://www.npmjs.com/package/copper3d_visualisation
