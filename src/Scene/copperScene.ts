@@ -58,8 +58,6 @@ export default class copperScene extends baseScene {
             center.z,
           ]);
         }
-
-        console.log(gltf.scene);
         this.mixer = new THREE.AnimationMixer(gltf.scene);
         gltf.animations.forEach((a: THREE.AnimationClip, index: number) => {
           if (index === 0) this.clipAction = this.mixer?.clipAction(a).play();
@@ -95,6 +93,7 @@ export default class copperScene extends baseScene {
 
   loadVtks(urls: Array<string>) {
     const { vtkLoader, vtkmaterial } = copperMultipleVtk();
+    let count = 0;
 
     const geometries: Array<THREE.BufferGeometry> = [];
     urls.forEach((url) => {
@@ -102,17 +101,49 @@ export default class copperScene extends baseScene {
         geometry.center();
         geometry.computeVertexNormals();
         geometries.push(geometry);
+        if (geometries.length === urls.length) {
+          finishLoad();
+        }
       });
     });
-    const mesh = new THREE.Mesh(geometries[0], vtkmaterial);
-    mesh.scale.multiplyScalar(0.1);
-    let i = 1;
-    this.scene.add(mesh);
-    setInterval(() => {
-      if (i >= geometries.length) i = 0;
-      mesh.geometry = geometries[i];
-      i = i + 1;
-    }, 300);
+
+    const finishLoad = () => {
+      let geometry = geometries[0];
+      geometries.forEach((child, index) => {
+        if (index === 0) {
+          geometry = child;
+          geometry.morphAttributes.position = [];
+        } else {
+          geometry.morphAttributes.position[index - 1] =
+            child.attributes.position;
+        }
+      });
+      const mesh = new THREE.Mesh(geometry, vtkmaterial);
+      mesh.scale.multiplyScalar(0.1);
+      this.scene.add(mesh);
+      let j = 0;
+      let tracks = [];
+      let duration = geometries.length - 1;
+      for (let i = 0; i < duration; i++) {
+        const track = new THREE.KeyframeTrack(
+          `.morphTargetInfluences[${i}]`,
+          [j, j + 1, j + 2],
+          [0, 1, 0]
+        );
+        tracks.push(track);
+        j = j + 2;
+      }
+      const clip = new THREE.AnimationClip(
+        "copper3d_heart_morph",
+        duration,
+        tracks
+      );
+      this.mixer = new THREE.AnimationMixer(mesh);
+      const AnimationAction1 = this.mixer.clipAction(clip);
+      AnimationAction1.timeScale = 3;
+      AnimationAction1.play();
+      this.modelReady = true;
+    };
   }
 
   // pickModel

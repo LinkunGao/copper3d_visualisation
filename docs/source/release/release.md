@@ -400,3 +400,7 @@ See toturial 14
 ## Release v1.8.24
 
 - Fixed drawing function bugs
+
+## Release v1.8.24
+
+- add load mutiple vtk files function with animation.
