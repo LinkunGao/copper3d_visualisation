@@ -9,3 +9,4 @@ features
     02_exportGltf
     03_nrrdloader
     04_kiwrious
+    05_animation
