@@ -36,7 +36,7 @@ import {
 import "./css/style.css";
 
 console.log(
-  "%cMedtech Heart Plugin %cBeta:v1.8.25",
+  "%cMedtech Heart Plugin %cBeta:v1.8.26",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#219EBC"
 );

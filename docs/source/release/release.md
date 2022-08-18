@@ -401,6 +401,17 @@ See toturial 14
 
 - Fixed drawing function bugs
 
-## Release v1.8.24
+## Release v1.8.25
 
 - add load mutiple vtk files function with animation.
+
+## Release v1.8.26
+
+- update load mutiple vtk files function. Now user should follow this type to sent parameter.
+  ```ts
+  scene?.loadVtks([
+    { name: "heart_inner", urls },
+    { name: "heart_outer", urls: urls_1 },
+  ]);
+  ```
+- add gltf exporter.

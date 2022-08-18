@@ -3,7 +3,7 @@ import * as THREE from "three";
 
 const vtkLoader = new VTKLoader();
 
-const vtkmaterial = new THREE.MeshLambertMaterial({
+const vtkmaterial = new THREE.MeshStandardMaterial({
   wireframe: false,
   side: THREE.DoubleSide,
   color: 0xfff000,

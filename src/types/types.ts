@@ -132,6 +132,20 @@ interface paintImageType {
   image: HTMLImageElement;
 }
 
+interface optionsGltfExporterType {
+  trs?: boolean;
+  onlyVisible?: boolean;
+  truncateDrawRange?: boolean;
+  binary?: boolean;
+  maxTextureSize?: number;
+  animations?: Array<THREE.AnimationClip>;
+}
+
+interface vtkModels {
+  name: string;
+  urls: Array<string>;
+}
+
 export type {
   SceneMapType,
   optType,
@@ -152,4 +166,6 @@ export type {
   positionType,
   paintImagesType,
   paintImageType,
+  optionsGltfExporterType,
+  vtkModels,
 };
