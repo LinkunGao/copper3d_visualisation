@@ -590,6 +590,7 @@ function paintOnCanvas(
     fillColor: "rgba(30, 128, 156, 0.3)",
     lineWidth: 1,
     Eraser: false,
+    EraserSize: 25,
     clearAll: function () {
       clearAllPaint();
     },
@@ -697,6 +698,7 @@ function paintOnCanvas(
   modeFolder.addColor(stateMode2, "color");
   modeFolder.addColor(stateMode2, "fillColor");
   modeFolder.add(stateMode2, "lineWidth").min(0.1).max(3).step(0.01);
+  modeFolder.add(stateMode2, "EraserSize").min(1).max(50).step(1);
   modeFolder.add(stateMode2, "Eraser").onChange((value) => {
     stateMode2.Eraser = value;
     if (stateMode2.Eraser) {
@@ -732,10 +734,28 @@ function paintOnCanvas(
   let paint = false;
   let lines: Array<mouseMovePositionType> = [];
 
+  // for eraser!!!
+  var stepClear = 1;
+  function clearArc(x: number, y: number, radius: number) {
+    var calcWidth = radius - stepClear;
+    var calcHeight = Math.sqrt(radius * radius - calcWidth * calcWidth);
+    var posX = x - calcWidth;
+    var posY = y - calcHeight;
+    var widthX = 2 * calcWidth;
+    var heightY = 2 * calcHeight;
+    if (stepClear <= radius) {
+      drawingCtx.clearRect(posX, posY, widthX, heightY);
+      stepClear += 1;
+      clearArc(x, y, radius);
+    }
+  }
+
   const handleOnPainterMove = throttle((e: MouseEvent) => {
     if (paint) {
       if (stateMode2.Eraser) {
-        drawingCtx.clearRect(e.offsetX - 5, e.offsetY - 5, 25, 25);
+        stepClear = 1;
+        // drawingCtx.clearRect(e.offsetX - 5, e.offsetY - 5, 25, 25);
+        clearArc(e.offsetX, e.offsetY, stateMode2.EraserSize);
         slice.mesh.material.map.needsUpdate = true;
         slice.repaint.call(slice);
       } else {

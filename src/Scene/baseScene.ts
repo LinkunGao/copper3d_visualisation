@@ -20,6 +20,7 @@ export default class baseScene {
   viewPoint: CameraViewPoint = new CameraViewPoint();
   cameraPositionFlag = false;
   content: THREE.Group = new THREE.Group();
+  exportContent: THREE.Group = new THREE.Group();
   isHalfed: boolean = false;
 
   private color1: string = "#5454ad";

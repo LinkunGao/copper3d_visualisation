@@ -8,7 +8,7 @@ import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
 import { copperVtkLoader, copperMultipleVtk } from "../Loader/copperVtkLoader";
 import baseScene from "./baseScene";
 import { GUI } from "dat.gui";
-import { nrrdMeshesType, nrrdSliceType } from "../types/types";
+import { nrrdMeshesType, nrrdSliceType, vtkModels } from "../types/types";
 
 export default class copperScene extends baseScene {
   controls: TrackballControls;
@@ -64,6 +64,8 @@ export default class copperScene extends baseScene {
           else this.mixer?.clipAction(a).play();
         });
         this.content = gltf.scene;
+        this.exportContent.copy(gltf.scene);
+        this.exportContent.animations = gltf.animations;
         this.scene.add(gltf.scene);
         this.modelReady = true;
         callback && callback(gltf.scene);
@@ -91,42 +93,70 @@ export default class copperScene extends baseScene {
     copperVtkLoader(url, this.scene, this.content);
   }
 
-  loadVtks(urls: Array<string>) {
-    const { vtkLoader, vtkmaterial } = copperMultipleVtk();
+  loadVtks(models: Array<vtkModels>) {
     let count = 0;
+    const { vtkLoader, vtkmaterial } = copperMultipleVtk();
+    const group = new THREE.Group();
 
-    const geometries: Array<THREE.BufferGeometry> = [];
-    urls.forEach((url) => {
-      vtkLoader.load(url, (geometry) => {
-        geometry.center();
-        geometry.computeVertexNormals();
-        geometries.push(geometry);
-        if (geometries.length === urls.length) {
-          finishLoad();
-        }
+    const finishInterval = setInterval(() => {
+      if (count === models.length) {
+        this.scene.add(this.exportContent);
+
+        this.mixer = new THREE.AnimationMixer(group);
+        this.exportContent.animations.forEach((clip) => {
+          const action = this.mixer?.clipAction(clip);
+          (action as THREE.AnimationAction).timeScale = 3;
+          (action as THREE.AnimationAction).play();
+        });
+
+        this.modelReady = true;
+        clearInterval(finishInterval);
+      }
+    }, 100);
+
+    models.forEach((model) => {
+      const geometries: Array<THREE.BufferGeometry> = [];
+      model.urls.forEach((url) => {
+        vtkLoader.load(url, (geometry) => {
+          geometry.center();
+          geometry.computeVertexNormals();
+          geometries.push(geometry);
+          if (geometries.length === model.urls.length) {
+            finishLoad(geometries, model);
+            count += 1;
+          }
+        });
       });
     });
 
-    const finishLoad = () => {
+    const finishLoad = (
+      geometries: Array<THREE.BufferGeometry>,
+      model: vtkModels
+    ) => {
       let geometry = geometries[0];
       geometries.forEach((child, index) => {
         if (index === 0) {
           geometry = child;
           geometry.morphAttributes.position = [];
         } else {
-          geometry.morphAttributes.position[index - 1] =
-            child.attributes.position;
+          geometry.morphAttributes.position.push(child.attributes.position);
         }
       });
       const mesh = new THREE.Mesh(geometry, vtkmaterial);
       mesh.scale.multiplyScalar(0.1);
-      this.scene.add(mesh);
+
+      group.add(mesh);
+      this.exportContent.add(group);
+
+      mesh.morphTargetInfluences = [];
+      mesh.name = model.name;
+
       let j = 0;
       let tracks = [];
       let duration = geometries.length - 1;
       for (let i = 0; i < duration; i++) {
         const track = new THREE.KeyframeTrack(
-          `.morphTargetInfluences[${i}]`,
+          `${mesh.name}.morphTargetInfluences[${i}]`,
           [j, j + 1, j + 2],
           [0, 1, 0]
         );
@@ -134,15 +164,11 @@ export default class copperScene extends baseScene {
         j = j + 2;
       }
       const clip = new THREE.AnimationClip(
-        "copper3d_heart_morph",
+        `copper3d_heart_morph_${mesh.name}`,
         duration,
         tracks
       );
-      this.mixer = new THREE.AnimationMixer(mesh);
-      const AnimationAction1 = this.mixer.clipAction(clip);
-      AnimationAction1.timeScale = 3;
-      AnimationAction1.play();
-      this.modelReady = true;
+      this.exportContent.animations.push(clip);
     };
   }
 

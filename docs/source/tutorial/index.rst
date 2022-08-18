@@ -19,3 +19,4 @@ Tutorial
     11_dragAndResetNrrd
     12_drawOnNrrdSlice
     13_newDrawingFunction
+    14_loadMultipleVtks
