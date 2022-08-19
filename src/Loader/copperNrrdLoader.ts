@@ -15,6 +15,7 @@ import {
   paintImagesType,
   paintImageType,
   mouseMovePositionType,
+  undoType,
 } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import copperMScene from "../Scene/copperMScene";
@@ -314,8 +315,10 @@ export function dragImageWithMode(
   container: HTMLDivElement,
   controls: TrackballControls,
   slice: any,
+  gui: GUI,
   opts?: nrrdDragImageOptType
 ) {
+  let oldIndex: number = slice.index;
   let move: number;
   let y: number;
   let h: number = container.offsetHeight;
@@ -325,6 +328,10 @@ export function dragImageWithMode(
   let handleOnMouseUp: (ev: MouseEvent) => void;
   let handleOnMouseDown: (ev: MouseEvent) => void;
   let handleOnMouseMove: (ev: MouseEvent) => void;
+
+  let state = {
+    move: 56,
+  };
 
   originWidth = slice.canvas.width;
   originHeight = slice.canvas.height;
@@ -342,6 +349,19 @@ export function dragImageWithMode(
       max = slice.volume.RASDimensions[2] - 1;
       break;
   }
+  // gui
+  //   .add(state, "move")
+  //   .min(1)
+  //   .max(max)
+  //   .step(1)
+  //   .onChange((value) => {
+  //     move = Math.floor(value - oldIndex);
+  //     console.log(move);
+  //     oldIndex = slice.index + move;
+  //     slice.index = oldIndex;
+
+  //     updateIndex();
+  //   });
 
   if (opts?.showNumber) {
     showNumberDiv = createShowSliceNumberDiv();
@@ -397,7 +417,6 @@ export function dragImageWithMode(
       }
     };
   } else {
-    let oldIndex: number;
     handleOnMouseDown = (ev: MouseEvent) => {
       y = ev.offsetY / h;
       container.addEventListener("mousemove", handleOnMouseMove, false);
@@ -409,70 +428,65 @@ export function dragImageWithMode(
       } else {
         move = Math.floor((y - ev.offsetY / h) * 20);
       }
-      let newIndex = oldIndex + move;
-      if (newIndex != oldIndex) {
-        if (newIndex > max) {
-          newIndex = max;
-        } else if (newIndex < min) {
-          newIndex = min;
-        } else {
-          slice.index = newIndex;
-          /**
-           * clear and redraw canvas
-           */
-          slice.repaint.call(slice);
-          drawingCanvas.width = drawingCanvas.width;
-          drawingCanvas.height = drawingCanvas.height;
-
-          if (changedWidth === 0) {
-            changedWidth = originWidth;
-            changedHeight = originHeight;
-          }
-          displayCanvas
-            .getContext("2d")
-            ?.drawImage(slice.canvas, 0, 0, changedWidth, changedHeight);
-          if (
-            images.x.length > 0 ||
-            images.y.length > 0 ||
-            images.z.length > 0
-          ) {
-            if (images.x.length > 0) {
-              paintedImage = filterDrawedImage(images.x, slice.index);
-            } else if (images.y.length > 0) {
-              paintedImage = filterDrawedImage(images.y, slice.index);
-            } else if (images.z.length > 0) {
-              paintedImage = filterDrawedImage(images.z, slice.index);
-            }
-            if (paintedImage?.image) {
-              slice.canvas
-                .getContext("2d")
-                ?.drawImage(
-                  paintedImage.image,
-                  0,
-                  0,
-                  originWidth,
-                  originHeight
-                );
-              drawingCanvas
-                .getContext("2d")
-                ?.drawImage(
-                  paintedImage.image,
-                  0,
-                  0,
-                  changedWidth,
-                  changedHeight
-                );
-            }
-          }
-        }
-        if (opts?.showNumber) {
-          showNumberDiv.innerHTML = `Slice number: ${newIndex}/${max}`;
-        }
-      }
+      updateIndex();
     };
     handleOnMouseUp = (ev: MouseEvent) => {
       container.removeEventListener("mousemove", handleOnMouseMove, false);
     };
+  }
+
+  function updateIndex() {
+    let newIndex = oldIndex + move;
+    if (newIndex != oldIndex) {
+      if (newIndex > max) {
+        newIndex = max;
+      } else if (newIndex < min) {
+        newIndex = min;
+      } else {
+        slice.index = newIndex;
+        /**
+         * clear and redraw canvas
+         */
+        slice.repaint.call(slice);
+        drawingCanvas.width = drawingCanvas.width;
+        drawingCanvas.height = drawingCanvas.height;
+
+        if (changedWidth === 0) {
+          changedWidth = originWidth;
+          changedHeight = originHeight;
+        }
+        displayCanvas
+          .getContext("2d")
+          ?.drawImage(slice.canvas, 0, 0, changedWidth, changedHeight);
+        if (images.x.length > 0 || images.y.length > 0 || images.z.length > 0) {
+          if (images.x.length > 0) {
+            paintedImage = filterDrawedImage(images.x, slice.index);
+          } else if (images.y.length > 0) {
+            paintedImage = filterDrawedImage(images.y, slice.index);
+          } else if (images.z.length > 0) {
+            paintedImage = filterDrawedImage(images.z, slice.index);
+          }
+
+          if (paintedImage?.image) {
+            slice.canvas
+              .getContext("2d")
+              ?.drawImage(paintedImage.image, 0, 0, originWidth, originHeight);
+            drawingCanvas
+              .getContext("2d")
+              ?.drawImage(
+                paintedImage.image,
+                0,
+                0,
+                changedWidth,
+                changedHeight
+              );
+          }
+        }
+      }
+      if (opts?.showNumber) {
+        showNumberDiv.innerHTML = `Slice number: ${newIndex}/${max}`;
+      }
+    }
   }
 }
 
@@ -587,19 +601,39 @@ function paintOnCanvas(
   const stateMode2 = {
     size: 1,
     color: "#f50a86",
-    fillColor: "rgba(30, 128, 156, 0.3)",
     lineWidth: 1,
+    brush: false,
+    brushColor: "rgba(30, 128, 156,0.3)",
+    brushLineWidth: 30,
+    fillColor: "rgba(30, 128, 156,0.3)",
     Eraser: false,
     EraserSize: 25,
     clearAll: function () {
       clearAllPaint();
+    },
+    undo: function () {
+      undoLastPainting();
     },
     downloadCurrentImage: function () {
       enableDownload();
     },
   };
 
+  /**
+   * undo
+   */
+  let undoArray: Array<undoType> = [{ sliceIndex: slice.index, undos: [] }];
+
+  /**
+   * drag paint panel
+   */
+  let leftclicked = false;
+  let rightclicked = false;
+  let panelMoveInnerX = 0;
+  let panelMoveInnerY = 0;
+
   const axis = slice.axis;
+  let currentSliceIndex = slice.index;
 
   const originCanvas = slice.canvas;
   originWidth = originCanvas.width;
@@ -625,6 +659,9 @@ function paintOnCanvas(
   drawingCanvas.height = changedHeight;
   drawingCanvas.style.cursor = "crosshair";
 
+  displayCanvas.style.left = drawingCanvas.style.left = "0px";
+  displayCanvas.style.top = drawingCanvas.style.top = "0px";
+
   /**
    * display and drawing canvas container
    */
@@ -634,7 +671,7 @@ function paintOnCanvas(
   drawingCanvasContainer.appendChild(drawingCanvas);
   // drawingCanvasContainer.appendChild(originCanvas);
   displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
-  const previousDrawingImage: HTMLImageElement = new Image();
+  let previousDrawingImage: HTMLImageElement = new Image();
   previousDrawingImage.src = drawingCanvas.toDataURL();
 
   const downloadImage: HTMLAnchorElement = document.createElement("a");
@@ -651,53 +688,15 @@ function paintOnCanvas(
     .min(1)
     .max(8)
     .onFinishChange((factor) => {
-      slice.repaint.call(slice);
-      // const size = Number(factor);
-
-      changedWidth = originWidth * factor;
-      changedHeight = originHeight * factor;
-      /**
-       * clear canvas
-       */
-      displayCanvas.width = displayCanvas.width;
-      displayCanvas.height = displayCanvas.height;
-      drawingCanvas.width = drawingCanvas.width;
-      drawingCanvas.height = drawingCanvas.height;
-      /**
-       * resize canvas
-       */
-      displayCanvas.width = changedWidth;
-      displayCanvas.height = changedHeight;
-      drawingCanvas.width = changedWidth;
-      drawingCanvas.height = changedHeight;
-      drawingCanvasContainer.style.width = changedWidth + "px";
-      drawingCanvasContainer.style.height = changedHeight + "px";
-      displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
-      if (!paintedImage?.image) {
-        if (images.x.length > 0) {
-          paintedImage = filterDrawedImage(images.x, slice.index);
-        } else if (images.y.length > 0) {
-          paintedImage = filterDrawedImage(images.y, slice.index);
-        } else if (images.z.length > 0) {
-          paintedImage = filterDrawedImage(images.z, slice.index);
-        }
-      }
-      if (paintedImage?.image) {
-        drawingCtx?.drawImage(
-          paintedImage.image,
-          0,
-          0,
-          changedWidth,
-          changedHeight
-        );
-        originCanvas
-          .getContext("2d")
-          ?.drawImage(paintedImage.image, 0, 0, originWidth, originHeight);
-      }
+      resetPaintArea();
+      resizePaintArea(factor);
     });
   modeFolder.addColor(stateMode2, "color");
   modeFolder.addColor(stateMode2, "fillColor");
   modeFolder.add(stateMode2, "lineWidth").min(0.1).max(3).step(0.01);
+  modeFolder.add(stateMode2, "brush");
+  modeFolder.add(stateMode2, "brushLineWidth").min(5).max(50).step(1);
+  modeFolder.addColor(stateMode2, "brushColor");
   modeFolder.add(stateMode2, "EraserSize").min(1).max(50).step(1);
   modeFolder.add(stateMode2, "Eraser").onChange((value) => {
     stateMode2.Eraser = value;
@@ -709,31 +708,159 @@ function paintOnCanvas(
     }
   });
   modeFolder.add(stateMode2, "clearAll");
+  modeFolder.add(stateMode2, "undo");
   modeFolder.add(stateMode2, "downloadCurrentImage");
+
+  let paint = false;
+  let lines: Array<mouseMovePositionType> = [];
+
+  function resizePaintArea(factor: number) {
+    slice.repaint.call(slice);
+    // const size = Number(factor);
+
+    changedWidth = originWidth * factor;
+    changedHeight = originHeight * factor;
+    /**
+     * clear canvas
+     */
+    displayCanvas.width = displayCanvas.width;
+    displayCanvas.height = displayCanvas.height;
+    drawingCanvas.width = drawingCanvas.width;
+    drawingCanvas.height = drawingCanvas.height;
+    /**
+     * resize canvas
+     */
+    displayCanvas.width = changedWidth;
+    displayCanvas.height = changedHeight;
+    drawingCanvas.width = changedWidth;
+    drawingCanvas.height = changedHeight;
+    drawingCanvasContainer.style.width = changedWidth + "px";
+    drawingCanvasContainer.style.height = changedHeight + "px";
+    displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
+    if (!paintedImage?.image) {
+      if (images.x.length > 0) {
+        paintedImage = filterDrawedImage(images.x, slice.index);
+      } else if (images.y.length > 0) {
+        paintedImage = filterDrawedImage(images.y, slice.index);
+      } else if (images.z.length > 0) {
+        paintedImage = filterDrawedImage(images.z, slice.index);
+      }
+    }
+    if (paintedImage?.image) {
+      drawingCtx?.drawImage(
+        paintedImage.image,
+        0,
+        0,
+        changedWidth,
+        changedHeight
+      );
+      originCanvas
+        .getContext("2d")
+        ?.drawImage(paintedImage.image, 0, 0, originWidth, originHeight);
+    }
+  }
+
+  let moveDistance = 1;
+  const handleWheelMove = (e: WheelEvent) => {
+    if (Is_Shift_Pressed) {
+      return;
+    }
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      moveDistance += 0.1;
+    } else if (e.deltaY > 0) {
+      moveDistance -= 0.1;
+    }
+    if (moveDistance >= 8) {
+      moveDistance = 8;
+    } else if (moveDistance <= 1) {
+      moveDistance = 1;
+    }
+    resizePaintArea(moveDistance);
+    resetPaintArea();
+    controls.enabled = false;
+  };
+
+  const handleDragPaintPanel = throttle((e: MouseEvent) => {
+    displayCanvas.style.left = drawingCanvas.style.left =
+      e.clientX - panelMoveInnerX + "px";
+    displayCanvas.style.top = drawingCanvas.style.top =
+      e.clientY - panelMoveInnerY + "px";
+  }, 80);
+
+  // add canvas event listeners
+  // disable browser right click menu
+  drawingCanvas.oncontextmenu = () => false;
+
+  drawingCanvas.addEventListener("wheel", handleWheelMove, { passive: false });
 
   function drawOnCanvas(
     drawingCtx: CanvasRenderingContext2D,
     x: number,
     y: number
   ) {
-    drawingCtx.beginPath();
-    drawingCtx.lineWidth = stateMode2.lineWidth;
-    drawingCtx.lineCap = "round";
+    // drawingCtx.beginPath();
+
     drawingCtx.moveTo(drawStartPos.x, drawStartPos.y);
-    drawingCtx.strokeStyle = stateMode2.color;
+    if (stateMode2.brush) {
+      drawingCtx.globalCompositeOperation = "xor";
+      drawingCtx.strokeStyle = stateMode2.brushColor;
+      drawingCtx.lineWidth = stateMode2.brushLineWidth;
+    } else {
+      drawingCtx.strokeStyle = stateMode2.color;
+      drawingCtx.lineWidth = stateMode2.lineWidth;
+    }
+    drawingCtx.lineCap = "round";
     drawingCtx.lineTo(x, y);
     drawingCtx.stroke();
 
     // reset drawing start position to current position.
     drawStartPos.set(x, y);
-    drawingCtx.closePath();
+    // drawingCtx.closePath();
     // need to flag the map as needing updating.
     slice.mesh.material.map.needsUpdate = true;
   }
 
-  let paint = false;
-  let lines: Array<mouseMovePositionType> = [];
+  drawingCanvas.addEventListener(
+    "pointerdown",
+    function (e: MouseEvent) {
+      if (leftclicked || rightclicked || Is_Shift_Pressed) {
+        drawingCanvas.removeEventListener("pointerup", handlePointerUp);
+        drawingCtx.closePath();
+        return;
+      }
 
+      if (currentSliceIndex !== slice.index) {
+        previousDrawingImage.src = "";
+        currentSliceIndex = slice.index;
+      }
+
+      drawingCanvas.removeEventListener("wheel", handleWheelMove);
+      controls.enabled = false;
+
+      if (e.button === 0) {
+        leftclicked = true;
+        lines = [];
+        paint = true;
+
+        drawStartPos.set(e.offsetX, e.offsetY);
+        drawingCtx.beginPath();
+        drawingCanvas.addEventListener("pointerup", handlePointerUp);
+        drawingCanvas.addEventListener("pointermove", handleOnPainterMove);
+      } else if (e.button === 2) {
+        let offsetX = parseInt(drawingCanvas.style.left);
+        let offsetY = parseInt(drawingCanvas.style.top);
+        panelMoveInnerX = e.clientX - offsetX;
+        panelMoveInnerY = e.clientY - offsetY;
+        drawingCanvas.addEventListener("pointerup", handlePointerUp);
+        drawingCanvas.addEventListener("pointermove", handleDragPaintPanel);
+      } else {
+        return;
+      }
+    },
+    true
+  );
+  // drawingCanvas.addEventListener("pointerup", handlePointerUp);
   // for eraser!!!
   var stepClear = 1;
   function clearArc(x: number, y: number, radius: number) {
@@ -749,7 +876,6 @@ function paintOnCanvas(
       clearArc(x, y, radius);
     }
   }
-
   const handleOnPainterMove = throttle((e: MouseEvent) => {
     if (paint) {
       if (stateMode2.Eraser) {
@@ -773,59 +899,93 @@ function paintOnCanvas(
         );
     }
   }, 80);
+  function handlePointerUp(e: MouseEvent) {
+    console.log("up");
 
-  // add canvas event listeners
-  drawingCanvas.addEventListener(
-    "pointerdown",
-    function (e: MouseEvent) {
-      lines = [];
-      paint = true;
-      controls.enabled = false;
-      drawStartPos.set(e.offsetX, e.offsetY);
-      drawingCanvas.addEventListener("pointermove", handleOnPainterMove);
-    },
-    true
-  );
-  drawingCanvas.addEventListener("pointerup", function () {
-    drawingCanvas.removeEventListener("pointermove", handleOnPainterMove);
-    if (!stateMode2.Eraser) {
-      drawingCanvas.width = drawingCanvas.width;
-      drawingCanvas.height = drawingCanvas.height;
-      drawingCtx.drawImage(
-        previousDrawingImage,
-        0,
-        0,
-        changedWidth,
-        changedHeight
-      );
-
-      drawingCtx.beginPath();
-      drawingCtx.moveTo(lines[0].x, lines[0].y);
-      for (let i = 1; i < lines.length; i++) {
-        drawingCtx.lineTo(lines[i].x, lines[i].y);
-      }
+    if (Is_Shift_Pressed) {
+      return;
+    }
+    if (e.button === 0) {
+      leftclicked = false;
       drawingCtx.closePath();
-      drawingCtx.lineWidth = 1;
-      drawingCtx.fillStyle = stateMode2.fillColor;
-      drawingCtx.fill();
-      previousDrawingImage.src = drawingCanvas.toDataURL();
-      slice.repaint.call(slice);
-      originCanvas
-        .getContext("2d")
-        ?.drawImage(drawingCanvas, 0, 0, originWidth, originHeight);
 
+      drawingCanvas.removeEventListener("pointermove", handleOnPainterMove);
+      if (!stateMode2.Eraser) {
+        drawingCanvas.width = drawingCanvas.width;
+        drawingCanvas.height = drawingCanvas.height;
+
+        drawingCtx.drawImage(
+          previousDrawingImage,
+          0,
+          0,
+          changedWidth,
+          changedHeight
+        );
+
+        drawingCtx.beginPath();
+        drawingCtx.moveTo(lines[0].x, lines[0].y);
+        for (let i = 1; i < lines.length; i++) {
+          drawingCtx.lineTo(lines[i].x, lines[i].y);
+        }
+
+        if (stateMode2.brush) {
+          drawingCtx.strokeStyle = stateMode2.brushColor;
+          drawingCtx.lineWidth = stateMode2.brushLineWidth;
+          drawingCtx.lineCap = "round";
+          drawingCtx.stroke();
+          drawingCtx.closePath();
+        } else {
+          drawingCtx.closePath();
+          drawingCtx.lineWidth = 1;
+          drawingCtx.fillStyle = stateMode2.fillColor;
+          drawingCtx.fill();
+        }
+
+        previousDrawingImage.src = drawingCanvas.toDataURL();
+        slice.repaint.call(slice);
+
+        originCanvas
+          .getContext("2d")
+          ?.drawImage(drawingCanvas, 0, 0, originWidth, originHeight);
+      }
+      previousDrawingImage.src = drawingCanvas.toDataURL();
+      storeAllImages();
       console.log(
         drawingCtx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height)
       );
+      paint = false;
+
+      /**
+       * store undo array
+       */
+      const currentUndoObj = getCurrentUndo();
+      const src = drawingCanvas.toDataURL();
+      const image = new Image();
+      image.src = src;
+      if (currentUndoObj.length > 0) {
+        currentUndoObj[0].undos.push(image);
+      } else {
+        const undoObj: undoType = {
+          sliceIndex: slice.index,
+          undos: [],
+        };
+        undoObj.undos.push(image);
+        undoArray.push(undoObj);
+      }
+      console.log(undoArray);
+    } else if (e.button === 2) {
+      rightclicked = false;
+      drawingCanvas.removeEventListener("pointermove", handleDragPaintPanel);
+    } else {
+      return;
     }
-    previousDrawingImage.src = drawingCanvas.toDataURL();
-    storeAllImages();
-    paint = false;
-  });
+    drawingCanvas.addEventListener("wheel", handleWheelMove, {
+      passive: false,
+    });
+  }
 
   drawingCanvas.addEventListener("pointerleave", function () {
     paint = false;
-
     controls.enabled = true;
   });
 
@@ -833,6 +993,7 @@ function paintOnCanvas(
     drawingCanvas.width = drawingCanvas.width;
     drawingCanvas.height = drawingCanvas.height;
     slice.repaint.call(slice);
+    previousDrawingImage.src = "";
     storeAllImages();
   }
 
@@ -865,6 +1026,47 @@ function paintOnCanvas(
         drawedImage = filterDrawedImage(images.z, slice.index);
         drawedImage ? (drawedImage.image = image) : images.z?.push(temp);
         break;
+    }
+  }
+
+  function resetPaintArea() {
+    displayCanvas.style.left = drawingCanvas.style.left = "0px";
+    displayCanvas.style.top = drawingCanvas.style.top = "0px";
+  }
+
+  function getCurrentUndo() {
+    return undoArray.filter((item) => {
+      return item.sliceIndex === slice.index;
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") {
+      console.log("Ctrl+z");
+      undoLastPainting();
+    }
+  });
+  function undoLastPainting() {
+    drawingCanvas.width = drawingCanvas.width;
+    // drawingCanvas.height = drawingCanvas.height;
+    slice.repaint.call(slice);
+    const currentUndoObj = getCurrentUndo();
+    if (currentUndoObj.length > 0) {
+      const undo = currentUndoObj[0];
+      if (undo.undos.length === 0) return;
+      undo.undos.pop();
+
+      if (undo.undos.length > 0) {
+        console.log("here");
+
+        const image = undo.undos[undo.undos.length - 1];
+
+        drawingCtx.drawImage(image, 0, 0, changedWidth, changedHeight);
+        originCanvas
+          .getContext("2d")
+          ?.drawImage(image, 0, 0, originWidth, originHeight);
+      }
+      previousDrawingImage.src = drawingCanvas.toDataURL();
+      storeAllImages();
     }
   }
 

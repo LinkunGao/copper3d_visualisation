@@ -415,3 +415,13 @@ See toturial 14
   ]);
   ```
 - add gltf exporter.
+
+## Release v1.9.1
+
+- Main update on Painting function
+  - fixed clear all function bug.
+  - add brush
+  - more easier to zoom image. (use mouse wheel to zoom).
+  - more easier to pan image. (use mouse right click to pan).
+  - change slice still apply (press shift do not release, then use mouse lift click to drag image).
+  - Add undo funtion. (In GUI click undo, on keyborad using ctrl+z (windows) / command+z(mac) ).
