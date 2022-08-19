@@ -146,6 +146,10 @@ interface vtkModels {
   urls: Array<string>;
 }
 
+interface undoType {
+  sliceIndex: number;
+  undos: Array<HTMLImageElement>;
+}
 export type {
   SceneMapType,
   optType,
@@ -168,4 +172,5 @@ export type {
   paintImageType,
   optionsGltfExporterType,
   vtkModels,
+  undoType,
 };

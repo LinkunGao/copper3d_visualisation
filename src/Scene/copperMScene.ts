@@ -324,6 +324,7 @@ export default class copperMScene {
       this.container,
       this.controls as TrackballControls,
       slice,
+      this.gui,
       opts
     );
   }
