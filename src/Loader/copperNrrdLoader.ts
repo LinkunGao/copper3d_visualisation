@@ -41,6 +41,7 @@ let textureNormal: THREE.Texture | undefined;
 // for drawing on canvas
 let drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
 let displayCanvas: HTMLCanvasElement = document.createElement("canvas");
+let drawingCanvasLayer1: HTMLCanvasElement = document.createElement("canvas");
 let originWidth: number = 0;
 let originHeight: number = 0;
 let changedWidth: number = 0;
@@ -448,8 +449,7 @@ export function dragImageWithMode(
          * clear and redraw canvas
          */
         slice.repaint.call(slice);
-        drawingCanvas.width = drawingCanvas.width;
-        drawingCanvas.height = drawingCanvas.height;
+        drawingCanvasLayer1.width = drawingCanvasLayer1.width;
 
         if (changedWidth === 0) {
           changedWidth = originWidth;
@@ -468,10 +468,7 @@ export function dragImageWithMode(
           }
 
           if (paintedImage?.image) {
-            slice.canvas
-              .getContext("2d")
-              ?.drawImage(paintedImage.image, 0, 0, originWidth, originHeight);
-            drawingCanvas
+            drawingCanvasLayer1
               .getContext("2d")
               ?.drawImage(
                 paintedImage.image,
@@ -600,12 +597,12 @@ function paintOnCanvas(
 ) {
   const stateMode2 = {
     size: 1,
+    lineWidth: 2,
     color: "#f50a86",
-    lineWidth: 1,
     brush: false,
-    brushColor: "rgba(30, 128, 156,0.3)",
-    brushLineWidth: 30,
-    fillColor: "rgba(30, 128, 156,0.3)",
+    brushColor: "#1e809c",
+    brushLineWidth: 15,
+    fillColor: "#1e809c",
     Eraser: false,
     EraserSize: 25,
     clearAll: function () {
@@ -649,7 +646,7 @@ function paintOnCanvas(
   displayCanvas.style.zIndex = "9";
   displayCanvas.width = changedWidth;
   displayCanvas.height = changedHeight;
-  const displayCtx = displayCanvas.getContext("2d");
+
   /**
    * drawing canvas
    */
@@ -663,13 +660,26 @@ function paintOnCanvas(
   displayCanvas.style.top = drawingCanvas.style.top = "0px";
 
   /**
+   * layer1
+   */
+
+  drawingCanvasLayer1.width = changedWidth;
+  drawingCanvasLayer1.height = changedHeight;
+
+  /**
    * display and drawing canvas container
    */
   drawingCanvasContainer.style.width = changedWidth + "px";
   drawingCanvasContainer.style.height = changedHeight + "px";
   drawingCanvasContainer.appendChild(displayCanvas);
   drawingCanvasContainer.appendChild(drawingCanvas);
-  // drawingCanvasContainer.appendChild(originCanvas);
+
+  const displayCtx = displayCanvas.getContext("2d") as CanvasRenderingContext2D;
+  const drawingCtx = drawingCanvas.getContext("2d") as CanvasRenderingContext2D;
+  const drawingLayer1Ctx = drawingCanvasLayer1.getContext(
+    "2d"
+  ) as CanvasRenderingContext2D;
+
   displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
   let previousDrawingImage: HTMLImageElement = new Image();
   previousDrawingImage.src = drawingCanvas.toDataURL();
@@ -679,8 +689,6 @@ function paintOnCanvas(
   downloadImage.target = "_blank";
 
   const drawStartPos: THREE.Vector2 = new THREE.Vector2(1, 1);
-
-  const drawingCtx = drawingCanvas.getContext("2d") as CanvasRenderingContext2D;
 
   if (modeFolder.__controllers.length > 0) removeModeChilden(modeFolder);
   modeFolder
@@ -693,7 +701,7 @@ function paintOnCanvas(
     });
   modeFolder.addColor(stateMode2, "color");
   modeFolder.addColor(stateMode2, "fillColor");
-  modeFolder.add(stateMode2, "lineWidth").min(0.1).max(3).step(0.01);
+  modeFolder.add(stateMode2, "lineWidth").min(1.7).max(3).step(0.01);
   modeFolder.add(stateMode2, "brush");
   modeFolder.add(stateMode2, "brushLineWidth").min(5).max(50).step(1);
   modeFolder.addColor(stateMode2, "brushColor");
@@ -711,7 +719,8 @@ function paintOnCanvas(
   modeFolder.add(stateMode2, "undo");
   modeFolder.add(stateMode2, "downloadCurrentImage");
 
-  let paint = false;
+  // let paint = false;
+  let Is_Painting = false;
   let lines: Array<mouseMovePositionType> = [];
 
   function resizePaintArea(factor: number) {
@@ -727,6 +736,7 @@ function paintOnCanvas(
     displayCanvas.height = displayCanvas.height;
     drawingCanvas.width = drawingCanvas.width;
     drawingCanvas.height = drawingCanvas.height;
+    drawingCanvasLayer1.width = drawingCanvasLayer1.width;
     /**
      * resize canvas
      */
@@ -734,6 +744,9 @@ function paintOnCanvas(
     displayCanvas.height = changedHeight;
     drawingCanvas.width = changedWidth;
     drawingCanvas.height = changedHeight;
+    drawingCanvasLayer1.width = changedWidth;
+    drawingCanvasLayer1.height = changedHeight;
+
     drawingCanvasContainer.style.width = changedWidth + "px";
     drawingCanvasContainer.style.height = changedHeight + "px";
     displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
@@ -747,16 +760,13 @@ function paintOnCanvas(
       }
     }
     if (paintedImage?.image) {
-      drawingCtx?.drawImage(
+      drawingLayer1Ctx?.drawImage(
         paintedImage.image,
         0,
         0,
         changedWidth,
         changedHeight
       );
-      originCanvas
-        .getContext("2d")
-        ?.drawImage(paintedImage.image, 0, 0, originWidth, originHeight);
     }
   }
 
@@ -794,39 +804,12 @@ function paintOnCanvas(
 
   drawingCanvas.addEventListener("wheel", handleWheelMove, { passive: false });
 
-  function drawOnCanvas(
-    drawingCtx: CanvasRenderingContext2D,
-    x: number,
-    y: number
-  ) {
-    // drawingCtx.beginPath();
-
-    drawingCtx.moveTo(drawStartPos.x, drawStartPos.y);
-    if (stateMode2.brush) {
-      drawingCtx.globalCompositeOperation = "xor";
-      drawingCtx.strokeStyle = stateMode2.brushColor;
-      drawingCtx.lineWidth = stateMode2.brushLineWidth;
-    } else {
-      drawingCtx.strokeStyle = stateMode2.color;
-      drawingCtx.lineWidth = stateMode2.lineWidth;
-    }
-    drawingCtx.lineCap = "round";
-    drawingCtx.lineTo(x, y);
-    drawingCtx.stroke();
-
-    // reset drawing start position to current position.
-    drawStartPos.set(x, y);
-    // drawingCtx.closePath();
-    // need to flag the map as needing updating.
-    slice.mesh.material.map.needsUpdate = true;
-  }
-
   drawingCanvas.addEventListener(
     "pointerdown",
     function (e: MouseEvent) {
       if (leftclicked || rightclicked || Is_Shift_Pressed) {
         drawingCanvas.removeEventListener("pointerup", handlePointerUp);
-        drawingCtx.closePath();
+        drawingLayer1Ctx.closePath();
         return;
       }
 
@@ -841,10 +824,10 @@ function paintOnCanvas(
       if (e.button === 0) {
         leftclicked = true;
         lines = [];
-        paint = true;
+        Is_Painting = true;
 
         drawStartPos.set(e.offsetX, e.offsetY);
-        drawingCtx.beginPath();
+        drawingLayer1Ctx.beginPath();
         drawingCanvas.addEventListener("pointerup", handlePointerUp);
         drawingCanvas.addEventListener("pointermove", handleOnPainterMove);
       } else if (e.button === 2) {
@@ -871,95 +854,93 @@ function paintOnCanvas(
     var widthX = 2 * calcWidth;
     var heightY = 2 * calcHeight;
     if (stepClear <= radius) {
-      drawingCtx.clearRect(posX, posY, widthX, heightY);
+      drawingLayer1Ctx.clearRect(posX, posY, widthX, heightY);
       stepClear += 1;
       clearArc(x, y, radius);
     }
   }
-  const handleOnPainterMove = throttle((e: MouseEvent) => {
-    if (paint) {
+  function drawOnCanvas(
+    drawingCtx: CanvasRenderingContext2D,
+    x: number,
+    y: number
+  ) {
+    drawingLayer1Ctx.beginPath();
+
+    drawingLayer1Ctx.moveTo(drawStartPos.x, drawStartPos.y);
+    if (stateMode2.brush) {
+      drawingLayer1Ctx.strokeStyle = stateMode2.brushColor;
+      drawingLayer1Ctx.lineWidth = stateMode2.brushLineWidth;
+    } else {
+      drawingLayer1Ctx.strokeStyle = stateMode2.color;
+      drawingLayer1Ctx.lineWidth = stateMode2.lineWidth;
+    }
+
+    drawingLayer1Ctx.lineTo(x, y);
+    drawingLayer1Ctx.stroke();
+
+    // reset drawing start position to current position.
+    drawStartPos.set(x, y);
+    drawingLayer1Ctx.closePath();
+    // need to flag the map as needing updating.
+    slice.mesh.material.map.needsUpdate = true;
+  }
+  const handleOnPainterMove = (e: MouseEvent) => {
+    if (Is_Painting) {
       if (stateMode2.Eraser) {
         stepClear = 1;
         // drawingCtx.clearRect(e.offsetX - 5, e.offsetY - 5, 25, 25);
         clearArc(e.offsetX, e.offsetY, stateMode2.EraserSize);
-        slice.mesh.material.map.needsUpdate = true;
-        slice.repaint.call(slice);
       } else {
         lines.push({ x: e.offsetX, y: e.offsetY });
         drawOnCanvas(drawingCtx, e.offsetX, e.offsetY);
       }
-      originCanvas
-        .getContext("2d")
-        ?.drawImage(
-          drawingCanvas,
-          0,
-          0,
-          originCanvas.width,
-          originCanvas.height
-        );
     }
-  }, 80);
+  };
   function handlePointerUp(e: MouseEvent) {
-    console.log("up");
-
     if (Is_Shift_Pressed) {
       return;
     }
     if (e.button === 0) {
       leftclicked = false;
-      drawingCtx.closePath();
+      drawingLayer1Ctx.closePath();
 
       drawingCanvas.removeEventListener("pointermove", handleOnPainterMove);
       if (!stateMode2.Eraser) {
-        drawingCanvas.width = drawingCanvas.width;
-        drawingCanvas.height = drawingCanvas.height;
+        if (!stateMode2.brush) {
+          drawingCanvasLayer1.width = drawingCanvasLayer1.width;
 
-        drawingCtx.drawImage(
-          previousDrawingImage,
-          0,
-          0,
-          changedWidth,
-          changedHeight
-        );
-
-        drawingCtx.beginPath();
-        drawingCtx.moveTo(lines[0].x, lines[0].y);
-        for (let i = 1; i < lines.length; i++) {
-          drawingCtx.lineTo(lines[i].x, lines[i].y);
+          drawingLayer1Ctx.drawImage(
+            previousDrawingImage,
+            0,
+            0,
+            changedWidth,
+            changedHeight
+          );
+          drawingLayer1Ctx.beginPath();
+          drawingLayer1Ctx.moveTo(lines[0].x, lines[0].y);
+          for (let i = 1; i < lines.length; i++) {
+            drawingLayer1Ctx.lineTo(lines[i].x, lines[i].y);
+          }
+          drawingLayer1Ctx.closePath();
+          drawingLayer1Ctx.lineWidth = 1;
+          drawingLayer1Ctx.fillStyle = stateMode2.fillColor;
+          drawingLayer1Ctx.fill();
         }
 
-        if (stateMode2.brush) {
-          drawingCtx.strokeStyle = stateMode2.brushColor;
-          drawingCtx.lineWidth = stateMode2.brushLineWidth;
-          drawingCtx.lineCap = "round";
-          drawingCtx.stroke();
-          drawingCtx.closePath();
-        } else {
-          drawingCtx.closePath();
-          drawingCtx.lineWidth = 1;
-          drawingCtx.fillStyle = stateMode2.fillColor;
-          drawingCtx.fill();
-        }
-
-        previousDrawingImage.src = drawingCanvas.toDataURL();
-        slice.repaint.call(slice);
-
-        originCanvas
-          .getContext("2d")
-          ?.drawImage(drawingCanvas, 0, 0, originWidth, originHeight);
+        previousDrawingImage.src = drawingCanvasLayer1.toDataURL();
       }
-      previousDrawingImage.src = drawingCanvas.toDataURL();
+      previousDrawingImage.src = drawingCanvasLayer1.toDataURL();
       storeAllImages();
       console.log(
         drawingCtx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height)
       );
-      paint = false;
+      Is_Painting = false;
 
       /**
        * store undo array
        */
       const currentUndoObj = getCurrentUndo();
-      const src = drawingCanvas.toDataURL();
+      const src = drawingCanvasLayer1.toDataURL();
       const image = new Image();
       image.src = src;
       if (currentUndoObj.length > 0) {
@@ -972,7 +953,6 @@ function paintOnCanvas(
         undoObj.undos.push(image);
         undoArray.push(undoObj);
       }
-      console.log(undoArray);
     } else if (e.button === 2) {
       rightclicked = false;
       drawingCanvas.removeEventListener("pointermove", handleDragPaintPanel);
@@ -985,13 +965,30 @@ function paintOnCanvas(
   }
 
   drawingCanvas.addEventListener("pointerleave", function () {
-    paint = false;
+    Is_Painting = false;
     controls.enabled = true;
   });
 
+  function updateCanvas() {
+    slice.mesh.material.map.needsUpdate = true;
+    slice.repaint.call(slice);
+    drawingCtx.clearRect(0, 0, changedWidth, changedHeight);
+    drawingLayer1Ctx.lineCap = "round";
+    drawingLayer1Ctx.globalAlpha = 1;
+    drawingCtx.globalAlpha = 0.3;
+
+    drawingCtx.drawImage(drawingCanvasLayer1, 0, 0);
+    originCanvas
+      .getContext("2d")
+      ?.drawImage(drawingCanvas, 0, 0, originCanvas.width, originCanvas.height);
+    requestAnimationFrame(updateCanvas);
+  }
+
+  updateCanvas();
+
   function clearAllPaint() {
-    drawingCanvas.width = drawingCanvas.width;
-    drawingCanvas.height = drawingCanvas.height;
+    drawingCanvasLayer1.width = drawingCanvas.width;
+
     slice.repaint.call(slice);
     previousDrawingImage.src = "";
     storeAllImages();
@@ -1005,7 +1002,7 @@ function paintOnCanvas(
 
   function storeAllImages() {
     const image: HTMLImageElement = new Image();
-    image.src = drawingCanvas.toDataURL();
+    image.src = drawingCanvasLayer1.toDataURL();
 
     let temp: paintImageType = {
       index: slice.index,
@@ -1041,12 +1038,11 @@ function paintOnCanvas(
   }
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") {
-      console.log("Ctrl+z");
       undoLastPainting();
     }
   });
   function undoLastPainting() {
-    drawingCanvas.width = drawingCanvas.width;
+    drawingCanvasLayer1.width = drawingCanvasLayer1.width;
     // drawingCanvas.height = drawingCanvas.height;
     slice.repaint.call(slice);
     const currentUndoObj = getCurrentUndo();
@@ -1056,22 +1052,18 @@ function paintOnCanvas(
       undo.undos.pop();
 
       if (undo.undos.length > 0) {
-        console.log("here");
-
         const image = undo.undos[undo.undos.length - 1];
 
-        drawingCtx.drawImage(image, 0, 0, changedWidth, changedHeight);
-        originCanvas
-          .getContext("2d")
-          ?.drawImage(image, 0, 0, originWidth, originHeight);
+        drawingLayer1Ctx.drawImage(image, 0, 0, changedWidth, changedHeight);
       }
-      previousDrawingImage.src = drawingCanvas.toDataURL();
+      previousDrawingImage.src = drawingCanvasLayer1.toDataURL();
       storeAllImages();
     }
   }
 
   return drawingCanvas;
 }
+
 export function draw(
   container: HTMLDivElement,
   controls: TrackballControls,
@@ -1085,11 +1077,6 @@ export function draw(
   const drawingCanvasContainer = document.createElement("div");
   container.appendChild(drawingCanvasContainer);
   drawingCanvasContainer.className = "copper3D_drawingCanvasContainer";
-
-  // const originCanvas = slice.canvas;
-  // originCanvas.style.position = "fixed";
-  // originCanvas.style.top = "0";
-  // container.appendChild(originCanvas);
 
   const state = {
     subView: true,

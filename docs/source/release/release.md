@@ -418,10 +418,25 @@ See toturial 14
 
 ## Release v1.9.1
 
-- Main update on Painting function
+- Main update on Painting function.
+
   - fixed clear all function bug.
   - add brush
   - more easier to zoom image. (use mouse wheel to zoom).
   - more easier to pan image. (use mouse right click to pan).
   - change slice still apply (press shift do not release, then use mouse lift click to drag image).
   - Add undo funtion. (In GUI click undo, on keyborad using ctrl+z (windows) / command+z(mac) ).
+
+- Update core Painting function.
+
+- demo
+<iframe 
+src="../_static/video/drawing_demo.mp4" 
+scrolling="no" 
+border="0" 
+frameborder="no" 
+framespacing="0" 
+allowfullscreen="true" 
+height=600 
+width=800> 
+</iframe>
