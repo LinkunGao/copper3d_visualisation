@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { CameraViewPoint } from "../Controls/copperControls";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
@@ -11,7 +12,7 @@ import { GUI } from "dat.gui";
 import { nrrdMeshesType, nrrdSliceType, vtkModels } from "../types/types";
 
 export default class copperScene extends baseScene {
-  controls: TrackballControls;
+  controls: TrackballControls | OrbitControls;
   clock: THREE.Clock = new THREE.Clock();
   // isHalfed: boolean = false;
 
@@ -24,10 +25,15 @@ export default class copperScene extends baseScene {
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
     super(container, renderer);
-    this.controls = new TrackballControls(
-      this.camera,
-      this.renderer.domElement
-    );
+    // this.controls = new TrackballControls(
+    //   this.camera,
+    //   this.renderer.domElement
+    // );
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN,
+    };
     window.addEventListener("resize", this.onWindowResize, false);
   }
 
