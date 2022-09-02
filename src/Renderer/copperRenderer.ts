@@ -9,7 +9,7 @@ import {
 export default class copperRenderer extends baseRenderer {
   private sceneMap: SceneMapType = {};
 
-  private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
+  // private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
 
   constructor(container: HTMLDivElement, options?: optType) {
     super(container, options);
@@ -41,15 +41,15 @@ export default class copperRenderer extends baseRenderer {
     }
   }
 
-  addPreRenderCallbackFunction(callbackFunction: Function) {
-    const id = this.preRenderCallbackFunctions.length + 1;
-    const preCallback: preRenderCallbackFunctionType = {
-      id,
-      callback: callbackFunction,
-    };
-    this.preRenderCallbackFunctions.push(preCallback);
-    return id;
-  }
+  // addPreRenderCallbackFunction(callbackFunction: Function) {
+  //   const id = this.preRenderCallbackFunctions.length + 1;
+  //   const preCallback: preRenderCallbackFunctionType = {
+  //     id,
+  //     callback: callbackFunction,
+  //   };
+  //   this.preRenderCallbackFunctions.push(preCallback);
+  //   return id;
+  // }
 
   onWindowResize() {}
   animate = () => {
@@ -59,8 +59,8 @@ export default class copperRenderer extends baseRenderer {
   };
   render() {
     this.currentScene.render();
-    this.preRenderCallbackFunctions.forEach((item) => {
-      item.callback.call(null);
-    });
+    // this.preRenderCallbackFunctions.forEach((item) => {
+    //   item.callback.call(null);
+    // });
   }
 }
