@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import getVOILUT from "../Utils/getVOILUT";
 import { unzipSync } from "three/examples/jsm/libs/fflate.module.min";
-import * as dicomParser from "dicom-parser";
+import dicomParser from "dicom-parser";
 
 export function copperDicomLoader(
   url: string,
