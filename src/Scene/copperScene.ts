@@ -7,9 +7,16 @@ import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { pickModelDefault } from "../Utils/raycaster";
 import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
 import { copperVtkLoader, copperMultipleVtk } from "../Loader/copperVtkLoader";
+import { createTexture2D_Array, createTexture2D_Zip } from "../Utils/texture2d";
 import baseScene from "./baseScene";
 import { GUI } from "dat.gui";
-import { nrrdMeshesType, nrrdSliceType, vtkModels } from "../types/types";
+import { copperDicomLoader } from "../Loader/copperDicomLoader";
+import {
+  preRenderCallbackFunctionType,
+  nrrdMeshesType,
+  nrrdSliceType,
+  vtkModels,
+} from "../types/types";
 
 export default class copperScene extends baseScene {
   controls: TrackballControls;
@@ -22,6 +29,10 @@ export default class copperScene extends baseScene {
   private clipAction: any;
   // rayster pick
   private pickableObjects: THREE.Mesh[] = [];
+  // texture2d
+  private depthStep: number = 0.4;
+  private texture2dMesh: THREE.Mesh | null = null;
+  private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
     super(container, renderer);
@@ -196,6 +207,119 @@ export default class copperScene extends baseScene {
     );
   }
 
+  // dicom
+  loadDicom(urls: string | Array<string>) {
+    if (Array.isArray(urls)) {
+      const depth: number = urls.length;
+
+      let unit8Arrays: Array<Uint8ClampedArray> = [];
+      urls.forEach((url) => {
+        copperDicomLoader(url, (tags, w, h, uint8) => {
+          unit8Arrays.push(uint8);
+          if (unit8Arrays.length === depth) {
+            finishLoad(unit8Arrays, w, h);
+          }
+        });
+      });
+
+      const finishLoad = (
+        arrays: Array<Uint8ClampedArray>,
+        w: number,
+        h: number
+      ) => {
+        const uint8 = new Uint8ClampedArray(w * h * depth);
+        // console.log(arrays);
+        // console.log(w, h);
+        // console.log(uint8);
+        let baseIndex = 0;
+        arrays.forEach((array, index) => {
+          baseIndex = index * w * h;
+          for (let i = 0; i < array.length; i++) {
+            uint8[i + baseIndex] = array[i];
+          }
+        });
+        // console.log(uint8);
+        createTexture2D_Array(uint8, w, h, depth, this.scene);
+        const textureInterval = setInterval(() => {
+          this.scene.children.forEach((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              if (child.name === "texture2d_mesh_array") {
+                this.texture2dMesh = child as THREE.Mesh;
+
+                const render_texture2d = () => {
+                  if (this.texture2dMesh) {
+                    let value = (this.texture2dMesh.material as any).uniforms[
+                      "depth"
+                    ].value;
+
+                    value += this.depthStep;
+                    if (value > depth || value < 0.0) {
+                      if (value > 1.0) value = depth * 2.0 - value;
+                      if (value < 0.0) value = -value;
+
+                      this.depthStep = -this.depthStep;
+                    }
+
+                    (this.texture2dMesh.material as any).uniforms[
+                      "depth"
+                    ].value = value;
+                  }
+                };
+                this.addPreRenderCallbackFunction(render_texture2d);
+              }
+            }
+          });
+          if (this.texture2dMesh?.name === "texture2d_mesh_zip") {
+            clearInterval(textureInterval);
+          }
+        }, 500);
+      };
+    } else {
+      const url = urls;
+      copperDicomLoader(url, (tags, w, h, uint8) => {
+        console.log(tags);
+        createTexture2D_Array(uint8, w, h, 1, this.scene);
+      });
+    }
+  }
+  // texture2d
+  texture2d(url: string) {
+    createTexture2D_Zip(url, this.scene);
+
+    const textureInterval = setInterval(() => {
+      this.scene.children.forEach((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          if (child.name === "texture2d_mesh_zip") {
+            this.texture2dMesh = child as THREE.Mesh;
+
+            const render_texture2d = () => {
+              if (this.texture2dMesh) {
+                let value = (this.texture2dMesh.material as any).uniforms[
+                  "depth"
+                ].value;
+
+                value += this.depthStep;
+                if (value > 109.0 || value < 0.0) {
+                  if (value > 1.0) value = 109.0 * 2.0 - value;
+                  if (value < 0.0) value = -value;
+
+                  this.depthStep = -this.depthStep;
+                }
+
+                (this.texture2dMesh.material as any).uniforms["depth"].value =
+                  value;
+              }
+            };
+            this.addPreRenderCallbackFunction(render_texture2d);
+          }
+        }
+      });
+      if (this.texture2dMesh?.name === "texture2d_mesh_zip") {
+        clearInterval(textureInterval);
+      }
+    }, 500);
+  }
+
   getPlayRate() {
     return this.playRate;
   }
@@ -244,12 +368,27 @@ export default class copperScene extends baseScene {
     return this.mixer;
   }
 
+  addPreRenderCallbackFunction(callbackFunction: Function) {
+    const id = this.preRenderCallbackFunctions.length + 1;
+    const preCallback: preRenderCallbackFunctionType = {
+      id,
+      callback: callbackFunction,
+    };
+    this.preRenderCallbackFunctions.push(preCallback);
+    return id;
+  }
+
   render() {
     this.controls.update();
 
     if (this.modelReady) {
       this.mixer && this.mixer.update(this.clock.getDelta() * this.playRate);
     }
+
+    this.preRenderCallbackFunctions.forEach((item) => {
+      item.callback.call(null);
+    });
+    // console.log(this.texture2dMesh);
     this.renderer.render(this.scene, this.camera);
   }
 }

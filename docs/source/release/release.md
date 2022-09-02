@@ -444,3 +444,8 @@ width=800>
 ## Release v1.9.2
 
 - update CopperScene
+
+## Release v1.10.0
+
+- create a dicom loader
+- add render texture 2d method
