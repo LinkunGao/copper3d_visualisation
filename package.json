@@ -48,6 +48,8 @@
     "@types/three": "^0.140.0",
     "copper3d_plugin_heart_k": "^1.0.14",
     "dat.gui": "^0.7.9",
+    "dicom-parser": "^1.8.13",
+    "fflate": "^0.7.3",
     "glsl-blend-soft-light": "^1.0.5",
     "glsl-film-grain": "^1.0.4",
     "three": "^0.143.0"
