@@ -769,18 +769,14 @@ function paintOnCanvas(
   let lines: Array<mouseMovePositionType> = [];
 
   function resizePaintArea(factor: number) {
-    slice.repaint.call(slice);
-
     changedWidth = originWidth * factor;
     changedHeight = originHeight * factor;
     /**
      * clear canvas
      */
-
+    originCanvas.width = originCanvas.width;
     displayCanvas.width = displayCanvas.width;
-    displayCanvas.height = displayCanvas.height;
     drawingCanvas.width = drawingCanvas.width;
-    drawingCanvas.height = drawingCanvas.height;
     drawingCanvasLayer1.width = drawingCanvasLayer1.width;
     /**
      * resize canvas
@@ -794,6 +790,7 @@ function paintOnCanvas(
 
     drawingCanvasContainer.style.width = changedWidth + "px";
     drawingCanvasContainer.style.height = changedHeight + "px";
+    slice.repaint.call(slice);
     displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
     if (!paintedImage?.image) {
       if (images.x.length > 0) {

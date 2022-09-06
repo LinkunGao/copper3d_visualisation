@@ -453,3 +453,7 @@ width=800>
 ## Release v1.10.2
 
 - add contrast gui controller in painting function.
+
+## Release v1.10.3
+
+- fix contrast gui with wheel bug.
