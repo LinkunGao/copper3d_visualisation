@@ -449,3 +449,7 @@ width=800>
 
 - create a dicom loader
 - add render texture 2d method
+
+## Release v1.10.2
+
+- add contrast gui controller in painting function.
