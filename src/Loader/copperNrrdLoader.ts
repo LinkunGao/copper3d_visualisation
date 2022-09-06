@@ -595,8 +595,10 @@ function paintOnCanvas(
   controls: TrackballControls,
   modeFolder: GUI
 ) {
+  let readyToUpdate = true;
   const stateMode2 = {
     size: 1,
+    globalAlpha: 0.3,
     lineWidth: 2,
     color: "#f50a86",
     brush: false,
@@ -699,6 +701,7 @@ function paintOnCanvas(
       resetPaintArea();
       resizePaintArea(factor);
     });
+  modeFolder.add(stateMode2, "globalAlpha").min(0.1).max(1).step(0.01);
   modeFolder.addColor(stateMode2, "color");
   modeFolder.addColor(stateMode2, "fillColor");
   modeFolder.add(stateMode2, "lineWidth").min(1.7).max(3).step(0.01);
@@ -718,20 +721,62 @@ function paintOnCanvas(
   modeFolder.add(stateMode2, "clearAll");
   modeFolder.add(stateMode2, "undo");
   modeFolder.add(stateMode2, "downloadCurrentImage");
+  const contrast = modeFolder.addFolder("contrast");
+  contrast.open();
+  contrast
+    .add(slice.volume, "lowerThreshold", slice.volume.min, slice.volume.max, 1)
+    .name("Lower Threshold")
+    .onChange(() => {
+      readyToUpdate = false;
+    })
+    .onFinishChange(function () {
+      slice.volume.repaintAllSlices();
+      readyToUpdate = true;
+    });
+  contrast
+    .add(slice.volume, "upperThreshold", slice.volume.min, slice.volume.max, 1)
+    .name("Upper Threshold")
+    .onChange(() => {
+      readyToUpdate = false;
+    })
+    .onFinishChange(function () {
+      slice.volume.repaintAllSlices();
+      readyToUpdate = true;
+    });
+  contrast
+    .add(slice.volume, "windowLow", slice.volume.min, slice.volume.max, 1)
+    .name("Window Low")
+    .onChange(() => {
+      readyToUpdate = false;
+    })
+    .onFinishChange(function () {
+      slice.volume.repaintAllSlices();
+      readyToUpdate = true;
+    });
+  contrast
+    .add(slice.volume, "windowHigh", slice.volume.min, slice.volume.max, 1)
+    .name("Window High")
+    .onChange(() => {
+      readyToUpdate = false;
+    })
+    .onFinishChange(function () {
+      slice.volume.repaintAllSlices();
+      redrawDisplayCanvas();
+      readyToUpdate = true;
+    });
 
-  // let paint = false;
   let Is_Painting = false;
   let lines: Array<mouseMovePositionType> = [];
 
   function resizePaintArea(factor: number) {
     slice.repaint.call(slice);
-    // const size = Number(factor);
 
     changedWidth = originWidth * factor;
     changedHeight = originHeight * factor;
     /**
      * clear canvas
      */
+
     displayCanvas.width = displayCanvas.width;
     displayCanvas.height = displayCanvas.height;
     drawingCanvas.width = drawingCanvas.width;
@@ -970,17 +1015,31 @@ function paintOnCanvas(
   });
 
   function updateCanvas() {
-    slice.mesh.material.map.needsUpdate = true;
-    slice.repaint.call(slice);
-    drawingCtx.clearRect(0, 0, changedWidth, changedHeight);
-    drawingLayer1Ctx.lineCap = "round";
-    drawingLayer1Ctx.globalAlpha = 1;
-    drawingCtx.globalAlpha = 0.3;
+    if (readyToUpdate) {
+      slice.mesh.material.map.needsUpdate = true;
+      originCanvas.width = originCanvas.width;
+      slice.repaint.call(slice);
+      drawingCtx.clearRect(0, 0, changedWidth, changedHeight);
+      drawingLayer1Ctx.lineCap = "round";
+      drawingLayer1Ctx.globalAlpha = 1;
+      drawingCtx.globalAlpha = stateMode2.globalAlpha;
 
-    drawingCtx.drawImage(drawingCanvasLayer1, 0, 0);
-    originCanvas
-      .getContext("2d")
-      ?.drawImage(drawingCanvas, 0, 0, originCanvas.width, originCanvas.height);
+      drawingCtx.drawImage(drawingCanvasLayer1, 0, 0);
+      originCanvas
+        .getContext("2d")
+        ?.drawImage(
+          drawingCanvas,
+          0,
+          0,
+          originCanvas.width,
+          originCanvas.height
+        );
+    } else {
+      originCanvas.width = originCanvas.width;
+      slice.repaint.call(slice);
+      redrawDisplayCanvas();
+    }
+
     requestAnimationFrame(updateCanvas);
   }
 
@@ -988,7 +1047,7 @@ function paintOnCanvas(
 
   function clearAllPaint() {
     drawingCanvasLayer1.width = drawingCanvas.width;
-
+    originCanvas.width = originCanvas.width;
     slice.repaint.call(slice);
     previousDrawingImage.src = "";
     storeAllImages();
@@ -1026,6 +1085,11 @@ function paintOnCanvas(
     }
   }
 
+  function redrawDisplayCanvas() {
+    displayCanvas.width = displayCanvas.width;
+    displayCanvas.height = displayCanvas.height;
+    displayCtx?.drawImage(originCanvas, 0, 0, changedWidth, changedHeight);
+  }
   function resetPaintArea() {
     displayCanvas.style.left = drawingCanvas.style.left = "0px";
     displayCanvas.style.top = drawingCanvas.style.top = "0px";
