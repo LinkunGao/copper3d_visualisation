@@ -150,6 +150,18 @@ interface undoType {
   sliceIndex: number;
   undos: Array<HTMLImageElement>;
 }
+
+interface copperVolumeType {
+  tags: any;
+  width: number;
+  height: number;
+  windowCenter: number;
+  windowWidth: number;
+  invert: boolean;
+  uint16: Uint16Array;
+  uint8: Uint8ClampedArray;
+}
+
 export type {
   SceneMapType,
   optType,
@@ -173,4 +185,5 @@ export type {
   optionsGltfExporterType,
   vtkModels,
   undoType,
+  copperVolumeType,
 };

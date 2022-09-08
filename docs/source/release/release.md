@@ -457,3 +457,8 @@ width=800>
 ## Release v1.10.3
 
 - fix contrast gui with wheel bug.
+
+## Release v1.10.4
+
+- fixed switch slice bug
+- add control contrast gui on 2d dynamic image.
