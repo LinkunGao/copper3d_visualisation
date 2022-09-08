@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import getVOILUT from "../Utils/getVOILUT";
-import { unzipSync } from "three/examples/jsm/libs/fflate.module.min";
 import dicomParser from "dicom-parser";
+import { copperVolumeType } from "../types/types";
 
 export function copperDicomLoader(
   url: string,
-  callback?: (tags: any, w: number, h: number, uint8: Uint8ClampedArray) => void
+  callback?: (copperVolume: copperVolumeType) => void
 ) {
   const loader = new THREE.FileLoader().setResponseType("arraybuffer");
   loader.load(url, (arrayBuffer) => {
@@ -35,11 +35,21 @@ export function copperDicomLoader(
     for (let i = 0, len = uint16.length; i < len; i++) {
       uint8[i] = lut.lutArray[uint16[i]];
     }
-    callback && callback(tags, w, h, uint8);
+    const copperVolume: copperVolumeType = {
+      tags,
+      width: w,
+      height: h,
+      windowCenter,
+      windowWidth,
+      invert,
+      uint16,
+      uint8,
+    };
+    callback && callback(copperVolume);
   });
 }
 
-function getLut(
+export function getLut(
   data: Uint16Array,
   windowWidth: number,
   windowCenter: number,

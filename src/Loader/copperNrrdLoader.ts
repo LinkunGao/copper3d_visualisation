@@ -450,6 +450,7 @@ export function dragImageWithMode(
          */
         slice.repaint.call(slice);
         drawingCanvasLayer1.width = drawingCanvasLayer1.width;
+        displayCanvas.width = displayCanvas.width;
 
         if (changedWidth === 0) {
           changedWidth = originWidth;

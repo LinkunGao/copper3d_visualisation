@@ -16,6 +16,7 @@ import {
   nrrdMeshesType,
   nrrdSliceType,
   vtkModels,
+  copperVolumeType,
 } from "../types/types";
 
 export default class copperScene extends baseScene {
@@ -30,7 +31,7 @@ export default class copperScene extends baseScene {
   // rayster pick
   private pickableObjects: THREE.Mesh[] = [];
   // texture2d
-  private depthStep: number = 0.4;
+  private depthStep: number = 0.04;
   private texture2dMesh: THREE.Mesh | null = null;
   private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
 
@@ -208,38 +209,48 @@ export default class copperScene extends baseScene {
   }
 
   // dicom
-  loadDicom(urls: string | Array<string>) {
+  loadDicom(urls: string | Array<string>, gui?: GUI) {
     if (Array.isArray(urls)) {
       const depth: number = urls.length;
 
       let unit8Arrays: Array<Uint8ClampedArray> = [];
+      let unit16Arrays: Array<Uint16Array> = [];
       urls.forEach((url) => {
-        copperDicomLoader(url, (tags, w, h, uint8) => {
-          unit8Arrays.push(uint8);
+        copperDicomLoader(url, (copperVolume) => {
+          unit8Arrays.push(copperVolume.uint8);
+          unit16Arrays.push(copperVolume.uint16);
           if (unit8Arrays.length === depth) {
-            finishLoad(unit8Arrays, w, h);
+            const uint8 = new Uint8ClampedArray(
+              copperVolume.width * copperVolume.height * depth
+            );
+            const uint16 = new Uint16Array(uint8.length);
+            let base8Index = 0;
+            let base16Index = 0;
+            unit8Arrays.forEach((array, index) => {
+              base8Index = index * copperVolume.width * copperVolume.height;
+              for (let i = 0; i < array.length; i++) {
+                uint8[i + base8Index] = array[i];
+              }
+            });
+            unit16Arrays.forEach((array, index) => {
+              base16Index = index * copperVolume.width * copperVolume.height;
+              for (let i = 0; i < array.length; i++) {
+                uint16[i + base16Index] = array[i];
+              }
+            });
+
+            copperVolume.uint8 = uint8;
+            copperVolume.uint16 = uint16;
+
+            finishLoad(copperVolume);
           }
         });
       });
 
-      const finishLoad = (
-        arrays: Array<Uint8ClampedArray>,
-        w: number,
-        h: number
-      ) => {
-        const uint8 = new Uint8ClampedArray(w * h * depth);
-        // console.log(arrays);
-        // console.log(w, h);
-        // console.log(uint8);
-        let baseIndex = 0;
-        arrays.forEach((array, index) => {
-          baseIndex = index * w * h;
-          for (let i = 0; i < array.length; i++) {
-            uint8[i + baseIndex] = array[i];
-          }
-        });
-        // console.log(uint8);
-        createTexture2D_Array(uint8, w, h, depth, this.scene);
+      const finishLoad = (copperVolume: copperVolumeType) => {
+        if (gui)
+          gui.add(this, "depthStep").min(0.00001).max(0.04).step(0.00001);
+        createTexture2D_Array(copperVolume, depth, this.scene, gui);
         const textureInterval = setInterval(() => {
           this.scene.children.forEach((child) => {
             if ((child as THREE.Mesh).isMesh) {
@@ -276,9 +287,9 @@ export default class copperScene extends baseScene {
       };
     } else {
       const url = urls;
-      copperDicomLoader(url, (tags, w, h, uint8) => {
-        console.log(tags);
-        createTexture2D_Array(uint8, w, h, 1, this.scene);
+      copperDicomLoader(url, (copperVolume) => {
+        console.log(copperVolume.tags);
+        // createTexture2D_Array(copperVolume, 1, this.scene);
       });
     }
   }

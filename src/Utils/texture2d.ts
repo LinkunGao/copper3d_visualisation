@@ -1,5 +1,8 @@
 import * as THREE from "three";
 import { unzipSync } from "fflate";
+import { getLut } from "../Loader/copperDicomLoader";
+import { copperVolumeType } from "../types/types";
+import { GUI } from "dat.gui";
 import vert_2d from "../lib/shader/texture2d_vertex.glsl";
 import frag_2d from "../lib/shader/texture2d_frag.glsl";
 
@@ -38,18 +41,45 @@ export function createTexture2D_Zip(url: string, scene: THREE.Scene) {
 }
 
 export function createTexture2D_Array(
-  array: Uint8ClampedArray,
-  w: number,
-  h: number,
+  copperVolume: copperVolumeType,
   depth: number,
-  scene: THREE.Scene
+  scene: THREE.Scene,
+  gui?: GUI
 ) {
-  planeWidth = w / 2;
-  planeHeight = h / 2;
+  planeWidth = copperVolume.width / 2;
+  planeHeight = copperVolume.height / 2;
 
-  const texture = new THREE.DataArrayTexture(array, w, h, depth);
+  const state = {
+    windowWidth: copperVolume.windowWidth,
+    windowCenter: copperVolume.windowCenter,
+  };
+
+  const texture = new THREE.DataArrayTexture(
+    copperVolume.uint8,
+    copperVolume.width,
+    copperVolume.height,
+    depth
+  );
   texture.format = THREE.RedFormat;
   texture.needsUpdate = true;
+  if (gui) {
+    gui
+      .add(state, "windowWidth")
+      .min(1)
+      .max(copperVolume.windowWidth * 2)
+      .step(1)
+      .onChange(() => {
+        updateTexture();
+      });
+    gui
+      .add(state, "windowCenter")
+      .min(1)
+      .max(copperVolume.windowCenter * 2)
+      .step(1)
+      .onChange(() => {
+        updateTexture();
+      });
+  }
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -68,4 +98,19 @@ export function createTexture2D_Array(
   const mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
   mesh.name = "texture2d_mesh_array";
+
+  function updateTexture() {
+    let voiLUT;
+    let lut = getLut(
+      copperVolume.uint16,
+      state.windowWidth,
+      state.windowCenter,
+      copperVolume.invert,
+      voiLUT
+    );
+    for (let i = 0, len = copperVolume.uint16.length; i < len; i++) {
+      copperVolume.uint8[i] = lut.lutArray[copperVolume.uint16[i]];
+    }
+    texture.needsUpdate = true;
+  }
 }
