@@ -39,6 +39,7 @@
 
   ```ts
   import { GUI } from "dat.gui";
+  import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
   import * as Copper from "copper3d_visualisation";
   import "copper3d_visualisation/dist/css/style.css";
   import { getCurrentInstance, onMounted } from "vue";
@@ -47,6 +48,7 @@
   let bg: HTMLDivElement;
   let appRenderer: Copper.copperMSceneRenderer;
   let c_gui: HTMLDivElement;
+  let nrrdTools;
 
   onMounted(() => {
     let { $refs } = (getCurrentInstance() as any).proxy;
@@ -114,10 +116,16 @@
       /**
        * enable drag function, with optional parameter mode1, and show slice number div.
        */
-      appRenderer.sceneInfos[1].dragImage(nrrdSlices.z, {
-        mode: "mode1",
-        showNumber: true,
-      });
+      nrrdTools = new Copper.nrrd_tools(volume, nrrdSlices.z);
+
+      nrrdTools.dragImageWithMode(
+        sceneIn.container,
+        sceneIn.controls as TrackballControls,
+        {
+          mode: "mode1",
+          showNumber: true,
+        }
+      );
     };
     if (sceneIn) {
       sceneIn?.loadNrrd(url, funa, opts);

@@ -11,11 +11,7 @@ import {
   convert3DPostoScreenPos,
   convertScreenPosto3DPos,
 } from "./Utils/add3DLabel";
-import {
-  addBoxHelper,
-  optsType,
-  loadDrawMode1Texture,
-} from "./Loader/copperNrrdLoader";
+import { addBoxHelper, optsType } from "./Loader/copperNrrdLoader";
 import { fullScreenListenner } from "./Utils/utils";
 import copperRendererOnDemond from "./Renderer/copperRendererOnDemond";
 import copperSceneOnDemond from "./Scene/copperSceneOnDemond";
@@ -24,6 +20,7 @@ import copperMScene from "./Scene/copperMScene";
 
 import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
+import { nrrd_tools } from "./Utils/nrrd_tool";
 
 import {
   nrrdMeshesType,
@@ -36,7 +33,7 @@ import {
 import "./css/style.css";
 
 console.log(
-  "%cMedtech Heart Plugin %cBeta:v1.10.4",
+  "%cMedtech Heart Plugin %cBeta:v1.10.5",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
@@ -50,7 +47,6 @@ export {
   convert3DPostoScreenPos,
   convertScreenPosto3DPos,
   addBoxHelper,
-  loadDrawMode1Texture,
   fullScreenListenner,
   configKiwriousHeart,
   copperScene,
@@ -58,6 +54,7 @@ export {
   copperMScene,
   CameraViewPoint,
   kiwrious,
+  nrrd_tools,
 };
 
 export type {
