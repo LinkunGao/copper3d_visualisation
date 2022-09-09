@@ -462,3 +462,33 @@ width=800>
 
 - fixed switch slice bug
 - add control contrast gui on 2d dynamic image.
+
+## Release v1.10.5
+
+- Refactoring paint code
+- delete drag and draw funtion in copperMScene
+- now use `new Copper.nrrd_tools()`
+
+  ```ts
+  nrrdTools = new Copper.nrrd_tools(volume, nrrdSlices.z);
+  /**
+   * for drag image
+   * */
+  nrrdTools.dragImageWithMode(
+    sceneIn.container,
+    sceneIn.controls as TrackballControls,
+    {
+      mode: "mode1",
+      showNumber: true,
+    }
+  );
+  /**
+   * for draw image
+   * */
+  nrrdTools.draw(
+    sceneIn.container,
+    sceneIn.controls as TrackballControls,
+    sceneIn,
+    sceneIn.gui
+  );
+  ```

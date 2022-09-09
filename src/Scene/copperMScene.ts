@@ -13,13 +13,10 @@ import {
   mouseMovePositionType,
   positionType,
   nrrdSliceType,
-  nrrdDragImageOptType,
 } from "../types/types";
 import {
   copperNrrdLoader,
   copperNrrdLoader1,
-  dragImageWithMode,
-  draw,
   getWholeSlices,
   optsType,
 } from "../Loader/copperNrrdLoader";
@@ -317,26 +314,6 @@ export default class copperMScene {
     this.controls.enablePan = false;
     this.renderNrrdVolume = true;
     copperNrrdLoader1(url, this.scene, this.container, callback);
-  }
-
-  dragImage(slice: any, opts?: nrrdDragImageOptType) {
-    dragImageWithMode(
-      this.container,
-      this.controls as TrackballControls,
-      slice,
-      this.gui,
-      opts
-    );
-  }
-
-  drawImage(slice: any, sceneIn: copperMScene) {
-    draw(
-      this.container,
-      this.controls as TrackballControls,
-      sceneIn,
-      slice,
-      this.gui
-    );
   }
 
   drawWholeNrrd(nrrdSlices: nrrdSliceType) {
