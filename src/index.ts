@@ -12,7 +12,7 @@ import {
   convertScreenPosto3DPos,
 } from "./Utils/add3DLabel";
 import { addBoxHelper, optsType } from "./Loader/copperNrrdLoader";
-import { fullScreenListenner } from "./Utils/utils";
+import { fullScreenListenner, loading } from "./Utils/utils";
 import copperRendererOnDemond from "./Renderer/copperRendererOnDemond";
 import copperSceneOnDemond from "./Scene/copperSceneOnDemond";
 import copperMSceneRenderer from "./Renderer/copperMSceneRenderer";
@@ -28,12 +28,13 @@ import {
   SensorDecodedValue_kiwrious,
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,
+  loadingBarType,
 } from "./types/types";
 
 import "./css/style.css";
 
 console.log(
-  "%cMedtech Heart Plugin %cBeta:v1.10.5",
+  "%cMedtech Heart Plugin %cBeta:v1.11.0",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
@@ -55,6 +56,7 @@ export {
   CameraViewPoint,
   kiwrious,
   nrrd_tools,
+  loading,
 };
 
 export type {
@@ -66,4 +68,5 @@ export type {
   SensorDecodedValue_kiwrious,
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,
+  loadingBarType,
 };

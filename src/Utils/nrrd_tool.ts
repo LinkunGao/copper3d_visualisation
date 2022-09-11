@@ -13,27 +13,35 @@ import { throttle } from "../Utils/raycaster";
 
 export class nrrd_tools {
   volume: any;
+  paintImages: paintImagesType = { x: [], y: [], z: [] };
+  container: HTMLDivElement;
+  drawingCanvasContainer: HTMLDivElement = document.createElement("div");
+  mainDisplayArea: HTMLDivElement = document.createElement("div");
+  contrast1Area: HTMLDivElement = document.createElement("div");
+  contrast2Area: HTMLDivElement = document.createElement("div");
+  contrast3Area: HTMLDivElement = document.createElement("div");
+  contrast4Area: HTMLDivElement = document.createElement("div");
+
   private slice: any;
-  private axis: string;
+  private axis: string = "";
   private originWidth: number = 0;
   private originHeight: number = 0;
   private changedWidth: number = 0;
   private changedHeight: number = 0;
   private Is_Shift_Pressed: boolean = false;
   private Is_Draw: boolean = false;
+
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
   private drawingCanvasLayer1: HTMLCanvasElement =
     document.createElement("canvas");
-  private drawingCanvasContainer: HTMLDivElement =
-    document.createElement("div");
-  private originCanvas: HTMLCanvasElement;
+  private originCanvas: HTMLCanvasElement | any;
+
   private displayCtx: CanvasRenderingContext2D;
   private drawingCtx: CanvasRenderingContext2D;
   private drawingLayer1Ctx: CanvasRenderingContext2D;
-  private downloadImage: HTMLAnchorElement = document.createElement("a");
 
-  paintImages: paintImagesType = { x: [], y: [], z: [] };
+  private downloadImage: HTMLAnchorElement = document.createElement("a");
   private previousDrawingImage: HTMLImageElement = new Image();
   private paintedImage: paintImageType | undefined;
   private readyToUpdate: boolean = true;
@@ -63,8 +71,9 @@ export class nrrd_tools {
     },
   };
 
-  constructor(volume: any, slice: any) {
-    this.volume = volume;
+  constructor(container: HTMLDivElement) {
+    this.container = container;
+    this.container.appendChild(this.mainDisplayArea);
     this.displayCtx = this.displayCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
@@ -74,27 +83,59 @@ export class nrrd_tools {
     this.drawingLayer1Ctx = this.drawingCanvasLayer1.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
-
-    this.slice = slice;
-    this.axis = this.slice.axis;
-    this.originCanvas = this.slice.canvas;
     this.init();
   }
   private init() {
+    this.mainDisplayArea.classList.add("copper3D_display_area");
+    this.contrast1Area.classList.add("copper3D_display_area");
+    this.contrast2Area.classList.add("copper3D_display_area");
+    this.contrast3Area.classList.add("copper3D_display_area");
+    this.contrast4Area.classList.add("copper3D_display_area");
+    this.mainDisplayArea.classList.add("copper3D_mainDisplay");
+    this.contrast1Area.classList.add("copper3D_contrast1");
+    this.contrast2Area.classList.add("copper3D_contrast2");
+    this.contrast3Area.classList.add("copper3D_contrast3");
+    this.contrast4Area.classList.add("copper3D_contrast4");
+
+    this.mainDisplayArea.appendChild(this.drawingCanvasContainer);
+
     this.downloadImage.href = "";
     this.downloadImage.target = "_blank";
+    this.drawingCanvasContainer.className = "copper3D_drawingCanvasContainer";
+  }
+
+  private afterLoadSlice() {
+    this.axis = this.slice.axis;
+    this.originCanvas = this.slice.canvas;
     this.undoArray = [{ sliceIndex: this.slice.index, undos: [] }];
   }
 
-  dragImageWithMode(
-    container: HTMLDivElement,
-    controls: TrackballControls,
-    opts?: nrrdDragImageOptType
-  ) {
+  setVolume(volume: any) {
+    this.volume = volume;
+    this.afterLoadSlice();
+  }
+  setSlice(slice: any) {
+    this.slice = slice;
+    this.afterLoadSlice();
+  }
+  setVolumeAndSlice(volume: any, slice: any) {
+    this.volume = volume;
+    this.slice = slice;
+
+    this.afterLoadSlice();
+  }
+  addContrastDisplay() {
+    this.container.appendChild(this.contrast1Area);
+    this.container.appendChild(this.contrast2Area);
+    this.container.appendChild(this.contrast3Area);
+    this.container.appendChild(this.contrast4Area);
+  }
+
+  dragImageWithMode(controls: TrackballControls, opts?: nrrdDragImageOptType) {
     let oldIndex: number = this.slice.index;
     let move: number;
     let y: number;
-    let h: number = container.offsetHeight;
+    let h: number = this.container.offsetHeight;
     let max: number = 0;
     let min: number = 0;
     let showNumberDiv: HTMLDivElement;
@@ -102,12 +143,10 @@ export class nrrd_tools {
     let handleOnMouseDown: (ev: MouseEvent) => void;
     let handleOnMouseMove: (ev: MouseEvent) => void;
 
-    console.log(this.slice);
-
     this.originWidth = this.slice.canvas.width;
     this.originHeight = this.slice.canvas.height;
 
-    container.tabIndex = 1;
+    this.container.tabIndex = 1;
 
     switch (this.slice.axis) {
       case "x":
@@ -124,29 +163,37 @@ export class nrrd_tools {
     if (opts?.showNumber) {
       showNumberDiv = this.createShowSliceNumberDiv();
       showNumberDiv.innerHTML = `Slice number: ${this.slice.index}/${max}`;
-      container.appendChild(showNumberDiv);
+      this.container.appendChild(showNumberDiv);
     }
 
-    container.addEventListener("keydown", (ev: KeyboardEvent) => {
+    this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
       if (ev.key === "Shift") {
         controls.enabled = false;
-        container.style.cursor = "pointer";
+        this.container.style.cursor = "pointer";
         this.Is_Shift_Pressed = true;
-        container.addEventListener("mousedown", handleOnMouseDown, false);
-        container.addEventListener("mouseup", handleOnMouseUp, false);
+        this.container.addEventListener("mousedown", handleOnMouseDown, false);
+        this.container.addEventListener("mouseup", handleOnMouseUp, false);
       }
     });
 
-    container.addEventListener("keyup", (ev: KeyboardEvent) => {
+    this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
       if (ev.key === "Shift") {
         if (!this.Is_Draw) {
           controls.enabled = true;
         }
-        container.style.cursor = "";
+        this.container.style.cursor = "";
         this.Is_Shift_Pressed = false;
-        container.removeEventListener("mousedown", handleOnMouseDown, false);
-        container.removeEventListener("mouseup", handleOnMouseUp, false);
-        container.removeEventListener("mousemove", handleOnMouseMove, false);
+        this.container.removeEventListener(
+          "mousedown",
+          handleOnMouseDown,
+          false
+        );
+        this.container.removeEventListener("mouseup", handleOnMouseUp, false);
+        this.container.removeEventListener(
+          "mousemove",
+          handleOnMouseMove,
+          false
+        );
       }
     });
 
@@ -177,7 +224,7 @@ export class nrrd_tools {
     } else {
       handleOnMouseDown = (ev: MouseEvent) => {
         y = ev.offsetY / h;
-        container.addEventListener("mousemove", handleOnMouseMove, false);
+        this.container.addEventListener("mousemove", handleOnMouseMove, false);
         oldIndex = this.slice.index;
       };
       handleOnMouseMove = (ev: MouseEvent) => {
@@ -189,7 +236,11 @@ export class nrrd_tools {
         updateIndex();
       };
       handleOnMouseUp = (ev: MouseEvent) => {
-        container.removeEventListener("mousemove", handleOnMouseMove, false);
+        this.container.removeEventListener(
+          "mousemove",
+          handleOnMouseMove,
+          false
+        );
       };
     }
 
@@ -260,16 +311,9 @@ export class nrrd_tools {
     };
   }
 
-  draw(
-    container: HTMLDivElement,
-    controls: TrackballControls,
-    sceneIn: copperMScene,
-    gui: GUI
-  ) {
+  draw(controls: TrackballControls, sceneIn: copperMScene, gui: GUI) {
     let modeFolder: GUI;
     let subViewFolder: GUI;
-    container.appendChild(this.drawingCanvasContainer);
-    this.drawingCanvasContainer.className = "copper3D_drawingCanvasContainer";
 
     const state = {
       subView: true,

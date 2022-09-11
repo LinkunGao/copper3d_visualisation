@@ -17,6 +17,7 @@ import {
   nrrdSliceType,
   vtkModels,
   copperVolumeType,
+  loadingBarType,
 } from "../types/types";
 
 export default class copperScene extends baseScene {
@@ -92,6 +93,7 @@ export default class copperScene extends baseScene {
 
   loadNrrd(
     url: string,
+    loadingBar: loadingBarType,
     callback?: (
       volume: any,
       nrrdMeshes: nrrdMeshesType,
@@ -100,7 +102,7 @@ export default class copperScene extends baseScene {
     ) => void,
     opts?: optsType
   ) {
-    copperNrrdLoader(url, this.scene, this.container, callback, opts);
+    copperNrrdLoader(url, loadingBar, callback, opts);
   }
 
   loadVtk(url: string) {
