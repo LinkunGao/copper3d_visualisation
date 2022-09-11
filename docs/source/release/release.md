@@ -492,3 +492,30 @@ width=800>
     sceneIn.gui
   );
   ```
+
+## Release v1.11.0
+
+- update loading function
+  - now we need to create the loading manunally, and we can specify where it appears.
+  ```ts
+  let loadBar: Copper.loadingBarType;
+  loadBar = Copper.loading();
+  nrrdTools.mainDisplayArea.appendChild(loadBar.loadingContainer);
+  sceneIn?.loadNrrd(url, loadBar, funa);
+  ```
+- Update nrrdTools
+
+  - add show contrast display
+
+  ```ts
+  let nrrdTools: Copper.nrrd_tools;
+  nrrdTools = new Copper.nrrd_tools(appRenderer.sceneInfos[0].container);
+  nrrdTools.addContrastDisplay();
+  nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z);
+
+  nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
+    mode: "mode1",
+    showNumber: true,
+  });
+  nrrdTools.draw(sceneIn.controls as TrackballControls, sceneIn, sceneIn.gui);
+  ```

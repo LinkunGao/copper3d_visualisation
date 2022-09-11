@@ -50,7 +50,7 @@ export function loading() {
   let loadingContainer = document.createElement("div");
   const loadingDiv = document.createElement("div");
   let progress = document.createElement("div");
-  // loadingContainer.style.position = "absolute";
+  loadingContainer.style.position = "relative";
   // loadingContainer.style.top = "50%";
   // loadingContainer.style.left = "50%";
   loadingContainer.style.display = "none";

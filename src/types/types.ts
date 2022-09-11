@@ -52,6 +52,10 @@ interface nrrdSliceType {
   y: any;
   z: any;
 }
+interface loadingBarType {
+  loadingContainer: HTMLDivElement;
+  progress: HTMLDivElement;
+}
 
 type nrrdModeType = "mode0" | "mode1";
 
@@ -173,6 +177,7 @@ export type {
   nrrdSliceType,
   nrrdModeType,
   nrrdDragImageOptType,
+  loadingBarType,
   SensorDecodedValue_kiwrious,
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,

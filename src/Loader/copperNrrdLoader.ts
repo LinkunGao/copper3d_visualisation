@@ -5,7 +5,7 @@ import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
 import cm_gray from "../css/images/cm_gray.png";
 import cm_viridis from "../css/images/cm_viridis.png";
 import { GUI } from "dat.gui";
-import { nrrdMeshesType, nrrdSliceType } from "../types/types";
+import { nrrdMeshesType, nrrdSliceType, loadingBarType } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
@@ -26,8 +26,7 @@ export interface optsType {
 
 export function copperNrrdLoader(
   url: string,
-  scene: THREE.Scene,
-  container: HTMLDivElement,
+  loadingBar: loadingBarType,
   callback?: (
     volume: any,
     nrrdMeshes: nrrdMeshesType,
@@ -40,8 +39,8 @@ export function copperNrrdLoader(
   let nrrdMeshes: nrrdMeshesType;
   let nrrdSlices: nrrdSliceType;
 
-  let { loadingContainer, progress } = loading();
-  container.appendChild(loadingContainer);
+  let { loadingContainer, progress } = loadingBar;
+  // container.appendChild(loadingContainer);
 
   loader.load(
     url,
@@ -64,7 +63,6 @@ export function copperNrrdLoader(
         Math.floor(volume.RASDimensions[0] / 2)
       );
 
-      console.log(volume);
       nrrdMeshes = {
         x: sliceX.mesh,
         y: sliceY.mesh,

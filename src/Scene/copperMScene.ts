@@ -13,6 +13,7 @@ import {
   mouseMovePositionType,
   positionType,
   nrrdSliceType,
+  loadingBarType,
 } from "../types/types";
 import {
   copperNrrdLoader,
@@ -277,6 +278,7 @@ export default class copperMScene {
 
   loadNrrd(
     url: string,
+    loadingBar: loadingBarType,
     callback?: (
       volume: any,
       nrrdMeshes: nrrdMeshesType,
@@ -285,7 +287,7 @@ export default class copperMScene {
     ) => void,
     opts?: optsType
   ) {
-    copperNrrdLoader(url, this.scene, this.container, callback, opts);
+    copperNrrdLoader(url, loadingBar, callback, opts);
   }
 
   loadNrrd1(url: string, callback?: (volume: any, gui?: GUI) => void) {
