@@ -1,4 +1,4 @@
-# Draw Image on Nrrd Slice
+# Draw Image on Nrrd Slice (outdated)
 
 - html
 

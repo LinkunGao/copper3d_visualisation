@@ -1,4 +1,4 @@
-# Drag and Reset Nrrd image
+# Drag and Reset Nrrd image (outdated)
 
 - setup html
 

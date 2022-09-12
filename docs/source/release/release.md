@@ -518,6 +518,7 @@ width=800>
     showNumber: true,
   });
   nrrdTools.draw(sceneIn.controls as TrackballControls, sceneIn, sceneIn.gui);
+  appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
   ```
 
 ## Release v1.11.1
@@ -572,3 +573,34 @@ width=800>
 
 - design drag function for contrast area
 - design change contrast value function
+
+## Release v1.11.3
+
+- update copperMScene controls
+
+  - now we can switch the controls outside by using `setControls(1)`
+    - 0: OrbitControls
+    - other numbers: TrackballControls.
+
+  ```ts
+  appRenderer.sceneInfos[0].setControls(1);
+  ```
+
+  - the default controls is OrbitControls now.
+  - if when you switch to TrackballControls, the speed is not that you want, you can adjust it outside by using e.g, `.rotateSpeed = 0.1`.
+
+- In order to improve the paint performance, remove the requestAnimationFrame function from paint method. Then add `addPreRenderCallbackFunction` in copperMScene. Now when we use nrrd_tools class, after we call the draw function, we need to put the `nrrdTools.start` in addPreRenderCallbackFunction array to call it in requestAnimationFrame
+
+```ts
+let nrrdTools: Copper.nrrd_tools;
+nrrdTools = new Copper.nrrd_tools(appRenderer.sceneInfos[0].container);
+nrrdTools.addContrastDisplay();
+nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z);
+
+nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
+  mode: "mode1",
+  showNumber: true,
+});
+nrrdTools.draw(sceneIn.controls as TrackballControls, sceneIn, sceneIn.gui);
+appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
+```
