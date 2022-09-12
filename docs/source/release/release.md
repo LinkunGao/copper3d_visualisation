@@ -567,3 +567,8 @@ width=800>
   ```
 - result
   ![](../_static/images/release_1_11_1.jpg)
+
+## Release v1.11.2
+
+- design drag function for contrast area
+- design change contrast value function
