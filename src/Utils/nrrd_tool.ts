@@ -67,6 +67,7 @@ export class nrrd_tools {
   private previousDrawingImage: HTMLImageElement = new Image();
   private paintedImage: paintImageType | undefined;
   private readyToUpdate: boolean = true;
+  private addContrastArea: boolean = false;
   /**
    * undo
    */
@@ -176,8 +177,9 @@ export class nrrd_tools {
     this.container.appendChild(this.contrast2Area);
     this.container.appendChild(this.contrast3Area);
     this.container.appendChild(this.contrast4Area);
+    this.addContrastArea = true;
   }
-  private initDiplayContrastCavas(
+  private initDiplayContrastCanvas(
     contrastCanvas: HTMLCanvasElement,
     contrastCtx: CanvasRenderingContext2D,
     contrastOrigin: HTMLCanvasElement
@@ -197,7 +199,7 @@ export class nrrd_tools {
     const p = document.createElement("p");
     p.innerText = text;
     p.style.position = "absolute";
-    p.style.bottom = "10px";
+    p.style.bottom = "5px";
     return p;
   }
   setContrastSize(width: number, height: number) {
@@ -207,7 +209,7 @@ export class nrrd_tools {
   setContrast1OriginCanvas(slice: any) {
     this.contrast1Slice = slice;
     this.contrast1OriginCanvas = this.contrast1Slice.canvas;
-    this.initDiplayContrastCavas(
+    this.initDiplayContrastCanvas(
       this.displayContrast1Canvas,
       this.displayContrast1Ctx,
       this.contrast1OriginCanvas
@@ -217,7 +219,7 @@ export class nrrd_tools {
   setContrast2OriginCanvas(slice: any) {
     this.contrast2Slice = slice;
     this.contrast2OriginCanvas = this.contrast2Slice.canvas;
-    this.initDiplayContrastCavas(
+    this.initDiplayContrastCanvas(
       this.displayContrast2Canvas,
       this.displayContrast2Ctx,
       this.contrast2OriginCanvas
@@ -227,7 +229,7 @@ export class nrrd_tools {
   setContrast3OriginCanvas(slice: any) {
     this.contrast3Slice = slice;
     this.contrast3OriginCanvas = this.contrast3Slice.canvas;
-    this.initDiplayContrastCavas(
+    this.initDiplayContrastCanvas(
       this.displayContrast3Canvas,
       this.displayContrast3Ctx,
       this.contrast3OriginCanvas
@@ -237,7 +239,7 @@ export class nrrd_tools {
   setContrast4OriginCanvas(slice: any) {
     this.contrast4Slice = slice;
     this.contrast4OriginCanvas = this.contrast4Slice.canvas;
-    this.initDiplayContrastCavas(
+    this.initDiplayContrastCanvas(
       this.displayContrast4Canvas,
       this.displayContrast4Ctx,
       this.contrast4OriginCanvas
@@ -251,27 +253,73 @@ export class nrrd_tools {
     this.displayContrast2Canvas.width = this.displayContrast2Canvas.width;
     this.displayContrast3Canvas.width = this.displayContrast3Canvas.width;
     this.displayContrast4Canvas.width = this.displayContrast4Canvas.width;
+
+    if (this.Is_Shift_Pressed) {
+      this.contrast1Slice.index = this.slice.index;
+      this.contrast2Slice.index = this.slice.index;
+      this.contrast3Slice.index = this.slice.index;
+      this.contrast4Slice.index = this.slice.index;
+      this.contrast1Slice.repaint.call(this.contrast1Slice);
+      this.contrast2Slice.repaint.call(this.contrast2Slice);
+      this.contrast3Slice.repaint.call(this.contrast3Slice);
+      this.contrast4Slice.repaint.call(this.contrast4Slice);
+    }
+
     // resize and redraw
-    this.initDiplayContrastCavas(
+    this.initDiplayContrastCanvas(
       this.displayContrast1Canvas,
       this.displayContrast1Ctx,
       this.contrast1OriginCanvas
     );
-    this.initDiplayContrastCavas(
+    this.initDiplayContrastCanvas(
       this.displayContrast2Canvas,
       this.displayContrast2Ctx,
       this.contrast2OriginCanvas
     );
-    this.initDiplayContrastCavas(
+    this.initDiplayContrastCanvas(
       this.displayContrast3Canvas,
       this.displayContrast3Ctx,
       this.contrast3OriginCanvas
     );
-    this.initDiplayContrastCavas(
+    this.initDiplayContrastCanvas(
       this.displayContrast4Canvas,
       this.displayContrast4Ctx,
       this.contrast4OriginCanvas
     );
+  }
+
+  private updateContrastAreaValue(value: number, flag: string) {
+    switch (flag) {
+      case "lowerThreshold":
+        this.contrast1Slice.volume.lowerThreshold = value;
+        this.contrast2Slice.volume.lowerThreshold = value;
+        this.contrast3Slice.volume.lowerThreshold = value;
+        this.contrast4Slice.volume.lowerThreshold = value;
+        break;
+      case "upperThreshold":
+        this.contrast1Slice.volume.upperThreshold = value;
+        this.contrast2Slice.volume.upperThreshold = value;
+        this.contrast3Slice.volume.upperThreshold = value;
+        this.contrast4Slice.volume.upperThreshold = value;
+        break;
+      case "windowLow":
+        this.contrast1Slice.volume.windowLow = value;
+        this.contrast2Slice.volume.windowLow = value;
+        this.contrast3Slice.volume.windowLow = value;
+        this.contrast4Slice.volume.windowLow = value;
+        break;
+      case "windowHigh":
+        this.contrast1Slice.volume.windowHigh = value;
+        this.contrast2Slice.volume.windowHigh = value;
+        this.contrast3Slice.volume.windowHigh = value;
+        this.contrast4Slice.volume.windowHigh = value;
+        break;
+    }
+
+    this.contrast1Slice.volume.repaintAllSlices();
+    this.contrast2Slice.volume.repaintAllSlices();
+    this.contrast3Slice.volume.repaintAllSlices();
+    this.contrast4Slice.volume.repaintAllSlices();
   }
 
   dragImageWithMode(controls: TrackballControls, opts?: nrrdDragImageOptType) {
@@ -400,6 +448,8 @@ export class nrrd_tools {
            * clear and redraw canvas
            */
           this.slice.repaint.call(this.slice);
+
+          this.addContrastArea && this.updateContrastArea();
           this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
           this.displayCanvas.width = this.displayCanvas.width;
 
@@ -744,6 +794,7 @@ export class nrrd_tools {
         this.originCanvas.width = this.originCanvas.width;
         this.slice.repaint.call(this.slice);
         this.redrawDisplayCanvas();
+        this.updateContrastArea();
       }
 
       requestAnimationFrame(updateCanvas);
@@ -921,8 +972,10 @@ export class nrrd_tools {
         1
       )
       .name("Lower Threshold")
-      .onChange(() => {
+      .onChange((value) => {
         this.readyToUpdate = false;
+        this.addContrastArea &&
+          this.updateContrastAreaValue(value, "lowerThreshold");
       })
       .onFinishChange(() => {
         this.slice.volume.repaintAllSlices();
@@ -937,8 +990,10 @@ export class nrrd_tools {
         1
       )
       .name("Upper Threshold")
-      .onChange(() => {
+      .onChange((value) => {
         this.readyToUpdate = false;
+        this.addContrastArea &&
+          this.updateContrastAreaValue(value, "upperThreshold");
       })
       .onFinishChange(() => {
         this.slice.volume.repaintAllSlices();
@@ -953,8 +1008,10 @@ export class nrrd_tools {
         1
       )
       .name("Window Low")
-      .onChange(() => {
+      .onChange((value) => {
         this.readyToUpdate = false;
+        this.addContrastArea &&
+          this.updateContrastAreaValue(value, "windowLow");
       })
       .onFinishChange(() => {
         this.slice.volume.repaintAllSlices();
@@ -969,8 +1026,10 @@ export class nrrd_tools {
         1
       )
       .name("Window High")
-      .onChange(() => {
+      .onChange((value) => {
         this.readyToUpdate = false;
+        this.addContrastArea &&
+          this.updateContrastAreaValue(value, "windowHigh");
       })
       .onFinishChange(() => {
         this.slice.volume.repaintAllSlices();
