@@ -519,3 +519,51 @@ width=800>
   });
   nrrdTools.draw(sceneIn.controls as TrackballControls, sceneIn, sceneIn.gui);
   ```
+
+## Release v1.11.1
+
+- update the nrrdTools costomer css.
+  - define css class name for each contrast area and main area
+  - we can write our custom css out side
+  ```css
+  .copper3D_scene_div {
+    display: grid;
+    grid-template-areas:
+      "c1 c2 m m m "
+      "c1 c2 m m m "
+      "c3 c4 m m m "
+      "c3 c4 m m m ";
+    gap: 10px;
+  }
+  .copper3D_mainDisplay {
+    position: relative;
+    grid-area: m;
+  }
+  .copper3D_contrast1 {
+    grid-area: c1;
+    background-color: rgba(130, 39, 39, 0.1);
+  }
+  .copper3D_contrast2 {
+    grid-area: c2;
+    background-color: rgba(102, 51, 153, 0.3);
+  }
+  .copper3D_contrast3 {
+    grid-area: c3;
+    background-color: rgba(126, 60, 60, 0.4);
+  }
+  .copper3D_contrast4 {
+    grid-area: c4;
+    background-color: rgba(45, 192, 19, 0.4);
+  }
+  ```
+- update functions for nrrd contrast
+  ```ts
+  nrrdTools.setContrast1OriginCanvas(nrrdSlices.z);
+  nrrdTools.setContrast2OriginCanvas(nrrdSlices.z);
+  nrrdTools.setContrast3OriginCanvas(nrrdSlices.z);
+  nrrdTools.setContrast4OriginCanvas(nrrdSlices.z);
+  nrrdTools.setContrastSize(size, size);
+  nrrdTools.updateContrastArea();
+  ```
+- result
+  ![](../_static/images/release_1_11_1.jpg)
