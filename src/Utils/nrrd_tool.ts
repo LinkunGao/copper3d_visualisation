@@ -23,23 +23,45 @@ export class nrrd_tools {
   contrast4Area: HTMLDivElement = document.createElement("div");
 
   private slice: any;
+  private contrast1Slice: any;
+  private contrast2Slice: any;
+  private contrast3Slice: any;
+  private contrast4Slice: any;
   private axis: string = "";
   private originWidth: number = 0;
   private originHeight: number = 0;
   private changedWidth: number = 0;
   private changedHeight: number = 0;
+  private contrastWidth: number = 200;
+  private contrastHeight: number = 200;
   private Is_Shift_Pressed: boolean = false;
   private Is_Draw: boolean = false;
 
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
+  private displayContrast1Canvas: HTMLCanvasElement =
+    document.createElement("canvas");
+  private displayContrast2Canvas: HTMLCanvasElement =
+    document.createElement("canvas");
+  private displayContrast3Canvas: HTMLCanvasElement =
+    document.createElement("canvas");
+  private displayContrast4Canvas: HTMLCanvasElement =
+    document.createElement("canvas");
   private drawingCanvasLayer1: HTMLCanvasElement =
     document.createElement("canvas");
   private originCanvas: HTMLCanvasElement | any;
+  private contrast1OriginCanvas: HTMLCanvasElement | any;
+  private contrast2OriginCanvas: HTMLCanvasElement | any;
+  private contrast3OriginCanvas: HTMLCanvasElement | any;
+  private contrast4OriginCanvas: HTMLCanvasElement | any;
 
   private displayCtx: CanvasRenderingContext2D;
   private drawingCtx: CanvasRenderingContext2D;
   private drawingLayer1Ctx: CanvasRenderingContext2D;
+  private displayContrast1Ctx: CanvasRenderingContext2D;
+  private displayContrast2Ctx: CanvasRenderingContext2D;
+  private displayContrast3Ctx: CanvasRenderingContext2D;
+  private displayContrast4Ctx: CanvasRenderingContext2D;
 
   private downloadImage: HTMLAnchorElement = document.createElement("a");
   private previousDrawingImage: HTMLImageElement = new Image();
@@ -77,6 +99,18 @@ export class nrrd_tools {
     this.displayCtx = this.displayCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
+    this.displayContrast1Ctx = this.displayContrast1Canvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.displayContrast2Ctx = this.displayContrast2Canvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.displayContrast3Ctx = this.displayContrast3Canvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.displayContrast4Ctx = this.displayContrast4Canvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
     this.drawingCtx = this.drawingCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
@@ -96,8 +130,21 @@ export class nrrd_tools {
     this.contrast2Area.classList.add("copper3D_contrast2");
     this.contrast3Area.classList.add("copper3D_contrast3");
     this.contrast4Area.classList.add("copper3D_contrast4");
+    this.displayContrast1Canvas.style.position = "absolute";
+    this.displayContrast2Canvas.style.position = "absolute";
+    this.displayContrast3Canvas.style.position = "absolute";
+    this.displayContrast4Canvas.style.position = "absolute";
 
     this.mainDisplayArea.appendChild(this.drawingCanvasContainer);
+
+    const p1 = this.createDescription("1st");
+    const p2 = this.createDescription("2nd");
+    const p3 = this.createDescription("3rd");
+    const p4 = this.createDescription("4th");
+    this.contrast1Area.appendChild(p1);
+    this.contrast2Area.appendChild(p2);
+    this.contrast3Area.appendChild(p3);
+    this.contrast4Area.appendChild(p4);
 
     this.downloadImage.href = "";
     this.downloadImage.target = "_blank";
@@ -129,6 +176,102 @@ export class nrrd_tools {
     this.container.appendChild(this.contrast2Area);
     this.container.appendChild(this.contrast3Area);
     this.container.appendChild(this.contrast4Area);
+  }
+  private initDiplayContrastCavas(
+    contrastCanvas: HTMLCanvasElement,
+    contrastCtx: CanvasRenderingContext2D,
+    contrastOrigin: HTMLCanvasElement
+  ) {
+    contrastCanvas.width = this.contrastWidth;
+    contrastCanvas.height = this.contrastHeight;
+
+    contrastCtx.drawImage(
+      contrastOrigin,
+      0,
+      0,
+      this.contrastWidth,
+      this.contrastHeight
+    );
+  }
+  private createDescription(text: string) {
+    const p = document.createElement("p");
+    p.innerText = text;
+    p.style.position = "absolute";
+    p.style.bottom = "10px";
+    return p;
+  }
+  setContrastSize(width: number, height: number) {
+    this.contrastWidth = width;
+    this.contrastHeight = height;
+  }
+  setContrast1OriginCanvas(slice: any) {
+    this.contrast1Slice = slice;
+    this.contrast1OriginCanvas = this.contrast1Slice.canvas;
+    this.initDiplayContrastCavas(
+      this.displayContrast1Canvas,
+      this.displayContrast1Ctx,
+      this.contrast1OriginCanvas
+    );
+    this.contrast1Area.appendChild(this.displayContrast1Canvas);
+  }
+  setContrast2OriginCanvas(slice: any) {
+    this.contrast2Slice = slice;
+    this.contrast2OriginCanvas = this.contrast2Slice.canvas;
+    this.initDiplayContrastCavas(
+      this.displayContrast2Canvas,
+      this.displayContrast2Ctx,
+      this.contrast2OriginCanvas
+    );
+    this.contrast2Area.appendChild(this.displayContrast2Canvas);
+  }
+  setContrast3OriginCanvas(slice: any) {
+    this.contrast3Slice = slice;
+    this.contrast3OriginCanvas = this.contrast3Slice.canvas;
+    this.initDiplayContrastCavas(
+      this.displayContrast3Canvas,
+      this.displayContrast3Ctx,
+      this.contrast3OriginCanvas
+    );
+    this.contrast3Area.appendChild(this.displayContrast3Canvas);
+  }
+  setContrast4OriginCanvas(slice: any) {
+    this.contrast4Slice = slice;
+    this.contrast4OriginCanvas = this.contrast4Slice.canvas;
+    this.initDiplayContrastCavas(
+      this.displayContrast4Canvas,
+      this.displayContrast4Ctx,
+      this.contrast4OriginCanvas
+    );
+    this.contrast4Area.appendChild(this.displayContrast4Canvas);
+  }
+
+  updateContrastArea() {
+    // clear
+    this.displayContrast1Canvas.width = this.displayContrast1Canvas.width;
+    this.displayContrast2Canvas.width = this.displayContrast2Canvas.width;
+    this.displayContrast3Canvas.width = this.displayContrast3Canvas.width;
+    this.displayContrast4Canvas.width = this.displayContrast4Canvas.width;
+    // resize and redraw
+    this.initDiplayContrastCavas(
+      this.displayContrast1Canvas,
+      this.displayContrast1Ctx,
+      this.contrast1OriginCanvas
+    );
+    this.initDiplayContrastCavas(
+      this.displayContrast2Canvas,
+      this.displayContrast2Ctx,
+      this.contrast2OriginCanvas
+    );
+    this.initDiplayContrastCavas(
+      this.displayContrast3Canvas,
+      this.displayContrast3Ctx,
+      this.contrast3OriginCanvas
+    );
+    this.initDiplayContrastCavas(
+      this.displayContrast4Canvas,
+      this.displayContrast4Ctx,
+      this.contrast4OriginCanvas
+    );
   }
 
   dragImageWithMode(controls: TrackballControls, opts?: nrrdDragImageOptType) {

@@ -49,10 +49,12 @@ body {
 
 /* copper3D_drawingCanvasContainer */
 .copper3D_display_area {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   margin: 5px;
+  border-radius: 10px;
 }
 .copper3D_drawingCanvasContainer {
   position: absolute;
