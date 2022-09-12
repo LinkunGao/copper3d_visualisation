@@ -14,6 +14,7 @@ import {
   positionType,
   nrrdSliceType,
   loadingBarType,
+  preRenderCallbackFunctionType,
 } from "../types/types";
 import {
   copperNrrdLoader,
@@ -58,6 +59,7 @@ export default class copperMScene {
   private lights: any[] = [];
   private renderNrrdVolume: boolean = false;
   private guiContainer: HTMLDivElement = document.createElement("div");
+  private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
   private Is_Control_Enabled: boolean = true;
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
@@ -82,13 +84,13 @@ export default class copperMScene {
     this.vignette.mesh.renderOrder = -1;
 
     this.copperControl = new Controls(this.camera);
-    this.controls = new TrackballControls(this.camera, container);
+    // this.controls = new TrackballControls(this.camera, container);
+    this.controls = new OrbitControls(this.camera, this.container);
     this.init();
   }
   init() {
     this.copperControl.setCameraViewPoint();
     this.camera.position.z = 2;
-    this.controls.rotateSpeed = 0.001;
     this.guiContainer.style.position = "fixed";
     this.guiContainer.style.top = "0";
     this.guiContainer.style.right = "0";
@@ -116,6 +118,22 @@ export default class copperMScene {
     this.addLights();
 
     // window.addEventListener("resize", this.onWindowResize, false);
+  }
+  setControls(type: number) {
+    /**
+     * type:
+     *      0: Orbit
+     *      other: Trackball
+     */
+    switch (type) {
+      case 0:
+        this.controls = new OrbitControls(this.camera, this.container);
+        break;
+      default:
+        this.controls = new TrackballControls(this.camera, this.container);
+        this.controls.rotateSpeed = 0.01;
+        break;
+    }
   }
   createDemoMesh() {
     const geometry = new THREE.BoxGeometry();
@@ -391,6 +409,15 @@ export default class copperMScene {
 
     this.setViewPoint(this.camera as THREE.PerspectiveCamera);
   }
+  addPreRenderCallbackFunction(callbackFunction: Function) {
+    const id = this.preRenderCallbackFunctions.length + 1;
+    const preCallback: preRenderCallbackFunctionType = {
+      id,
+      callback: callbackFunction,
+    };
+    this.preRenderCallbackFunctions.push(preCallback);
+    return id;
+  }
 
   resetView() {
     this.controls.reset();
@@ -428,7 +455,9 @@ export default class copperMScene {
     //   this.mixer && this.mixer.update(this.clock.getDelta() * this.playRate);
     // }
     this.renderer.render(this.scene, this.camera);
-
+    this.preRenderCallbackFunctions.forEach((item) => {
+      item.callback.call(null);
+    });
     if (this.subDiv && this.subCamera && this.subRender) {
       this.subCamera.position.copy(this.camera.position);
       this.subCamera.lookAt(this.subScene.position);
