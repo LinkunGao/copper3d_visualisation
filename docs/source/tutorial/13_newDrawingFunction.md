@@ -61,16 +61,18 @@ button {
 - config copper3D
 
 ```ts
+import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { GUI } from "dat.gui";
 import * as Copper from "copper3d_visualisation";
 import "copper3d_visualisation/dist/css/style.css";
-
 import { getCurrentInstance, onMounted, ref } from "vue";
 
 let refs = null;
 let bg: HTMLDivElement = ref<any>(null);
 let appRenderer: Copper.copperMSceneRenderer;
 let c_gui: HTMLDivElement = ref<any>(null);
+let nrrdTools: Copper.nrrd_tools;
+let loadBar: Copper.loadingBarType;
 
 onMounted(() => {
   let { $refs } = (getCurrentInstance() as any).proxy;
@@ -79,14 +81,13 @@ onMounted(() => {
   c_gui = refs.c_gui;
 
   appRenderer = new Copper.copperMSceneRenderer(bg, 1);
+  nrrdTools = new Copper.nrrd_tools(appRenderer.sceneInfos[0].container);
+  loadBar = Copper.loading();
 
-  /**
-   * Call sub view
-   */
   appRenderer.sceneInfos[0].addSubView();
 
   loadNrrd(
-    "/copper3d_examples/nrrd/breast-224.nrrd",
+    "/copper3d_examples/nrrd/segmentation/ax dyn pre.nrrd",
     "nrrd0",
     appRenderer.sceneInfos[0],
     c_gui
@@ -126,18 +127,18 @@ function loadNrrd(
     /**
      * for test 1 view
      * */
-    appRenderer.sceneInfos[0].loadViewUrl("/copper3d_examples/nrrd_view.json");
+    sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
     // appRenderer.sceneInfos[0].scene.add(nrrdMesh.z);
 
-    appRenderer.sceneInfos[0].subScene.add(nrrdMesh.z);
-    appRenderer.sceneInfos[0].dragImage(nrrdSlices.z, {
+    sceneIn.subScene.add(nrrdMesh.z);
+    nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z);
+
+    nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
       mode: "mode1",
       showNumber: true,
     });
-    appRenderer.sceneInfos[0].drawImage(
-      nrrdSlices.z,
-      appRenderer.sceneInfos[0]
-    );
+    nrrdTools.draw(sceneIn.controls as TrackballControls, sceneIn, sceneIn.gui);
+    sceneIn.addPreRenderCallbackFunction(nrrdTools.start);
   };
   if (sceneIn) {
     sceneIn?.loadNrrd(url, funa, opts);

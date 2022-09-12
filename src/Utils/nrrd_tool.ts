@@ -21,6 +21,7 @@ export class nrrd_tools {
   contrast2Area: HTMLDivElement = document.createElement("div");
   contrast3Area: HTMLDivElement = document.createElement("div");
   contrast4Area: HTMLDivElement = document.createElement("div");
+  start: () => void = () => {};
 
   private slice: any;
   private contrast1Slice: any;
@@ -245,81 +246,6 @@ export class nrrd_tools {
       this.contrast4OriginCanvas
     );
     this.contrast4Area.appendChild(this.displayContrast4Canvas);
-  }
-
-  updateContrastArea() {
-    // clear
-    this.displayContrast1Canvas.width = this.displayContrast1Canvas.width;
-    this.displayContrast2Canvas.width = this.displayContrast2Canvas.width;
-    this.displayContrast3Canvas.width = this.displayContrast3Canvas.width;
-    this.displayContrast4Canvas.width = this.displayContrast4Canvas.width;
-
-    if (this.Is_Shift_Pressed) {
-      this.contrast1Slice.index = this.slice.index;
-      this.contrast2Slice.index = this.slice.index;
-      this.contrast3Slice.index = this.slice.index;
-      this.contrast4Slice.index = this.slice.index;
-      this.contrast1Slice.repaint.call(this.contrast1Slice);
-      this.contrast2Slice.repaint.call(this.contrast2Slice);
-      this.contrast3Slice.repaint.call(this.contrast3Slice);
-      this.contrast4Slice.repaint.call(this.contrast4Slice);
-    }
-
-    // resize and redraw
-    this.initDiplayContrastCanvas(
-      this.displayContrast1Canvas,
-      this.displayContrast1Ctx,
-      this.contrast1OriginCanvas
-    );
-    this.initDiplayContrastCanvas(
-      this.displayContrast2Canvas,
-      this.displayContrast2Ctx,
-      this.contrast2OriginCanvas
-    );
-    this.initDiplayContrastCanvas(
-      this.displayContrast3Canvas,
-      this.displayContrast3Ctx,
-      this.contrast3OriginCanvas
-    );
-    this.initDiplayContrastCanvas(
-      this.displayContrast4Canvas,
-      this.displayContrast4Ctx,
-      this.contrast4OriginCanvas
-    );
-  }
-
-  private updateContrastAreaValue(value: number, flag: string) {
-    switch (flag) {
-      case "lowerThreshold":
-        this.contrast1Slice.volume.lowerThreshold = value;
-        this.contrast2Slice.volume.lowerThreshold = value;
-        this.contrast3Slice.volume.lowerThreshold = value;
-        this.contrast4Slice.volume.lowerThreshold = value;
-        break;
-      case "upperThreshold":
-        this.contrast1Slice.volume.upperThreshold = value;
-        this.contrast2Slice.volume.upperThreshold = value;
-        this.contrast3Slice.volume.upperThreshold = value;
-        this.contrast4Slice.volume.upperThreshold = value;
-        break;
-      case "windowLow":
-        this.contrast1Slice.volume.windowLow = value;
-        this.contrast2Slice.volume.windowLow = value;
-        this.contrast3Slice.volume.windowLow = value;
-        this.contrast4Slice.volume.windowLow = value;
-        break;
-      case "windowHigh":
-        this.contrast1Slice.volume.windowHigh = value;
-        this.contrast2Slice.volume.windowHigh = value;
-        this.contrast3Slice.volume.windowHigh = value;
-        this.contrast4Slice.volume.windowHigh = value;
-        break;
-    }
-
-    this.contrast1Slice.volume.repaintAllSlices();
-    this.contrast2Slice.volume.repaintAllSlices();
-    this.contrast3Slice.volume.repaintAllSlices();
-    this.contrast4Slice.volume.repaintAllSlices();
   }
 
   dragImageWithMode(controls: TrackballControls, opts?: nrrdDragImageOptType) {
@@ -770,43 +696,178 @@ export class nrrd_tools {
       controls.enabled = true;
     });
 
-    const updateCanvas = () => {
+    this.start = () => {
       if (this.readyToUpdate) {
-        this.slice.mesh.material.map.needsUpdate = true;
-        this.originCanvas.width = this.originCanvas.width;
-        this.slice.repaint.call(this.slice);
         this.drawingCtx.clearRect(0, 0, this.changedWidth, this.changedHeight);
         this.drawingLayer1Ctx.lineCap = "round";
         this.drawingLayer1Ctx.globalAlpha = 1;
         this.drawingCtx.globalAlpha = this.stateMode.globalAlpha;
 
         this.drawingCtx.drawImage(this.drawingCanvasLayer1, 0, 0);
-        this.originCanvas
-          .getContext("2d")
-          ?.drawImage(
-            this.drawingCanvas,
-            0,
-            0,
-            this.originCanvas.width,
-            this.originCanvas.height
-          );
+        this.redrawOriginCanvas();
       } else {
         this.originCanvas.width = this.originCanvas.width;
         this.slice.repaint.call(this.slice);
         this.redrawDisplayCanvas();
-        this.updateContrastArea();
+        if (this.addContrastArea) this.updateContrastArea();
       }
 
-      requestAnimationFrame(updateCanvas);
+      // requestAnimationFrame(updateCanvas);
     };
 
-    updateCanvas();
+    // updateCanvas();
 
     document.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") {
         this.undoLastPainting();
       }
     });
+  }
+
+  private redrawOriginCanvas() {
+    this.slice.mesh.material.map.needsUpdate = true;
+    this.originCanvas.width = this.originCanvas.width;
+    this.slice.repaint.call(this.slice);
+    this.originCanvas
+      .getContext("2d")
+      ?.drawImage(
+        this.drawingCanvas,
+        0,
+        0,
+        this.originCanvas.width,
+        this.originCanvas.height
+      );
+    if (
+      this.contrast1OriginCanvas &&
+      this.contrast2OriginCanvas &&
+      this.contrast3OriginCanvas &&
+      this.contrast4OriginCanvas
+    ) {
+      this.contrast1OriginCanvas.width = this.contrast1OriginCanvas.width;
+      this.contrast2OriginCanvas.width = this.contrast2OriginCanvas.width;
+      this.contrast3OriginCanvas.width = this.contrast3OriginCanvas.width;
+      this.contrast4OriginCanvas.width = this.contrast4OriginCanvas.width;
+      this.repraintCurrentContrastSlice();
+
+      this.contrast1OriginCanvas
+        .getContext("2d")
+        ?.drawImage(
+          this.drawingCanvas,
+          0,
+          0,
+          this.contrast1OriginCanvas.width,
+          this.contrast1OriginCanvas.height
+        );
+      this.contrast2OriginCanvas
+        .getContext("2d")
+        ?.drawImage(
+          this.drawingCanvas,
+          0,
+          0,
+          this.contrast2OriginCanvas.width,
+          this.contrast2OriginCanvas.height
+        );
+      this.contrast3OriginCanvas
+        .getContext("2d")
+        ?.drawImage(
+          this.drawingCanvas,
+          0,
+          0,
+          this.contrast3OriginCanvas.width,
+          this.contrast3OriginCanvas.height
+        );
+      this.contrast4OriginCanvas
+        .getContext("2d")
+        ?.drawImage(
+          this.drawingCanvas,
+          0,
+          0,
+          this.contrast4OriginCanvas.width,
+          this.contrast4OriginCanvas.height
+        );
+      this.updateContrastArea();
+    }
+  }
+
+  updateContrastArea() {
+    // clear
+    this.displayContrast1Canvas.width = this.displayContrast1Canvas.width;
+    this.displayContrast2Canvas.width = this.displayContrast2Canvas.width;
+    this.displayContrast3Canvas.width = this.displayContrast3Canvas.width;
+    this.displayContrast4Canvas.width = this.displayContrast4Canvas.width;
+
+    if (this.Is_Shift_Pressed) {
+      this.contrast1Slice.index = this.slice.index;
+      this.contrast2Slice.index = this.slice.index;
+      this.contrast3Slice.index = this.slice.index;
+      this.contrast4Slice.index = this.slice.index;
+      this.repraintCurrentContrastSlice();
+    }
+
+    // resize and redraw
+    this.initDiplayContrastCanvas(
+      this.displayContrast1Canvas,
+      this.displayContrast1Ctx,
+      this.contrast1OriginCanvas
+    );
+    this.initDiplayContrastCanvas(
+      this.displayContrast2Canvas,
+      this.displayContrast2Ctx,
+      this.contrast2OriginCanvas
+    );
+    this.initDiplayContrastCanvas(
+      this.displayContrast3Canvas,
+      this.displayContrast3Ctx,
+      this.contrast3OriginCanvas
+    );
+    this.initDiplayContrastCanvas(
+      this.displayContrast4Canvas,
+      this.displayContrast4Ctx,
+      this.contrast4OriginCanvas
+    );
+  }
+
+  private updateContrastAreaValue(value: number, flag: string) {
+    switch (flag) {
+      case "lowerThreshold":
+        this.contrast1Slice.volume.lowerThreshold = value;
+        this.contrast2Slice.volume.lowerThreshold = value;
+        this.contrast3Slice.volume.lowerThreshold = value;
+        this.contrast4Slice.volume.lowerThreshold = value;
+        break;
+      case "upperThreshold":
+        this.contrast1Slice.volume.upperThreshold = value;
+        this.contrast2Slice.volume.upperThreshold = value;
+        this.contrast3Slice.volume.upperThreshold = value;
+        this.contrast4Slice.volume.upperThreshold = value;
+        break;
+      case "windowLow":
+        this.contrast1Slice.volume.windowLow = value;
+        this.contrast2Slice.volume.windowLow = value;
+        this.contrast3Slice.volume.windowLow = value;
+        this.contrast4Slice.volume.windowLow = value;
+        break;
+      case "windowHigh":
+        this.contrast1Slice.volume.windowHigh = value;
+        this.contrast2Slice.volume.windowHigh = value;
+        this.contrast3Slice.volume.windowHigh = value;
+        this.contrast4Slice.volume.windowHigh = value;
+        break;
+    }
+    this.repraintCurrentContrastSlice();
+  }
+  private repraintCurrentContrastSlice() {
+    this.contrast1Slice.repaint.call(this.contrast1Slice);
+    this.contrast2Slice.repaint.call(this.contrast2Slice);
+    this.contrast3Slice.repaint.call(this.contrast3Slice);
+    this.contrast4Slice.repaint.call(this.contrast4Slice);
+  }
+
+  private repraintAllContrastSlice() {
+    this.contrast1Slice.volume.repaintAllSlices();
+    this.contrast2Slice.volume.repaintAllSlices();
+    this.contrast3Slice.volume.repaintAllSlices();
+    this.contrast4Slice.volume.repaintAllSlices();
   }
 
   private configAllCanvas() {
@@ -979,6 +1040,7 @@ export class nrrd_tools {
       })
       .onFinishChange(() => {
         this.slice.volume.repaintAllSlices();
+        this.addContrastArea && this.repraintAllContrastSlice();
         this.readyToUpdate = true;
       });
     contrast
@@ -997,6 +1059,7 @@ export class nrrd_tools {
       })
       .onFinishChange(() => {
         this.slice.volume.repaintAllSlices();
+        this.addContrastArea && this.repraintAllContrastSlice();
         this.readyToUpdate = true;
       });
     contrast
@@ -1015,6 +1078,7 @@ export class nrrd_tools {
       })
       .onFinishChange(() => {
         this.slice.volume.repaintAllSlices();
+        this.addContrastArea && this.repraintAllContrastSlice();
         this.readyToUpdate = true;
       });
     contrast
@@ -1033,6 +1097,7 @@ export class nrrd_tools {
       })
       .onFinishChange(() => {
         this.slice.volume.repaintAllSlices();
+        this.addContrastArea && this.repraintAllContrastSlice();
         this.readyToUpdate = true;
       });
   }
