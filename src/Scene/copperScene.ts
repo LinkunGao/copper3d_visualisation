@@ -32,7 +32,7 @@ export default class copperScene extends baseScene {
   // rayster pick
   private pickableObjects: THREE.Mesh[] = [];
   // texture2d
-  private depthStep: number = 0.04;
+  private depthStep: number = 0.4;
   private texture2dMesh: THREE.Mesh | null = null;
   private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
 
@@ -44,6 +44,10 @@ export default class copperScene extends baseScene {
     );
 
     window.addEventListener("resize", this.onWindowResize, false);
+  }
+
+  setDepth(value: number) {
+    this.depthStep = value;
   }
 
   loadGltf(url: string, callback?: (content: THREE.Group) => void) {
@@ -211,7 +215,11 @@ export default class copperScene extends baseScene {
   }
 
   // dicom
-  loadDicom(urls: string | Array<string>, gui?: GUI) {
+  loadDicom(
+    urls: string | Array<string>,
+    callback?: (mesh: THREE.Mesh) => void,
+    gui?: GUI
+  ) {
     if (Array.isArray(urls)) {
       const depth: number = urls.length;
 
@@ -250,15 +258,13 @@ export default class copperScene extends baseScene {
       });
 
       const finishLoad = (copperVolume: copperVolumeType) => {
-        if (gui)
-          gui.add(this, "depthStep").min(0.00001).max(0.04).step(0.00001);
+        if (gui) gui.add(this, "depthStep").min(0.01).max(1).step(0.01);
         createTexture2D_Array(copperVolume, depth, this.scene, gui);
         const textureInterval = setInterval(() => {
           this.scene.children.forEach((child) => {
             if ((child as THREE.Mesh).isMesh) {
               if (child.name === "texture2d_mesh_array") {
                 this.texture2dMesh = child as THREE.Mesh;
-
                 const render_texture2d = () => {
                   if (this.texture2dMesh) {
                     let value = (this.texture2dMesh.material as any).uniforms[
@@ -282,7 +288,8 @@ export default class copperScene extends baseScene {
               }
             }
           });
-          if (this.texture2dMesh?.name === "texture2d_mesh_zip") {
+          if (this.texture2dMesh?.name === "texture2d_mesh_array") {
+            callback && callback(this.texture2dMesh as THREE.Mesh);
             clearInterval(textureInterval);
           }
         }, 500);

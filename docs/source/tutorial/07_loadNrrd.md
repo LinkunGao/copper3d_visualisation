@@ -44,6 +44,7 @@ let refs = null;
 let appRenderer: Copper.copperRenderer;
 let bg: HTMLDivElement;
 let c_gui: HTMLDivElement;
+let loadBar: Copper.loadingBarType;
 
 onMounted(() => {
   let { $refs } = (getCurrentInstance() as any).proxy;
@@ -54,6 +55,7 @@ onMounted(() => {
 
   appRenderer = new Copper.copperRenderer(bg, { guiOpen: true });
   appRenderer.gui.closed = true;
+  loadBar = Copper.loading();
 
   appRenderer.animate();
 });
@@ -95,7 +97,7 @@ function loadNrrd(url: string, name: string) {
 
     if (scene) {
       appRenderer.setCurrentScene(scene);
-      scene?.loadNrrd(url, getVolume);
+      scene?.loadNrrd(url, loadBar, getVolume);
       scene.loadViewUrl("/nrrd_view.json");
     }
   }
@@ -126,7 +128,7 @@ function loadNrrd(url: string, name: string) {
     };
     if (scene) {
       appRenderer.setCurrentScene(scene);
-      scene?.loadNrrd(url, getVolume, opts);
+      scene?.loadNrrd(url, loading, getVolume, opts);
       scene.loadViewUrl("/nrrd_view.json");
     }
   }
