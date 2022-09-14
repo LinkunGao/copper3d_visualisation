@@ -604,3 +604,22 @@ nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
 nrrdTools.draw(sceneIn.controls as TrackballControls, sceneIn, sceneIn.gui);
 appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 ```
+
+## Release v1.11.4
+
+- add callback function for loadDicom, it will return the mesh.
+  ```ts
+  // usrls: required
+  // callback: optional
+  // gui: optional
+  scene.loadDicom(
+    urls,
+    (mesh) => {
+      console.log(mesh);
+    },
+    gui
+  );
+  ```
+- fixed the loadDicom bug, now the performance has been improved.
+- add setDepth() in copperScene.
+  - Now, we can use `setDepth(value:number)` to set the Dicom texture mesh animation speed.

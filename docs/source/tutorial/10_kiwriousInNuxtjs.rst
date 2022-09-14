@@ -1,5 +1,5 @@
-Build in Nuxtjs
-==================
+Kiwrious Build in Nuxtjs
+==========================
 
 Because when we develop a nuxt project,after we build it will automatically create a ``_nuxt`` folder to store our js files. 
 
@@ -16,3 +16,4 @@ There are two kiwrious config files, we must paste them in to build folder under
     - See the origin file, (click this :download:`link <./kiwrious/libunicorn.out.wasm>` to download a copy of this file)
 - ``prog.bin``
     - See the origin file, (click this :download:`link <./kiwrious/prog.bin>` to download a copy of this file)
+

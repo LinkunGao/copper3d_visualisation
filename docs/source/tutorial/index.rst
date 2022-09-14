@@ -20,3 +20,4 @@ Tutorial
     12_drawOnNrrdSlice
     13_newDrawingFunction
     14_loadMultipleVtks
+    15_texture2d_heartmodel
