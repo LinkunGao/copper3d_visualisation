@@ -3,6 +3,7 @@
 [![NPM Package][npm]][npm-url]
 [![Read the Docs][readthedocs]][readthedocs-url]
 [![Copper3d Examples][examples]][examples-url]
+[![NRRD_Segmentation_Tool example][nrrd_example]][nrrd_example-url]
 
 A 3d visualisation package base on threejs provides multiple scenes and Nrrd image load funtion.
 
@@ -96,3 +97,5 @@ function loadModel(url, name) {
 [readthedocs-url]: https://copper3d-visualisation.readthedocs.io/en/latest/
 [examples]: https://img.shields.io/badge/copper3d__visualisation-examples-orange
 [examples-url]: https://linkungao.github.io/copper3d_examples
+[nrrd_example]: https://img.shields.io/badge/Nrrd__Segmentation__tool-example-orange
+[nrrd_example-url]: https://abi-web-apps.github.io/NRRD_Segmentation_Tool/
