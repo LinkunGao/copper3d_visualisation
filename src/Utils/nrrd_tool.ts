@@ -78,10 +78,10 @@ export class nrrd_tools {
     globalAlpha: 0.3,
     lineWidth: 2,
     color: "#f50a86",
-    brush: false,
+    segmentation: false,
+    fillColor: "#1e809c",
     brushColor: "#1e809c",
     brushLineWidth: 15,
-    fillColor: "#1e809c",
     Eraser: false,
     EraserSize: 25,
     clearAll: () => {
@@ -511,6 +511,7 @@ export class nrrd_tools {
     const handleWheelMove = this.configMouseWheel(controls);
 
     const handleDragPaintPanel = throttle((e: MouseEvent) => {
+      this.drawingCanvas.style.cursor = "grabbing";
       this.displayCanvas.style.left = this.drawingCanvas.style.left =
         e.clientX - panelMoveInnerX + "px";
       this.displayCanvas.style.top = this.drawingCanvas.style.top =
@@ -541,6 +542,13 @@ export class nrrd_tools {
           lines = [];
           Is_Painting = true;
 
+          if (this.stateMode.Eraser) {
+            this.drawingCanvas.style.cursor =
+              "url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/4273/circular-cursor.png) 52 52, crosshair";
+          } else {
+            this.drawingCanvas.style.cursor = "crosshair";
+          }
+
           drawStartPos.set(e.offsetX, e.offsetY);
           this.drawingLayer1Ctx.beginPath();
           this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
@@ -553,6 +561,7 @@ export class nrrd_tools {
           let offsetY = parseInt(this.drawingCanvas.style.top);
           panelMoveInnerX = e.clientX - offsetX;
           panelMoveInnerY = e.clientY - offsetY;
+          this.drawingCanvas.style.cursor = "grab";
           this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
           this.drawingCanvas.addEventListener(
             "pointermove",
@@ -584,12 +593,12 @@ export class nrrd_tools {
       this.drawingLayer1Ctx.beginPath();
 
       this.drawingLayer1Ctx.moveTo(drawStartPos.x, drawStartPos.y);
-      if (this.stateMode.brush) {
-        this.drawingLayer1Ctx.strokeStyle = this.stateMode.brushColor;
-        this.drawingLayer1Ctx.lineWidth = this.stateMode.brushLineWidth;
-      } else {
+      if (this.stateMode.segmentation) {
         this.drawingLayer1Ctx.strokeStyle = this.stateMode.color;
         this.drawingLayer1Ctx.lineWidth = this.stateMode.lineWidth;
+      } else {
+        this.drawingLayer1Ctx.strokeStyle = this.stateMode.brushColor;
+        this.drawingLayer1Ctx.lineWidth = this.stateMode.brushLineWidth;
       }
 
       this.drawingLayer1Ctx.lineTo(x, y);
@@ -626,7 +635,7 @@ export class nrrd_tools {
           handleOnPainterMove
         );
         if (!this.stateMode.Eraser) {
-          if (!this.stateMode.brush) {
+          if (this.stateMode.segmentation) {
             this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
 
             this.drawingLayer1Ctx.drawImage(
@@ -680,6 +689,7 @@ export class nrrd_tools {
         }
       } else if (e.button === 2) {
         rightclicked = false;
+        this.drawingCanvas.style.cursor = "grab";
         this.drawingCanvas.removeEventListener(
           "pointermove",
           handleDragPaintPanel
@@ -1003,10 +1013,11 @@ export class nrrd_tools {
         this.resizePaintArea(factor);
       });
     modeFolder.add(this.stateMode, "globalAlpha").min(0.1).max(1).step(0.01);
+    modeFolder.add(this.stateMode, "segmentation");
     modeFolder.addColor(this.stateMode, "color");
     modeFolder.addColor(this.stateMode, "fillColor");
     modeFolder.add(this.stateMode, "lineWidth").min(1.7).max(3).step(0.01);
-    modeFolder.add(this.stateMode, "brush");
+
     modeFolder.add(this.stateMode, "brushLineWidth").min(5).max(50).step(1);
     modeFolder.addColor(this.stateMode, "brushColor");
     modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
@@ -1136,8 +1147,6 @@ export class nrrd_tools {
   }
 
   private resizePaintArea(factor: number) {
-    this.changedWidth = this.originWidth * factor;
-    this.changedHeight = this.originHeight * factor;
     /**
      * clear canvas
      */
@@ -1145,6 +1154,10 @@ export class nrrd_tools {
     this.displayCanvas.width = this.displayCanvas.width;
     this.drawingCanvas.width = this.drawingCanvas.width;
     this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
+
+    this.changedWidth = this.originWidth * factor;
+    this.changedHeight = this.originHeight * factor;
+
     /**
      * resize canvas
      */

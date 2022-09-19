@@ -623,3 +623,7 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 - fixed the loadDicom bug, now the performance has been improved.
 - add setDepth() in copperScene.
   - Now, we can use `setDepth(value:number)` to set the Dicom texture mesh animation speed.
+
+## Release v1.11.5
+
+- changed loading bar function.
