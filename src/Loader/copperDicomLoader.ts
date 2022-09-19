@@ -3,11 +3,12 @@ import getVOILUT from "../Utils/getVOILUT";
 import dicomParser from "dicom-parser";
 import { copperVolumeType } from "../types/types";
 
+const loader = new THREE.FileLoader().setResponseType("arraybuffer");
+
 export function copperDicomLoader(
   url: string,
   callback?: (copperVolume: copperVolumeType) => void
 ) {
-  const loader = new THREE.FileLoader().setResponseType("arraybuffer");
   loader.load(url, (arrayBuffer) => {
     var dicomFileAsBuffer = new Uint8Array(arrayBuffer as ArrayBuffer);
     const dataSet = dicomParser.parseDicom(dicomFileAsBuffer);

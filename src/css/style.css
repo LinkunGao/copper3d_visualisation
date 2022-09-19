@@ -59,8 +59,8 @@ body {
 .copper3D_drawingCanvasContainer {
   position: absolute;
   background-color: rgba(10, 10, 10, 0.3);
-  max-width: 65vw;
-  max-height: 65vh;
+  max-width: 80vw;
+  max-height: 80vh;
   overflow: hidden;
 }
 

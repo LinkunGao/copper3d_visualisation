@@ -10,6 +10,8 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
 
+const loader = new NRRDLoader();
+
 let cube: THREE.Mesh;
 let gui: GUI;
 
@@ -35,13 +37,14 @@ export function copperNrrdLoader(
   ) => void,
   opts?: optsType
 ) {
-  const loader = new NRRDLoader();
   let nrrdMeshes: nrrdMeshesType;
   let nrrdSlices: nrrdSliceType;
 
   let { loadingContainer, progress } = loadingBar;
   // container.appendChild(loadingContainer);
-
+  // console.log(url);
+  // let name: string = url.split(".")[0].split("/").pop() as string;
+  let name: string = url.split("/").pop() as string;
   loader.load(
     url,
     function (volume: any) {
@@ -127,7 +130,7 @@ export function copperNrrdLoader(
     },
     function (xhr: ProgressEvent<EventTarget>) {
       loadingContainer.style.display = "flex";
-      progress.innerText = `${Math.ceil(
+      progress.innerText = `File: ${name} ${Math.ceil(
         (xhr.loaded / xhr.total) * 100
       )} % loaded`;
       if (xhr.loaded / xhr.total === 1) {
@@ -136,6 +139,69 @@ export function copperNrrdLoader(
     }
   );
 }
+// export function copperMultiNrrdLoader(
+//   urls: Array<string>,
+//   loadingBar: loadingBarType,
+//   callback?: (
+//     volume: any,
+//     nrrdMeshes: nrrdMeshesType,
+//     nrrdSlices: nrrdSliceType,
+//   ) => void,
+// ) {
+//   // const loader = new NRRDLoader();
+//   let nrrdMeshes: nrrdMeshesType;
+//   let nrrdSlices: nrrdSliceType;
+
+//   let { loadingContainer, progress } = loadingBar;
+//   // container.appendChild(loadingContainer);
+
+//   loader.load(
+//     url,
+//     function (volume: any) {
+
+//       volume.axisOrder = ["x", "y", "z"];
+
+//       const sliceZ = volume.extractSlice(
+//         "z",
+//         Math.floor(volume.RASDimensions[2] / 4)
+//       );
+//       const sliceY = volume.extractSlice(
+//         "y",
+//         Math.floor(volume.RASDimensions[1] / 2)
+//       );
+//       //x plane
+//       const sliceX = volume.extractSlice(
+//         "x",
+//         Math.floor(volume.RASDimensions[0] / 2)
+//       );
+
+//       nrrdMeshes = {
+//         x: sliceX.mesh,
+//         y: sliceY.mesh,
+//         z: sliceZ.mesh,
+//       };
+//       nrrdSlices = {
+//         x: sliceX,
+//         y: sliceY,
+//         z: sliceZ,
+//       };
+
+//     },
+//     function (xhr: ProgressEvent<EventTarget>) {
+//       loadingContainer.style.display = "flex";
+//       progress.innerText = `${Math.ceil(
+//         (xhr.loaded / xhr.total) * 100
+//       )} % loaded`;
+//       if (xhr.loaded / xhr.total === 1) {
+//         loadingContainer.style.display = "none";
+//       }
+//     }
+//   );
+
+//   function onfinishload(volume, nrrdMeshes, nrrdSlices) {
+//     callback && callback(volume, nrrdMeshes, nrrdSlices);
+//   }
+// }
 
 export function copperNrrdLoader1(
   url: string,
