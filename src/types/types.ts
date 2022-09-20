@@ -133,6 +133,7 @@ interface paintImagesType {
 
 interface paintImageType {
   index: number;
+  contrastNum: number;
   image: HTMLImageElement;
 }
 

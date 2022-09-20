@@ -627,3 +627,11 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 ## Release v1.11.5
 
 - changed loading bar function.
+
+## Release v1.11.6
+
+- update and impove the core painting function.
+  - now the performance get a huge impoved again.
+- fixed loadingBar issue.
+- fixed running memory issue .
+- fixed draw segmentaion circle cause painted image disappear issue.
