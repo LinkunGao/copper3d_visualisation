@@ -41,9 +41,7 @@ export function copperNrrdLoader(
   let nrrdSlices: nrrdSliceType;
 
   let { loadingContainer, progress } = loadingBar;
-  // container.appendChild(loadingContainer);
-  // console.log(url);
-  // let name: string = url.split(".")[0].split("/").pop() as string;
+
   let name: string = url.split("/").pop() as string;
   loader.load(
     url,
@@ -54,17 +52,12 @@ export function copperNrrdLoader(
 
       const sliceZ = volume.extractSlice(
         "z",
-        Math.floor(volume.RASDimensions[2] / 4)
+        //   Math.floor(volume.RASDimensions[2] / 4)
+        0
       );
-      const sliceY = volume.extractSlice(
-        "y",
-        Math.floor(volume.RASDimensions[1] / 2)
-      );
+      const sliceY = volume.extractSlice("y", 0);
       //x plane
-      const sliceX = volume.extractSlice(
-        "x",
-        Math.floor(volume.RASDimensions[0] / 2)
-      );
+      const sliceX = volume.extractSlice("x", 0);
 
       nrrdMeshes = {
         x: sliceX.mesh,
