@@ -12,12 +12,44 @@ export function copperDicomLoader(
   loader.load(url, (arrayBuffer) => {
     var dicomFileAsBuffer = new Uint8Array(arrayBuffer as ArrayBuffer);
     const dataSet = dicomParser.parseDicom(dicomFileAsBuffer);
-    let tags: any = dicomParser.explicitDataSetToJS(dataSet);
-    let w = parseInt(tags["x00280011"]); //width
-    let h = parseInt(tags["x00280010"]); //height
-    let invert = tags["x00280004"] === "MONOCHROME1" ? true : false; //is invert?
-    let windowCenter = parseInt(tags["x00281050"]); //window center
-    let windowWidth = parseInt(tags["x00281051"]); //window width
+    let tags: any = null;
+    let w: number;
+    let h: number;
+    let invert: boolean;
+    let windowCenter: number;
+    let windowWidth: number;
+
+    try {
+      tags = dicomParser.explicitDataSetToJS(dataSet);
+      w = parseInt(tags["x00280011"]); //width
+      h = parseInt(tags["x00280010"]); //height
+      invert = tags["x00280004"] === "MONOCHROME1" ? true : false; //is invert?
+      windowCenter = parseInt(tags["x00281050"]); //window center
+      windowWidth = parseInt(tags["x00281051"]); //window width
+    } catch {
+      w = convertImplicitElement(
+        dataSet.elements.x00280011,
+        dicomFileAsBuffer
+      )[0];
+      h = convertImplicitElement(
+        dataSet.elements.x00280010,
+        dicomFileAsBuffer
+      )[0];
+      invert =
+        convertImplicitElement(
+          dataSet.elements.x00280004,
+          dicomFileAsBuffer
+        )[0] === 20301
+          ? false
+          : true;
+
+      windowCenter = 226;
+      windowWidth = 537;
+    }
+    if (windowCenter == 0 || windowWidth == 0) {
+      windowCenter = 226;
+      windowWidth = 537;
+    }
 
     let pixelData = dataSet.elements.x7fe00010;
     let pixelDataBuffer = dicomParser.sharedCopy(
@@ -48,6 +80,23 @@ export function copperDicomLoader(
     };
     callback && callback(copperVolume);
   });
+}
+
+function convertImplicitElement(
+  elementData: dicomParser.Element,
+  dicomFileAsBuffer: Uint8Array
+) {
+  let w1Buffer = dicomParser.sharedCopy(
+    dicomFileAsBuffer,
+    elementData.dataOffset,
+    elementData.length
+  );
+  let unit16 = new Uint16Array(
+    w1Buffer.buffer,
+    w1Buffer.byteOffset,
+    w1Buffer.byteLength / Uint16Array.BYTES_PER_ELEMENT
+  );
+  return unit16;
 }
 
 export function getLut(
