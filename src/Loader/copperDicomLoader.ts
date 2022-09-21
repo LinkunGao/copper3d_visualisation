@@ -83,7 +83,7 @@ export function copperDicomLoader(
 }
 
 function convertImplicitElement(
-  elementData: dicomParser.Element,
+  elementData: any,
   dicomFileAsBuffer: Uint8Array
 ) {
   let w1Buffer = dicomParser.sharedCopy(
