@@ -166,7 +166,13 @@ export class nrrd_tools {
   private afterLoadSlice() {
     this.axis = this.slice.axis;
     this.originCanvas = this.slice.canvas;
-    this.undoArray = [{ sliceIndex: this.slice.index, undos: [] }];
+    this.undoArray = [
+      {
+        sliceIndex: this.slice.index,
+        contrastNum: this.contrastNum,
+        undos: [],
+      },
+    ];
     this.oldIndex = this.slice.index;
     // compute max index
     switch (this.axis) {
@@ -421,7 +427,7 @@ export class nrrd_tools {
     // this.updateShowNumDiv(this.contrastNum, this.oldIndex);
 
     let newIndex = this.oldIndex + sliceModifyNum;
-    if (newIndex != this.oldIndex) {
+    if (newIndex != this.oldIndex || this.contrastShowInMain) {
       if (newIndex > this.maxIndex) {
         newIndex = this.maxIndex;
         this.contrastNum = 4;
@@ -444,13 +450,65 @@ export class nrrd_tools {
           this.changedHeight = this.originHeight;
         }
 
-        this.displayCtx.drawImage(
-          this.slice.canvas,
-          0,
-          0,
-          this.changedWidth,
-          this.changedHeight
-        );
+        if (this.contrastShowInMain) {
+          this.repraintCurrentContrastSlice();
+          switch (this.contrastNum) {
+            case 0:
+              this.displayCtx.drawImage(
+                this.slice.canvas,
+                0,
+                0,
+                this.changedWidth,
+                this.changedHeight
+              );
+              break;
+            case 1:
+              this.displayCtx.drawImage(
+                this.contrast1OriginCanvas,
+                0,
+                0,
+                this.changedWidth,
+                this.changedHeight
+              );
+              break;
+            case 2:
+              this.displayCtx.drawImage(
+                this.contrast2OriginCanvas,
+                0,
+                0,
+                this.changedWidth,
+                this.changedHeight
+              );
+              break;
+            case 3:
+              this.displayCtx.drawImage(
+                this.contrast3OriginCanvas,
+                0,
+                0,
+                this.changedWidth,
+                this.changedHeight
+              );
+              break;
+            case 4:
+              this.displayCtx.drawImage(
+                this.contrast4OriginCanvas,
+                0,
+                0,
+                this.changedWidth,
+                this.changedHeight
+              );
+              break;
+          }
+        } else {
+          this.displayCtx.drawImage(
+            this.slice.canvas,
+            0,
+            0,
+            this.changedWidth,
+            this.changedHeight
+          );
+        }
+
         if (
           this.paintImages.x.length > 0 ||
           this.paintImages.y.length > 0 ||
@@ -747,6 +805,7 @@ export class nrrd_tools {
         } else {
           const undoObj: undoType = {
             sliceIndex: this.slice.index,
+            contrastNum: this.contrastNum,
             undos: [],
           };
           undoObj.undos.push(image);
@@ -1071,7 +1130,10 @@ export class nrrd_tools {
   }
   private getCurrentUndo() {
     return this.undoArray.filter((item) => {
-      return item.sliceIndex === this.slice.index;
+      return (
+        item.sliceIndex === this.slice.index &&
+        item.contrastNum === this.contrastNum
+      );
     });
   }
 

@@ -635,3 +635,39 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 - fixed loadingBar issue.
 - fixed running memory issue .
 - fixed draw segmentaion circle cause painted image disappear issue.
+
+## Release v1.11.7
+
+- developed show all contrast images in main area.
+
+  ```ts
+  appRenderer = new Copper.copperMSceneRenderer(bg, 1);
+  nrrdTools = new Copper.nrrd_tools(appRenderer.sceneInfos[0].container);
+  nrrdTools.setContrastDisplayInMainArea();
+  ```
+
+- For how to address multiple loadingBar issue, we can just create one loadingBar, then use this loadingBar in each NRRD loader.
+
+  ```ts
+  loadBar1 = Copper.loading();
+  nrrdTools.mainDisplayArea.appendChild(loadBar1.loadingContainer);
+  sceneIn?.loadNrrd(
+    "/copper3d_examples/nrrd/segmentation/ax dyn 1st pass.nrrd",
+    loadBar1,
+    contrast1Area
+  );
+  sceneIn?.loadNrrd(
+    "/copper3d_examples/nrrd/segmentation/ax dyn 2nd pass.nrrd",
+    loadBar1,
+    contrast2Area
+  );
+  sceneIn?.loadNrrd(
+    "/copper3d_examples/nrrd/segmentation/ax dyn 3rd pass.nrrd",
+    loadBar1,
+    contrast3Area
+  );
+  ```
+
+- Fixed undo issue.
+
+- Optimised dicom loader.

@@ -297,8 +297,8 @@ export default class copperScene extends baseScene {
     } else {
       const url = urls;
       copperDicomLoader(url, (copperVolume) => {
-        console.log(copperVolume.tags);
-        // createTexture2D_Array(copperVolume, 1, this.scene);
+        // console.log(copperVolume.tags);
+        createTexture2D_Array(copperVolume, 1, this.scene);
       });
     }
   }

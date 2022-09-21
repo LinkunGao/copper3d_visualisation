@@ -153,6 +153,7 @@ interface vtkModels {
 
 interface undoType {
   sliceIndex: number;
+  contrastNum: number;
   undos: Array<HTMLImageElement>;
 }
 
