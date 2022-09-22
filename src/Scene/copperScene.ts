@@ -35,6 +35,7 @@ export default class copperScene extends baseScene {
   private depthStep: number = 0.4;
   private texture2dMesh: THREE.Mesh | null = null;
   private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
+  private sort: boolean = true; //default ascending order
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
     super(container, renderer);
@@ -48,6 +49,13 @@ export default class copperScene extends baseScene {
 
   setDepth(value: number) {
     this.depthStep = value;
+  }
+  setDicomFilesOrder(value: "ascending" | "descending") {
+    if (value === "ascending") {
+      this.sort = true;
+    } else if (value === "descending") {
+      this.sort = false;
+    }
   }
 
   loadGltf(url: string, callback?: (content: THREE.Group) => void) {
@@ -223,19 +231,34 @@ export default class copperScene extends baseScene {
     if (Array.isArray(urls)) {
       const depth: number = urls.length;
 
+      const copperVolumes: Array<copperVolumeType> = [];
       let unit8Arrays: Array<Uint8ClampedArray> = [];
       let unit16Arrays: Array<Uint16Array> = [];
       urls.forEach((url) => {
         copperDicomLoader(url, (copperVolume) => {
-          unit8Arrays.push(copperVolume.uint8);
-          unit16Arrays.push(copperVolume.uint16);
-          if (unit8Arrays.length === depth) {
+          copperVolumes.push(copperVolume);
+
+          if (copperVolumes.length === depth) {
+            // reorder each dicom file
+            copperVolumes.sort((a: copperVolumeType, b: copperVolumeType) => {
+              if (this.sort) {
+                return a.order - b.order;
+              } else {
+                return b.order - a.order;
+              }
+            });
+            copperVolumes.forEach((volume) => {
+              unit8Arrays.push(volume.uint8);
+              unit16Arrays.push(volume.uint16);
+            });
+
             const uint8 = new Uint8ClampedArray(
               copperVolume.width * copperVolume.height * depth
             );
             const uint16 = new Uint16Array(uint8.length);
             let base8Index = 0;
             let base16Index = 0;
+
             unit8Arrays.forEach((array, index) => {
               base8Index = index * copperVolume.width * copperVolume.height;
               for (let i = 0; i < array.length; i++) {

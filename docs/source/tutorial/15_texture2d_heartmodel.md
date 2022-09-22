@@ -81,6 +81,8 @@ function loadModel(urls: Array<string>, name: string) {
 
     if (scene) {
       appRenderer.setCurrentScene(scene);
+
+      scene.setDicomFilesOrder("descending");
       //   load dicom image
       scene.loadDicom(
         urls,

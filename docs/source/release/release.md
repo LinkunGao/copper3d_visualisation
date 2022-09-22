@@ -671,3 +671,20 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 - Fixed undo issue.
 
 - Optimised dicom loader.
+
+## Release v1.11.8
+
+- fixed dicom loader disoder issue after load all dicom files.
+  - the default order is ascending order.
+- add set order function in copperScene.
+  ```ts
+  scene.setDicomFilesOrder("descending"); // value => "ascending" | descending
+  // set order must before load function
+  scene.loadDicom(
+    urls,
+    (mesh) => {
+      console.log(mesh);
+    },
+    gui
+  );
+  ```
