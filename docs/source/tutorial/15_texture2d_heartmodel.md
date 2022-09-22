@@ -111,7 +111,7 @@ function loadModel(urls: Array<string>, name: string) {
 
 - Result
 <iframe 
-src="" 
+src="../_static/video/2d dynamic demo.mp4" 
 scrolling="no" 
 border="0" 
 frameborder="no" 
