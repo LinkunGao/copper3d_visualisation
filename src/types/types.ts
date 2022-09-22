@@ -166,6 +166,7 @@ interface copperVolumeType {
   invert: boolean;
   uint16: Uint16Array;
   uint8: Uint8ClampedArray;
+  order: number;
 }
 
 export type {

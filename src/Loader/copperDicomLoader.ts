@@ -11,6 +11,7 @@ export function copperDicomLoader(
 ) {
   loader.load(url, (arrayBuffer) => {
     var dicomFileAsBuffer = new Uint8Array(arrayBuffer as ArrayBuffer);
+
     const dataSet = dicomParser.parseDicom(dicomFileAsBuffer);
     let tags: any = null;
     let w: number;
@@ -18,50 +19,47 @@ export function copperDicomLoader(
     let invert: boolean;
     let windowCenter: number;
     let windowWidth: number;
+    let order: number = 0;
+
+    // console.log(dataSet.elements.x00181060);
+    // console.log(dataSet.elements.x00201041);
+
+    // console.log(dataSet.uint16("x00280004"));
+    // // console.log(dataSet.string("x00201041"));
+    // console.log(dataSet.string("x00201041"));
 
     try {
       tags = dicomParser.explicitDataSetToJS(dataSet);
+      if (dataSet.elements.x00181060) {
+        order = parseInt(tags["x00181060"]);
+      } else if (dataSet.elements.x00201041) {
+        order = parseInt(tags["x00201041"]);
+      }
       w = parseInt(tags["x00280011"]); //width
       h = parseInt(tags["x00280010"]); //height
       invert = tags["x00280004"] === "MONOCHROME1" ? true : false; //is invert?
       windowCenter = parseInt(tags["x00281050"]); //window center
       windowWidth = parseInt(tags["x00281051"]); //window width
     } catch {
-      w = convertImplicitElement(
-        dataSet.elements.x00280011,
-        dicomFileAsBuffer
-      )[0];
-      h = convertImplicitElement(
-        dataSet.elements.x00280010,
-        dicomFileAsBuffer
-      )[0];
-      invert =
-        convertImplicitElement(
-          dataSet.elements.x00280004,
-          dicomFileAsBuffer
-        )[0] === 20301
-          ? false
-          : true;
-
-      windowCenter = 226;
-      windowWidth = 537;
+      w = dataSet.uint16("x00280011");
+      h = dataSet.uint16("x00280010");
+      invert = dataSet.string("x00280004") === "MONOCHROME1" ? true : false;
+      windowCenter = parseInt(dataSet.string("x00281050"));
+      windowWidth = parseInt(dataSet.string("x00281051"));
+      if (dataSet.elements.x00181060) {
+        order = parseInt(dataSet.string("x00181060"));
+      } else if (dataSet.elements.x00201041) {
+        order = parseInt(dataSet.string("x00201041"));
+      }
     }
+
     if (windowCenter == 0 || windowWidth == 0) {
       windowCenter = 226;
       windowWidth = 537;
     }
 
     let pixelData = dataSet.elements.x7fe00010;
-    let pixelDataBuffer = dicomParser.sharedCopy(
-      dicomFileAsBuffer,
-      pixelData.dataOffset,
-      pixelData.length
-    );
-    let uint16 = new Uint16Array(
-      pixelDataBuffer.buffer,
-      pixelDataBuffer.byteOffset,
-      pixelDataBuffer.byteLength / Uint16Array.BYTES_PER_ELEMENT
-    );
+    let uint16 = convertImplicitElement(pixelData, dicomFileAsBuffer);
     let voiLUT;
     let lut = getLut(uint16, windowWidth, windowCenter, invert, voiLUT);
     let uint8 = new Uint8ClampedArray(uint16.length);
@@ -77,6 +75,7 @@ export function copperDicomLoader(
       invert,
       uint16,
       uint8,
+      order,
     };
     callback && callback(copperVolume);
   });
