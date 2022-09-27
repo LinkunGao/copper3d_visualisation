@@ -1291,6 +1291,7 @@ export class nrrd_tools {
       this.resizePaintArea(moveDistance);
       this.resetPaintArea();
       controls.enabled = false;
+      this.setIsDrawFalse(1000);
     };
 
     this.drawingCanvas.addEventListener("wheel", handleWheelMove, {

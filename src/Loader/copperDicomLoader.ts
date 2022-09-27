@@ -41,15 +41,15 @@ export function copperDicomLoader(
       windowCenter = parseInt(tags["x00281050"]); //window center
       windowWidth = parseInt(tags["x00281051"]); //window width
     } catch {
-      w = dataSet.uint16("x00280011");
-      h = dataSet.uint16("x00280010");
+      w = dataSet.uint16("x00280011") as number;
+      h = dataSet.uint16("x00280010") as number;
       invert = dataSet.string("x00280004") === "MONOCHROME1" ? true : false;
-      windowCenter = parseInt(dataSet.string("x00281050"));
-      windowWidth = parseInt(dataSet.string("x00281051"));
+      windowCenter = parseInt(dataSet.string("x00281050") as string);
+      windowWidth = parseInt(dataSet.string("x00281051") as string);
       if (dataSet.elements.x00181060) {
-        order = parseInt(dataSet.string("x00181060"));
+        order = parseInt(dataSet.string("x00181060") as string);
       } else if (dataSet.elements.x00201041) {
-        order = parseInt(dataSet.string("x00201041"));
+        order = parseInt(dataSet.string("x00201041") as string);
       }
     }
 

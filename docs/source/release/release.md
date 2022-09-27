@@ -720,7 +720,11 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
   ```ts
   //nrrdTools.setSyncsliceNum(); // no longer to use it.
   nrrdTools.setSliceMoving(sliceNum);
-  ``;
   ```
 
 - fixed painting bug when using click function to switch slices.
+
+## Release v1.11.11
+
+- fixed the mouse wheel bug.
+  - Now, when user use mouse wheel to resize the painting area, the painting function will aotumatically stop after one second.
