@@ -688,3 +688,25 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
     gui
   );
   ```
+
+## Release v1.11.9
+
+- Refactoring the nrrd_tools drag function code.
+
+  - now we can use click function to switch slices.
+
+  ```ts
+  // must be call before updateIndex function
+  nrrdTools.setSyncsliceNum();
+  // sliceNum: changed slice move step
+  nrrdTools.updateIndex(sliceNum);
+  ```
+
+- add a getMaxSliceNum() function.
+
+  - this function will return the total number of slices.
+
+  ```ts
+  let max = ref(0);
+  max.value = nrrdTools.getMaxSliceNum();
+  ```
