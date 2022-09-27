@@ -212,9 +212,22 @@ export class nrrd_tools {
   // setContrastDisplayToMainState(state: boolean) {
   //   this.addContrastArea = state;
   // }
+  setSyncsliceNum() {
+    this.contrast1Slice.index = this.slice.index;
+    this.contrast2Slice.index = this.slice.index;
+    this.contrast3Slice.index = this.slice.index;
+    this.contrast4Slice.index = this.slice.index;
+  }
   setContrastDisplayInMainArea() {
     this.contrastShowInMain = true;
     this.addContrastArea = true;
+  }
+  getMaxSliceNum(): number {
+    if (this.contrastShowInMain) {
+      return this.maxIndex * 5;
+    } else {
+      return this.maxIndex;
+    }
   }
   addContrastDisplay() {
     this.container.appendChild(this.contrast1Area);
@@ -330,9 +343,10 @@ export class nrrd_tools {
       if (ev.key === "Shift") {
         // update all contrast area for drawingCanvas
         // this.updateContrastArea();
-        if (!this.Is_Draw) {
-          controls.enabled = true;
-        }
+        // if (!this.Is_Draw) {
+        //   controls.enabled = true;
+        // }
+        controls.enabled = true;
         this.container.style.cursor = "";
         this.Is_Shift_Pressed = false;
         this.container.removeEventListener(
@@ -409,6 +423,7 @@ export class nrrd_tools {
       this.contrastNum += contrastModifyNum;
       if (move > 0) {
         sliceModifyNum = Math.floor(move / 5);
+
         if (this.contrastNum > 4) {
           sliceModifyNum += 1;
           this.contrastNum -= 5;
@@ -442,6 +457,7 @@ export class nrrd_tools {
         this.slice.repaint.call(this.slice);
 
         this.addContrastArea && this.updateContrastArea();
+
         this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
         this.displayCanvas.width = this.displayCanvas.width;
 
@@ -531,6 +547,7 @@ export class nrrd_tools {
           }
         }
       }
+      this.oldIndex = this.slice.index;
       this.updateShowNumDiv(this.contrastNum, newIndex);
     }
   }
@@ -887,10 +904,7 @@ export class nrrd_tools {
       this.repraintCurrentContrastSlice();
 
       if (this.Is_Shift_Pressed) {
-        this.contrast1Slice.index = this.slice.index;
-        this.contrast2Slice.index = this.slice.index;
-        this.contrast3Slice.index = this.slice.index;
-        this.contrast4Slice.index = this.slice.index;
+        this.setSyncsliceNum();
         this.repraintCurrentContrastSlice();
       }
 
