@@ -710,3 +710,17 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
   let max = ref(0);
   max.value = nrrdTools.getMaxSliceNum();
   ```
+
+## Release v1.11.10
+
+- Removing `nrrdTools.updateIndex(sliceNum);` function.
+
+  - Now we use this function instead, and no longer using `setSyncsliceNum()` before call it.
+
+  ```ts
+  //nrrdTools.setSyncsliceNum(); // no longer to use it.
+  nrrdTools.setSliceMoving(sliceNum);
+  ``;
+  ```
+
+- fixed painting bug when using click function to switch slices.

@@ -415,7 +415,14 @@ export class nrrd_tools {
     }
   }
 
-  updateIndex(move: number) {
+  setSliceMoving(step: number) {
+    this.Is_Draw = true;
+    this.setSyncsliceNum();
+    this.updateIndex(step);
+    this.setIsDrawFalse(1000);
+  }
+
+  private updateIndex(move: number) {
     let sliceModifyNum = 0;
     let contrastModifyNum = 0;
     if (this.contrastShowInMain) {
