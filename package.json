@@ -52,6 +52,6 @@
     "fflate": "^0.7.3",
     "glsl-blend-soft-light": "^1.0.5",
     "glsl-film-grain": "^1.0.4",
-    "three": "^0.143.0"
+    "three": "^0.144.0"
   }
 }
