@@ -58,6 +58,7 @@ export function loading() {
   loadingContainer.style.zIndex = "1000";
   loadingContainer.className = "copper3D_flex-center";
   loadingDiv.className = "copper3D_three-balls-bounce";
+  progress.className = "copper3D_loading_progress";
 
   loadingDiv.innerHTML = `<div class='copper3D_circle'></div><div class='copper3D_circle'></div><div class='copper3D_circle'></div><div class='copper3D_shadow'></div><div class='copper3D_shadow'></div><div class='copper3D_shadow'></div>`;
 

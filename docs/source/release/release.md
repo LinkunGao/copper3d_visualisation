@@ -728,3 +728,15 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 
 - fixed the mouse wheel bug.
   - Now, when user use mouse wheel to resize the painting area, the painting function will aotumatically stop after one second.
+
+## Release v1.11.12
+
+- add css classname `copper3D_loading_progress` for progress text.
+
+  - Now, user can customise the text colors.
+
+  ```css
+  .copper3D_loading_progress {
+    color: crimson !important;
+  }
+  ```
