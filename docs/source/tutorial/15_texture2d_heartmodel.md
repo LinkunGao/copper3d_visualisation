@@ -84,14 +84,19 @@ function loadModel(urls: Array<string>, name: string) {
 
       scene.setDicomFilesOrder("descending");
       //   load dicom image
-      scene.loadDicom(
-        urls,
-        (mesh) => {
-          scene?.setDepth(0.17);
-          mesh.position.set(0, 0, 0);
+      scene.loadDicom(urls, {
+        gui,
+        getMesh(mesh) {
+          console.log(mesh);
         },
-        gui
-      );
+        setAnimation(currentValue, depth, depthStep) {
+          currentValue += depthStep;
+          if (currentValue > depth) {
+            currentValue = 0;
+          }
+          return currentValue;
+        },
+      });
       // load heart model
       scene.loadGltf("/copper3d_examples/heart1.gltf", (content) => {
         content.scale.set(11, 11, 11);

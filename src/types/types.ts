@@ -1,6 +1,7 @@
 import copperScene from "../Scene/copperScene";
 import baseScene from "../Scene/baseScene";
 import copperMScene from "../Scene/copperMScene";
+import { GUI } from "dat.gui";
 
 interface SceneMapType {
   [key: string]: copperScene | baseScene | copperMScene;
@@ -33,9 +34,17 @@ interface modelVisualisationDataType {
   // [key: string]: THREE.Mesh;
 }
 
+// interface preRenderCallbackFunctionType {
+//   id: number;
+//   callback: Function;
+// }
+interface cacheType {
+  [key: number]: Function;
+}
 interface preRenderCallbackFunctionType {
-  id: number;
-  callback: Function;
+  index: number;
+  cache: cacheType;
+  add: (fn: any) => void;
 }
 
 interface baseStateType {
@@ -169,6 +178,16 @@ interface copperVolumeType {
   order: number;
 }
 
+interface dicomLoaderOptsType {
+  gui?: GUI;
+  getMesh?: (mesh: THREE.Mesh) => void;
+  setAnimation?: (
+    currentValue: number,
+    depth: number,
+    depthStep: number
+  ) => number;
+}
+
 export type {
   SceneMapType,
   optType,
@@ -194,4 +213,5 @@ export type {
   vtkModels,
   undoType,
   copperVolumeType,
+  dicomLoaderOptsType,
 };

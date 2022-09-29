@@ -18,6 +18,7 @@ import {
   vtkModels,
   copperVolumeType,
   loadingBarType,
+  dicomLoaderOptsType,
 } from "../types/types";
 
 export default class copperScene extends baseScene {
@@ -34,7 +35,8 @@ export default class copperScene extends baseScene {
   // texture2d
   private depthStep: number = 0.4;
   private texture2dMesh: THREE.Mesh | null = null;
-  private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
+  // private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
+  private preRenderCallbackFunctions: preRenderCallbackFunctionType;
   private sort: boolean = true; //default ascending order
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
@@ -43,7 +45,17 @@ export default class copperScene extends baseScene {
       this.camera,
       this.renderer.domElement
     );
-
+    this.preRenderCallbackFunctions = {
+      index: 0,
+      cache: {},
+      add(fn) {
+        if (!fn.id) {
+          fn.id = ++this.index;
+          this.cache[fn.id] = fn;
+          return;
+        }
+      },
+    };
     window.addEventListener("resize", this.onWindowResize, false);
   }
 
@@ -223,11 +235,11 @@ export default class copperScene extends baseScene {
   }
 
   // dicom
-  loadDicom(
-    urls: string | Array<string>,
-    callback?: (mesh: THREE.Mesh) => void,
-    gui?: GUI
-  ) {
+  loadDicom(urls: string | Array<string>, opts?: dicomLoaderOptsType) {
+    let gui: GUI;
+    if (opts) {
+      gui = opts.gui as GUI;
+    }
     if (Array.isArray(urls)) {
       const depth: number = urls.length;
 
@@ -294,12 +306,21 @@ export default class copperScene extends baseScene {
                       "depth"
                     ].value;
 
-                    value += this.depthStep;
-                    if (value > depth || value < 0.0) {
-                      if (value > 1.0) value = depth * 2.0 - value;
-                      if (value < 0.0) value = -value;
-
-                      this.depthStep = -this.depthStep;
+                    // if (value > depth) {
+                    //   value = 0;
+                    // }
+                    // eval(
+                    //   "value += this.depthStep;if (value > depth) {value = 0;}"
+                    // );
+                    if (opts?.setAnimation) {
+                      value = opts.setAnimation(value, depth, this.depthStep);
+                    } else {
+                      value += this.depthStep;
+                      if (value > depth || value < 0.0) {
+                        if (value > 1.0) value = depth * 2.0 - value;
+                        if (value < 0.0) value = -value;
+                        this.depthStep = -this.depthStep;
+                      }
                     }
 
                     (this.texture2dMesh.material as any).uniforms[
@@ -312,7 +333,7 @@ export default class copperScene extends baseScene {
             }
           });
           if (this.texture2dMesh?.name === "texture2d_mesh_array") {
-            callback && callback(this.texture2dMesh as THREE.Mesh);
+            opts?.getMesh && opts.getMesh(this.texture2dMesh as THREE.Mesh);
             clearInterval(textureInterval);
           }
         }, 500);
@@ -412,12 +433,14 @@ export default class copperScene extends baseScene {
   }
 
   addPreRenderCallbackFunction(callbackFunction: Function) {
-    const id = this.preRenderCallbackFunctions.length + 1;
-    const preCallback: preRenderCallbackFunctionType = {
-      id,
-      callback: callbackFunction,
-    };
-    this.preRenderCallbackFunctions.push(preCallback);
+    // const id = this.preRenderCallbackFunctions.length + 1;
+    // const preCallback: preRenderCallbackFunctionType = {
+    //   id,
+    //   callback: callbackFunction,
+    // };
+    // this.preRenderCallbackFunctions.push(preCallback);
+    this.preRenderCallbackFunctions.add(callbackFunction);
+    const id = this.preRenderCallbackFunctions.index;
     return id;
   }
 
@@ -428,9 +451,13 @@ export default class copperScene extends baseScene {
       this.mixer && this.mixer.update(this.clock.getDelta() * this.playRate);
     }
 
-    this.preRenderCallbackFunctions.forEach((item) => {
-      item.callback.call(null);
+    Object.values(this.preRenderCallbackFunctions.cache).forEach((item) => {
+      // item && item();
+      item && item.call(null);
     });
+    // this.preRenderCallbackFunctions.cache.forEach((item) => {
+    //   item.callback.call(null);
+    // });
     // console.log(this.texture2dMesh);
     this.renderer.render(this.scene, this.camera);
   }
