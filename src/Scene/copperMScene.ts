@@ -59,7 +59,8 @@ export default class copperMScene {
   private lights: any[] = [];
   private renderNrrdVolume: boolean = false;
   private guiContainer: HTMLDivElement = document.createElement("div");
-  private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
+  // private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
+  private preRenderCallbackFunctions: preRenderCallbackFunctionType;
   private Is_Control_Enabled: boolean = true;
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
@@ -86,6 +87,17 @@ export default class copperMScene {
     this.copperControl = new Controls(this.camera);
     // this.controls = new TrackballControls(this.camera, container);
     this.controls = new OrbitControls(this.camera, this.container);
+    this.preRenderCallbackFunctions = {
+      index: 0,
+      cache: {},
+      add(fn) {
+        if (!fn.id) {
+          fn.id = ++this.index;
+          this.cache[fn.id] = fn;
+          return;
+        }
+      },
+    };
     this.init();
   }
   init() {
@@ -410,12 +422,9 @@ export default class copperMScene {
     this.setViewPoint(this.camera as THREE.PerspectiveCamera);
   }
   addPreRenderCallbackFunction(callbackFunction: Function) {
-    const id = this.preRenderCallbackFunctions.length + 1;
-    const preCallback: preRenderCallbackFunctionType = {
-      id,
-      callback: callbackFunction,
-    };
-    this.preRenderCallbackFunctions.push(preCallback);
+    this.preRenderCallbackFunctions.add(callbackFunction);
+    const id = this.preRenderCallbackFunctions.index;
+    return id;
     return id;
   }
 
@@ -455,8 +464,8 @@ export default class copperMScene {
     //   this.mixer && this.mixer.update(this.clock.getDelta() * this.playRate);
     // }
     this.renderer.render(this.scene, this.camera);
-    this.preRenderCallbackFunctions.forEach((item) => {
-      item.callback.call(null);
+    Object.values(this.preRenderCallbackFunctions.cache).forEach((item) => {
+      item && item.call(null);
     });
     if (this.subDiv && this.subCamera && this.subRender) {
       this.subCamera.position.copy(this.camera.position);

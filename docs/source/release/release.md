@@ -740,3 +740,44 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
     color: crimson !important;
   }
   ```
+
+  ## Release v1.11.13
+
+  - Modify `loadDicom` function in copperScene.
+
+    - remove `gui` and `callback` parameters
+    - using opts to instead.
+    - optsType:
+      ```ts
+      interface dicomLoaderOptsType {
+        gui?: GUI;
+        getMesh?: (mesh: THREE.Mesh) => void;
+        setAnimation?: (
+          currentValue: number,
+          depth: number,
+          depthStep: number
+        ) => number;
+      }
+      ```
+
+  - How to use now:
+
+  ```ts
+  scene.loadDicom(urls, {
+    gui,
+    getMesh(mesh) {
+      console.log(mesh);
+    },
+    setAnimation(currentValue, depth, depthStep) {
+      currentValue += depthStep;
+      if (currentValue > depth) {
+        currentValue = 0;
+      }
+      return currentValue;
+    },
+  });
+  ```
+
+- optimise the preRenderCallbackFunction.
+  - The problem of repeatedly adding functions can now be circumvented.
+  - The usage is same as before.
