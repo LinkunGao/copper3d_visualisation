@@ -2,7 +2,6 @@ import * as THREE from "three";
 import getVOILUT from "../Utils/getVOILUT";
 import dicomParser from "dicom-parser";
 import { copperVolumeType } from "../types/types";
-import { TAG_DICT } from "../lib/dicom_pharser_dictionary";
 
 const loader = new THREE.FileLoader().setResponseType("arraybuffer");
 
@@ -13,18 +12,18 @@ export function copperDicomLoader(
   loader.load(url, (arrayBuffer) => {
     var dicomFileAsBuffer = new Uint8Array(arrayBuffer as ArrayBuffer);
 
-    // const dataSet1 = dicomParser.parseDicom(dicomFileAsBuffer);
+    const dataSet = dicomParser.parseDicom(dicomFileAsBuffer);
     // console.log(dataSet1);
 
-    const dataSet = dicomParser.parseDicom(dicomFileAsBuffer, {
-      vrCallback(tag) {
-        const formatted = `(${tag.substring(1, 5)},${tag.substring(5, 9)})`;
+    // const dataSet = dicomParser.parseDicom(dicomFileAsBuffer, {
+    //   vrCallback(tag) {
+    //     const formatted = `(${tag.substring(1, 5)},${tag.substring(5, 9)})`;
 
-        // console.log(!!TAG_DICT[formatted] ? TAG_DICT[formatted].vr : undefined);
+    //     // console.log(!!TAG_DICT[formatted] ? TAG_DICT[formatted].vr : undefined);
 
-        return !!TAG_DICT[formatted] ? TAG_DICT[formatted].vr : undefined;
-      },
-    });
+    //     return !!TAG_DICT[formatted] ? TAG_DICT[formatted].vr : undefined;
+    //   },
+    // });
     let tags: any = null;
     let w: number;
     let h: number;
