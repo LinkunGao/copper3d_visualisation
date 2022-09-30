@@ -185,8 +185,7 @@ function loadNrrd(
 
     appRenderer.sceneInfos[0].subScene.add(nrrdMesh.z);
 
-    // set to true to display all contrast with main in same page
-    nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z, true);
+    nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z);
 
     nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
       mode: "mode1",
