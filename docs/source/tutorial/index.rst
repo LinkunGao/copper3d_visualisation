@@ -19,5 +19,7 @@ Tutorial
     11_dragAndResetNrrd
     12_drawOnNrrdSlice
     13_newDrawingFunction
-    14_loadMultipleVtks
-    15_texture2d_heartmodel
+    14_drawContrastWithMain
+    15_drawContrastInMainArea
+    16_loadMultipleVtks
+    17_texture2d_heartmodel

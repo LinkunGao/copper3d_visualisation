@@ -44,6 +44,10 @@ export class nrrd_tools {
   private contrastHeight: number = 200;
   private Is_Shift_Pressed: boolean = false;
   private Is_Draw: boolean = false;
+  private Mouse_Over_x: number = 0;
+  private Mouse_Over_y: number = 0;
+  private Mouse_Over: boolean = false;
+  private displayNotOnMainArea = false;
 
   private showDragNumberDiv: HTMLDivElement = document.createElement("div");
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
@@ -85,10 +89,10 @@ export class nrrd_tools {
     size: 1,
     globalAlpha: 0.3,
     lineWidth: 2,
-    color: "#f50a86",
+    color: "#f50a33",
     segmentation: false,
-    fillColor: "#1e809c",
-    brushColor: "#1e809c",
+    fillColor: "#3fac58",
+    brushColor: "#3fac58",
     brushLineWidth: 15,
     Eraser: false,
     EraserSize: 25,
@@ -203,9 +207,12 @@ export class nrrd_tools {
     this.slice = slice;
     this.afterLoadSlice();
   }
-  setVolumeAndSlice(volume: any, slice: any) {
+  setVolumeAndSlice(volume: any, slice: any, notMainArea?: boolean) {
     this.volume = volume;
     this.slice = slice;
+    if (notMainArea) {
+      this.displayNotOnMainArea = notMainArea;
+    }
 
     this.afterLoadSlice();
   }
@@ -656,8 +663,34 @@ export class nrrd_tools {
       this.displayCanvas.style.top = this.drawingCanvas.style.top =
         e.clientY - panelMoveInnerY + "px";
     }, 80);
+    const handleDisplayMouseMove = (e: MouseEvent) => {
+      this.Mouse_Over_x = e.offsetX;
+      this.Mouse_Over_y = e.offsetY;
+      if (this.Mouse_Over_x === undefined) {
+        this.Mouse_Over_x = e.clientX;
+        this.Mouse_Over_y = e.clientY;
+      }
+      if (e.type === "mouseout") {
+        this.Mouse_Over = false;
+
+        this.drawingCanvas.removeEventListener(
+          "mousemove",
+          handleDisplayMouseMove
+        );
+      } else if (e.type === "mouseover") {
+        this.Mouse_Over = true;
+        this.drawingCanvas.addEventListener(
+          "mousemove",
+          handleDisplayMouseMove
+        );
+      }
+      e.preventDefault();
+    };
 
     // add canvas event listeners
+    this.drawingCanvas.addEventListener("mouseover", handleDisplayMouseMove);
+    this.drawingCanvas.addEventListener("mouseout", handleDisplayMouseMove);
+
     // disable browser right click menu
     this.drawingCanvas.addEventListener(
       "pointerdown",
@@ -848,28 +881,47 @@ export class nrrd_tools {
       this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
         passive: false,
       });
+      if (!this.stateMode.segmentation) {
+        this.setIsDrawFalse(100);
+      }
     };
     this.drawingCanvas.addEventListener("pointerleave", () => {
       Is_Painting = false;
       controls.enabled = true;
-      this.setIsDrawFalse(3000);
+      if (this.stateMode.segmentation) {
+        this.setIsDrawFalse(1000);
+      }
     });
 
     this.start = () => {
       if (this.readyToUpdate) {
+        this.drawingCtx.clearRect(0, 0, this.changedWidth, this.changedHeight);
+        this.drawingCtx.globalAlpha = this.stateMode.globalAlpha;
+
         if (this.Is_Draw) {
-          this.drawingCtx.clearRect(
-            0,
-            0,
-            this.changedWidth,
-            this.changedHeight
-          );
           this.drawingLayer1Ctx.lineCap = "round";
           this.drawingLayer1Ctx.globalAlpha = 1;
-          this.drawingCtx.globalAlpha = this.stateMode.globalAlpha;
-          this.drawingCtx.drawImage(this.drawingCanvasLayer1, 0, 0);
           this.redrawOriginCanvas();
+        } else {
+          if (
+            !this.stateMode.segmentation &&
+            !this.stateMode.Eraser &&
+            this.Mouse_Over
+          ) {
+            this.drawingCtx.fillStyle = this.stateMode.brushColor;
+            this.drawingCtx.beginPath();
+            this.drawingCtx.arc(
+              this.Mouse_Over_x,
+              this.Mouse_Over_y,
+              this.stateMode.brushLineWidth / 2,
+              0,
+              Math.PI * 2
+            );
+            this.drawingCtx.fill();
+          }
         }
+
+        this.drawingCtx.drawImage(this.drawingCanvasLayer1, 0, 0);
       } else {
         this.originCanvas.width = this.originCanvas.width;
         this.slice.repaint.call(this.slice);
@@ -889,16 +941,19 @@ export class nrrd_tools {
     this.slice.mesh.material.map.needsUpdate = true;
     this.originCanvas.width = this.originCanvas.width;
     this.slice.repaint.call(this.slice);
+    this.originCanvas.getContext("2d").globalAlpha = this.stateMode.globalAlpha;
+
     this.originCanvas
       .getContext("2d")
       ?.drawImage(
-        this.drawingCanvas,
+        this.drawingCanvasLayer1,
         0,
         0,
         this.originCanvas.width,
         this.originCanvas.height
       );
     if (
+      this.displayNotOnMainArea &&
       this.contrast1OriginCanvas &&
       this.contrast2OriginCanvas &&
       this.contrast3OriginCanvas &&
@@ -914,11 +969,19 @@ export class nrrd_tools {
         this.setSyncsliceNum();
         this.repraintCurrentContrastSlice();
       }
+      this.contrast1OriginCanvas.getContext("2d").globalAlpha =
+        this.stateMode.globalAlpha;
+      this.contrast2OriginCanvas.getContext("2d").globalAlpha =
+        this.stateMode.globalAlpha;
+      this.contrast3OriginCanvas.getContext("2d").globalAlpha =
+        this.stateMode.globalAlpha;
+      this.contrast4OriginCanvas.getContext("2d").globalAlpha =
+        this.stateMode.globalAlpha;
 
       this.contrast1OriginCanvas
         .getContext("2d")
         ?.drawImage(
-          this.drawingCanvas,
+          this.drawingCanvasLayer1,
           0,
           0,
           this.contrast1OriginCanvas.width,
@@ -927,7 +990,7 @@ export class nrrd_tools {
       this.contrast2OriginCanvas
         .getContext("2d")
         ?.drawImage(
-          this.drawingCanvas,
+          this.drawingCanvasLayer1,
           0,
           0,
           this.contrast2OriginCanvas.width,
@@ -936,7 +999,7 @@ export class nrrd_tools {
       this.contrast3OriginCanvas
         .getContext("2d")
         ?.drawImage(
-          this.drawingCanvas,
+          this.drawingCanvasLayer1,
           0,
           0,
           this.contrast3OriginCanvas.width,
@@ -945,7 +1008,7 @@ export class nrrd_tools {
       this.contrast4OriginCanvas
         .getContext("2d")
         ?.drawImage(
-          this.drawingCanvas,
+          this.drawingCanvasLayer1,
           0,
           0,
           this.contrast4OriginCanvas.width,
