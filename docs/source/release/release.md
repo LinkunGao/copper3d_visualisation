@@ -779,5 +779,13 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
   ```
 
 - optimise the preRenderCallbackFunction.
+
   - The problem of repeatedly adding functions can now be circumvented.
   - The usage is same as before.
+
+## Release v1.11.14
+
+- Modify the nrrd_tools `setVolumeAndSlice(volume: any, slice: any, notMainArea?: boolean)` with a optional parameter.
+  - if you want to render all contrast nrrd in a same page, you can sent `true` to third parameter.
+  - How to use it see `Tutorial 15`
+- Add a brush Mouse Assistance System.
