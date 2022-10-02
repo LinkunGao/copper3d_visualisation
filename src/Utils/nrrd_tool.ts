@@ -47,7 +47,6 @@ export class nrrd_tools {
   private Mouse_Over_x: number = 0;
   private Mouse_Over_y: number = 0;
   private Mouse_Over: boolean = false;
-  private displayNotOnMainArea = false;
 
   private showDragNumberDiv: HTMLDivElement = document.createElement("div");
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
@@ -86,6 +85,7 @@ export class nrrd_tools {
    */
   private undoArray: Array<undoType> = [];
   private stateMode = {
+    dragSensitivity: 5,
     size: 1,
     globalAlpha: 0.3,
     lineWidth: 2,
@@ -207,12 +207,9 @@ export class nrrd_tools {
     this.slice = slice;
     this.afterLoadSlice();
   }
-  setVolumeAndSlice(volume: any, slice: any, notMainArea?: boolean) {
+  setVolumeAndSlice(volume: any, slice: any) {
     this.volume = volume;
     this.slice = slice;
-    if (notMainArea) {
-      this.displayNotOnMainArea = notMainArea;
-    }
 
     this.afterLoadSlice();
   }
@@ -220,10 +217,17 @@ export class nrrd_tools {
   //   this.addContrastArea = state;
   // }
   setSyncsliceNum() {
-    this.contrast1Slice.index = this.slice.index;
-    this.contrast2Slice.index = this.slice.index;
-    this.contrast3Slice.index = this.slice.index;
-    this.contrast4Slice.index = this.slice.index;
+    if (
+      this.contrast1Slice &&
+      this.contrast2Slice &&
+      this.contrast3Slice &&
+      this.contrast4Slice
+    ) {
+      this.contrast1Slice.index = this.slice.index;
+      this.contrast2Slice.index = this.slice.index;
+      this.contrast3Slice.index = this.slice.index;
+      this.contrast4Slice.index = this.slice.index;
+    }
   }
   setContrastDisplayInMainArea() {
     this.contrastShowInMain = true;
@@ -320,6 +324,8 @@ export class nrrd_tools {
     let move: number;
     let y: number;
     let h: number = this.container.offsetHeight;
+    let convertArr = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+    let sensivity = 1;
 
     let handleOnMouseUp: (ev: MouseEvent) => void;
     let handleOnMouseDown: (ev: MouseEvent) => void;
@@ -328,7 +334,7 @@ export class nrrd_tools {
     this.originWidth = this.slice.canvas.width;
     this.originHeight = this.slice.canvas.height;
 
-    this.container.tabIndex = 1;
+    this.container.tabIndex = 10;
 
     if (opts?.showNumber) {
       // this.showDragNumberDiv.innerHTML = `Slice number: ${this.slice.index}/${this.maxIndex}`;
@@ -341,6 +347,7 @@ export class nrrd_tools {
         this.container.style.cursor = "pointer";
         this.Is_Shift_Pressed = true;
         this.Is_Draw = true;
+
         this.container.addEventListener("mousedown", handleOnMouseDown, false);
         this.container.addEventListener("mouseup", handleOnMouseUp, false);
       }
@@ -374,6 +381,7 @@ export class nrrd_tools {
 
     if (opts?.mode === "mode0") {
       handleOnMouseDown = (ev: MouseEvent) => {
+        this.setSyncsliceNum();
         y = ev.offsetY / h;
       };
       handleOnMouseUp = (ev: MouseEvent) => {
@@ -398,21 +406,26 @@ export class nrrd_tools {
       };
     } else {
       handleOnMouseDown = (ev: MouseEvent) => {
+        this.setSyncsliceNum();
         y = ev.offsetY / h;
         this.container.addEventListener("mousemove", handleOnMouseMove, false);
         this.oldIndex = this.slice.index;
+        sensivity = convertArr[this.stateMode.dragSensitivity - 1];
       };
       handleOnMouseMove = throttle((ev: MouseEvent) => {
+        this.oldIndex = this.slice.index;
         this.Is_Draw = true;
         if (y - ev.offsetY / h >= 0) {
-          move = -Math.ceil((y - ev.offsetY / h) * 20);
+          move = -Math.ceil(((y - ev.offsetY / h) * 10) / sensivity);
         } else {
-          move = -Math.floor((y - ev.offsetY / h) * 20);
+          move = -Math.floor(((y - ev.offsetY / h) * 10) / sensivity);
         }
 
         this.updateIndex(move);
-      }, 100);
+        y = ev.offsetY / h;
+      }, sensivity * 200);
       handleOnMouseUp = (ev: MouseEvent) => {
+        this.setSyncsliceNum();
         this.container.removeEventListener(
           "mousemove",
           handleOnMouseMove,
@@ -953,7 +966,7 @@ export class nrrd_tools {
         this.originCanvas.height
       );
     if (
-      this.displayNotOnMainArea &&
+      !this.contrastShowInMain &&
       this.contrast1OriginCanvas &&
       this.contrast2OriginCanvas &&
       this.contrast3OriginCanvas &&
@@ -1223,6 +1236,7 @@ export class nrrd_tools {
 
   private configGui(modeFolder: GUI) {
     if (modeFolder.__controllers.length > 0) this.removeModeChilden(modeFolder);
+    modeFolder.add(this.stateMode, "dragSensitivity").min(1).max(10).step(1);
     modeFolder
       .add(this.stateMode, "size")
       .min(1)
