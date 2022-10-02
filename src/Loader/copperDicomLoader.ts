@@ -32,6 +32,13 @@ export function copperDicomLoader(
     let windowWidth: number;
     let order: number = 0;
 
+    // console.log(dataSet.elements.x00181060);
+    // console.log(dataSet.elements.x00201041);
+
+    // console.log(dataSet.uint16("x00280004"));
+    // // console.log(dataSet.string("x00201041"));
+    // console.log(dataSet.string("x00201041"));
+
     try {
       tags = dicomParser.explicitDataSetToJS(dataSet);
 

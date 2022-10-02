@@ -789,3 +789,9 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
   - if you want to render all contrast nrrd in a same page, you can sent `true` to third parameter.
   - How to use it see `Tutorial 15`
 - Add a brush Mouse Assistance System.
+
+## Release v1.11.15
+
+- change back `setVolumeAndSlice(volume: any, slice: any, notMainArea?: boolean)` to `setVolumeAndSlice(volume: any, slice: any)`.
+
+- add drag sensitive attribute in GUI.
