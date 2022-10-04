@@ -45,7 +45,7 @@ export function createTexture2D_Array(
   depth: number,
   scene: THREE.Scene,
   gui?: GUI
-) {
+): THREE.Mesh {
   planeWidth = copperVolume.width / 2;
   planeHeight = copperVolume.height / 2;
 
@@ -113,4 +113,6 @@ export function createTexture2D_Array(
     }
     texture.needsUpdate = true;
   }
+
+  return mesh;
 }

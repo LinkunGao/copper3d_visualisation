@@ -156,12 +156,23 @@ export default class copperScene extends baseScene {
 
     models.forEach((model) => {
       const geometries: Array<THREE.BufferGeometry> = [];
-      model.urls.forEach((url) => {
+      model.urls.forEach((url, index) => {
         vtkLoader.load(url, (geometry) => {
           geometry.center();
           geometry.computeVertexNormals();
+          geometry.name = index.toString();
           geometries.push(geometry);
           if (geometries.length === model.urls.length) {
+            // sort the vtks by index order
+            geometries.sort(
+              (a: THREE.BufferGeometry, b: THREE.BufferGeometry) => {
+                if (this.sort) {
+                  return parseInt(a.name) - parseInt(b.name);
+                } else {
+                  return parseInt(b.name) - parseInt(a.name);
+                }
+              }
+            );
             finishLoad(geometries, model);
             count += 1;
           }
@@ -294,49 +305,36 @@ export default class copperScene extends baseScene {
 
       const finishLoad = (copperVolume: copperVolumeType) => {
         if (gui) gui.add(this, "depthStep").min(0.01).max(1).step(0.01);
-        createTexture2D_Array(copperVolume, depth, this.scene, gui);
-        const textureInterval = setInterval(() => {
-          this.scene.children.forEach((child) => {
-            if ((child as THREE.Mesh).isMesh) {
-              if (child.name === "texture2d_mesh_array") {
-                this.texture2dMesh = child as THREE.Mesh;
-                const render_texture2d = () => {
-                  if (this.texture2dMesh) {
-                    let value = (this.texture2dMesh.material as any).uniforms[
-                      "depth"
-                    ].value;
+        const texture2dMesh = createTexture2D_Array(
+          copperVolume,
+          depth,
+          this.scene,
+          gui
+        );
 
-                    // if (value > depth) {
-                    //   value = 0;
-                    // }
-                    // eval(
-                    //   "value += this.depthStep;if (value > depth) {value = 0;}"
-                    // );
-                    if (opts?.setAnimation) {
-                      value = opts.setAnimation(value, depth, this.depthStep);
-                    } else {
-                      value += this.depthStep;
-                      if (value > depth || value < 0.0) {
-                        if (value > 1.0) value = depth * 2.0 - value;
-                        if (value < 0.0) value = -value;
-                        this.depthStep = -this.depthStep;
-                      }
-                    }
+        let value = (texture2dMesh.material as any).uniforms["depth"].value;
 
-                    (this.texture2dMesh.material as any).uniforms[
-                      "depth"
-                    ].value = value;
-                  }
-                };
-                this.addPreRenderCallbackFunction(render_texture2d);
-              }
+        const render_texture2d = () => {
+          // if (value > depth) {
+          //   value = 0;
+          // }
+          // eval(
+          //   "value += this.depthStep;if (value > depth) {value = 0;}"
+          // );
+          if (opts?.setAnimation) {
+            value = opts.setAnimation(value, depth, this.depthStep);
+          } else {
+            value += this.depthStep;
+            if (value > depth || value < 0.0) {
+              if (value > 1.0) value = depth * 2.0 - value;
+              if (value < 0.0) value = -value;
+              this.depthStep = -this.depthStep;
             }
-          });
-          if (this.texture2dMesh?.name === "texture2d_mesh_array") {
-            opts?.getMesh && opts.getMesh(this.texture2dMesh as THREE.Mesh);
-            clearInterval(textureInterval);
           }
-        }, 500);
+
+          (texture2dMesh.material as any).uniforms["depth"].value = value;
+        };
+        this.addPreRenderCallbackFunction(render_texture2d);
       };
     } else {
       const url = urls;
