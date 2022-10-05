@@ -795,3 +795,8 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 - change back `setVolumeAndSlice(volume: any, slice: any, notMainArea?: boolean)` to `setVolumeAndSlice(volume: any, slice: any)`.
 
 - add drag sensitive attribute in GUI.
+
+## Release v1.11.17
+
+- optimise Nrrd_tools GUI
+- optimise drag sensitive parameter
