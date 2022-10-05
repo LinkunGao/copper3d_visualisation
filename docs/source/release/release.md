@@ -800,3 +800,7 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 
 - optimise Nrrd_tools GUI
 - optimise drag sensitive parameter
+
+## Release v1.11.18
+
+- Set Nrrd tools subview default to none.

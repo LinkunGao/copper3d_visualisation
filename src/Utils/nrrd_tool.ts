@@ -87,6 +87,7 @@ export class nrrd_tools {
    */
   private undoArray: Array<undoType> = [];
   private stateMode = {
+    subView: false,
     dragSensitivity: 5,
     size: 1,
     globalAlpha: 0.3,
@@ -601,8 +602,11 @@ export class nrrd_tools {
     let modeFolder: GUI;
     let subViewFolder: GUI;
 
+    if (this.stateMode.subView === false) {
+      sceneIn.subDiv && (sceneIn.subDiv.style.display = "none");
+    }
+
     const state = {
-      subView: true,
       scale: 1.0,
       resetView: function () {
         sceneIn.resetView();
@@ -618,7 +622,7 @@ export class nrrd_tools {
     modeFolder = gui.addFolder("Mode Parameters");
 
     subViewFolder = gui.addFolder("Sub View");
-    subViewFolder.add(state, "subView").onChange((value) => {
+    subViewFolder.add(this.stateMode, "subView").onChange((value) => {
       if (value) {
         controls.enabled = true;
         sceneIn.subDiv && (sceneIn.subDiv.style.display = "block");
