@@ -47,6 +47,8 @@ export class nrrd_tools {
   private Mouse_Over_x: number = 0;
   private Mouse_Over_y: number = 0;
   private Mouse_Over: boolean = false;
+  private Max_sensitive: number = 100;
+  private sensitiveArray: number[] = [];
 
   private showDragNumberDiv: HTMLDivElement = document.createElement("div");
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
@@ -93,9 +95,9 @@ export class nrrd_tools {
     segmentation: false,
     fillColor: "#3fac58",
     brushColor: "#3fac58",
-    brushLineWidth: 15,
+    brushAndEraserSize: 15,
     Eraser: false,
-    EraserSize: 25,
+    // EraserSize: 25,
     clearAll: () => {
       this.clearAllPaint();
     },
@@ -165,6 +167,10 @@ export class nrrd_tools {
     this.downloadImage.href = "";
     this.downloadImage.target = "_blank";
     this.drawingCanvasContainer.className = "copper3D_drawingCanvasContainer";
+
+    for (let i = 0; i < this.Max_sensitive; i++) {
+      this.sensitiveArray.push((i + 1) / 20);
+    }
   }
 
   private afterLoadSlice() {
@@ -324,12 +330,14 @@ export class nrrd_tools {
     let move: number;
     let y: number;
     let h: number = this.container.offsetHeight;
-    let convertArr = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+    // let convertArr = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
     let sensivity = 1;
 
     let handleOnMouseUp: (ev: MouseEvent) => void;
     let handleOnMouseDown: (ev: MouseEvent) => void;
     let handleOnMouseMove: (ev: MouseEvent) => void;
+
+    this.sensitiveArray.reverse();
 
     this.originWidth = this.slice.canvas.width;
     this.originHeight = this.slice.canvas.height;
@@ -410,7 +418,7 @@ export class nrrd_tools {
         y = ev.offsetY / h;
         this.container.addEventListener("mousemove", handleOnMouseMove, false);
         this.oldIndex = this.slice.index;
-        sensivity = convertArr[this.stateMode.dragSensitivity - 1];
+        sensivity = this.sensitiveArray[this.stateMode.dragSensitivity - 1];
       };
       handleOnMouseMove = throttle((ev: MouseEvent) => {
         this.oldIndex = this.slice.index;
@@ -785,7 +793,7 @@ export class nrrd_tools {
         this.drawingLayer1Ctx.lineWidth = this.stateMode.lineWidth;
       } else {
         this.drawingLayer1Ctx.strokeStyle = this.stateMode.brushColor;
-        this.drawingLayer1Ctx.lineWidth = this.stateMode.brushLineWidth;
+        this.drawingLayer1Ctx.lineWidth = this.stateMode.brushAndEraserSize;
       }
 
       this.drawingLayer1Ctx.lineTo(x, y);
@@ -803,7 +811,7 @@ export class nrrd_tools {
         if (this.stateMode.Eraser) {
           stepClear = 1;
           // drawingCtx.clearRect(e.offsetX - 5, e.offsetY - 5, 25, 25);
-          clearArc(e.offsetX, e.offsetY, this.stateMode.EraserSize);
+          clearArc(e.offsetX, e.offsetY, this.stateMode.brushAndEraserSize);
         } else {
           lines.push({ x: e.offsetX, y: e.offsetY });
           paintOnCanvasLayer1(e.offsetX, e.offsetY);
@@ -926,7 +934,7 @@ export class nrrd_tools {
             this.drawingCtx.arc(
               this.Mouse_Over_x,
               this.Mouse_Over_y,
-              this.stateMode.brushLineWidth / 2,
+              this.stateMode.brushAndEraserSize / 2,
               0,
               Math.PI * 2
             );
@@ -1236,7 +1244,11 @@ export class nrrd_tools {
 
   private configGui(modeFolder: GUI) {
     if (modeFolder.__controllers.length > 0) this.removeModeChilden(modeFolder);
-    modeFolder.add(this.stateMode, "dragSensitivity").min(1).max(10).step(1);
+    modeFolder
+      .add(this.stateMode, "dragSensitivity")
+      .min(1)
+      .max(this.Max_sensitive)
+      .step(1);
     modeFolder
       .add(this.stateMode, "size")
       .min(1)
@@ -1246,14 +1258,10 @@ export class nrrd_tools {
         this.resizePaintArea(factor);
       });
     modeFolder.add(this.stateMode, "globalAlpha").min(0.1).max(1).step(0.01);
-    modeFolder.add(this.stateMode, "segmentation");
-    modeFolder.addColor(this.stateMode, "color");
-    modeFolder.addColor(this.stateMode, "fillColor");
-    modeFolder.add(this.stateMode, "lineWidth").min(1.7).max(3).step(0.01);
 
-    modeFolder.add(this.stateMode, "brushLineWidth").min(5).max(50).step(1);
+    modeFolder.add(this.stateMode, "brushAndEraserSize").min(5).max(50).step(1);
     modeFolder.addColor(this.stateMode, "brushColor");
-    modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
+    // modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
     modeFolder.add(this.stateMode, "Eraser").onChange((value) => {
       this.stateMode.Eraser = value;
       if (this.stateMode.Eraser) {
@@ -1267,6 +1275,16 @@ export class nrrd_tools {
     modeFolder.add(this.stateMode, "clearAll");
     modeFolder.add(this.stateMode, "undo");
     modeFolder.add(this.stateMode, "downloadCurrentImage");
+    const segmentation = modeFolder.addFolder("segmentation");
+    segmentation.add(this.stateMode, "segmentation");
+    segmentation
+      .add(this.stateMode, "lineWidth")
+      .name("outerLineWidth")
+      .min(1.7)
+      .max(3)
+      .step(0.01);
+    segmentation.addColor(this.stateMode, "color");
+    segmentation.addColor(this.stateMode, "fillColor");
     const contrast = modeFolder.addFolder("contrast");
     contrast.open();
     contrast

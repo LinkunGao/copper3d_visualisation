@@ -2,7 +2,6 @@ import * as THREE from "three";
 import getVOILUT from "../Utils/getVOILUT";
 import dicomParser from "dicom-parser";
 import { copperVolumeType } from "../types/types";
-// import { TAG_DICT } from "../lib/dicom_pharser_dictionary";
 
 const loader = new THREE.FileLoader().setResponseType("arraybuffer");
 
