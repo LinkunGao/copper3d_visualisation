@@ -3,13 +3,11 @@ import baseScene from "./baseScene";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { pickModelDefault } from "../Utils/raycaster";
 
 export default class copperSceneOnDemond extends baseScene {
   controls: OrbitControls;
   renderRequested: boolean | undefined = false;
   isResize: boolean = false;
-  private pickableObjects: THREE.Mesh[] = [];
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
     super(container, renderer);
@@ -41,11 +39,10 @@ export default class copperSceneOnDemond extends baseScene {
           this.camera.position.y += size / 5.0;
           this.camera.position.z += size / 2.0;
           this.camera.lookAt(center);
-          this.viewPoint = this.setViewPoint(this.camera, [
-            center.x,
-            center.y,
-            center.z,
-          ]);
+          this.viewPoint = this.setViewPoint(
+            this.camera as THREE.PerspectiveCamera,
+            [center.x, center.y, center.z]
+          );
         }
 
         this.content = gltf.scene;
@@ -55,27 +52,6 @@ export default class copperSceneOnDemond extends baseScene {
       (error) => {
         // console.log(error);
       }
-    );
-  }
-  // pickModel
-  pickModel(
-    content: THREE.Group,
-    callback: (selectMesh: THREE.Mesh | undefined) => void,
-    options?: string[]
-  ) {
-    content.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const m = child as THREE.Mesh;
-        if (!(options && options.includes(m.name))) {
-          this.pickableObjects.push(m);
-        }
-      }
-    });
-    pickModelDefault(
-      this.camera,
-      this.container,
-      this.pickableObjects,
-      callback
     );
   }
 

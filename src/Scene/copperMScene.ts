@@ -1,41 +1,31 @@
 import * as THREE from "three";
-import { GUI, GUIController } from "dat.gui";
+import { GUI } from "dat.gui";
 import { Controls, CameraViewPoint } from "../Controls/copperControls";
 import { createBackground, customMeshType } from "../lib/three-vignette";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
-import { copperVtkLoader } from "../Loader/copperVtkLoader";
-import { pickModelDefault, isPickedModel, throttle } from "../Utils/raycaster";
+import { isPickedModel, throttle } from "../Utils/raycaster";
 import {
-  nrrdMeshesType,
   mouseMovePositionType,
   positionType,
   nrrdSliceType,
-  loadingBarType,
-  preRenderCallbackFunctionType,
 } from "../types/types";
-import {
-  copperNrrdLoader,
-  copperNrrdLoader1,
-  getWholeSlices,
-  optsType,
-} from "../Loader/copperNrrdLoader";
+import { copperNrrdLoader1, getWholeSlices } from "../Loader/copperNrrdLoader";
 import { isIOS } from "../Utils/utils";
+
+import commonScene from "./commonSceneMethod";
 
 const IS_IOS = isIOS();
 
-export default class copperMScene {
+export default class copperMScene extends commonScene {
   gui: GUI = new GUI({
     width: 260,
     autoPlace: false,
   });
-  // gui: GUI = new GUI();
   container: HTMLDivElement;
   renderer: THREE.WebGLRenderer;
-  scene: THREE.Scene = new THREE.Scene();
-  camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
   sceneName: string = "";
   vignette: customMeshType;
   directionalLight: THREE.DirectionalLight;
@@ -47,23 +37,14 @@ export default class copperMScene {
   isHalfed: boolean = false;
   controls: TrackballControls | OrbitControls;
 
-  subDiv: HTMLDivElement | null = null;
-  subScene: THREE.Scene = new THREE.Scene();
-  subCamera: THREE.PerspectiveCamera | null = null;
-  subRender: THREE.WebGLRenderer | null = null;
-  subCopperControl: Controls | null = null;
-
-  private pickableObjects: THREE.Mesh[] = [];
   private color1: string = "#5454ad";
   private color2: string = "#18e5a7";
   private lights: any[] = [];
   private renderNrrdVolume: boolean = false;
   private guiContainer: HTMLDivElement = document.createElement("div");
-  // private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
-  private preRenderCallbackFunctions: preRenderCallbackFunctionType;
-  private Is_Control_Enabled: boolean = true;
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
+    super(container);
     this.container = container;
     this.renderer = renderer;
     this.camera = new THREE.PerspectiveCamera(
@@ -110,8 +91,6 @@ export default class copperMScene {
     this.guiContainer.appendChild(this.gui.domElement);
     this.container.appendChild(this.guiContainer);
 
-    this.Is_Control_Enabled = this.controls.enabled;
-
     this.guiContainer.addEventListener(
       "pointerover",
       throttle(() => {
@@ -146,24 +125,6 @@ export default class copperMScene {
         this.controls.rotateSpeed = 0.01;
         break;
     }
-  }
-  createDemoMesh() {
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshPhongMaterial({
-      color: 0xff00ff,
-      wireframe: true,
-    });
-
-    const cube = new THREE.Mesh(geometry, material);
-    this.scene.add(cube);
-    this.scene.add(new THREE.AxesHelper(5));
-  }
-  addObject(obj: any) {
-    this.scene.add(obj);
-  }
-
-  changedControlsState(state: boolean) {
-    this.Is_Control_Enabled = state;
   }
 
   loadGltf(url: string, callback?: (content: THREE.Group) => void) {
@@ -220,53 +181,6 @@ export default class copperMScene {
     );
   }
 
-  /**
-   * create a new sub view to display models
-   */
-  addSubView() {
-    this.subDiv = document.createElement("div");
-    this.container.appendChild(this.subDiv);
-    this.subDiv.classList.add("copper3D_sub_axes");
-
-    const { clientWidth, clientHeight } = this.subDiv;
-    this.subCamera = new THREE.PerspectiveCamera(
-      50,
-      clientWidth / clientHeight,
-      0.1,
-      10
-    );
-    this.subScene.add(this.subCamera);
-
-    this.subCopperControl = new Controls(this.subCamera);
-    this.subRender = new THREE.WebGLRenderer({ alpha: true });
-    this.subRender.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.subRender.setSize(this.subDiv.clientWidth, this.subDiv.clientWidth);
-    this.subCamera.up = this.camera.up;
-    this.subDiv.appendChild(this.subRender.domElement);
-  }
-
-  pickModel(
-    content: THREE.Group,
-    callback: (selectMesh: THREE.Mesh | undefined) => void,
-    options?: string[]
-  ) {
-    content.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const m = child as THREE.Mesh;
-        if (!(options && options.includes(m.name))) {
-          this.pickableObjects.push(m);
-        }
-      }
-    });
-
-    pickModelDefault(
-      this.camera as THREE.PerspectiveCamera,
-      this.container,
-      this.pickableObjects,
-      callback
-    );
-  }
-
   pickSpecifiedModel(
     content: THREE.Mesh | Array<THREE.Mesh>,
     mousePosition: mouseMovePositionType
@@ -304,20 +218,6 @@ export default class copperMScene {
     viewPoint.upVector = [camera.up.x, camera.up.y, camera.up.z];
     this.viewPoint = viewPoint;
     return viewPoint;
-  }
-
-  loadNrrd(
-    url: string,
-    loadingBar: loadingBarType,
-    callback?: (
-      volume: any,
-      nrrdMeshes: nrrdMeshesType,
-      nrrdSlices: nrrdSliceType,
-      gui?: GUI
-    ) => void,
-    opts?: optsType
-  ) {
-    copperNrrdLoader(url, loadingBar, callback, opts);
   }
 
   loadNrrd1(url: string, callback?: (volume: any, gui?: GUI) => void) {
@@ -420,12 +320,6 @@ export default class copperMScene {
     if (typeof position.z === "number") this.camera.position.z = position.z;
 
     this.setViewPoint(this.camera as THREE.PerspectiveCamera);
-  }
-  addPreRenderCallbackFunction(callbackFunction: Function) {
-    this.preRenderCallbackFunctions.add(callbackFunction);
-    const id = this.preRenderCallbackFunctions.index;
-    return id;
-    return id;
   }
 
   resetView() {
