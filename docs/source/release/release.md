@@ -804,3 +804,8 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 ## Release v1.11.18
 
 - Set Nrrd tools subview default to none.
+
+## Release v1.11.19
+
+- rewrite copperScene
+- add all common methods in commonSceneMethod class. Then let copperScene and copperMScene to extends it.

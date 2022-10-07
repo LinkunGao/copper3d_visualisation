@@ -2,41 +2,34 @@ import * as THREE from "three";
 import { Controls, CameraViewPoint } from "../Controls/copperControls";
 import { createBackground, customMeshType } from "../lib/three-vignette";
 import { baseStateType } from "../types/types";
-import { pickModelDefault } from "../Utils/raycaster";
 import { isIOS, traverseMaterials } from "../Utils/utils";
+import commonScene from "./commonSceneMethod";
 
 const IS_IOS = isIOS();
 
-export default class baseScene {
-  container: HTMLDivElement;
+export default class baseScene extends commonScene {
   renderer: THREE.WebGLRenderer;
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
+  // scene: THREE.Scene;
+  // camera: THREE.PerspectiveCamera;
   sceneName: string = "";
   vignette: customMeshType;
   directionalLight: THREE.DirectionalLight;
   ambientLight: THREE.AmbientLight;
   copperControl: Controls;
-  viewPoint: CameraViewPoint = new CameraViewPoint();
   cameraPositionFlag = false;
   content: THREE.Group = new THREE.Group();
   exportContent: THREE.Group = new THREE.Group();
   isHalfed: boolean = false;
+  viewPoint: CameraViewPoint = new CameraViewPoint();
 
   private color1: string = "#5454ad";
   private color2: string = "#18e5a7";
   private lights: any[] = [];
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
-    this.container = container;
+    super(container);
     this.renderer = renderer;
-    this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(
-      75,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      500
-    );
+
     this.ambientLight = new THREE.AmbientLight(0x202020, 0.3);
     this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.3);
     this.vignette = createBackground({
@@ -47,7 +40,8 @@ export default class baseScene {
     this.vignette.mesh.name = "Vignette";
     this.vignette.mesh.renderOrder = -1;
 
-    this.copperControl = new Controls(this.camera);
+    this.copperControl = new Controls(this.camera as THREE.PerspectiveCamera);
+
     this.init();
   }
   init() {
@@ -62,17 +56,6 @@ export default class baseScene {
     );
 
     this.addLights();
-  }
-  createDemoMesh() {
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshPhongMaterial({
-      color: 0xff00ff,
-      wireframe: true,
-    });
-
-    const cube = new THREE.Mesh(geometry, material);
-    this.scene.add(cube);
-    this.scene.add(new THREE.AxesHelper(5));
   }
 
   loadMetadataUrl(url: string) {
@@ -202,10 +185,12 @@ export default class baseScene {
 
   onWindowResize = () => {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.camera.aspect =
+    (this.camera as THREE.PerspectiveCamera).aspect =
       this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();
-    this.vignette.style({ aspect: this.camera.aspect });
+    this.vignette.style({
+      aspect: (this.camera as THREE.PerspectiveCamera).aspect,
+    });
     this.renderer.setSize(
       this.container.clientWidth,
       this.container.clientHeight

@@ -22,8 +22,8 @@ import {
 } from "../types/types";
 
 export default class copperScene extends baseScene {
-  controls: TrackballControls;
   clock: THREE.Clock = new THREE.Clock();
+  controls: TrackballControls;
   // isHalfed: boolean = false;
 
   private mixer: THREE.AnimationMixer | null = null;
@@ -31,13 +31,13 @@ export default class copperScene extends baseScene {
   private modelReady: boolean = false;
   private clipAction: any;
   // rayster pick
-  private pickableObjects: THREE.Mesh[] = [];
+
   // texture2d
-  private depthStep: number = 0.4;
+  // private depthStep: number = 0.4;
   private texture2dMesh: THREE.Mesh | null = null;
   // private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
-  private preRenderCallbackFunctions: preRenderCallbackFunctionType;
-  private sort: boolean = true; //default ascending order
+  // private preRenderCallbackFunctions: preRenderCallbackFunctionType;
+  // private sort: boolean = true; //default ascending order
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
     super(container, renderer);
@@ -45,29 +45,7 @@ export default class copperScene extends baseScene {
       this.camera,
       this.renderer.domElement
     );
-    this.preRenderCallbackFunctions = {
-      index: 0,
-      cache: {},
-      add(fn) {
-        if (!fn.id) {
-          fn.id = ++this.index;
-          this.cache[fn.id] = fn;
-          return;
-        }
-      },
-    };
     window.addEventListener("resize", this.onWindowResize, false);
-  }
-
-  setDepth(value: number) {
-    this.depthStep = value;
-  }
-  setDicomFilesOrder(value: "ascending" | "descending") {
-    if (value === "ascending") {
-      this.sort = true;
-    } else if (value === "descending") {
-      this.sort = false;
-    }
   }
 
   loadGltf(url: string, callback?: (content: THREE.Group) => void) {
@@ -91,11 +69,10 @@ export default class copperScene extends baseScene {
           this.camera.position.y += size / 5.0;
           this.camera.position.z += size / 2.0;
           this.camera.lookAt(center);
-          this.viewPoint = this.setViewPoint(this.camera, [
-            center.x,
-            center.y,
-            center.z,
-          ]);
+          this.viewPoint = this.setViewPoint(
+            this.camera as THREE.PerspectiveCamera,
+            [center.x, center.y, center.z]
+          );
         }
         this.mixer = new THREE.AnimationMixer(gltf.scene);
         gltf.animations.forEach((a: THREE.AnimationClip, index: number) => {
@@ -113,20 +90,6 @@ export default class copperScene extends baseScene {
         // console.log(error);
       }
     );
-  }
-
-  loadNrrd(
-    url: string,
-    loadingBar: loadingBarType,
-    callback?: (
-      volume: any,
-      nrrdMeshes: nrrdMeshesType,
-      nrrdSlices: nrrdSliceType,
-      gui?: GUI
-    ) => void,
-    opts?: optsType
-  ) {
-    copperNrrdLoader(url, loadingBar, callback, opts);
   }
 
   loadVtk(url: string) {
@@ -223,127 +186,6 @@ export default class copperScene extends baseScene {
     };
   }
 
-  // pickModel
-  pickModel(
-    content: THREE.Group,
-    callback: (selectMesh: THREE.Mesh | undefined) => void,
-    options?: string[]
-  ) {
-    content.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const m = child as THREE.Mesh;
-        if (!(options && options.includes(m.name))) {
-          this.pickableObjects.push(m);
-        }
-      }
-    });
-    pickModelDefault(
-      this.camera,
-      this.container,
-      this.pickableObjects,
-      callback
-    );
-  }
-
-  // dicom
-  loadDicom(urls: string | Array<string>, opts?: dicomLoaderOptsType) {
-    let gui: GUI;
-    if (opts) {
-      gui = opts.gui as GUI;
-    }
-    if (Array.isArray(urls)) {
-      const depth: number = urls.length;
-
-      const copperVolumes: Array<copperVolumeType> = [];
-      let unit8Arrays: Array<Uint8ClampedArray> = [];
-      let unit16Arrays: Array<Uint16Array> = [];
-      urls.forEach((url) => {
-        copperDicomLoader(url, (copperVolume) => {
-          copperVolumes.push(copperVolume);
-
-          if (copperVolumes.length === depth) {
-            // reorder each dicom file
-            copperVolumes.sort((a: copperVolumeType, b: copperVolumeType) => {
-              if (this.sort) {
-                return a.order - b.order;
-              } else {
-                return b.order - a.order;
-              }
-            });
-            copperVolumes.forEach((volume) => {
-              unit8Arrays.push(volume.uint8);
-              unit16Arrays.push(volume.uint16);
-            });
-
-            const uint8 = new Uint8ClampedArray(
-              copperVolume.width * copperVolume.height * depth
-            );
-            const uint16 = new Uint16Array(uint8.length);
-            let base8Index = 0;
-            let base16Index = 0;
-
-            unit8Arrays.forEach((array, index) => {
-              base8Index = index * copperVolume.width * copperVolume.height;
-              for (let i = 0; i < array.length; i++) {
-                uint8[i + base8Index] = array[i];
-              }
-            });
-            unit16Arrays.forEach((array, index) => {
-              base16Index = index * copperVolume.width * copperVolume.height;
-              for (let i = 0; i < array.length; i++) {
-                uint16[i + base16Index] = array[i];
-              }
-            });
-
-            copperVolume.uint8 = uint8;
-            copperVolume.uint16 = uint16;
-
-            finishLoad(copperVolume);
-          }
-        });
-      });
-
-      const finishLoad = (copperVolume: copperVolumeType) => {
-        if (gui) gui.add(this, "depthStep").min(0.01).max(1).step(0.01);
-        const texture2dMesh = createTexture2D_Array(
-          copperVolume,
-          depth,
-          this.scene,
-          gui
-        );
-
-        let value = (texture2dMesh.material as any).uniforms["depth"].value;
-
-        const render_texture2d = () => {
-          // if (value > depth) {
-          //   value = 0;
-          // }
-          // eval(
-          //   "value += this.depthStep;if (value > depth) {value = 0;}"
-          // );
-          if (opts?.setAnimation) {
-            value = opts.setAnimation(value, depth, this.depthStep);
-          } else {
-            value += this.depthStep;
-            if (value > depth || value < 0.0) {
-              if (value > 1.0) value = depth * 2.0 - value;
-              if (value < 0.0) value = -value;
-              this.depthStep = -this.depthStep;
-            }
-          }
-
-          (texture2dMesh.material as any).uniforms["depth"].value = value;
-        };
-        this.addPreRenderCallbackFunction(render_texture2d);
-      };
-    } else {
-      const url = urls;
-      copperDicomLoader(url, (copperVolume) => {
-        // console.log(copperVolume.tags);
-        createTexture2D_Array(copperVolume, 1, this.scene);
-      });
-    }
-  }
   // texture2d
   texture2d(url: string) {
     createTexture2D_Zip(url, this.scene);
@@ -400,18 +242,9 @@ export default class copperScene extends baseScene {
   }
 
   resetView() {
-    this.controls.reset();
+    (this.controls as TrackballControls).reset();
     this.updateCamera(this.viewPoint);
   }
-
-  // updateModelChildrenVisualisation(child: THREE.Mesh) {
-  //   child.visible = !child.visible;
-  //   let flags: Array<boolean> = [];
-  //   this.content.traverse((mesh) => {
-  //     flags.push(mesh.visible);
-  //   });
-  //   flags.includes(false) ? (this.isHalfed = true) : (this.isHalfed = false);
-  // }
 
   updateCamera(viewpoint: CameraViewPoint) {
     this.cameraPositionFlag = true;
@@ -430,18 +263,6 @@ export default class copperScene extends baseScene {
     return this.mixer;
   }
 
-  addPreRenderCallbackFunction(callbackFunction: Function) {
-    // const id = this.preRenderCallbackFunctions.length + 1;
-    // const preCallback: preRenderCallbackFunctionType = {
-    //   id,
-    //   callback: callbackFunction,
-    // };
-    // this.preRenderCallbackFunctions.push(preCallback);
-    this.preRenderCallbackFunctions.add(callbackFunction);
-    const id = this.preRenderCallbackFunctions.index;
-    return id;
-  }
-
   render() {
     this.controls.update();
 
@@ -450,13 +271,9 @@ export default class copperScene extends baseScene {
     }
 
     Object.values(this.preRenderCallbackFunctions.cache).forEach((item) => {
-      // item && item();
       item && item.call(null);
     });
-    // this.preRenderCallbackFunctions.cache.forEach((item) => {
-    //   item.callback.call(null);
-    // });
-    // console.log(this.texture2dMesh);
+
     this.renderer.render(this.scene, this.camera);
   }
 }

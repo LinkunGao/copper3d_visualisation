@@ -9,6 +9,7 @@ import {
 } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import copperMScene from "../Scene/copperMScene";
+import copperScene from "../Scene/copperScene";
 import { throttle } from "../Utils/raycaster";
 
 export class nrrd_tools {
@@ -598,7 +599,11 @@ export class nrrd_tools {
     }
   }
 
-  draw(controls: TrackballControls, sceneIn: copperMScene, gui: GUI) {
+  draw(
+    controls: TrackballControls,
+    sceneIn: copperMScene | copperScene,
+    gui: GUI
+  ) {
     let modeFolder: GUI;
     let subViewFolder: GUI;
 
