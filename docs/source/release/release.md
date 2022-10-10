@@ -830,3 +830,8 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 - make `redrawDisplayCanvas()` private to public. And use it to instead of redrawPreCanvas()
 - rewrite `redrawDisplayCanvas()`
 - changed mask, now one mask used for all contrast images.
+
+## Release v1.11.23
+
+- update brush Mouse Assistance System
+  - changed filled to outlined.
