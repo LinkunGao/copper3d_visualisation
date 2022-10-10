@@ -71,6 +71,7 @@ type nrrdModeType = "mode0" | "mode1";
 interface nrrdDragImageOptType {
   mode?: nrrdModeType;
   showNumber?: boolean;
+  getSliceNum?: (index: number, contrastNum: number) => void;
 }
 
 // kiwrious

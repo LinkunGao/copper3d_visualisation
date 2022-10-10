@@ -835,3 +835,31 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 
 - update brush Mouse Assistance System
   - changed filled to outlined.
+
+## Release v1.11.24
+
+- add a callback function in nrrd_tools `dragImageWithMode` opts parameter.
+
+  - now through the callback (getSliceNum) function we can get slice and contrast number.
+
+  ```ts
+  let immediateSliceNum = ref(0);
+  let contrastNum = ref(0);
+  const getSliceNum = (index: number, contrastindex: number) => {
+    immediateSliceNum.value = index;
+    contrastNum.value = contrastindex;
+  };
+
+  nrrdTools.dragImageWithMode(scene?.controls as TrackballControls, {
+    mode: "mode1",
+    showNumber: true,
+    getSliceNum,
+  });
+  ```
+
+- Changed the way drag and paint operate
+
+  - users can use mouse left click to drag.
+  - if paint, users need to press shift key, then paint the image.
+
+- changed the default drag sensitive value to 50.
