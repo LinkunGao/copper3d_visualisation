@@ -958,11 +958,13 @@ export class nrrd_tools {
             this.drawingCtx.arc(
               this.Mouse_Over_x,
               this.Mouse_Over_y,
-              this.stateMode.brushAndEraserSize / 2,
+              this.stateMode.brushAndEraserSize / 2 + 1,
               0,
               Math.PI * 2
             );
-            this.drawingCtx.fill();
+            // this.drawingCtx.fill();
+            this.drawingCtx.strokeStyle = this.stateMode.brushColor;
+            this.drawingCtx.stroke();
           }
         }
 
