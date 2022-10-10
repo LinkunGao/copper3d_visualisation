@@ -818,3 +818,8 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
   ```ts
   nrrdTools.setContrastDisplayInMainArea(5);
   ```
+
+## Release v1.11.21
+
+- add a `redrawPreCanvas()` method in nrrd_tools.
+  - this is used for hide/show contrast function.

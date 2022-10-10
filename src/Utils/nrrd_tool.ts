@@ -227,6 +227,12 @@ export class nrrd_tools {
   // setContrastDisplayToMainState(state: boolean) {
   //   this.addContrastArea = state;
   // }
+
+  setShowInMainArea(flag: boolean) {
+    this.contrastShowInMain = flag;
+    this.contrastNum = 0;
+    if (this.slice) this.updateShowNumDiv(this.contrastNum);
+  }
   setSyncsliceNum() {
     if (this.contrast1Slice) {
       this.contrast1Slice.index = this.slice.index;
@@ -451,12 +457,22 @@ export class nrrd_tools {
   }
 
   setSliceMoving(step: number) {
-    if (step !== 0) {
+    if (this.slice) {
       this.Is_Draw = true;
       this.setSyncsliceNum();
       this.updateIndex(step);
       this.setIsDrawFalse(1000);
     }
+  }
+
+  redrawPreCanvas() {
+    this.displayCtx.drawImage(
+      this.slice.canvas,
+      0,
+      0,
+      this.changedWidth,
+      this.changedHeight
+    );
   }
 
   private updateIndex(move: number) {
@@ -560,13 +576,7 @@ export class nrrd_tools {
               break;
           }
         } else {
-          this.displayCtx.drawImage(
-            this.slice.canvas,
-            0,
-            0,
-            this.changedWidth,
-            this.changedHeight
-          );
+          this.redrawPreCanvas();
         }
 
         if (
@@ -592,11 +602,11 @@ export class nrrd_tools {
         }
       }
       this.oldIndex = this.slice.index;
-      this.updateShowNumDiv(this.contrastNum, newIndex);
+      this.updateShowNumDiv(this.contrastNum);
     }
   }
 
-  private updateShowNumDiv(contrastNum: number, newIndex: number) {
+  private updateShowNumDiv(contrastNum: number) {
     if (this.contrastShowInMain) {
       this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${4} SliceNum: ${
         this.slice.index
