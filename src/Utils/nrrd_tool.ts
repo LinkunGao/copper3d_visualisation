@@ -376,11 +376,6 @@ export class nrrd_tools {
 
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
       if (ev.key === "Shift") {
-        // update all contrast area for drawingCanvas
-        // this.updateContrastArea();
-        // if (!this.Is_Draw) {
-        //   controls.enabled = true;
-        // }
         controls.enabled = true;
         this.container.style.cursor = "";
         this.Is_Shift_Pressed = false;
@@ -395,7 +390,6 @@ export class nrrd_tools {
           handleOnMouseMove,
           false
         );
-        // this.Is_Draw = false;
         this.setIsDrawFalse(1000);
       }
     });
@@ -465,15 +459,15 @@ export class nrrd_tools {
     }
   }
 
-  redrawPreCanvas() {
-    this.displayCtx.drawImage(
-      this.slice.canvas,
-      0,
-      0,
-      this.changedWidth,
-      this.changedHeight
-    );
-  }
+  // redrawPreCanvas() {
+  //   this.displayCtx.drawImage(
+  //     this.slice.canvas,
+  //     0,
+  //     0,
+  //     this.changedWidth,
+  //     this.changedHeight
+  //   );
+  // }
 
   private updateIndex(move: number) {
     let sliceModifyNum = 0;
@@ -518,7 +512,9 @@ export class nrrd_tools {
 
         this.addContrastArea && this.updateContrastArea();
 
-        this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
+        if (newIndex != this.oldIndex)
+          this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
+
         this.displayCanvas.width = this.displayCanvas.width;
 
         if (this.changedWidth === 0) {
@@ -576,7 +572,7 @@ export class nrrd_tools {
               break;
           }
         } else {
-          this.redrawPreCanvas();
+          this.redrawDisplayCanvas();
         }
 
         if (
@@ -584,20 +580,22 @@ export class nrrd_tools {
           this.paintImages.y.length > 0 ||
           this.paintImages.z.length > 0
         ) {
-          this.paintedImage = this.filterDrawedImage(
-            this.axis,
-            this.contrastNum,
-            this.slice.index
-          );
-
-          if (this.paintedImage?.image) {
-            this.drawingLayer1Ctx.drawImage(
-              this.paintedImage.image,
+          if (newIndex != this.oldIndex) {
+            this.paintedImage = this.filterDrawedImage(
+              this.axis,
               0,
-              0,
-              this.changedWidth,
-              this.changedHeight
+              this.slice.index
             );
+
+            if (this.paintedImage?.image) {
+              this.drawingLayer1Ctx.drawImage(
+                this.paintedImage.image,
+                0,
+                0,
+                this.changedWidth,
+                this.changedHeight
+              );
+            }
           }
         }
       }
@@ -861,7 +859,7 @@ export class nrrd_tools {
             this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
             const tempPreImg = this.filterDrawedImage(
               this.axis,
-              this.contrastNum,
+              0,
               this.slice.index
             )?.image;
             if (tempPreImg) {
@@ -909,7 +907,7 @@ export class nrrd_tools {
         } else {
           const undoObj: undoType = {
             sliceIndex: this.slice.index,
-            contrastNum: this.contrastNum,
+            contrastNum: 0,
             undos: [],
           };
           undoObj.undos.push(image);
@@ -1222,9 +1220,11 @@ export class nrrd_tools {
     this.downloadImage.href = this.originCanvas.toDataURL();
     this.downloadImage.click();
   }
-  private redrawDisplayCanvas() {
+  redrawDisplayCanvas() {
     this.displayCanvas.width = this.displayCanvas.width;
     this.displayCanvas.height = this.displayCanvas.height;
+    this.originCanvas.width = this.originCanvas.width;
+    this.slice.repaint.call(this.slice);
     this.displayCtx?.drawImage(
       this.originCanvas,
       0,
@@ -1261,10 +1261,7 @@ export class nrrd_tools {
   }
   private getCurrentUndo() {
     return this.undoArray.filter((item) => {
-      return (
-        item.sliceIndex === this.slice.index &&
-        item.contrastNum === this.contrastNum
-      );
+      return item.sliceIndex === this.slice.index && item.contrastNum === 0;
     });
   }
 
