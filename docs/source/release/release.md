@@ -823,3 +823,10 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 
 - add a `redrawPreCanvas()` method in nrrd_tools.
   - this is used for hide/show contrast function.
+
+## Release v1.11.22
+
+- remove `redrawPreCanvas()`
+- make `redrawDisplayCanvas()` private to public. And use it to instead of redrawPreCanvas()
+- rewrite `redrawDisplayCanvas()`
+- changed mask, now one mask used for all contrast images.
