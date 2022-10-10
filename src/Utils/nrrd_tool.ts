@@ -88,7 +88,7 @@ export class nrrd_tools {
   private undoArray: Array<undoType> = [];
   private stateMode = {
     subView: false,
-    dragSensitivity: 5,
+    dragSensitivity: 50,
     size: 1,
     globalAlpha: 0.3,
     lineWidth: 2,
@@ -172,6 +172,16 @@ export class nrrd_tools {
     for (let i = 0; i < this.Max_sensitive; i++) {
       this.sensitiveArray.push((i + 1) / 20);
     }
+    this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
+      if (ev.key === "Shift") {
+        this.Is_Shift_Pressed = true;
+      }
+    });
+    this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
+      if (ev.key === "Shift") {
+        this.Is_Shift_Pressed = false;
+      }
+    });
   }
 
   private afterLoadSlice() {
@@ -221,12 +231,6 @@ export class nrrd_tools {
 
     this.afterLoadSlice();
   }
-  // setContrastFilesNum(filesNum: number) {
-  //   this.contrastFilesNum = filesNum;
-  // }
-  // setContrastDisplayToMainState(state: boolean) {
-  //   this.addContrastArea = state;
-  // }
 
   setShowInMainArea(flag: boolean) {
     this.contrastShowInMain = flag;
@@ -343,12 +347,12 @@ export class nrrd_tools {
     let move: number;
     let y: number;
     let h: number = this.container.offsetHeight;
-    // let convertArr = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
     let sensivity = 1;
 
     let handleOnMouseUp: (ev: MouseEvent) => void;
     let handleOnMouseDown: (ev: MouseEvent) => void;
     let handleOnMouseMove: (ev: MouseEvent) => void;
+    controls.enabled = false;
 
     this.sensitiveArray.reverse();
 
@@ -358,41 +362,8 @@ export class nrrd_tools {
     this.container.tabIndex = 10;
 
     if (opts?.showNumber) {
-      // this.showDragNumberDiv.innerHTML = `Slice number: ${this.slice.index}/${this.maxIndex}`;
       this.container.appendChild(this.showDragNumberDiv);
     }
-
-    this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
-      if (ev.key === "Shift") {
-        controls.enabled = false;
-        this.container.style.cursor = "pointer";
-        this.Is_Shift_Pressed = true;
-        this.Is_Draw = true;
-
-        this.container.addEventListener("mousedown", handleOnMouseDown, false);
-        this.container.addEventListener("mouseup", handleOnMouseUp, false);
-      }
-    });
-
-    this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
-      if (ev.key === "Shift") {
-        controls.enabled = true;
-        this.container.style.cursor = "";
-        this.Is_Shift_Pressed = false;
-        this.container.removeEventListener(
-          "mousedown",
-          handleOnMouseDown,
-          false
-        );
-        this.container.removeEventListener("mouseup", handleOnMouseUp, false);
-        this.container.removeEventListener(
-          "mousemove",
-          handleOnMouseMove,
-          false
-        );
-        this.setIsDrawFalse(1000);
-      }
-    });
 
     if (opts?.mode === "mode0") {
       handleOnMouseDown = (ev: MouseEvent) => {
@@ -421,15 +392,20 @@ export class nrrd_tools {
       };
     } else {
       handleOnMouseDown = (ev: MouseEvent) => {
-        this.setSyncsliceNum();
-        y = ev.offsetY / h;
-        this.container.addEventListener("mousemove", handleOnMouseMove, false);
-        this.oldIndex = this.slice.index;
-        sensivity = this.sensitiveArray[this.stateMode.dragSensitivity - 1];
+        if (ev.button === 0) {
+          this.setSyncsliceNum();
+          y = ev.offsetY / h;
+          this.container.addEventListener(
+            "mousemove",
+            handleOnMouseMove,
+            false
+          );
+          this.oldIndex = this.slice.index;
+          sensivity = this.sensitiveArray[this.stateMode.dragSensitivity - 1];
+        }
       };
       handleOnMouseMove = throttle((ev: MouseEvent) => {
         this.oldIndex = this.slice.index;
-        this.Is_Draw = true;
         if (y - ev.offsetY / h >= 0) {
           move = -Math.ceil(((y - ev.offsetY / h) * 10) / sensivity);
         } else {
@@ -437,6 +413,8 @@ export class nrrd_tools {
         }
 
         this.updateIndex(move);
+        opts?.getSliceNum &&
+          opts.getSliceNum(this.slice.index, this.contrastNum);
         y = ev.offsetY / h;
       }, sensivity * 200);
       handleOnMouseUp = (ev: MouseEvent) => {
@@ -448,6 +426,33 @@ export class nrrd_tools {
         );
       };
     }
+
+    const configDragMode = () => {
+      this.container.style.cursor = "pointer";
+
+      this.container.addEventListener("mousedown", handleOnMouseDown, false);
+      this.container.addEventListener("mouseup", handleOnMouseUp, false);
+    };
+
+    configDragMode();
+
+    this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
+      if (ev.key === "Shift") {
+        this.container.style.cursor = "";
+        this.container.removeEventListener(
+          "mousedown",
+          handleOnMouseDown,
+          false
+        );
+        this.container.removeEventListener("mouseup", handleOnMouseUp, false);
+        this.setIsDrawFalse(1000);
+      }
+    });
+    this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
+      if (ev.key === "Shift") {
+        configDragMode();
+      }
+    });
   }
 
   setSliceMoving(step: number) {
@@ -458,16 +463,6 @@ export class nrrd_tools {
       this.setIsDrawFalse(1000);
     }
   }
-
-  // redrawPreCanvas() {
-  //   this.displayCtx.drawImage(
-  //     this.slice.canvas,
-  //     0,
-  //     0,
-  //     this.changedWidth,
-  //     this.changedHeight
-  //   );
-  // }
 
   private updateIndex(move: number) {
     let sliceModifyNum = 0;
@@ -740,7 +735,7 @@ export class nrrd_tools {
     this.drawingCanvas.addEventListener(
       "pointerdown",
       (e: MouseEvent) => {
-        if (leftclicked || rightclicked || this.Is_Shift_Pressed) {
+        if (leftclicked || rightclicked) {
           this.drawingCanvas.removeEventListener("pointerup", handlePointerUp);
           this.drawingLayer1Ctx.closePath();
           return;
@@ -756,6 +751,8 @@ export class nrrd_tools {
         controls.enabled = false;
 
         if (e.button === 0) {
+          if (!this.Is_Shift_Pressed) return;
+
           leftclicked = true;
           lines = [];
           Is_Painting = true;
@@ -843,10 +840,9 @@ export class nrrd_tools {
       }
     };
     const handlePointerUp = (e: MouseEvent) => {
-      if (this.Is_Shift_Pressed) {
-        return;
-      }
       if (e.button === 0) {
+        if (!this.Is_Shift_Pressed) return;
+
         leftclicked = false;
         this.drawingLayer1Ctx.closePath();
 
@@ -930,6 +926,7 @@ export class nrrd_tools {
         this.setIsDrawFalse(100);
       }
     };
+
     this.drawingCanvas.addEventListener("pointerleave", () => {
       Is_Painting = false;
       controls.enabled = true;
@@ -948,23 +945,31 @@ export class nrrd_tools {
           this.drawingLayer1Ctx.globalAlpha = 1;
           this.redrawOriginCanvas();
         } else {
-          if (
-            !this.stateMode.segmentation &&
-            !this.stateMode.Eraser &&
-            this.Mouse_Over
-          ) {
-            this.drawingCtx.fillStyle = this.stateMode.brushColor;
-            this.drawingCtx.beginPath();
-            this.drawingCtx.arc(
-              this.Mouse_Over_x,
-              this.Mouse_Over_y,
-              this.stateMode.brushAndEraserSize / 2 + 1,
-              0,
-              Math.PI * 2
-            );
-            // this.drawingCtx.fill();
-            this.drawingCtx.strokeStyle = this.stateMode.brushColor;
-            this.drawingCtx.stroke();
+          if (this.Is_Shift_Pressed) {
+            if (
+              !this.stateMode.segmentation &&
+              !this.stateMode.Eraser &&
+              this.Mouse_Over
+            ) {
+              this.drawingCtx.clearRect(
+                0,
+                0,
+                this.changedWidth,
+                this.changedHeight
+              );
+              this.drawingCtx.fillStyle = this.stateMode.brushColor;
+              this.drawingCtx.beginPath();
+              this.drawingCtx.arc(
+                this.Mouse_Over_x,
+                this.Mouse_Over_y,
+                this.stateMode.brushAndEraserSize / 2 + 1,
+                0,
+                Math.PI * 2
+              );
+              // this.drawingCtx.fill();
+              this.drawingCtx.strokeStyle = this.stateMode.brushColor;
+              this.drawingCtx.stroke();
+            }
           }
         }
 
