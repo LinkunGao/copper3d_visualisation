@@ -29,8 +29,6 @@ export class nrrd_tools {
   private maxIndex: number = 0;
   private minIndex: number = 0;
   private contrastNum: number = 0;
-  private sliceModifyNum: number = 0;
-  private contrastModifyNum: number = 0;
   private contrast1Slice: any;
   private contrast2Slice: any;
   private contrast3Slice: any;
@@ -50,6 +48,7 @@ export class nrrd_tools {
   private Mouse_Over: boolean = false;
   private Max_sensitive: number = 100;
   private sensitiveArray: number[] = [];
+  private contrastFilesNum: number = 1;
 
   private showDragNumberDiv: HTMLDivElement = document.createElement("div");
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
@@ -198,6 +197,7 @@ export class nrrd_tools {
         this.maxIndex = this.slice.volume.RASDimensions[2] - 1;
         break;
     }
+
     if (this.contrastShowInMain) {
       this.showDragNumberDiv.innerHTML = `ContrastNum: ${
         this.contrastNum
@@ -221,31 +221,36 @@ export class nrrd_tools {
 
     this.afterLoadSlice();
   }
+  // setContrastFilesNum(filesNum: number) {
+  //   this.contrastFilesNum = filesNum;
+  // }
   // setContrastDisplayToMainState(state: boolean) {
   //   this.addContrastArea = state;
   // }
   setSyncsliceNum() {
-    if (
-      this.contrast1Slice &&
-      this.contrast2Slice &&
-      this.contrast3Slice &&
-      this.contrast4Slice
-    ) {
+    if (this.contrast1Slice) {
       this.contrast1Slice.index = this.slice.index;
+    }
+    if (this.contrast2Slice) {
       this.contrast2Slice.index = this.slice.index;
+    }
+    if (this.contrast3Slice) {
       this.contrast3Slice.index = this.slice.index;
+    }
+    if (this.contrast4Slice) {
       this.contrast4Slice.index = this.slice.index;
     }
   }
-  setContrastDisplayInMainArea() {
+  setContrastDisplayInMainArea(filesNum: number) {
+    this.contrastFilesNum = filesNum;
     this.contrastShowInMain = true;
     this.addContrastArea = true;
   }
-  getMaxSliceNum(): number {
+  getMaxSliceNum(): number[] {
     if (this.contrastShowInMain) {
-      return this.maxIndex * 5;
+      return [this.maxIndex, this.maxIndex * this.contrastFilesNum];
     } else {
-      return this.maxIndex;
+      return [this.maxIndex];
     }
   }
   addContrastDisplay() {
@@ -446,10 +451,12 @@ export class nrrd_tools {
   }
 
   setSliceMoving(step: number) {
-    this.Is_Draw = true;
-    this.setSyncsliceNum();
-    this.updateIndex(step);
-    this.setIsDrawFalse(1000);
+    if (step !== 0) {
+      this.Is_Draw = true;
+      this.setSyncsliceNum();
+      this.updateIndex(step);
+      this.setIsDrawFalse(1000);
+    }
   }
 
   private updateIndex(move: number) {
