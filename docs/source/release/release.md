@@ -809,3 +809,12 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
 
 - rewrite copperScene
 - add all common methods in commonSceneMethod class. Then let copperScene and copperMScene to extends it.
+
+## Release v1.11.20
+
+- update nrrd tools getMaxslice method.
+- changed the nrrd tools `setContrastDisplayInMainArea(filesNum: number)` method.
+  - now you need to tell the tool, how many files you uploaded.
+  ```ts
+  nrrdTools.setContrastDisplayInMainArea(5);
+  ```
