@@ -884,3 +884,8 @@ const resetMainAreaSize = (factor: number) => {
   nrrdTools.setMainAreaSize(factor);
 };
 ```
+
+## Release v1.11.26
+
+- Fixed the bug:
+  - Mouse wheel function has conflict with drag function on Mac.
