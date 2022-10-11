@@ -82,6 +82,7 @@ export class nrrd_tools {
   private paintedImage: paintImageType | undefined;
   private readyToUpdate: boolean = true;
   private addContrastArea: boolean = false;
+  private handleWheelMove: (e: WheelEvent) => void = () => {};
   /**
    * undo
    */
@@ -405,6 +406,8 @@ export class nrrd_tools {
       };
     } else {
       handleOnMouseDown = (ev: MouseEvent) => {
+        // before start drag event, remove wheel event.
+        this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
         if (ev.button === 0) {
           this.setSyncsliceNum();
           y = ev.offsetY / h;
@@ -431,6 +434,8 @@ export class nrrd_tools {
         y = ev.offsetY / h;
       }, sensivity * 200);
       handleOnMouseUp = (ev: MouseEvent) => {
+        // after drag, add the wheel event
+        this.drawingCanvas.addEventListener("wheel", this.handleWheelMove);
         this.setSyncsliceNum();
         this.container.removeEventListener(
           "mousemove",
@@ -709,8 +714,11 @@ export class nrrd_tools {
     this.previousDrawingImage.src = this.drawingCanvas.toDataURL();
 
     this.drawingCanvas.oncontextmenu = () => false;
-    const handleWheelMove = this.configMouseWheel(controls);
-    this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
+
+    // let a global variable to store the wheel move event
+    this.handleWheelMove = this.configMouseWheel(controls);
+    // init to add it
+    this.drawingCanvas.addEventListener("wheel", this.handleWheelMove, {
       passive: false,
     });
 
@@ -765,13 +773,13 @@ export class nrrd_tools {
           currentSliceIndex = this.slice.index;
         }
 
-        this.drawingCanvas.removeEventListener("wheel", handleWheelMove);
+        // remove it when mouse click down
+        this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
 
         controls.enabled = false;
 
         if (e.button === 0) {
           if (!this.Is_Shift_Pressed) {
-            this.drawingCanvas.addEventListener("wheel", handleWheelMove);
             return;
           }
 
@@ -942,7 +950,8 @@ export class nrrd_tools {
         return;
       }
 
-      this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
+      // add wheel after pointer up
+      this.drawingCanvas.addEventListener("wheel", this.handleWheelMove, {
         passive: false,
       });
       if (!this.stateMode.segmentation) {
@@ -1418,7 +1427,7 @@ export class nrrd_tools {
       });
   }
 
-  private configMouseWheel(controls: TrackballControls) {
+  private configMouseWheel(controls?: TrackballControls) {
     let moveDistance = 1;
     const handleWheelMove = (e: WheelEvent) => {
       if (this.Is_Shift_Pressed) {
@@ -1438,7 +1447,7 @@ export class nrrd_tools {
       }
       this.resizePaintArea(moveDistance);
       this.resetPaintArea();
-      controls.enabled = false;
+      controls && (controls.enabled = false);
       this.setIsDrawFalse(1000);
     };
 
