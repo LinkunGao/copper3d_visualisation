@@ -270,6 +270,11 @@ export class nrrd_tools {
     this.container.appendChild(this.contrast4Area);
     this.addContrastArea = true;
   }
+  setMainAreaSize(factor: number) {
+    this.resizePaintArea(factor);
+    this.resetPaintArea();
+    this.setIsDrawFalse(1000);
+  }
   private initDiplayContrastCanvas(
     contrastCanvas: HTMLCanvasElement,
     contrastCtx: CanvasRenderingContext2D,
@@ -290,6 +295,13 @@ export class nrrd_tools {
     setTimeout(() => {
       this.Is_Draw = false;
     }, target);
+  }
+  private autoFocusDiv(container: HTMLDivElement) {
+    container.tabIndex = 10;
+    container.addEventListener("mouseover", () => {
+      container.focus();
+    });
+    container.style.outline = "none";
   }
   private createDescription(text: string) {
     const p = document.createElement("p");
@@ -359,7 +371,8 @@ export class nrrd_tools {
     this.originWidth = this.slice.canvas.width;
     this.originHeight = this.slice.canvas.height;
 
-    this.container.tabIndex = 10;
+    // get auto focus
+    this.autoFocusDiv(this.container);
 
     if (opts?.showNumber) {
       this.container.appendChild(this.showDragNumberDiv);
@@ -430,8 +443,8 @@ export class nrrd_tools {
     const configDragMode = () => {
       this.container.style.cursor = "pointer";
 
-      this.container.addEventListener("mousedown", handleOnMouseDown, false);
-      this.container.addEventListener("mouseup", handleOnMouseUp, false);
+      this.container.addEventListener("pointerdown", handleOnMouseDown, true);
+      this.container.addEventListener("pointerup", handleOnMouseUp, true);
     };
 
     configDragMode();
@@ -440,11 +453,11 @@ export class nrrd_tools {
       if (ev.key === "Shift") {
         this.container.style.cursor = "";
         this.container.removeEventListener(
-          "mousedown",
+          "pointerdown",
           handleOnMouseDown,
-          false
+          true
         );
-        this.container.removeEventListener("mouseup", handleOnMouseUp, false);
+        this.container.removeEventListener("pointerup", handleOnMouseUp, false);
         this.setIsDrawFalse(1000);
       }
     });
@@ -636,26 +649,28 @@ export class nrrd_tools {
 
     modeFolder = gui.addFolder("Mode Parameters");
 
-    subViewFolder = gui.addFolder("Sub View");
-    subViewFolder.add(this.stateMode, "subView").onChange((value) => {
-      if (value) {
-        controls.enabled = true;
-        sceneIn.subDiv && (sceneIn.subDiv.style.display = "block");
-      } else {
-        sceneIn.subDiv && (sceneIn.subDiv.style.display = "none");
-        controls.enabled = false;
-      }
-    });
-
-    subViewFolder
-      .add(state, "scale")
-      .min(0.25)
-      .max(2)
-      .step(0.01)
-      .onFinishChange((value) => {
-        sceneIn.subDiv && (sceneIn.subDiv.style.width = 200 * value + "px");
-        sceneIn.subDiv && (sceneIn.subDiv.style.height = 200 * value + "px");
+    if (sceneIn.subDiv) {
+      subViewFolder = gui.addFolder("Sub View");
+      subViewFolder.add(this.stateMode, "subView").onChange((value) => {
+        if (value) {
+          controls.enabled = true;
+          sceneIn.subDiv && (sceneIn.subDiv.style.display = "block");
+        } else {
+          sceneIn.subDiv && (sceneIn.subDiv.style.display = "none");
+          controls.enabled = false;
+        }
       });
+
+      subViewFolder
+        .add(state, "scale")
+        .min(0.25)
+        .max(2)
+        .step(0.01)
+        .onFinishChange((value) => {
+          sceneIn.subDiv && (sceneIn.subDiv.style.width = 200 * value + "px");
+          sceneIn.subDiv && (sceneIn.subDiv.style.height = 200 * value + "px");
+        });
+    }
 
     this.paintOnCanvas(controls, modeFolder);
   }
@@ -695,6 +710,9 @@ export class nrrd_tools {
 
     this.drawingCanvas.oncontextmenu = () => false;
     const handleWheelMove = this.configMouseWheel(controls);
+    this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
+      passive: false,
+    });
 
     const handleDragPaintPanel = throttle((e: MouseEvent) => {
       this.drawingCanvas.style.cursor = "grabbing";
@@ -748,10 +766,14 @@ export class nrrd_tools {
         }
 
         this.drawingCanvas.removeEventListener("wheel", handleWheelMove);
+
         controls.enabled = false;
 
         if (e.button === 0) {
-          if (!this.Is_Shift_Pressed) return;
+          if (!this.Is_Shift_Pressed) {
+            this.drawingCanvas.addEventListener("wheel", handleWheelMove);
+            return;
+          }
 
           leftclicked = true;
           lines = [];
@@ -841,73 +863,73 @@ export class nrrd_tools {
     };
     const handlePointerUp = (e: MouseEvent) => {
       if (e.button === 0) {
-        if (!this.Is_Shift_Pressed) return;
+        if (this.Is_Shift_Pressed || Is_Painting) {
+          leftclicked = false;
+          this.drawingLayer1Ctx.closePath();
 
-        leftclicked = false;
-        this.drawingLayer1Ctx.closePath();
-
-        this.drawingCanvas.removeEventListener(
-          "pointermove",
-          handleOnPainterMove
-        );
-        if (!this.stateMode.Eraser) {
-          if (this.stateMode.segmentation) {
-            this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
-            const tempPreImg = this.filterDrawedImage(
-              this.axis,
-              0,
-              this.slice.index
-            )?.image;
-            if (tempPreImg) {
-              this.previousDrawingImage = tempPreImg;
+          this.drawingCanvas.removeEventListener(
+            "pointermove",
+            handleOnPainterMove
+          );
+          if (!this.stateMode.Eraser) {
+            if (this.stateMode.segmentation) {
+              this.drawingCanvasLayer1.width = this.drawingCanvasLayer1.width;
+              const tempPreImg = this.filterDrawedImage(
+                this.axis,
+                0,
+                this.slice.index
+              )?.image;
+              if (tempPreImg) {
+                this.previousDrawingImage = tempPreImg;
+              }
+              this.drawingLayer1Ctx.drawImage(
+                this.previousDrawingImage,
+                0,
+                0,
+                this.changedWidth,
+                this.changedHeight
+              );
+              this.drawingLayer1Ctx.beginPath();
+              this.drawingLayer1Ctx.moveTo(lines[0].x, lines[0].y);
+              for (let i = 1; i < lines.length; i++) {
+                this.drawingLayer1Ctx.lineTo(lines[i].x, lines[i].y);
+              }
+              this.drawingLayer1Ctx.closePath();
+              this.drawingLayer1Ctx.lineWidth = 1;
+              this.drawingLayer1Ctx.fillStyle = this.stateMode.fillColor;
+              this.drawingLayer1Ctx.fill();
             }
-            this.drawingLayer1Ctx.drawImage(
-              this.previousDrawingImage,
-              0,
-              0,
-              this.changedWidth,
-              this.changedHeight
-            );
-            this.drawingLayer1Ctx.beginPath();
-            this.drawingLayer1Ctx.moveTo(lines[0].x, lines[0].y);
-            for (let i = 1; i < lines.length; i++) {
-              this.drawingLayer1Ctx.lineTo(lines[i].x, lines[i].y);
-            }
-            this.drawingLayer1Ctx.closePath();
-            this.drawingLayer1Ctx.lineWidth = 1;
-            this.drawingLayer1Ctx.fillStyle = this.stateMode.fillColor;
-            this.drawingLayer1Ctx.fill();
           }
-        }
-        this.previousDrawingImage.src = this.drawingCanvasLayer1.toDataURL();
-        this.storeAllImages();
-        console.log(
-          this.drawingCtx.getImageData(
-            0,
-            0,
-            this.drawingCanvas.width,
-            this.drawingCanvas.height
-          )
-        );
-        Is_Painting = false;
+          this.previousDrawingImage.src = this.drawingCanvasLayer1.toDataURL();
+          this.storeAllImages();
+          console.log(
+            this.drawingCtx.getImageData(
+              0,
+              0,
+              this.drawingCanvas.width,
+              this.drawingCanvas.height
+            )
+          );
+          Is_Painting = false;
 
-        /**
-         * store undo array
-         */
-        const currentUndoObj = this.getCurrentUndo();
-        const src = this.drawingCanvasLayer1.toDataURL();
-        const image = new Image();
-        image.src = src;
-        if (currentUndoObj.length > 0) {
-          currentUndoObj[0].undos.push(image);
-        } else {
-          const undoObj: undoType = {
-            sliceIndex: this.slice.index,
-            contrastNum: 0,
-            undos: [],
-          };
-          undoObj.undos.push(image);
-          this.undoArray.push(undoObj);
+          /**
+           * store undo array
+           */
+          const currentUndoObj = this.getCurrentUndo();
+          const src = this.drawingCanvasLayer1.toDataURL();
+          const image = new Image();
+          image.src = src;
+          if (currentUndoObj.length > 0) {
+            currentUndoObj[0].undos.push(image);
+          } else {
+            const undoObj: undoType = {
+              sliceIndex: this.slice.index,
+              contrastNum: 0,
+              undos: [],
+            };
+            undoObj.undos.push(image);
+            this.undoArray.push(undoObj);
+          }
         }
       } else if (e.button === 2) {
         rightclicked = false;
@@ -919,6 +941,7 @@ export class nrrd_tools {
       } else {
         return;
       }
+
       this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
         passive: false,
       });
@@ -1419,9 +1442,9 @@ export class nrrd_tools {
       this.setIsDrawFalse(1000);
     };
 
-    this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
-      passive: false,
-    });
+    // this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
+    //   passive: false,
+    // });
     return handleWheelMove;
   }
 
@@ -1499,38 +1522,26 @@ export class nrrd_tools {
 
     let temp: paintImageType = {
       index: this.slice.index,
-      contrastNum: this.contrastNum,
+      contrastNum: 0,
       image,
     };
     let drawedImage: paintImageType;
 
     switch (this.axis) {
       case "x":
-        drawedImage = this.filterDrawedImage(
-          "x",
-          this.contrastNum,
-          this.slice.index
-        );
+        drawedImage = this.filterDrawedImage("x", 0, this.slice.index);
         drawedImage
           ? (drawedImage.image = image)
           : this.paintImages.x?.push(temp);
         break;
       case "y":
-        drawedImage = this.filterDrawedImage(
-          "y",
-          this.contrastNum,
-          this.slice.index
-        );
+        drawedImage = this.filterDrawedImage("y", 0, this.slice.index);
         drawedImage
           ? (drawedImage.image = image)
           : this.paintImages.y?.push(temp);
         break;
       case "z":
-        drawedImage = this.filterDrawedImage(
-          "z",
-          this.contrastNum,
-          this.slice.index
-        );
+        drawedImage = this.filterDrawedImage("z", 0, this.slice.index);
         drawedImage
           ? (drawedImage.image = image)
           : this.paintImages.z?.push(temp);
