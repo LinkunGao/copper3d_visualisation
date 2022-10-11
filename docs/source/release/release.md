@@ -863,3 +863,24 @@ appRenderer.sceneInfos[0].addPreRenderCallbackFunction(nrrdTools.start);
   - if paint, users need to press shift key, then paint the image.
 
 - changed the default drag sensitive value to 50.
+
+## Release v1.11.25
+
+- fixed the nrrd_tool bugs:
+
+  - [x] (Solved) paint on contrast images: after painting and switching images, the before-painting things will disappear!
+  - [x] (Solved) zoom: After using the drag function, the wheel function will fail to work.
+  - [x] (Solved) loose focus: every time switch between GUI and paint area, the mouse will lose focus on the paint div.
+
+- Fixed the subview gui issue.
+
+  - before, if user not choose to use subview function, the subview gui will continue appear in GUI.
+  - now solved!
+
+- provide a reset main paint area size API for user in nrrd_tool.
+
+```ts
+const resetMainAreaSize = (factor: number) => {
+  nrrdTools.setMainAreaSize(factor);
+};
+```

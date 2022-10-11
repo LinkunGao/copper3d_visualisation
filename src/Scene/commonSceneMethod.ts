@@ -132,6 +132,7 @@ export default class commonScene {
     this.subRender.setSize(this.subDiv.clientWidth, this.subDiv.clientWidth);
     this.subCamera.up = this.camera.up;
     this.subDiv.appendChild(this.subRender.domElement);
+    return this.subDiv;
   }
 
   // dicom

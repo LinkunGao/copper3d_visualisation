@@ -274,6 +274,16 @@ export default class copperScene extends baseScene {
       item && item.call(null);
     });
 
+    if (this.subDiv && this.subCamera && this.subRender) {
+      this.subCamera.aspect =
+        this.subDiv.clientWidth / this.subDiv.clientHeight;
+      this.subCamera.updateProjectionMatrix();
+      this.subRender.setSize(this.subDiv.clientWidth, this.subDiv.clientHeight);
+      this.subCamera.position.copy(this.camera.position);
+      this.subCamera.lookAt(this.subScene.position);
+      this.subRender.render(this.subScene, this.subCamera);
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 }
