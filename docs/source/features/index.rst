@@ -10,3 +10,4 @@ Main Features (For developer)
     03_nrrdloader
     04_kiwrious
     05_animation
+    06_nrrd_tools

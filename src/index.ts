@@ -34,7 +34,7 @@ import {
 import "./css/style.css";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v1.11.28",
+  "%cCopper3D Visualisation %cBeta:v1.11.29",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );

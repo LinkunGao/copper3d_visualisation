@@ -938,3 +938,9 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.11.28
 
 - fixed download image issue!
+
+## Release v1.11.29
+
+- update docs
+- delete useless code in nrrd_tools
+- impove the performance!
