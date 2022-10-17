@@ -934,3 +934,7 @@ const resetMainAreaSize = (factor: number) => {
     - remove controls parameter
 
 - more info see tutorial 16
+
+## Release v1.11.28
+
+- fixed download image issue!
