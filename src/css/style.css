@@ -24,6 +24,12 @@ body {
   border: 1px solid grey;
   position: relative;
 }
+.copper3d_sliceNumber {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
 
 .copper3D_sub_axes {
   width: 200px;
