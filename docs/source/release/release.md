@@ -889,3 +889,48 @@ const resetMainAreaSize = (factor: number) => {
 
 - Fixed the bug:
   - Mouse wheel function has conflict with drag function on Mac.
+
+## Release v1.11.27
+
+- Refactoring nrrd_tools code
+
+  - now when we use nrrd_tools,
+
+    ```ts
+    nrrd_c = $refs.nrrd_c;
+    nrrdTools = new Copper.nrrd_tools(nrrd_c);
+    watchEffect(() => {
+      if (
+        readyMain.value &&
+        readyC1.value &&
+        readyC2.value &&
+        readyC3.value &&
+        readyC4.value
+      ) {
+        console.log("All files ready!");
+        allSlices.sort((a: any, b: any) => {
+          return a.order - b.order;
+        });
+
+        nrrdTools.setAllSlices(allSlices);
+        const getSliceNum = (index: number, contrastindex: number) => {
+          immediateSliceNum.value = index;
+          contrastNum.value = contrastindex;
+        };
+        nrrdTools.drag({
+          showNumber: true,
+          getSliceNum,
+        });
+        nrrdTools.draw(scene as Copper.copperScene, gui);
+        scene?.addPreRenderCallbackFunction(nrrdTools.start);
+        max.value = nrrdTools.getMaxSliceNum()[0];
+      }
+    });
+    ```
+
+  - As for the drag:
+    - removed mode parameter, and controls
+  - In terms of draw:
+    - remove controls parameter
+
+- more info see tutorial 16
