@@ -49,6 +49,7 @@ export class nrrd_tools {
 
   private paintedImage: paintImageType | undefined;
   private previousDrawingImage: HTMLImageElement = new Image();
+  private undoArray: Array<undoType> = [];
 
   private nrrd_states = {
     originWidth: 0,
@@ -96,8 +97,6 @@ export class nrrd_tools {
       this.sceneIn?.resetView();
     },
   };
-
-  private undoArray: Array<undoType> = [];
 
   constructor(container: HTMLDivElement) {
     this.container = container;
@@ -334,7 +333,7 @@ export class nrrd_tools {
     });
   }
 
-  private repraintAllContrastSlice() {
+  private repraintAllContrastSlices() {
     this.displaySlices.forEach((slice, index) => {
       slice.volume.repaintAllSlices();
     });
@@ -375,7 +374,11 @@ export class nrrd_tools {
       if (ev.button === 0) {
         this.setSyncsliceNum();
         y = ev.offsetY / h;
-        this.container.addEventListener("mousemove", handleOnMouseMove, false);
+        this.container.addEventListener(
+          "pointermove",
+          handleOnMouseMove,
+          false
+        );
         this.nrrd_states.oldIndex = this.mainPreSlice.index;
         sensivity = this.sensitiveArray[this.gui_states.dragSensitivity - 1];
       }
@@ -397,7 +400,11 @@ export class nrrd_tools {
       // after drag, add the wheel event
       this.drawingCanvas.addEventListener("wheel", this.handleWheelMove);
       this.setSyncsliceNum();
-      this.container.removeEventListener("mousemove", handleOnMouseMove, false);
+      this.container.removeEventListener(
+        "pointermove",
+        handleOnMouseMove,
+        false
+      );
     };
 
     const configDragMode = () => {
@@ -500,6 +507,7 @@ export class nrrd_tools {
             this.nrrd_states.changedWidth,
             this.nrrd_states.changedHeight
           );
+          this.currentShowingSlice = this.mainPreSlice;
         }
 
         if (
@@ -816,7 +824,7 @@ export class nrrd_tools {
 
     this.drawingCanvas.addEventListener("pointerleave", () => {
       Is_Painting = false;
-      (this.sceneIn as copperScene).controls.enabled = true;
+      // (this.sceneIn as copperScene).controls.enabled = true;
       if (this.gui_states.segmentation) {
         this.setIsDrawFalse(1000);
       }
@@ -865,8 +873,6 @@ export class nrrd_tools {
         }
         this.drawingCtx.drawImage(this.drawingCanvasLayerOne, 0, 0);
       } else {
-        this.originCanvas.width = this.originCanvas.width;
-        this.mainPreSlice.repaint.call(this.mainPreSlice);
         this.redrawDisplayCanvas();
       }
     };
@@ -1054,19 +1060,19 @@ export class nrrd_tools {
     modeFolder.add(this.gui_states, "clearAll");
     modeFolder.add(this.gui_states, "undo");
     modeFolder.add(this.gui_states, "downloadCurrentImage");
-    const segmentation = modeFolder.addFolder("segmentation");
-    segmentation.add(this.gui_states, "segmentation");
-    segmentation
+    const segmentationFolder = modeFolder.addFolder("segmentation");
+    segmentationFolder.add(this.gui_states, "segmentation");
+    segmentationFolder
       .add(this.gui_states, "lineWidth")
       .name("outerLineWidth")
       .min(1.7)
       .max(3)
       .step(0.01);
-    segmentation.addColor(this.gui_states, "color");
-    segmentation.addColor(this.gui_states, "fillColor");
-    const contrast = modeFolder.addFolder("contrast");
-    contrast.open();
-    contrast
+    segmentationFolder.addColor(this.gui_states, "color");
+    segmentationFolder.addColor(this.gui_states, "fillColor");
+    const contrastFolder = modeFolder.addFolder("contrast");
+    contrastFolder.open();
+    contrastFolder
       .add(
         this.mainPreSlice.volume,
         "lowerThreshold",
@@ -1080,11 +1086,10 @@ export class nrrd_tools {
         this.updateSlicesContrast(value, "lowerThreshold");
       })
       .onFinishChange(() => {
-        this.mainPreSlice.volume.repaintAllSlices();
-        this.repraintAllContrastSlice();
+        this.repraintAllContrastSlices();
         this.nrrd_states.readyToUpdate = true;
       });
-    contrast
+    contrastFolder
       .add(
         this.mainPreSlice.volume,
         "upperThreshold",
@@ -1098,11 +1103,10 @@ export class nrrd_tools {
         this.updateSlicesContrast(value, "upperThreshold");
       })
       .onFinishChange(() => {
-        this.mainPreSlice.volume.repaintAllSlices();
-        this.repraintAllContrastSlice();
+        this.repraintAllContrastSlices();
         this.nrrd_states.readyToUpdate = true;
       });
-    contrast
+    contrastFolder
       .add(
         this.mainPreSlice.volume,
         "windowLow",
@@ -1116,11 +1120,10 @@ export class nrrd_tools {
         this.updateSlicesContrast(value, "windowLow");
       })
       .onFinishChange(() => {
-        this.mainPreSlice.volume.repaintAllSlices();
-        this.repraintAllContrastSlice();
+        this.repraintAllContrastSlices();
         this.nrrd_states.readyToUpdate = true;
       });
-    contrast
+    contrastFolder
       .add(
         this.mainPreSlice.volume,
         "windowHigh",
@@ -1134,7 +1137,7 @@ export class nrrd_tools {
         this.updateSlicesContrast(value, "windowHigh");
       })
       .onFinishChange(() => {
-        this.repraintAllContrastSlice();
+        this.repraintAllContrastSlices();
         this.nrrd_states.readyToUpdate = true;
       });
   }
