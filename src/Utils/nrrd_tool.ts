@@ -30,6 +30,7 @@ export class nrrd_tools {
   private showDragNumberDiv: HTMLDivElement = document.createElement("div");
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
+  private downloadCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadImage: HTMLAnchorElement = document.createElement("a");
   private drawingCanvasLayerOne: HTMLCanvasElement =
     document.createElement("canvas");
@@ -967,7 +968,28 @@ export class nrrd_tools {
   }
   private enableDownload() {
     this.downloadImage.download = `slice_${this.axis}_#${this.mainPreSlice.index}`;
-    this.downloadImage.href = this.originCanvas.toDataURL();
+    const downloadCtx = this.downloadCanvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.downloadCanvas.width = this.nrrd_states.originWidth;
+    this.downloadCanvas.height = this.nrrd_states.originHeight;
+    // downloadCtx.globalAlpha = this.gui_states.globalAlpha;
+
+    downloadCtx.drawImage(
+      this.displayCanvas,
+      0,
+      0,
+      this.nrrd_states.originWidth,
+      this.nrrd_states.originHeight
+    );
+    downloadCtx.drawImage(
+      this.drawingCanvas,
+      0,
+      0,
+      this.nrrd_states.originWidth,
+      this.nrrd_states.originHeight
+    );
+    this.downloadImage.href = this.downloadCanvas.toDataURL();
     this.downloadImage.click();
   }
   private paintOnCanvasLayerOne(x: number, y: number) {
