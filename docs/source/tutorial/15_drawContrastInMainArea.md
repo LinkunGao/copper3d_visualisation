@@ -478,4 +478,4 @@ watchEffect(() => {
 
 ## result
 
-![](../_static/images/t_15.jpg)
+![](../_static/images/t_15.png)
