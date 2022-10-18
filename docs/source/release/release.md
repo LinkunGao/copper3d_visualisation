@@ -944,3 +944,37 @@ const resetMainAreaSize = (factor: number) => {
 - update docs
 - delete useless code in nrrd_tools
 - impove the performance!
+
+## Release v1.11.30
+
+- update tutorial 16
+- update setShowInMainArea()
+  - now when use this function, it will automatically call redrawMianPreOnDisplayCanvas()
+- add getIsShowContrastState()
+
+  - return showContrast state: boolean
+
+    ```ts
+    const status = nrrdTools.getIsShowContrastState();
+    if (status) {
+      max.value = nrrdTools.getMaxSliceNum()[1];
+    } else {
+      max.value = nrrdTools.getMaxSliceNum()[0];
+    }
+    ```
+
+- add `setSliceOrientation(axis: "x" | "y" | "z") ` function
+
+  - switch x,y,z orientation for slices
+
+  ```ts
+  const resetSlicesOrientation = (axis: "x" | "y" | "z") => {
+    nrrdTools.setSliceOrientation(axis);
+    const status = nrrdTools.getIsShowContrastState();
+    if (status) {
+      max.value = nrrdTools.getMaxSliceNum()[1];
+    } else {
+      max.value = nrrdTools.getMaxSliceNum()[0];
+    }
+  };
+  ```
