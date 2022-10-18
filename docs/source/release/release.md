@@ -978,3 +978,7 @@ const resetMainAreaSize = (factor: number) => {
     }
   };
   ```
+
+## Release v1.11.31
+
+- fixed switch nrrd orientation slice num bug

@@ -163,8 +163,8 @@ export class nrrd_tools {
     this.axis = axis;
     this.setDisplaySlicesBaseOnAxis();
     this.updateMaxIndex();
-    this.updateShowNumDiv(this.nrrd_states.contrastNum);
     this.setOriginCanvasAndPre();
+    this.updateShowNumDiv(this.nrrd_states.contrastNum);
     this.repraintCurrentContrastSlice();
     this.resizePaintArea(this.gui_states.mainAreaSize);
     this.resetPaintArea();
@@ -227,8 +227,6 @@ export class nrrd_tools {
     if (this.nrrd_states.oldIndex > this.nrrd_states.maxIndex)
       this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
     this.mainPreSlice.index = this.nrrd_states.oldIndex;
-    // this.nrrd_states.originWidth = this.mainPreSlice.canvas.width;
-    // this.nrrd_states.originHeight = this.mainPreSlice.canvas.height;
     this.originCanvas = this.mainPreSlice.canvas;
     this.updateOriginAndChangedWH();
   }
@@ -246,16 +244,7 @@ export class nrrd_tools {
     this.nrrd_states.oldIndex = this.mainPreSlice.index;
     // compute max index
     this.updateMaxIndex();
-
-    if (this.nrrd_states.showContrast) {
-      this.showDragNumberDiv.innerHTML = `ContrastNum: ${
-        this.nrrd_states.contrastNum
-      }/${4} SliceNum: ${0}/${this.nrrd_states.maxIndex}`;
-    } else {
-      this.showDragNumberDiv.innerHTML = `SliceNum: ${0}/${
-        this.nrrd_states.maxIndex
-      }`;
-    }
+    this.updateShowNumDiv(this.nrrd_states.contrastNum);
   }
 
   private updateMaxIndex() {
@@ -368,9 +357,9 @@ export class nrrd_tools {
 
   private updateShowNumDiv(contrastNum: number) {
     if (this.nrrd_states.showContrast) {
-      this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${4} SliceNum: ${
-        this.mainPreSlice.index
-      }/${this.nrrd_states.maxIndex}`;
+      this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
+        this.displaySlices.length - 1
+      } SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
     } else {
       this.showDragNumberDiv.innerHTML = `SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
     }
