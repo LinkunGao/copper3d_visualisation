@@ -15,7 +15,6 @@
       :immediate-slice-num="immediateSliceNum"
       :contrast-index="contrastNum"
       @on-slice-change="getSliceChangedNum"
-      @redraw-pre="redraw"
       @reset-main-area-size="resetMainAreaSize"
       @on-change-orientation="resetSlicesOrientation"
     ></NavBar>
@@ -167,26 +166,16 @@ onMounted(() => {
 - setup opreation functions
 
 ```ts
-const redraw = () => {
-  console.log("redraw");
-
-  nrrdTools.redrawMianPreOnDisplayCanvas();
-};
-
-const resetSlicesOrientation = (axis: string) => {
-  console.log(pre_slices.value);
-
-  console.log(axis);
-  switch (axis) {
-    case "x":
-      // nrrdTools.setSliceOritention([pre_slices.value.x]);
-      break;
-    case "y":
-      break;
-    case "z":
-      break;
+const resetSlicesOrientation = (axis: "x" | "y" | "z") => {
+  nrrdTools.setSliceOrientation(axis);
+  const status = nrrdTools.getIsShowContrastState();
+  if (status) {
+    max.value = nrrdTools.getMaxSliceNum()[1];
+  } else {
+    max.value = nrrdTools.getMaxSliceNum()[0];
   }
 };
+
 const getSliceChangedNum = (sliceNum: number) => {
   if (readyMain && readyC1 && readyC2 && readyC3 && readyC4) {
     nrrdTools.setSliceMoving(sliceNum);
@@ -422,7 +411,6 @@ let magnification = 1;
 
 const emit = defineEmits([
   "onSliceChange",
-  "redrawPre",
   "resetMainAreaSize",
   "onChangeOrientation",
 ]);
@@ -448,10 +436,6 @@ const onChangeSlider = () => {
   preViousSliceNum += step;
 };
 
-const needToUpdatePre = () => {
-  emit("redrawPre");
-};
-
 watchEffect(() => {
   if (isShowContrast) {
     sliceNum.value = immediateSliceNum.value * p.fileNum + contrastIndex.value;
@@ -469,7 +453,6 @@ watchEffect(() => {
   if (max.value < previousMax) {
     sliceNum.value = Math.floor(sliceNum.value / p.fileNum);
     isShowContrast = false;
-    needToUpdatePre();
   }
   preViousSliceNum = sliceNum.value;
   previousMax = max.value;
