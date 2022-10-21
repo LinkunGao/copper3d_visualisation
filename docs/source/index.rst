@@ -16,6 +16,7 @@ Welcome to Copper3D's documentation!
    tutorial/index
    examples/index
    release/index
+   acknowledgements/index
 
 
 Examples

@@ -99,3 +99,7 @@ function loadModel(url, name) {
 [examples-url]: https://linkungao.github.io/copper3d_examples
 [nrrd_example]: https://img.shields.io/badge/Nrrd__Segmentation__tool-example-orange
 [nrrd_example-url]: https://abi-web-apps.github.io/NRRD_Segmentation_Tool/
+
+#### Acknowledgements
+
+Special thanks to [Duke University dataset](https://wiki.cancerimagingarchive.net/pages/viewpage.action?pageId=70226903) provides these awsome MRI data!!!
