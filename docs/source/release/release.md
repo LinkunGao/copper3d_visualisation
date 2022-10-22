@@ -982,3 +982,8 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.11.31
 
 - fixed switch nrrd orientation slice num bug
+
+## Release v1.11.32
+
+- set dragSensitivity default value to 75.
+- set the init slice index value to half of max index num.

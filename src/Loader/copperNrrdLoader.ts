@@ -52,12 +52,17 @@ export function copperNrrdLoader(
 
       const sliceZ = volume.extractSlice(
         "z",
-        //   Math.floor(volume.RASDimensions[2] / 4)
-        0
+        Math.floor(volume.RASDimensions[2] / 2)
       );
-      const sliceY = volume.extractSlice("y", 0);
+      const sliceY = volume.extractSlice(
+        "y",
+        Math.floor(volume.RASDimensions[1] / 2)
+      );
       //x plane
-      const sliceX = volume.extractSlice("x", 0);
+      const sliceX = volume.extractSlice(
+        "x",
+        Math.floor(volume.RASDimensions[0] / 2)
+      );
 
       nrrdMeshes = {
         x: sliceX.mesh,
