@@ -987,3 +987,8 @@ const resetMainAreaSize = (factor: number) => {
 
 - set dragSensitivity default value to 75.
 - set the init slice index value to half of max index num.
+
+## Release v1.11.33
+
+- fixed the pan function bug issue:#109
+- fixed the painting function bug issue:#110

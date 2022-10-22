@@ -21,6 +21,8 @@ export class nrrd_tools {
   // store all contrast slices, include x, y, z orientation
   private allSlicesArray: Array<nrrdSliceType> = [];
   private displaySlices: Array<any> = [];
+  // Designed for reload displaySlices Array
+  private backUpDisplaySlices: Array<any> = [];
   // The default axis for all contrast slice is set to "z" orientation.
   // If we want to switch different orientation, we can set the axis outside.
   private axis: "x" | "y" | "z" = "z";
@@ -78,7 +80,7 @@ export class nrrd_tools {
     globalAlpha: 0.3,
     lineWidth: 2,
     color: "#f50a33",
-    segmentation: false,
+    segmentation: true,
     fillColor: "#3fac58",
     brushColor: "#3fac58",
     brushAndEraserSize: 15,
@@ -715,6 +717,7 @@ export class nrrd_tools {
             handleOnPainterMove
           );
         } else if (e.button === 2) {
+          rightclicked = true;
           let offsetX = parseInt(this.drawingCanvas.style.left);
           let offsetY = parseInt(this.drawingCanvas.style.top);
           panelMoveInnerX = e.clientX - offsetX;
@@ -838,9 +841,27 @@ export class nrrd_tools {
       }
     };
 
-    this.drawingCanvas.addEventListener("pointerleave", () => {
+    this.drawingCanvas.addEventListener("pointerleave", (e: MouseEvent) => {
       Is_Painting = false;
       // (this.sceneIn as copperScene).controls.enabled = true;
+      if (leftclicked) {
+        leftclicked = false;
+        this.drawingLayerOneCtx.closePath();
+        this.drawingCanvas.removeEventListener(
+          "pointermove",
+          handleOnPainterMove
+        );
+      }
+      if (rightclicked) {
+        rightclicked = false;
+        this.drawingCanvas.style.cursor = "grab";
+        this.drawingCanvas.removeEventListener(
+          "pointermove",
+          handleDragPaintPanel
+        );
+      }
+
+      this.setIsDrawFalse(100);
       if (this.gui_states.segmentation) {
         this.setIsDrawFalse(1000);
       }
@@ -1055,6 +1076,18 @@ export class nrrd_tools {
         this.resizePaintArea(factor);
       });
     modeFolder.add(this.gui_states, "globalAlpha").min(0.1).max(1).step(0.01);
+    const segmentationFolder = modeFolder.addFolder("segmentation");
+    segmentationFolder.add(this.gui_states, "segmentation");
+    segmentationFolder
+      .add(this.gui_states, "lineWidth")
+      .name("outerLineWidth")
+      .min(1.7)
+      .max(3)
+      .step(0.01);
+    segmentationFolder.addColor(this.gui_states, "color");
+    segmentationFolder.addColor(this.gui_states, "fillColor");
+
+    segmentationFolder.open();
 
     modeFolder
       .add(this.gui_states, "brushAndEraserSize")
@@ -1076,16 +1109,7 @@ export class nrrd_tools {
     modeFolder.add(this.gui_states, "clearAll");
     modeFolder.add(this.gui_states, "undo");
     modeFolder.add(this.gui_states, "downloadCurrentImage");
-    const segmentationFolder = modeFolder.addFolder("segmentation");
-    segmentationFolder.add(this.gui_states, "segmentation");
-    segmentationFolder
-      .add(this.gui_states, "lineWidth")
-      .name("outerLineWidth")
-      .min(1.7)
-      .max(3)
-      .step(0.01);
-    segmentationFolder.addColor(this.gui_states, "color");
-    segmentationFolder.addColor(this.gui_states, "fillColor");
+
     const contrastFolder = modeFolder.addFolder("contrast");
     contrastFolder.open();
     contrastFolder
