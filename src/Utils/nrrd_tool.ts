@@ -50,6 +50,7 @@ export class nrrd_tools {
   private paintedImage: paintImageType | undefined;
   private previousDrawingImage: HTMLImageElement = new Image();
   private undoArray: Array<undoType> = [];
+  private initState: boolean = true;
 
   private nrrd_states = {
     originWidth: 0,
@@ -72,7 +73,7 @@ export class nrrd_tools {
 
   private gui_states = {
     mainAreaSize: 1,
-    dragSensitivity: 50,
+    dragSensitivity: 75,
     Eraser: false,
     globalAlpha: 0.3,
     lineWidth: 2,
@@ -205,6 +206,10 @@ export class nrrd_tools {
     }
   }
 
+  getCurrentSliceIndex() {
+    return this.mainPreSlice.index;
+  }
+
   getIsShowContrastState() {
     return this.nrrd_states.showContrast;
   }
@@ -226,14 +231,19 @@ export class nrrd_tools {
     this.mainPreSlice = this.displaySlices[0];
     if (this.nrrd_states.oldIndex > this.nrrd_states.maxIndex)
       this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
-    this.mainPreSlice.index = this.nrrd_states.oldIndex;
+
+    if (this.initState) {
+      this.nrrd_states.oldIndex = this.mainPreSlice.index;
+    } else {
+      this.mainPreSlice.index = this.nrrd_states.oldIndex;
+    }
+
     this.originCanvas = this.mainPreSlice.canvas;
     this.updateOriginAndChangedWH();
   }
 
   private afterLoadSlice() {
     this.setOriginCanvasAndPre();
-
     this.currentShowingSlice = this.mainPreSlice;
     this.undoArray = [
       {
@@ -245,6 +255,7 @@ export class nrrd_tools {
     // compute max index
     this.updateMaxIndex();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
+    this.initState = false;
   }
 
   private updateMaxIndex() {
