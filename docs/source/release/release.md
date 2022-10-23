@@ -992,3 +992,34 @@ const resetMainAreaSize = (factor: number) => {
 
 - fixed the pan function bug issue:#109
 - fixed the painting function bug issue:#110
+
+## Release v1.11.34
+
+- modified the redrawMianPreOnDisplayCanvas()
+
+  - when use it, it will aotumatically resize the mainArea.
+
+- Add a clear method in nrrd_tools
+
+  - this function is called to reset all parameters in nrrd_tools. In order to reload other nrrd files for preparation.
+
+  ```ts
+  nrrdTools.clear();
+  nrrdTools.setAllSlices(allSlices);
+  if (firstLoad) {
+    nrrdTools.drag({
+      showNumber: true,
+      getSliceNum,
+    });
+    nrrdTools.draw(scene as Copper.copperScene, gui);
+
+    scene?.addPreRenderCallbackFunction(nrrdTools.start);
+  } else {
+    nrrdTools.redrawMianPreOnDisplayCanvas();
+  }
+  firstLoad = false;
+  ```
+
+- solved issues #86 #87
+
+- As for how to use, see tutorial 16.
