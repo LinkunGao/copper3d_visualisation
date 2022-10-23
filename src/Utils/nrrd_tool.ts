@@ -70,6 +70,7 @@ export class nrrd_tools {
     Mouse_Over_y: 0,
     Mouse_Over: false,
     stepClear: 1,
+    sizeFoctor: 1,
     drawStartPos: new THREE.Vector2(1, 1),
   };
 
@@ -169,8 +170,28 @@ export class nrrd_tools {
     this.setOriginCanvasAndPre();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
     this.repraintCurrentContrastSlice();
-    this.resizePaintArea(this.gui_states.mainAreaSize);
+    this.resizePaintArea(this.nrrd_states.sizeFoctor);
     this.resetPaintArea();
+  }
+
+  clear() {
+    // To effectively reduce the js memory garbage
+    this.allSlicesArray.length = 0;
+    this.displaySlices.length = 0;
+    this.undoArray.length = 0;
+    this.paintImages.x.length = 0;
+    this.paintImages.y.length = 0;
+    this.paintImages.z.length = 0;
+
+    this.mainPreSlice = undefined;
+    this.currentShowingSlice = undefined;
+    this.previousDrawingImage.src = "";
+    this.initState = true;
+    this.axis = "z";
+    this.nrrd_states.sizeFoctor = 1;
+    this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
+    this.drawingCanvas.width = this.drawingCanvas.width;
+    this.displayCanvas.width = this.displayCanvas.width;
   }
 
   setSliceMoving(step: number) {
@@ -192,6 +213,7 @@ export class nrrd_tools {
   }
 
   setMainAreaSize(factor: number) {
+    this.nrrd_states.sizeFoctor = factor;
     this.resizePaintArea(factor);
     this.resetPaintArea();
     this.setIsDrawFalse(1000);
@@ -972,6 +994,7 @@ export class nrrd_tools {
       } else if (moveDistance <= 1) {
         moveDistance = 1;
       }
+      this.nrrd_states.sizeFoctor = moveDistance;
       this.resizePaintArea(moveDistance);
       this.resetPaintArea();
       controls && (controls.enabled = false);
@@ -1073,6 +1096,7 @@ export class nrrd_tools {
       .max(8)
       .onFinishChange((factor) => {
         this.resetPaintArea();
+        this.nrrd_states.sizeFoctor = factor;
         this.resizePaintArea(factor);
       });
     modeFolder.add(this.gui_states, "globalAlpha").min(0.1).max(1).step(0.01);
@@ -1248,6 +1272,7 @@ export class nrrd_tools {
       this.nrrd_states.changedWidth,
       this.nrrd_states.changedHeight
     );
+    this.resizePaintArea(this.nrrd_states.sizeFoctor);
   }
 
   private resizePaintArea(factor: number) {
