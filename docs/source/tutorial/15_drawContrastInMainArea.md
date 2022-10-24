@@ -10,14 +10,22 @@
     <div ref="c_gui" id="gui"></div>
     <div ref="nrrd_c" class="nrrd_c"></div>
     <NavBar
-      :file-num="5"
+      :file-num="fileNum"
       :max="max"
       :immediate-slice-num="immediateSliceNum"
       :contrast-index="contrastNum"
+      :is-axis-clicked="isAxisClicked"
+      :init-slice-index="initSliceIndex"
       @on-slice-change="getSliceChangedNum"
       @reset-main-area-size="resetMainAreaSize"
       @on-change-orientation="resetSlicesOrientation"
+      @on-open-dialog="onOpenDialog"
     ></NavBar>
+    <Upload
+      :dialog="dialog"
+      @on-close-dialog="onCloseDialog"
+      @get-load-files-urls="readyToLoad"
+    ></Upload>
   </div>
 </template>
 ```
@@ -30,15 +38,6 @@
   height: 100vh;
   /* border: 1px solid palevioletred; */
   overflow: hidden;
-}
-.btn {
-  position: fixed;
-  left: 0;
-  top: 0;
-}
-button {
-  cursor: pointer;
-  margin: 10px;
 }
 #gui {
   position: absolute;
@@ -73,8 +72,6 @@ button {
   padding: 5px;
   color: crimson;
 }
-.copper3D_scene_div {
-}
 .copper3D_loading_progress {
   color: crimson !important;
 }
@@ -88,29 +85,36 @@ import * as Copper from "copper3d_visualisation";
 import "copper3d_visualisation/dist/css/style.css";
 import { GUI } from "dat.gui";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
-import { getCurrentInstance, onMounted, ref, watchEffect } from "vue";
+import { getCurrentInstance, onMounted, ref, watchEffect, reactive } from "vue";
 import NavBar from "../components/NavBar.vue";
+import Upload from "../components/Upload.vue";
+
 let refs = null;
 let appRenderer: Copper.copperRenderer;
 let max = ref(0);
 let immediateSliceNum = ref(0);
 let contrastNum = ref(0);
+let isAxisClicked = ref(false);
+let dialog = ref(false);
+let initSliceIndex = ref(0);
 let scene: Copper.copperScene | undefined;
 let bg: HTMLDivElement = ref<any>(null);
 let c_gui: HTMLDivElement = ref<any>(null);
 let nrrd_c: HTMLDivElement = ref<any>(null);
 let pre_slices = ref();
-
 let gui = new GUI({ width: 300, autoPlace: false });
+let selectedContrastFolder: GUI;
 let nrrdTools: Copper.nrrd_tools;
 let loadBarMain: Copper.loadingBarType;
-let readyMain = ref(false);
-let readyC1 = ref(false);
-let readyC2 = ref(false);
-let readyC3 = ref(false);
-let readyC4 = ref(false);
-
+let urls: Array<string> = [];
+let filesCount = ref(0);
+let fileNum = ref(0);
+let firstLoad = true;
 let allSlices: Array<any> = [];
+
+type selecedType = {
+  [key: string]: boolean;
+};
 
 onMounted(() => {
   let { $refs } = (getCurrentInstance() as any).proxy;
@@ -118,68 +122,92 @@ onMounted(() => {
 
   bg = refs.base_container;
   c_gui = $refs.c_gui;
-
-  // get nrrd container
   nrrd_c = $refs.nrrd_c;
   c_gui.appendChild(gui.domElement);
-
-  // set up container for copper3d
   appRenderer = new Copper.copperRenderer(bg);
-  // get loading bar
   loadBarMain = Copper.loading();
-  // send container to nrrd_tools to innitialise
   nrrdTools = new Copper.nrrd_tools(nrrd_c);
-  // let nrrd tools container to append the loading bar
   nrrd_c.appendChild(loadBarMain.loadingContainer);
 
-  const urls = [
-    "/copper3d_examples/nrrd/segmentation/ax dyn pre.nrrd",
-    "/copper3d_examples/nrrd/segmentation/ax dyn 1st pass.nrrd",
-    "/copper3d_examples/nrrd/segmentation/ax dyn 2nd pass.nrrd",
-    "/copper3d_examples/nrrd/segmentation/ax dyn 3rd pass.nrrd",
-    "/copper3d_examples/nrrd/segmentation/ax dyn 4th pass.nrrd",
-  ];
+  loadModel("nrrd_tools");
 
   document.addEventListener("keydown", (e) => {
     if (e.code === "KeyF") {
       Copper.fullScreenListenner(bg);
     }
   });
-
   const state = {
     showContrast: false,
   };
 
   gui.add(state, "showContrast").onChange((flag) => {
     nrrdTools.setShowInMainArea(flag);
+    isAxisClicked.value = false;
     if (flag) {
       max.value = nrrdTools.getMaxSliceNum()[1];
     } else {
       max.value = nrrdTools.getMaxSliceNum()[0];
     }
   });
-  loadModel(urls, "nrrd_tools");
+  selectedContrastFolder = gui.addFolder("select display contrast");
   appRenderer.animate();
 });
+```
+
+- config copper3d environment
+
+```ts
+function loadModel(name: string) {
+  scene = appRenderer.getSceneByName(name) as Copper.copperScene;
+  if (scene == undefined) {
+    scene = appRenderer.createScene(name) as Copper.copperScene;
+
+    if (scene) {
+      // const sub = scene.addSubView();
+      // nrrd_c.appendChild(sub);
+      appRenderer.setCurrentScene(scene);
+
+      if (scene) {
+        // loadAllNrrds(urls);
+        scene.loadViewUrl("/copper3d_examples/nrrd_view.json");
+      }
+      Copper.setHDRFilePath("/copper3d_examples/venice_sunset_1k.hdr");
+
+      scene.updateBackground("#5454ad", "#18e5a7");
+    }
+
+    appRenderer.updateEnvironment();
+  }
+}
 ```
 
 - setup opreation functions
 
 ```ts
+const readyToLoad = (urlsArray: Array<string>) => {
+  fileNum.value = urlsArray.length;
+  urls = urlsArray;
+  if (urls.length > 0) loadAllNrrds(urls);
+};
+
+const onOpenDialog = (flag: boolean) => {
+  dialog.value = flag;
+};
+const onCloseDialog = (flag: boolean) => {
+  dialog.value = flag;
+};
 const resetSlicesOrientation = (axis: "x" | "y" | "z") => {
   nrrdTools.setSliceOrientation(axis);
   const status = nrrdTools.getIsShowContrastState();
+  isAxisClicked.value = true;
   if (status) {
     max.value = nrrdTools.getMaxSliceNum()[1];
   } else {
     max.value = nrrdTools.getMaxSliceNum()[0];
   }
 };
-
 const getSliceChangedNum = (sliceNum: number) => {
-  if (readyMain && readyC1 && readyC2 && readyC3 && readyC4) {
-    nrrdTools.setSliceMoving(sliceNum);
-  }
+  nrrdTools.setSliceMoving(sliceNum);
 };
 const resetMainAreaSize = (factor: number) => {
   nrrdTools.setMainAreaSize(factor);
@@ -191,31 +219,60 @@ const resetMainAreaSize = (factor: number) => {
 ```ts
 watchEffect(() => {
   if (
-    readyMain.value &&
-    readyC1.value &&
-    readyC2.value &&
-    readyC3.value &&
-    readyC4.value
+    filesCount.value != 0 &&
+    allSlices.length != 0 &&
+    filesCount.value === urls.length
   ) {
     console.log("All files ready!");
+    nrrdTools.clear();
     allSlices.sort((a: any, b: any) => {
       return a.order - b.order;
     });
 
     nrrdTools.setAllSlices(allSlices);
+    initSliceIndex.value = nrrdTools.getCurrentSliceIndex();
+
     const getSliceNum = (index: number, contrastindex: number) => {
       immediateSliceNum.value = index;
       contrastNum.value = contrastindex;
     };
-    nrrdTools.drag({
-      showNumber: true,
-      getSliceNum,
-    });
-    nrrdTools.draw(scene as Copper.copperScene, gui);
+    if (firstLoad) {
+      nrrdTools.drag({
+        showNumber: true,
+        getSliceNum,
+      });
+      nrrdTools.draw(scene as Copper.copperScene, gui);
 
-    scene?.addPreRenderCallbackFunction(nrrdTools.start);
+      scene?.addPreRenderCallbackFunction(nrrdTools.start);
+    } else {
+      nrrdTools.redrawMianPreOnDisplayCanvas();
+    }
 
     max.value = nrrdTools.getMaxSliceNum()[0];
+    filesCount.value = 0;
+    firstLoad = false;
+
+    const selectedState: selecedType = {};
+
+    for (let i = 0; i < allSlices.length - 1; i++) {
+      const key = "contrast" + i;
+      selectedState[key] = true;
+    }
+
+    nrrdTools.removeGuiFolderChilden(selectedContrastFolder);
+    for (let i = 0; i < allSlices.length - 1; i++) {
+      selectedContrastFolder
+        .add(selectedState, "contrast" + i)
+        .onChange((flag) => {
+          if (flag) {
+            fileNum.value += 1;
+            nrrdTools.removeSkip(i);
+          } else {
+            fileNum.value -= 1;
+            nrrdTools.addSkip(i);
+          }
+        });
+    }
   }
 });
 ```
@@ -223,67 +280,41 @@ watchEffect(() => {
 - load NRRD image
 
 ```ts
-function loadModel(urls: Array<string>, name: string) {
-  scene = appRenderer.getSceneByName(name) as Copper.copperScene;
-  if (scene == undefined) {
-    scene = appRenderer.createScene(name) as Copper.copperScene;
+const loadAllNrrds = (urls: Array<string>) => {
+  allSlices = [];
+  const mainPreArea = (
+    volume: any,
+    nrrdMesh: Copper.nrrdMeshesType,
+    nrrdSlices: Copper.nrrdSliceType
+    // gui?: GUI
+  ) => {
+    const newNrrdSlice = Object.assign(nrrdSlices, { order: 0 });
+    allSlices.push(newNrrdSlice);
+    volume1 = volume;
+    // scene?.subScene.add(nrrdMesh.z);
+    pre_slices.value = nrrdSlices;
 
-    if (scene) {
-      appRenderer.setCurrentScene(scene);
+    // readyMain.value = true;
+    filesCount.value += 1;
+  };
+  scene?.loadNrrd(urls[0], loadBarMain, mainPreArea);
 
-      const mainPreArea = (
+  for (let i = 1; i < urls.length; i++) {
+    scene?.loadNrrd(
+      urls[i],
+      loadBarMain,
+      (
         volume: any,
         nrrdMesh: Copper.nrrdMeshesType,
         nrrdSlices: Copper.nrrdSliceType
       ) => {
-        const newNrrdSlice = Object.assign(nrrdSlices, { order: 0 });
+        const newNrrdSlice = Object.assign(nrrdSlices, { order: i });
         allSlices.push(newNrrdSlice);
-        volume1 = volume;
-        pre_slices.value = nrrdSlices;
-        readyMain.value = true;
-      };
-
-      if (scene) {
-        scene?.loadNrrd(urls[0], loadBarMain, mainPreArea);
-        for (let i = 1; i < 5; i++) {
-          scene?.loadNrrd(
-            urls[i],
-            loadBarMain,
-            (
-              volume: any,
-              nrrdMesh: Copper.nrrdMeshesType,
-              nrrdSlices: Copper.nrrdSliceType
-            ) => {
-              const newNrrdSlice = Object.assign(nrrdSlices, { order: i });
-              allSlices.push(newNrrdSlice);
-              let index = i;
-              switch (index) {
-                case 1:
-                  readyC1.value = true;
-                  break;
-                case 2:
-                  readyC2.value = true;
-                  break;
-                case 3:
-                  readyC3.value = true;
-                  break;
-                case 4:
-                  readyC4.value = true;
-                  break;
-              }
-            }
-          );
-        }
-
-        scene.loadViewUrl("/copper3d_examples/nrrd_view.json");
+        filesCount.value += 1;
       }
-      Copper.setHDRFilePath("/copper3d_examples/venice_sunset_1k.hdr");
-
-      scene.updateBackground("#5454ad", "#18e5a7");
-    }
-    appRenderer.updateEnvironment();
+    );
   }
-}
+};
 ```
 
 ## Component NavBar
@@ -316,6 +347,9 @@ function loadModel(urls: Array<string>, name: string) {
         <span @click="onSwitchSliceOrientation('y')"
           ><ion-icon name="chevron-forward-circle-outline"></ion-icon
         ></span>
+        <span @click="openDialog">
+          <ion-icon name="cloud-upload-outline"></ion-icon>
+        </span>
       </div>
     </div>
   </div>
@@ -391,29 +425,45 @@ type Props = {
   fileNum: number;
   min?: number;
   max?: number;
+  initSliceIndex?: number;
   immediateSliceNum?: number;
   contrastIndex?: number;
+  isAxisClicked?: boolean;
 };
 let p = withDefaults(defineProps<Props>(), {
   min: 0,
   max: 160,
   immediateSliceNum: 0,
   contrastIndex: 0,
+  isAxisClicked: false,
 });
 const state = reactive(p);
-const { max, immediateSliceNum, contrastIndex } = toRefs(state);
+const {
+  max,
+  immediateSliceNum,
+  contrastIndex,
+  isAxisClicked,
+  initSliceIndex,
+  fileNum,
+} = toRefs(state);
 const sliceNum = ref(0);
 let preViousSliceNum = p.min;
 let previousMax = 0;
 let isShowContrast = false;
 let count = 0;
 let magnification = 1;
+let filesNum = 0;
 
 const emit = defineEmits([
   "onSliceChange",
   "resetMainAreaSize",
   "onChangeOrientation",
+  "onOpenDialog",
 ]);
+
+const openDialog = () => {
+  emit("onOpenDialog", true);
+};
 
 const onSwitchSliceOrientation = (axis: string) => {
   emit("onChangeOrientation", axis);
@@ -431,32 +481,187 @@ const onMagnificationClick = (factor: number) => {
 };
 
 const onChangeSlider = () => {
+  preViousSliceNum > max.value
+    ? (preViousSliceNum = max.value)
+    : preViousSliceNum;
   const step = sliceNum.value - preViousSliceNum;
   emit("onSliceChange", step);
   preViousSliceNum += step;
 };
 
+// const needToUpdatePre = () => {
+//   emit("redrawPre");
+// };
+
+watchEffect(() => {
+  initSliceIndex?.value && (sliceNum.value = initSliceIndex.value);
+});
+watchEffect(() => {
+  filesNum = fileNum.value;
+});
+
 watchEffect(() => {
   if (isShowContrast) {
-    sliceNum.value = immediateSliceNum.value * p.fileNum + contrastIndex.value;
+    sliceNum.value =
+      immediateSliceNum.value * fileNum.value + contrastIndex.value;
   } else {
     sliceNum.value = immediateSliceNum.value;
   }
 });
 
 watchEffect(() => {
-  if (max.value > previousMax) {
-    sliceNum.value = sliceNum.value * p.fileNum;
-    if (count !== 0) isShowContrast = true;
-    count++;
+  if (!isAxisClicked.value) {
+    if (max.value > previousMax) {
+      sliceNum.value = sliceNum.value * filesNum;
+      if (count !== 0) isShowContrast = true;
+      count++;
+    }
+    if (max.value < previousMax) {
+      sliceNum.value = Math.floor(sliceNum.value / filesNum);
+      isShowContrast = false;
+    }
+    preViousSliceNum = sliceNum.value;
+    previousMax = max.value;
   }
-  if (max.value < previousMax) {
-    sliceNum.value = Math.floor(sliceNum.value / p.fileNum);
-    isShowContrast = false;
-  }
-  preViousSliceNum = sliceNum.value;
-  previousMax = max.value;
 });
+```
+
+## Component Upload
+
+- Html
+
+```html
+<template>
+  <div v-if="dialog" @click="closeDialog" class="upload_container">
+    <el-upload
+      :auto-upload="false"
+      @change="loaded"
+      @remove="removeLoadFile"
+      class="upload-demo"
+      drag
+      action="/"
+      multiple
+    >
+      <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+      <div class="el-upload__text">
+        Drop file here or <em>click to upload</em>
+      </div>
+      <template #tip>
+        <div class="el-upload__tip">Please drag or upload NRRD files!</div>
+      </template>
+    </el-upload>
+  </div>
+</template>
+```
+
+- Css
+
+```css
+.upload_container {
+  position: fixed;
+  z-index: 1000;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.upload-demo {
+  width: 60vw;
+}
+```
+
+- Ts
+
+```ts
+import { UploadFilled } from "@element-plus/icons-vue";
+import type { UploadFile } from "element-plus";
+
+type Props = {
+  dialog?: boolean;
+};
+
+withDefaults(defineProps<Props>(), {
+  dialog: false,
+});
+
+let files: Array<File> = [];
+let urls: Array<string> = [];
+let loadedFiles = false;
+
+const emit = defineEmits(["onCloseDialog", "getLoadFilesUrls"]);
+const closeDialog = (e: MouseEvent) => {
+  let e1 = e.currentTarget;
+  let e2 = e.target;
+  if (e1 === e2) {
+    // openDialog.value = false;
+    files.forEach((file) => {
+      const url = URL.createObjectURL(file);
+      urls.push(url);
+    });
+    emit("getLoadFilesUrls", urls);
+    emit("onCloseDialog", false);
+    loadedFiles = true;
+    resetLoadState();
+  }
+};
+
+const resetLoadState = () => {
+  files = [];
+  urls.forEach((url) => {
+    URL.revokeObjectURL(url);
+  });
+  urls = [];
+};
+
+const loaded = (uploadFile: UploadFile) => {
+  //   console.log(uploadFile);
+  //   console.log(uploadFile.name);
+  //   console.log(uploadFile.raw);
+  if (loadedFiles) {
+    loadedFiles = false;
+    resetLoadState();
+  }
+
+  let filename = uploadFile.name;
+  let file: File | undefined;
+  if (filename.match(/\.(nrrd)$/)) {
+    file = uploadFile.raw as File;
+    files.push(file);
+  }
+  if (!file) {
+    onError("No .nrrd asset found!");
+  }
+};
+
+const removeLoadFile = (uploadFile: UploadFile) => {
+  files = files.filter((file) => {
+    return file.name !== uploadFile.name;
+  });
+  console.log(files);
+};
+
+/**
+ * @param  {Error} error
+ */
+const onError = (error: string | Error) => {
+  let message = ((error as Error) || {}).message || error.toString();
+  if (message.match(/ProgressEvent/)) {
+    message =
+      "Unable to retrieve this file. Check JS console and browser network tab.";
+  } else if (message.match(/Unexpected token/)) {
+    message = `Unable to parse file content. Verify that this file is valid. Error: "${message}"`;
+  } else if (
+    error &&
+    (error as any).target &&
+    (error as any).target instanceof Image
+  ) {
+    message = "Missing texture: " + (error as any).target.src.split("/").pop();
+  }
+  window.alert(message);
+  console.error(error);
+};
 ```
 
 ## result

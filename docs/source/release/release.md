@@ -1023,3 +1023,9 @@ const resetMainAreaSize = (factor: number) => {
 - solved issues #86 #87
 
 - As for how to use, see tutorial 16.
+
+## Release v1.12.0
+
+- reset segmentation for painting function default method.
+- build addSkip and removeSkip method in nrrd_tools for user to switch contrast outside.
+- how to use, see tutorial 16.
