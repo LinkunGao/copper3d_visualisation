@@ -23,6 +23,7 @@ export class nrrd_tools {
   private displaySlices: Array<any> = [];
   // Designed for reload displaySlices Array
   private backUpDisplaySlices: Array<any> = [];
+  private skipSliceArray: Array<number> = [];
   // The default axis for all contrast slice is set to "z" orientation.
   // If we want to switch different orientation, we can set the axis outside.
   private axis: "x" | "y" | "z" = "z";
@@ -165,13 +166,25 @@ export class nrrd_tools {
    *  */
   setSliceOrientation(axis: "x" | "y" | "z") {
     this.axis = axis;
-    this.setDisplaySlicesBaseOnAxis();
-    this.updateMaxIndex();
-    this.setOriginCanvasAndPre();
-    this.updateShowNumDiv(this.nrrd_states.contrastNum);
-    this.repraintCurrentContrastSlice();
-    this.resizePaintArea(this.nrrd_states.sizeFoctor);
-    this.resetPaintArea();
+    this.resetDisplaySlicesStatus();
+  }
+
+  addSkip(index: number) {
+    const result = this.skipSliceArray.includes(index);
+    if (!result) {
+      this.skipSliceArray.push(index);
+    }
+    this.resetDisplaySlicesStatus();
+  }
+
+  removeSkip(index: number) {
+    const result = this.skipSliceArray.includes(index);
+    if (result) {
+      const idx = this.skipSliceArray.indexOf(index);
+      this.skipSliceArray.splice(idx, 1);
+    }
+
+    this.resetDisplaySlicesStatus();
   }
 
   clear() {
@@ -182,6 +195,8 @@ export class nrrd_tools {
     this.paintImages.x.length = 0;
     this.paintImages.y.length = 0;
     this.paintImages.z.length = 0;
+    this.skipSliceArray.length = 0;
+    this.backUpDisplaySlices.length = 0;
 
     this.mainPreSlice = undefined;
     this.currentShowingSlice = undefined;
@@ -245,25 +260,53 @@ export class nrrd_tools {
   }
 
   private setDisplaySlicesBaseOnAxis() {
-    this.displaySlices = [];
+    this.displaySlices.length = 0;
+    this.backUpDisplaySlices.length = 0;
     this.allSlicesArray.forEach((slices) => {
-      this.displaySlices.push(slices[this.axis]);
+      this.backUpDisplaySlices.push(slices[this.axis]);
     });
+    this.loadDisplaySlicesArray();
+  }
+
+  private loadDisplaySlicesArray() {
+    let len = this.skipSliceArray.length;
+    if (len === 0) {
+      this.displaySlices = [...this.backUpDisplaySlices];
+    } else {
+      this.backUpDisplaySlices.forEach((slice, index) => {
+        const result = this.skipSliceArray.includes(index);
+        if (!result) {
+          this.displaySlices.push(slice);
+        }
+      });
+    }
+  }
+
+  private resetDisplaySlicesStatus() {
+    this.setDisplaySlicesBaseOnAxis();
+    this.setOriginCanvasAndPre();
+    this.updateMaxIndex();
+    this.updateShowNumDiv(this.nrrd_states.contrastNum);
+    this.repraintCurrentContrastSlice();
+    this.resizePaintArea(this.nrrd_states.sizeFoctor);
+    this.resetPaintArea();
   }
 
   private setOriginCanvasAndPre() {
     this.mainPreSlice = this.displaySlices[0];
-    if (this.nrrd_states.oldIndex > this.nrrd_states.maxIndex)
-      this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
+    if (this.mainPreSlice) {
+      if (this.nrrd_states.oldIndex > this.nrrd_states.maxIndex)
+        this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
 
-    if (this.initState) {
-      this.nrrd_states.oldIndex = this.mainPreSlice.index;
-    } else {
-      this.mainPreSlice.index = this.nrrd_states.oldIndex;
+      if (this.initState) {
+        this.nrrd_states.oldIndex = this.mainPreSlice.index;
+      } else {
+        this.mainPreSlice.index = this.nrrd_states.oldIndex;
+      }
+
+      this.originCanvas = this.mainPreSlice.canvas;
+      this.updateOriginAndChangedWH();
     }
-
-    this.originCanvas = this.mainPreSlice.canvas;
-    this.updateOriginAndChangedWH();
   }
 
   private afterLoadSlice() {
@@ -283,17 +326,19 @@ export class nrrd_tools {
   }
 
   private updateMaxIndex() {
-    switch (this.axis) {
-      case "x":
-        this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[0];
-        break;
-      case "y":
-        this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[1];
-        break;
-      case "z":
-        this.nrrd_states.maxIndex =
-          this.mainPreSlice.volume.RASDimensions[2] - 1;
-        break;
+    if (this.mainPreSlice) {
+      switch (this.axis) {
+        case "x":
+          this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[0];
+          break;
+        case "y":
+          this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[1];
+          break;
+        case "z":
+          this.nrrd_states.maxIndex =
+            this.mainPreSlice.volume.RASDimensions[2] - 1;
+          break;
+      }
     }
   }
 
@@ -391,12 +436,14 @@ export class nrrd_tools {
   }
 
   private updateShowNumDiv(contrastNum: number) {
-    if (this.nrrd_states.showContrast) {
-      this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
-        this.displaySlices.length - 1
-      } SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
-    } else {
-      this.showDragNumberDiv.innerHTML = `SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+    if (this.mainPreSlice) {
+      if (this.nrrd_states.showContrast) {
+        this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
+          this.displaySlices.length - 1
+        } SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+      } else {
+        this.showDragNumberDiv.innerHTML = `SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+      }
     }
   }
 
@@ -1084,7 +1131,8 @@ export class nrrd_tools {
   }
 
   private configGui(modeFolder: GUI) {
-    if (modeFolder.__controllers.length > 0) this.removeModeChilden(modeFolder);
+    if (modeFolder.__controllers.length > 0)
+      this.removeGuiFolderChilden(modeFolder);
     modeFolder
       .add(this.gui_states, "dragSensitivity")
       .min(1)
@@ -1250,29 +1298,33 @@ export class nrrd_tools {
     this.displayCanvas.width = this.displayCanvas.width;
     this.displayCanvas.height = this.displayCanvas.height;
     this.originCanvas.width = this.originCanvas.width;
-    this.currentShowingSlice.repaint.call(this.currentShowingSlice);
-    this.displayCtx?.drawImage(
-      this.currentShowingSlice.canvas,
-      0,
-      0,
-      this.nrrd_states.changedWidth,
-      this.nrrd_states.changedHeight
-    );
+    if (this.currentShowingSlice) {
+      this.currentShowingSlice.repaint.call(this.currentShowingSlice);
+      this.displayCtx?.drawImage(
+        this.currentShowingSlice.canvas,
+        0,
+        0,
+        this.nrrd_states.changedWidth,
+        this.nrrd_states.changedHeight
+      );
+    }
   }
 
   redrawMianPreOnDisplayCanvas() {
     this.displayCanvas.width = this.displayCanvas.width;
     this.displayCanvas.height = this.displayCanvas.height;
     this.originCanvas.width = this.originCanvas.width;
-    this.mainPreSlice.repaint.call(this.mainPreSlice);
-    this.displayCtx?.drawImage(
-      this.originCanvas,
-      0,
-      0,
-      this.nrrd_states.changedWidth,
-      this.nrrd_states.changedHeight
-    );
-    this.resizePaintArea(this.nrrd_states.sizeFoctor);
+    if (this.mainPreSlice) {
+      this.mainPreSlice.repaint.call(this.mainPreSlice);
+      this.displayCtx?.drawImage(
+        this.originCanvas,
+        0,
+        0,
+        this.nrrd_states.changedWidth,
+        this.nrrd_states.changedHeight
+      );
+      this.resizePaintArea(this.nrrd_states.sizeFoctor);
+    }
   }
 
   private resizePaintArea(factor: number) {
@@ -1356,7 +1408,7 @@ export class nrrd_tools {
   }
 
   // remove all folders gui controllers
-  private removeModeChilden(modeFolder: GUI) {
+  removeGuiFolderChilden(modeFolder: GUI) {
     const subControllers = modeFolder.__controllers;
     if (subControllers.length > 0)
       subControllers.forEach((c) => {
