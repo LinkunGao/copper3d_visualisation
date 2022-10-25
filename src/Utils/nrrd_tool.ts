@@ -183,7 +183,6 @@ export class nrrd_tools {
       const idx = this.skipSliceArray.indexOf(index);
       this.skipSliceArray.splice(idx, 1);
     }
-
     this.resetDisplaySlicesStatus();
   }
 
@@ -262,9 +261,11 @@ export class nrrd_tools {
   private setDisplaySlicesBaseOnAxis() {
     this.displaySlices.length = 0;
     this.backUpDisplaySlices.length = 0;
+
     this.allSlicesArray.forEach((slices) => {
       this.backUpDisplaySlices.push(slices[this.axis]);
     });
+
     this.loadDisplaySlicesArray();
   }
 
@@ -284,16 +285,20 @@ export class nrrd_tools {
 
   private resetDisplaySlicesStatus() {
     this.setDisplaySlicesBaseOnAxis();
-    this.setOriginCanvasAndPre();
+    this.setMainPreSlice();
     this.updateMaxIndex();
+    this.setOriginCanvasAndPre();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
     this.repraintCurrentContrastSlice();
     this.resizePaintArea(this.nrrd_states.sizeFoctor);
     this.resetPaintArea();
   }
 
-  private setOriginCanvasAndPre() {
+  private setMainPreSlice() {
     this.mainPreSlice = this.displaySlices[0];
+  }
+
+  private setOriginCanvasAndPre() {
     if (this.mainPreSlice) {
       if (this.nrrd_states.oldIndex > this.nrrd_states.maxIndex)
         this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
@@ -310,6 +315,7 @@ export class nrrd_tools {
   }
 
   private afterLoadSlice() {
+    this.setMainPreSlice();
     this.setOriginCanvasAndPre();
     this.currentShowingSlice = this.mainPreSlice;
     this.undoArray = [
