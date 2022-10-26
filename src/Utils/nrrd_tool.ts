@@ -1139,13 +1139,12 @@ export class nrrd_tools {
   private configGui(modeFolder: GUI) {
     if (modeFolder.__controllers.length > 0)
       this.removeGuiFolderChilden(modeFolder);
-    modeFolder
-      .add(this.gui_states, "dragSensitivity")
-      .min(1)
-      .max(this.nrrd_states.Max_sensitive)
-      .step(1);
-    modeFolder
+
+    const actionsFolder = modeFolder.addFolder("Default Actions");
+
+    actionsFolder
       .add(this.gui_states, "mainAreaSize")
+      .name("Zoom")
       .min(1)
       .max(8)
       .onFinishChange((factor) => {
@@ -1153,28 +1152,20 @@ export class nrrd_tools {
         this.nrrd_states.sizeFoctor = factor;
         this.resizePaintArea(factor);
       });
-    modeFolder.add(this.gui_states, "globalAlpha").min(0.1).max(1).step(0.01);
-    const segmentationFolder = modeFolder.addFolder("segmentation");
-    segmentationFolder.add(this.gui_states, "segmentation");
-    segmentationFolder
-      .add(this.gui_states, "lineWidth")
-      .name("outerLineWidth")
-      .min(1.7)
-      .max(3)
+    actionsFolder
+      .add(this.gui_states, "globalAlpha")
+      .name("Opacity")
+      .min(0.1)
+      .max(1)
       .step(0.01);
-    segmentationFolder.addColor(this.gui_states, "color");
-    segmentationFolder.addColor(this.gui_states, "fillColor");
-
-    segmentationFolder.open();
-
-    modeFolder
+    actionsFolder.add(this.gui_states, "segmentation").name("Pencil");
+    actionsFolder
       .add(this.gui_states, "brushAndEraserSize")
       .min(5)
       .max(50)
       .step(1);
-    modeFolder.addColor(this.gui_states, "brushColor");
-    // modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
-    modeFolder.add(this.gui_states, "Eraser").onChange((value) => {
+
+    actionsFolder.add(this.gui_states, "Eraser").onChange((value) => {
       this.gui_states.Eraser = value;
       if (this.gui_states.Eraser) {
         this.drawingCanvas.style.cursor =
@@ -1184,12 +1175,52 @@ export class nrrd_tools {
         this.drawingCanvas.style.cursor = "crosshair";
       }
     });
-    modeFolder.add(this.gui_states, "clearAll");
-    modeFolder.add(this.gui_states, "undo");
-    modeFolder.add(this.gui_states, "downloadCurrentImage");
+    actionsFolder.add(this.gui_states, "clearAll");
+    actionsFolder.add(this.gui_states, "undo");
 
-    const contrastFolder = modeFolder.addFolder("contrast");
-    contrastFolder.open();
+    actionsFolder
+      .add(
+        this.mainPreSlice.volume,
+        "windowHigh",
+        this.mainPreSlice.volume.min,
+        this.mainPreSlice.volume.max,
+        1
+      )
+      .name("Image contrast")
+      .onChange((value) => {
+        this.nrrd_states.readyToUpdate = false;
+        this.updateSlicesContrast(value, "windowHigh");
+      })
+      .onFinishChange(() => {
+        this.repraintAllContrastSlices();
+        this.nrrd_states.readyToUpdate = true;
+      });
+
+    const advanceFolder = modeFolder.addFolder("Advance settings");
+
+    advanceFolder
+      .add(this.gui_states, "dragSensitivity")
+      .min(1)
+      .max(this.nrrd_states.Max_sensitive)
+      .step(1);
+
+    const segmentationFolder = advanceFolder.addFolder("Pencil settings");
+
+    segmentationFolder
+      .add(this.gui_states, "lineWidth")
+      .name("outerLineWidth")
+      .min(1.7)
+      .max(3)
+      .step(0.01);
+    segmentationFolder.addColor(this.gui_states, "color");
+    segmentationFolder.addColor(this.gui_states, "fillColor");
+    const bushFolder = advanceFolder.addFolder("Brush settings");
+    bushFolder.addColor(this.gui_states, "brushColor");
+    // modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
+
+    advanceFolder.add(this.gui_states, "downloadCurrentImage");
+
+    const contrastFolder = advanceFolder.addFolder("contrast advance settings");
     contrastFolder
       .add(
         this.mainPreSlice.volume,
@@ -1241,23 +1272,7 @@ export class nrrd_tools {
         this.repraintAllContrastSlices();
         this.nrrd_states.readyToUpdate = true;
       });
-    contrastFolder
-      .add(
-        this.mainPreSlice.volume,
-        "windowHigh",
-        this.mainPreSlice.volume.min,
-        this.mainPreSlice.volume.max,
-        1
-      )
-      .name("Window High")
-      .onChange((value) => {
-        this.nrrd_states.readyToUpdate = false;
-        this.updateSlicesContrast(value, "windowHigh");
-      })
-      .onFinishChange(() => {
-        this.repraintAllContrastSlices();
-        this.nrrd_states.readyToUpdate = true;
-      });
+    actionsFolder.open();
   }
 
   private updateSlicesContrast(value: number, flag: string) {

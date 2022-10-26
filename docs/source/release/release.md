@@ -1036,3 +1036,7 @@ const resetMainAreaSize = (factor: number) => {
 - Fixed some potential bugs. such as:
   - cannot find out mainPreSlice.
   - slice index update errors.
+
+## Release v1.12.2
+
+- update nrrd_tools GUI layout
