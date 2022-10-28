@@ -88,7 +88,10 @@ export class nrrd_tools {
     brushAndEraserSize: 15,
     // EraserSize: 25,
     clearAll: () => {
-      this.clearAllPaint();
+      const text = "Are you sure want to clear paintings on this slice?";
+      if (confirm(text) === true) {
+        this.clearAllPaint();
+      }
     },
     undo: () => {
       this.undoLastPainting();

@@ -1040,3 +1040,7 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.12.2
 
 - update nrrd_tools GUI layout
+
+## Release v1.12.3
+
+- add a confirm box when using clearAll function in nrrd_tools.
