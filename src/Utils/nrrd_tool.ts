@@ -79,7 +79,7 @@ export class nrrd_tools {
     mainAreaSize: 1,
     dragSensitivity: 75,
     Eraser: false,
-    globalAlpha: 0.3,
+    globalAlpha: 0.5,
     lineWidth: 2,
     color: "#f50a33",
     segmentation: true,
@@ -87,10 +87,17 @@ export class nrrd_tools {
     brushColor: "#3fac58",
     brushAndEraserSize: 15,
     // EraserSize: 25,
-    clearAll: () => {
-      const text = "Are you sure want to clear paintings on this slice?";
+    clear: () => {
+      const text = "Are you sure remove annotations on Current slice?";
       if (confirm(text) === true) {
-        this.clearAllPaint();
+        this.clearPaint();
+      }
+    },
+    clearAll: () => {
+      const text = "Are you sure remove annotations on All slice?";
+      if (confirm(text) === true) {
+        this.clearPaint();
+        this.clearStoreImages();
       }
     },
     undo: () => {
@@ -98,6 +105,10 @@ export class nrrd_tools {
     },
     downloadCurrentImage: () => {
       this.enableDownload();
+    },
+    resetZoom: () => {
+      this.resizePaintArea(1);
+      this.resetPaintArea();
     },
     subView: false,
     subViewScale: 1.0,
@@ -138,6 +149,12 @@ export class nrrd_tools {
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
       if (ev.key === "Shift") {
         this.Is_Shift_Pressed = true;
+      }
+      if (ev.key === "ArrowUp") {
+        this.setSliceMoving(1);
+      }
+      if (ev.key === "ArrowDown") {
+        this.setSliceMoving(-1);
       }
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
@@ -1079,7 +1096,7 @@ export class nrrd_tools {
     };
     return clearArc;
   }
-  private clearAllPaint() {
+  private clearPaint() {
     this.Is_Draw = true;
     this.drawingCanvasLayerOne.width = this.drawingCanvas.width;
     this.originCanvas.width = this.originCanvas.width;
@@ -1088,6 +1105,13 @@ export class nrrd_tools {
     this.storeAllImages();
     this.setIsDrawFalse(1000);
   }
+
+  private clearStoreImages() {
+    this.paintImages.x.length = 0;
+    this.paintImages.y.length = 0;
+    this.paintImages.z.length = 0;
+  }
+
   private enableDownload() {
     this.downloadImage.download = `slice_${this.axis}_#${this.mainPreSlice.index}`;
     const downloadCtx = this.downloadCanvas.getContext(
@@ -1155,6 +1179,7 @@ export class nrrd_tools {
         this.nrrd_states.sizeFoctor = factor;
         this.resizePaintArea(factor);
       });
+    actionsFolder.add(this.gui_states, "resetZoom");
     actionsFolder
       .add(this.gui_states, "globalAlpha")
       .name("Opacity")
@@ -1178,6 +1203,7 @@ export class nrrd_tools {
         this.drawingCanvas.style.cursor = "crosshair";
       }
     });
+    actionsFolder.add(this.gui_states, "clear");
     actionsFolder.add(this.gui_states, "clearAll");
     actionsFolder.add(this.gui_states, "undo");
 

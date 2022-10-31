@@ -1044,3 +1044,11 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.12.3
 
 - add a confirm box when using clearAll function in nrrd_tools.
+
+## Release v1.12.4
+
+- set the default opacity to 0.5
+- add arrow keys (up & down) to switch slices.
+- add a reset zoom button in the GUI.
+- renamed the clearAll to clear, and add a warning confirmation box with using this function.
+- add a clearAll function in GUI, to clear all paintings.
