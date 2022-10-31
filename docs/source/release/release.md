@@ -1052,3 +1052,8 @@ const resetMainAreaSize = (factor: number) => {
 - add a reset zoom button in the GUI.
 - renamed the clearAll to clear, and add a warning confirmation box with using this function.
 - add a clearAll function in GUI, to clear all paintings.
+
+## Release v1.12.5
+
+- fixed bug:
+  - reset zoom, after changing the slice's orientation, the size will back.
