@@ -107,6 +107,7 @@ export class nrrd_tools {
       this.enableDownload();
     },
     resetZoom: () => {
+      this.nrrd_states.sizeFoctor = 1;
       this.resizePaintArea(1);
       this.resetPaintArea();
     },
