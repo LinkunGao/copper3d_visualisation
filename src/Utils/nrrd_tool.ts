@@ -54,6 +54,7 @@ export class nrrd_tools {
   private previousDrawingImage: HTMLImageElement = new Image();
   private undoArray: Array<undoType> = [];
   private initState: boolean = true;
+  private preTimer: any;
 
   private nrrd_states = {
     originWidth: 0,
@@ -152,10 +153,10 @@ export class nrrd_tools {
         this.Is_Shift_Pressed = true;
       }
       if (ev.key === "ArrowUp") {
-        this.setSliceMoving(1);
+        this.setSliceMoving(-1);
       }
       if (ev.key === "ArrowDown") {
-        this.setSliceMoving(-1);
+        this.setSliceMoving(1);
       }
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
@@ -274,8 +275,12 @@ export class nrrd_tools {
   }
 
   private setIsDrawFalse(target: number) {
-    setTimeout(() => {
+    this.preTimer = setTimeout(() => {
       this.Is_Draw = false;
+      if (this.preTimer) {
+        window.clearTimeout(this.preTimer);
+        this.preTimer = undefined;
+      }
     }, target);
   }
 
@@ -607,18 +612,9 @@ export class nrrd_tools {
           this.nrrd_states.changedHeight = this.nrrd_states.originHeight;
         }
 
-        if (this.nrrd_states.showContrast) {
-          // repaint all contrast canvas
-          this.repraintCurrentContrastSlice();
-        } else {
-          /**
-           * clear and redraw canvas
-           */
-          this.mainPreSlice.repaint.call(this.mainPreSlice);
-        }
-
         // get the slice that need to be updated on displayCanvas
         const needToUpdateSlice = this.updateCurrentContrastSlice();
+        needToUpdateSlice.repaint.call(needToUpdateSlice);
 
         this.displayCtx.drawImage(
           needToUpdateSlice.canvas,
@@ -1309,30 +1305,22 @@ export class nrrd_tools {
     switch (flag) {
       case "lowerThreshold":
         this.displaySlices.forEach((slice, index) => {
-          if (index !== 0) {
-            slice.volume.lowerThreshold = value;
-          }
+          slice.volume.lowerThreshold = value;
         });
         break;
       case "upperThreshold":
         this.displaySlices.forEach((slice, index) => {
-          if (index !== 0) {
-            slice.volume.upperThreshold = value;
-          }
+          slice.volume.upperThreshold = value;
         });
         break;
       case "windowLow":
         this.displaySlices.forEach((slice, index) => {
-          if (index !== 0) {
-            slice.volume.windowLow = value;
-          }
+          slice.volume.windowLow = value;
         });
         break;
       case "windowHigh":
         this.displaySlices.forEach((slice, index) => {
-          if (index !== 0) {
-            slice.volume.windowHigh = value;
-          }
+          slice.volume.windowHigh = value;
         });
         break;
     }
