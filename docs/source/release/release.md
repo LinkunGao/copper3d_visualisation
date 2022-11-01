@@ -1057,3 +1057,12 @@ const resetMainAreaSize = (factor: number) => {
 
 - fixed bug:
   - reset zoom, after changing the slice's orientation, the size will back.
+
+## Release v1.12.6
+
+- changed arrow key logic for switching slices:
+  - up to decrease slice's number.
+  - down to increase slice's number.
+- fixed the performance issue on drag slice and painting function.
+  - dynamicaly remove the timer
+- fixed bug: images contrast not work with selecting contrast function.
