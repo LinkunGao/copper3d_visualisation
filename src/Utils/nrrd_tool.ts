@@ -80,7 +80,7 @@ export class nrrd_tools {
     mainAreaSize: 1,
     dragSensitivity: 75,
     Eraser: false,
-    globalAlpha: 0.5,
+    globalAlpha: 0.35,
     lineWidth: 2,
     color: "#f50a33",
     segmentation: true,
@@ -89,10 +89,11 @@ export class nrrd_tools {
     brushAndEraserSize: 15,
     // EraserSize: 25,
     clear: () => {
-      const text = "Are you sure remove annotations on Current slice?";
-      if (confirm(text) === true) {
-        this.clearPaint();
-      }
+      // const text = "Are you sure remove annotations on Current slice?";
+      // if (confirm(text) === true) {
+      //   this.clearPaint();
+      // }
+      this.clearPaint();
     },
     clearAll: () => {
       const text = "Are you sure remove annotations on All slice?";

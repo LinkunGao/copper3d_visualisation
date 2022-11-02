@@ -1066,3 +1066,8 @@ const resetMainAreaSize = (factor: number) => {
 - fixed the performance issue on drag slice and painting function.
   - dynamicaly remove the timer
 - fixed bug: images contrast not work with selecting contrast function.
+
+## Release v1.12.7
+
+- reset opacity to 0.35.
+- remove warning msg for clear function.
