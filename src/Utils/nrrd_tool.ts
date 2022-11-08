@@ -34,6 +34,7 @@ export class nrrd_tools {
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadCanvas: HTMLCanvasElement = document.createElement("canvas");
+  private emptyCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadImage: HTMLAnchorElement = document.createElement("a");
   private drawingCanvasLayerOne: HTMLCanvasElement =
     document.createElement("canvas");
@@ -62,8 +63,11 @@ export class nrrd_tools {
     changedWidth: 0,
     changedHeight: 0,
     oldIndex: 0,
+    currentIndex: 0,
     maxIndex: 0,
     minIndex: 0,
+    RSARatio: 0,
+    latestNotEmptyCanvas: document.createElement("canvas"),
     contrastNum: 0,
     Max_sensitive: 100,
     readyToUpdate: true,
@@ -250,8 +254,14 @@ export class nrrd_tools {
   }
 
   setMainAreaSize(factor: number) {
-    this.nrrd_states.sizeFoctor = factor;
-    this.resizePaintArea(factor);
+    this.nrrd_states.sizeFoctor += factor;
+
+    if (this.nrrd_states.sizeFoctor >= 8) {
+      this.nrrd_states.sizeFoctor = 8;
+    } else if (this.nrrd_states.sizeFoctor <= 1) {
+      this.nrrd_states.sizeFoctor = 1;
+    }
+    this.resizePaintArea(this.nrrd_states.sizeFoctor);
     this.resetPaintArea();
     this.setIsDrawFalse(1000);
   }
@@ -268,7 +278,7 @@ export class nrrd_tools {
   }
 
   getCurrentSliceIndex() {
-    return this.mainPreSlice.index;
+    return this.mainPreSlice.index / this.nrrd_states.RSARatio;
   }
 
   getIsShowContrastState() {
@@ -323,6 +333,47 @@ export class nrrd_tools {
 
   private setMainPreSlice() {
     this.mainPreSlice = this.displaySlices[0];
+    this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
+    // switch (this.axis) {
+    //   case "x":
+    //     this.nrrd_states.RSARatio =
+    //       this.mainPreSlice.volume.RASDimensions[0] /
+    //       this.mainPreSlice.volume.dimensions[0];
+    //     break;
+    //   case "y":
+    //     this.nrrd_states.RSARatio =
+    //       this.mainPreSlice.volume.RASDimensions[1] /
+    //       this.mainPreSlice.volume.dimensions[1];
+    //     break;
+    //   case "z":
+    //     this.nrrd_states.RSARatio =
+    //       this.mainPreSlice.volume.RASDimensions[2] /
+    //       this.mainPreSlice.volume.dimensions[2];
+    //     break;
+    // }
+    const initIndex = this.mainPreSlice.index;
+    // this.findLastCanvas();
+    // this.mainPreSlice.index = initIndex;
+    // this.mainPreSlice.repaint.call(this.mainPreSlice);
+  }
+
+  private findLastCanvas() {
+    for (
+      let i = this.nrrd_states.maxIndex * this.nrrd_states.RSARatio;
+      i > 0;
+      i--
+    ) {
+      this.mainPreSlice.index = i;
+      this.mainPreSlice.repaint.call(this.mainPreSlice);
+      const verfiy = !this.verifyCanvasIsEmpty(this.mainPreSlice.canvas);
+
+      if (verfiy) {
+        this.nrrd_states.latestNotEmptyCanvas
+          .getContext("2d")
+          ?.drawImage(this.mainPreSlice.canvas, 0, 0);
+        break;
+      }
+    }
   }
 
   private setOriginCanvasAndPre() {
@@ -331,8 +382,10 @@ export class nrrd_tools {
         this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
 
       if (this.initState) {
-        this.nrrd_states.oldIndex = this.mainPreSlice.index;
+        this.nrrd_states.oldIndex = this.mainPreSlice.initIndex;
+        this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
       } else {
+        // !need to change
         this.mainPreSlice.index = this.nrrd_states.oldIndex;
       }
 
@@ -351,7 +404,8 @@ export class nrrd_tools {
         undos: [],
       },
     ];
-    this.nrrd_states.oldIndex = this.mainPreSlice.index;
+    this.nrrd_states.oldIndex = this.mainPreSlice.initIndex;
+    this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
     // compute max index
     this.updateMaxIndex();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
@@ -362,14 +416,13 @@ export class nrrd_tools {
     if (this.mainPreSlice) {
       switch (this.axis) {
         case "x":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[0];
+          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[0];
           break;
         case "y":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[1];
+          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[1];
           break;
         case "z":
-          this.nrrd_states.maxIndex =
-            this.mainPreSlice.volume.RASDimensions[2] - 1;
+          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[2];
           break;
       }
     }
@@ -419,8 +472,8 @@ export class nrrd_tools {
     this.drawingCanvas.style.cursor = "crosshair";
     this.drawingCanvas.oncontextmenu = () => false;
 
-    this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
-    this.displayCanvas.style.top = this.drawingCanvas.style.top = "0px";
+    // this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
+    // this.displayCanvas.style.top = this.drawingCanvas.style.top = "0px";
 
     /**
      * layer1
@@ -433,8 +486,12 @@ export class nrrd_tools {
     /**
      * display and drawing canvas container
      */
-    this.mainAreaContainer.style.width = this.nrrd_states.changedWidth + "px";
-    this.mainAreaContainer.style.height = this.nrrd_states.changedHeight + "px";
+    // this.mainAreaContainer.style.width = this.nrrd_states.changedWidth + "px";
+    // this.mainAreaContainer.style.height = this.nrrd_states.changedHeight + "px";
+    this.mainAreaContainer.style.width =
+      this.nrrd_states.originWidth * 8 + "px";
+    this.mainAreaContainer.style.height =
+      this.nrrd_states.originHeight * 8 + "px";
     this.mainAreaContainer.appendChild(this.displayCanvas);
     this.mainAreaContainer.appendChild(this.drawingCanvas);
   }
@@ -473,9 +530,11 @@ export class nrrd_tools {
       if (this.nrrd_states.showContrast) {
         this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
           this.displaySlices.length - 1
-        } SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+        } SliceNum: ${this.nrrd_states.currentIndex}/${
+          this.nrrd_states.maxIndex
+        }`;
       } else {
-        this.showDragNumberDiv.innerHTML = `SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+        this.showDragNumberDiv.innerHTML = `SliceNum: ${this.nrrd_states.currentIndex}/${this.nrrd_states.maxIndex}`;
       }
     }
   }
@@ -510,12 +569,12 @@ export class nrrd_tools {
           handleOnMouseMove,
           false
         );
-        this.nrrd_states.oldIndex = this.mainPreSlice.index;
+        // this.nrrd_states.oldIndex = this.mainPreSlice.index;
         sensivity = this.sensitiveArray[this.gui_states.dragSensitivity - 1];
       }
     };
     handleOnMouseMove = throttle((ev: MouseEvent) => {
-      this.nrrd_states.oldIndex = this.mainPreSlice.index;
+      // this.nrrd_states.oldIndex = this.mainPreSlice.index;
       if (y - ev.offsetY / h >= 0) {
         move = -Math.ceil(((y - ev.offsetY / h) * 10) / sensivity);
       } else {
@@ -524,7 +583,10 @@ export class nrrd_tools {
 
       this.updateIndex(move);
       opts?.getSliceNum &&
-        opts.getSliceNum(this.mainPreSlice.index, this.nrrd_states.contrastNum);
+        opts.getSliceNum(
+          this.nrrd_states.currentIndex,
+          this.nrrd_states.contrastNum
+        );
       y = ev.offsetY / h;
     }, sensivity * 200);
     handleOnMouseUp = (ev: MouseEvent) => {
@@ -603,7 +665,9 @@ export class nrrd_tools {
         newIndex = this.nrrd_states.minIndex;
         this.nrrd_states.contrastNum = 0;
       } else {
-        this.mainPreSlice.index = newIndex;
+        this.mainPreSlice.index = newIndex * this.nrrd_states.RSARatio;
+        this.nrrd_states.currentIndex = newIndex;
+
         if (newIndex != this.nrrd_states.oldIndex)
           this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
         this.displayCanvas.width = this.displayCanvas.width;
@@ -614,42 +678,55 @@ export class nrrd_tools {
         }
 
         // get the slice that need to be updated on displayCanvas
-        const needToUpdateSlice = this.updateCurrentContrastSlice();
+        let needToUpdateSlice = this.updateCurrentContrastSlice();
         needToUpdateSlice.repaint.call(needToUpdateSlice);
 
-        this.displayCtx.drawImage(
-          needToUpdateSlice.canvas,
-          0,
-          0,
-          this.nrrd_states.changedWidth,
-          this.nrrd_states.changedHeight
-        );
+        let verify = true;
+        if (this.nrrd_states.maxIndex - this.nrrd_states.currentIndex <= 30) {
+          verify = !this.verifyCanvasIsEmpty(needToUpdateSlice.canvas);
+        }
 
-        if (
-          this.paintImages.x.length > 0 ||
-          this.paintImages.y.length > 0 ||
-          this.paintImages.z.length > 0
-        ) {
-          if (newIndex != this.nrrd_states.oldIndex) {
-            this.paintedImage = this.filterDrawedImage(
-              this.axis,
-              this.mainPreSlice.index
-            );
-
-            if (this.paintedImage?.image) {
-              this.drawingLayerOneCtx.drawImage(
-                this.paintedImage.image,
-                0,
-                0,
-                this.nrrd_states.changedWidth,
-                this.nrrd_states.changedHeight
-              );
-            }
-          }
+        if (verify) {
+          this.drawDragSlice(needToUpdateSlice, newIndex);
+        } else {
         }
       }
-      this.nrrd_states.oldIndex = this.mainPreSlice.index;
+      // this.nrrd_states.oldIndex = this.mainPreSlice.index;
+      this.nrrd_states.oldIndex = newIndex;
       this.updateShowNumDiv(this.nrrd_states.contrastNum);
+    }
+  }
+
+  private drawDragSlice(needToUpdateSlice: any, newIndex: number) {
+    this.displayCtx.drawImage(
+      needToUpdateSlice.canvas,
+      0,
+      0,
+      this.nrrd_states.changedWidth,
+      this.nrrd_states.changedHeight
+    );
+
+    if (
+      this.paintImages.x.length > 0 ||
+      this.paintImages.y.length > 0 ||
+      this.paintImages.z.length > 0
+    ) {
+      if (newIndex != this.nrrd_states.oldIndex) {
+        this.paintedImage = this.filterDrawedImage(
+          this.axis,
+          this.nrrd_states.currentIndex
+        );
+
+        if (this.paintedImage?.image) {
+          this.drawingLayerOneCtx.drawImage(
+            this.paintedImage.image,
+            0,
+            0,
+            this.nrrd_states.changedWidth,
+            this.nrrd_states.changedHeight
+          );
+        }
+      }
     }
   }
 
@@ -860,7 +937,7 @@ export class nrrd_tools {
                 this.drawingCanvasLayerOne.width;
               const tempPreImg = this.filterDrawedImage(
                 this.axis,
-                this.mainPreSlice.index
+                this.nrrd_states.currentIndex
               )?.image;
               if (tempPreImg) {
                 this.previousDrawingImage = tempPreImg;
@@ -907,7 +984,7 @@ export class nrrd_tools {
             currentUndoObj[0].undos.push(image);
           } else {
             const undoObj: undoType = {
-              sliceIndex: this.mainPreSlice.index,
+              sliceIndex: this.nrrd_states.currentIndex,
               undos: [],
             };
             undoObj.undos.push(image);
@@ -1043,7 +1120,7 @@ export class nrrd_tools {
 
   private getCurrentUndo() {
     return this.undoArray.filter((item) => {
-      return item.sliceIndex === this.mainPreSlice.index;
+      return item.sliceIndex === this.nrrd_states.currentIndex;
     });
   }
 
@@ -1054,27 +1131,45 @@ export class nrrd_tools {
         return;
       }
       e.preventDefault();
+      // this.nrrd_states.originWidth;
+      const delta = e.detail ? e.detail > 0 : (e as any).wheelDelta < 0;
       this.Is_Draw = true;
-      if (e.deltaY < 0) {
-        moveDistance += 0.1;
-      } else if (e.deltaY > 0) {
-        moveDistance -= 0.1;
-      }
-      if (moveDistance >= 8) {
+
+      const ratioL =
+        (e.clientX -
+          this.mainAreaContainer.offsetLeft -
+          this.drawingCanvas.offsetLeft) /
+        this.drawingCanvas.offsetWidth;
+      const ratioT =
+        (e.clientY -
+          this.mainAreaContainer.offsetTop -
+          this.drawingCanvas.offsetTop) /
+        this.drawingCanvas.offsetHeight;
+      const ratioDelta = !delta ? 1 + 0.1 : 1 - 0.1;
+
+      const w = this.drawingCanvas.offsetWidth * ratioDelta;
+      const h = this.drawingCanvas.offsetHeight * ratioDelta;
+      const l = Math.round(
+        e.clientX - this.mainAreaContainer.offsetLeft - w * ratioL
+      );
+      const t = Math.round(
+        e.clientY - this.mainAreaContainer.offsetTop - h * ratioT
+      );
+
+      moveDistance = w / this.nrrd_states.originWidth;
+
+      if (moveDistance > 8) {
         moveDistance = 8;
-      } else if (moveDistance <= 1) {
+      } else if (moveDistance < 1) {
         moveDistance = 1;
+      } else {
+        this.resizePaintArea(moveDistance);
+        this.resetPaintArea(l, t);
+        controls && (controls.enabled = false);
+        this.setIsDrawFalse(1000);
       }
       this.nrrd_states.sizeFoctor = moveDistance;
-      this.resizePaintArea(moveDistance);
-      this.resetPaintArea();
-      controls && (controls.enabled = false);
-      this.setIsDrawFalse(1000);
     };
-
-    // this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
-    //   passive: false,
-    // });
     return handleWheelMove;
   }
 
@@ -1328,9 +1423,16 @@ export class nrrd_tools {
     this.repraintCurrentContrastSlice();
   }
 
-  private resetPaintArea() {
-    this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
-    this.displayCanvas.style.top = this.drawingCanvas.style.top = "0px";
+  private resetPaintArea(l?: number, t?: number) {
+    if (l && t) {
+      this.displayCanvas.style.left = this.drawingCanvas.style.left = l + "px";
+      this.displayCanvas.style.top = this.drawingCanvas.style.top = t + "px";
+    } else {
+      this.displayCanvas.style.left = this.drawingCanvas.style.left = "";
+      this.displayCanvas.style.top = this.drawingCanvas.style.top = "";
+      this.mainAreaContainer.style.justifyContent = "center";
+      this.mainAreaContainer.style.alignItems = "center";
+    }
   }
 
   private redrawDisplayCanvas() {
@@ -1389,8 +1491,6 @@ export class nrrd_tools {
     this.drawingCanvasLayerOne.width = this.nrrd_states.changedWidth;
     this.drawingCanvasLayerOne.height = this.nrrd_states.changedHeight;
 
-    this.mainAreaContainer.style.width = this.nrrd_states.changedWidth + "px";
-    this.mainAreaContainer.style.height = this.nrrd_states.changedHeight + "px";
     this.redrawDisplayCanvas();
 
     // this.paintedImage = undefined;
@@ -1402,7 +1502,7 @@ export class nrrd_tools {
         if (this.paintImages.x.length > 0) {
           this.paintedImage = this.filterDrawedImage(
             "x",
-            this.mainPreSlice.index
+            this.nrrd_states.currentIndex
           );
         } else {
           this.paintedImage = undefined;
@@ -1412,7 +1512,7 @@ export class nrrd_tools {
         if (this.paintImages.y.length > 0) {
           this.paintedImage = this.filterDrawedImage(
             "y",
-            this.mainPreSlice.index
+            this.nrrd_states.currentIndex
           );
         } else {
           this.paintedImage = undefined;
@@ -1423,7 +1523,7 @@ export class nrrd_tools {
         if (this.paintImages.z.length > 0) {
           this.paintedImage = this.filterDrawedImage(
             "z",
-            this.mainPreSlice.index
+            this.nrrd_states.currentIndex
           );
         } else {
           this.paintedImage = undefined;
@@ -1457,31 +1557,50 @@ export class nrrd_tools {
         }, 100);
       });
   }
+
+  private verifyCanvasIsEmpty(canvas: any) {
+    this.emptyCanvas.width = canvas.width;
+    this.emptyCanvas.height = canvas.height;
+
+    const validation = canvas.toDataURL() === this.emptyCanvas.toDataURL();
+
+    return validation;
+  }
+
   private storeAllImages() {
     const image: HTMLImageElement = new Image();
     image.src = this.drawingCanvasLayerOne.toDataURL();
 
     let temp: paintImageType = {
-      index: this.mainPreSlice.index,
+      index: this.nrrd_states.currentIndex,
       image,
     };
     let drawedImage: paintImageType;
 
     switch (this.axis) {
       case "x":
-        drawedImage = this.filterDrawedImage("x", this.mainPreSlice.index);
+        drawedImage = this.filterDrawedImage(
+          "x",
+          this.nrrd_states.currentIndex
+        );
         drawedImage
           ? (drawedImage.image = image)
           : this.paintImages.x?.push(temp);
         break;
       case "y":
-        drawedImage = this.filterDrawedImage("y", this.mainPreSlice.index);
+        drawedImage = this.filterDrawedImage(
+          "y",
+          this.nrrd_states.currentIndex
+        );
         drawedImage
           ? (drawedImage.image = image)
           : this.paintImages.y?.push(temp);
         break;
       case "z":
-        drawedImage = this.filterDrawedImage("z", this.mainPreSlice.index);
+        drawedImage = this.filterDrawedImage(
+          "z",
+          this.nrrd_states.currentIndex
+        );
         drawedImage
           ? (drawedImage.image = image)
           : this.paintImages.z?.push(temp);

@@ -1071,3 +1071,17 @@ const resetMainAreaSize = (factor: number) => {
 
 - reset opacity to 0.35.
 - remove warning msg for clear function.
+
+## Release v1.12.8
+
+- reset opacity to 0.7.
+- modify Zoom function to fixed-point magnification base on mouse position.
+- Repackaged nrrd slice:
+  - slice.initIndexZ
+  - slice.initIndexY
+  - slice.initIndexX
+  - slice.ratioZ
+  - slice.ratioY
+  - slice.ratioX
+- add a ratio attribute in slice to help converting RSADimention to nomal Dimention.
+- fixed the slice index bug.
