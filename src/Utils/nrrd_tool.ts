@@ -86,7 +86,7 @@ export class nrrd_tools {
     mainAreaSize: 1,
     dragSensitivity: 75,
     Eraser: false,
-    globalAlpha: 0.35,
+    globalAlpha: 0.7,
     lineWidth: 2,
     color: "#f50a33",
     segmentation: true,
