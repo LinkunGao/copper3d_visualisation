@@ -72,11 +72,12 @@ export function copperNrrdLoader(
       sliceZ.RSARatio = ratioZ;
       sliceY.RSARatio = ratioY;
       sliceX.RSARatio = ratioX;
-
-      // const sliceZ = volume.extractSlice("z", Math.floor(volume.zLength / 2));
-      // const sliceY = volume.extractSlice("y", Math.floor(volume.yLength / 2));
-      // //x plane
-      // const sliceX = volume.extractSlice("x", Math.floor(volume.xLength / 2));
+      sliceZ.MaxIndex = dimensions[2];
+      sliceY.MaxIndex = dimensions[1];
+      sliceX.MaxIndex = dimensions[0];
+      sliceZ.RSAMaxIndex = rasdimensions[2];
+      sliceY.RSAMaxIndex = rasdimensions[1];
+      sliceX.RSAMaxIndex = rasdimensions[0];
 
       nrrdMeshes = {
         x: sliceX.mesh,

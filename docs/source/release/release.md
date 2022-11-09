@@ -1085,3 +1085,7 @@ const resetMainAreaSize = (factor: number) => {
   - slice.ratioX
 - add a ratio attribute in slice to help converting RSADimention to nomal Dimention.
 - fixed the slice index bug.
+
+## Release v1.12.9
+
+- add mouse cursor option in nrrd_tools GUI.
