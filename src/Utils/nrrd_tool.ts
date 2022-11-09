@@ -67,7 +67,7 @@ export class nrrd_tools {
     maxIndex: 0,
     minIndex: 0,
     RSARatio: 0,
-    latestNotEmptyCanvas: document.createElement("canvas"),
+    latestNotEmptyImg: new Image(),
     contrastNum: 0,
     Max_sensitive: 100,
     readyToUpdate: true,
@@ -77,6 +77,8 @@ export class nrrd_tools {
     Mouse_Over: false,
     stepClear: 1,
     sizeFoctor: 1,
+    defaultPaintCursor:
+      "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
     drawStartPos: new THREE.Vector2(1, 1),
   };
 
@@ -91,6 +93,7 @@ export class nrrd_tools {
     fillColor: "#3fac58",
     brushColor: "#3fac58",
     brushAndEraserSize: 15,
+    cursor: "pencil",
     // EraserSize: 25,
     clear: () => {
       // const text = "Are you sure remove annotations on Current slice?";
@@ -278,7 +281,7 @@ export class nrrd_tools {
   }
 
   getCurrentSliceIndex() {
-    return this.mainPreSlice.index / this.nrrd_states.RSARatio;
+    return Math.ceil(this.mainPreSlice.index / this.nrrd_states.RSARatio);
   }
 
   getIsShowContrastState() {
@@ -334,43 +337,27 @@ export class nrrd_tools {
   private setMainPreSlice() {
     this.mainPreSlice = this.displaySlices[0];
     this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
-    // switch (this.axis) {
-    //   case "x":
-    //     this.nrrd_states.RSARatio =
-    //       this.mainPreSlice.volume.RASDimensions[0] /
-    //       this.mainPreSlice.volume.dimensions[0];
-    //     break;
-    //   case "y":
-    //     this.nrrd_states.RSARatio =
-    //       this.mainPreSlice.volume.RASDimensions[1] /
-    //       this.mainPreSlice.volume.dimensions[1];
-    //     break;
-    //   case "z":
-    //     this.nrrd_states.RSARatio =
-    //       this.mainPreSlice.volume.RASDimensions[2] /
-    //       this.mainPreSlice.volume.dimensions[2];
-    //     break;
-    // }
     const initIndex = this.mainPreSlice.index;
+    this.findLastCanvas();
+
     // this.findLastCanvas();
-    // this.mainPreSlice.index = initIndex;
-    // this.mainPreSlice.repaint.call(this.mainPreSlice);
+    this.mainPreSlice.index = initIndex;
+    this.mainPreSlice.repaint.call(this.mainPreSlice);
   }
 
   private findLastCanvas() {
-    for (
-      let i = this.nrrd_states.maxIndex * this.nrrd_states.RSARatio;
-      i > 0;
-      i--
-    ) {
-      this.mainPreSlice.index = i;
+    for (let i = this.mainPreSlice.MaxIndex; i > 0; i--) {
+      this.mainPreSlice.index = i * this.nrrd_states.RSARatio;
       this.mainPreSlice.repaint.call(this.mainPreSlice);
       const verfiy = !this.verifyCanvasIsEmpty(this.mainPreSlice.canvas);
+      console.log(verfiy);
 
       if (verfiy) {
-        this.nrrd_states.latestNotEmptyCanvas
-          .getContext("2d")
-          ?.drawImage(this.mainPreSlice.canvas, 0, 0);
+        console.log(i);
+        this.mainPreSlice.index = (i - 1) * this.nrrd_states.RSARatio;
+        this.mainPreSlice.repaint.call(this.mainPreSlice);
+        this.nrrd_states.latestNotEmptyImg.src =
+          this.mainPreSlice.canvas.toDataURL();
         break;
       }
     }
@@ -469,7 +456,7 @@ export class nrrd_tools {
     this.drawingCanvas.style.position = "absolute";
     this.drawingCanvas.width = this.nrrd_states.changedWidth;
     this.drawingCanvas.height = this.nrrd_states.changedHeight;
-    this.drawingCanvas.style.cursor = "crosshair";
+    this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
     this.drawingCanvas.oncontextmenu = () => false;
 
     // this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
@@ -687,8 +674,9 @@ export class nrrd_tools {
         }
 
         if (verify) {
-          this.drawDragSlice(needToUpdateSlice, newIndex);
+          this.drawDragSlice(needToUpdateSlice.canvas, newIndex);
         } else {
+          this.drawDragSlice(this.nrrd_states.latestNotEmptyImg, newIndex);
         }
       }
       // this.nrrd_states.oldIndex = this.mainPreSlice.index;
@@ -697,9 +685,9 @@ export class nrrd_tools {
     }
   }
 
-  private drawDragSlice(needToUpdateSlice: any, newIndex: number) {
+  private drawDragSlice(canvas: any, newIndex: number) {
     this.displayCtx.drawImage(
-      needToUpdateSlice.canvas,
+      canvas,
       0,
       0,
       this.nrrd_states.changedWidth,
@@ -874,9 +862,10 @@ export class nrrd_tools {
 
           if (this.gui_states.Eraser) {
             this.drawingCanvas.style.cursor =
-              "url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/4273/circular-cursor.png) 52 52, crosshair";
+              "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/circular-cursor.png) 52 52, crosshair";
           } else {
-            this.drawingCanvas.style.cursor = "crosshair";
+            this.drawingCanvas.style.cursor =
+              this.nrrd_states.defaultPaintCursor;
           }
 
           this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
@@ -1263,6 +1252,18 @@ export class nrrd_tools {
     const actionsFolder = modeFolder.addFolder("Default Actions");
 
     actionsFolder
+      .add(this.gui_states, "cursor", ["crosshair", "pencil"])
+      .onChange((value) => {
+        if (value === "crosshair") {
+          this.nrrd_states.defaultPaintCursor = "crosshair";
+        }
+        if (value === "pencil") {
+          this.nrrd_states.defaultPaintCursor =
+            "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto";
+        }
+        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
+      });
+    actionsFolder
       .add(this.gui_states, "mainAreaSize")
       .name("Zoom")
       .min(1)
@@ -1290,10 +1291,9 @@ export class nrrd_tools {
       this.gui_states.Eraser = value;
       if (this.gui_states.Eraser) {
         this.drawingCanvas.style.cursor =
-          // "url(https://raw.githubusercontent.com/LinkunGao/copper3d_visualisation/main/src/css/images/circular-cursor.png) 52 52, crosshair";
-          "url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/4273/circular-cursor.png) 52 52, crosshair";
+          "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/circular-cursor.png) 52 52, crosshair";
       } else {
-        this.drawingCanvas.style.cursor = "crosshair";
+        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
       }
     });
     actionsFolder.add(this.gui_states, "clear");
