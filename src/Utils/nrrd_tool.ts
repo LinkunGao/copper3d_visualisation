@@ -350,10 +350,7 @@ export class nrrd_tools {
       this.mainPreSlice.index = i * this.nrrd_states.RSARatio;
       this.mainPreSlice.repaint.call(this.mainPreSlice);
       const verfiy = !this.verifyCanvasIsEmpty(this.mainPreSlice.canvas);
-      console.log(verfiy);
-
       if (verfiy) {
-        console.log(i);
         this.mainPreSlice.index = (i - 1) * this.nrrd_states.RSARatio;
         this.mainPreSlice.repaint.call(this.mainPreSlice);
         this.nrrd_states.latestNotEmptyImg.src =
@@ -401,17 +398,7 @@ export class nrrd_tools {
 
   private updateMaxIndex() {
     if (this.mainPreSlice) {
-      switch (this.axis) {
-        case "x":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[0];
-          break;
-        case "y":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[1];
-          break;
-        case "z":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[2];
-          break;
-      }
+      this.nrrd_states.maxIndex = this.mainPreSlice.MaxIndex;
     }
   }
 

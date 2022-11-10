@@ -54,30 +54,28 @@ export function copperNrrdLoader(
       const rasdimensions = volume.RASDimensions;
       const dimensions = volume.dimensions;
 
-      const ratioX = rasdimensions[0] / dimensions[0];
-      const ratioY = rasdimensions[1] / dimensions[1];
-      const ratioZ = rasdimensions[2] / dimensions[2];
+      const ratio = volume.spacing;
 
       const initIndexZ = Math.floor(dimensions[2] / 2);
       const initIndexY = Math.floor(dimensions[1] / 2);
       const initIndexX = Math.floor(dimensions[0] / 2);
 
-      const sliceZ = volume.extractSlice("z", initIndexZ * ratioZ);
-      const sliceY = volume.extractSlice("y", initIndexY * ratioY);
+      const sliceZ = volume.extractSlice("z", initIndexZ * ratio[2]);
+      const sliceY = volume.extractSlice("y", initIndexY * ratio[1]);
       //x plane
-      const sliceX = volume.extractSlice("x", initIndexX * ratioX);
+      const sliceX = volume.extractSlice("x", initIndexX * ratio[0]);
       sliceZ.initIndex = initIndexZ;
       sliceY.initIndex = initIndexY;
       sliceX.initIndex = initIndexX;
-      sliceZ.RSARatio = ratioZ;
-      sliceY.RSARatio = ratioY;
-      sliceX.RSARatio = ratioX;
-      sliceZ.MaxIndex = dimensions[2];
-      sliceY.MaxIndex = dimensions[1];
-      sliceX.MaxIndex = dimensions[0];
-      sliceZ.RSAMaxIndex = rasdimensions[2];
-      sliceY.RSAMaxIndex = rasdimensions[1];
-      sliceX.RSAMaxIndex = rasdimensions[0];
+      sliceZ.MaxIndex = dimensions[2] - 1;
+      sliceY.MaxIndex = dimensions[1] - 1;
+      sliceX.MaxIndex = dimensions[0] - 1;
+      sliceZ.RSARatio = ratio[2];
+      sliceY.RSARatio = ratio[1];
+      sliceX.RSARatio = ratio[0];
+      sliceZ.RSAMaxIndex = rasdimensions[2] - 1;
+      sliceY.RSAMaxIndex = rasdimensions[1] - 1;
+      sliceX.RSAMaxIndex = rasdimensions[0] - 1;
 
       nrrdMeshes = {
         x: sliceX.mesh,
