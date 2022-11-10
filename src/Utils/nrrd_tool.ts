@@ -350,10 +350,7 @@ export class nrrd_tools {
       this.mainPreSlice.index = i * this.nrrd_states.RSARatio;
       this.mainPreSlice.repaint.call(this.mainPreSlice);
       const verfiy = !this.verifyCanvasIsEmpty(this.mainPreSlice.canvas);
-      console.log(verfiy);
-
       if (verfiy) {
-        console.log(i);
         this.mainPreSlice.index = (i - 1) * this.nrrd_states.RSARatio;
         this.mainPreSlice.repaint.call(this.mainPreSlice);
         this.nrrd_states.latestNotEmptyImg.src =
@@ -401,17 +398,7 @@ export class nrrd_tools {
 
   private updateMaxIndex() {
     if (this.mainPreSlice) {
-      switch (this.axis) {
-        case "x":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[0];
-          break;
-        case "y":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[1];
-          break;
-        case "z":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.dimensions[2];
-          break;
-      }
+      this.nrrd_states.maxIndex = this.mainPreSlice.MaxIndex;
     }
   }
 
@@ -1249,10 +1236,12 @@ export class nrrd_tools {
     if (modeFolder.__controllers.length > 0)
       this.removeGuiFolderChilden(modeFolder);
 
+    modeFolder.open();
     const actionsFolder = modeFolder.addFolder("Default Actions");
 
     actionsFolder
       .add(this.gui_states, "cursor", ["crosshair", "pencil"])
+      .name("cursor icons")
       .onChange((value) => {
         if (value === "crosshair") {
           this.nrrd_states.defaultPaintCursor = "crosshair";
@@ -1265,7 +1254,7 @@ export class nrrd_tools {
       });
     actionsFolder
       .add(this.gui_states, "mainAreaSize")
-      .name("Zoom")
+      .name("zoom")
       .min(1)
       .max(8)
       .onFinishChange((factor) => {
@@ -1276,7 +1265,7 @@ export class nrrd_tools {
     actionsFolder.add(this.gui_states, "resetZoom");
     actionsFolder
       .add(this.gui_states, "globalAlpha")
-      .name("Opacity")
+      .name("opacity")
       .min(0.1)
       .max(1)
       .step(0.01);

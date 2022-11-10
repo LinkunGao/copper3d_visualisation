@@ -1089,3 +1089,15 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.12.9
 
 - add mouse cursor option in nrrd_tools GUI.
+
+## Release v1.12.10
+
+- update nrrd_tools GUI opacity.
+
+## Release v1.12.11
+
+- fixed all NRRD slice index error.
+  - threejs environment is base on RSADimention to render the nrrd each slices. But in this way, The slice presented by threejs does not match the real nrrd slice. Actually, one nrrd slice should represent one dicom file image. Thus, we need use `voxel spacing` to fix this issue.
+  - Suppose we want to get the index 10 slice image. which is 10th dicom file image. Using multiplication: we can use the index 10 to times voxel spacing to get the 10th dicom file image in threejs environment.
+- update copper3d nrrd loader, in order to match the real nrrd slice, all position max slice index minus 1.
+- update nrrd_tools GUI some parameters name.
