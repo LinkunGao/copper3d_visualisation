@@ -7,6 +7,7 @@ import {
   paintImageType,
   mouseMovePositionType,
   undoType,
+  skipSlicesDictType,
 } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
@@ -23,7 +24,7 @@ export class nrrd_tools {
   private displaySlices: Array<any> = [];
   // Designed for reload displaySlices Array
   private backUpDisplaySlices: Array<any> = [];
-  private skipSliceArray: Array<number> = [];
+  private skipSlicesDic: skipSlicesDictType = {};
   // The default axis for all contrast slice is set to "z" orientation.
   // If we want to switch different orientation, we can set the axis outside.
   private axis: "x" | "y" | "z" = "z";
@@ -185,6 +186,12 @@ export class nrrd_tools {
    */
   setAllSlices(allSlices: Array<nrrdSliceType>) {
     this.allSlicesArray = [...allSlices];
+
+    this.allSlicesArray.forEach((item, index) => {
+      item.x.contrastOrder = index;
+      item.y.contrastOrder = index;
+      item.z.contrastOrder = index;
+    });
     // init displayslices array, the axis default is "z"
     this.setDisplaySlicesBaseOnAxis();
     this.afterLoadSlice();
@@ -200,19 +207,24 @@ export class nrrd_tools {
   }
 
   addSkip(index: number) {
-    const result = this.skipSliceArray.includes(index);
-    if (!result) {
-      this.skipSliceArray.push(index);
+    // const result = this.backUpDisplaySlices.includes(index);
+    // if (result) {
+    //   this.displaySlices.splice(index, 0, result);
+    //   this.nrrd_states.contrastNum = index;
+    // }
+    this.skipSlicesDic[index] = this.backUpDisplaySlices[index];
+    if (index >= this.displaySlices.length) {
+      this.nrrd_states.contrastNum = this.displaySlices.length;
+    } else {
+      this.nrrd_states.contrastNum = index;
     }
+
     this.resetDisplaySlicesStatus();
   }
 
   removeSkip(index: number) {
-    const result = this.skipSliceArray.includes(index);
-    if (result) {
-      const idx = this.skipSliceArray.indexOf(index);
-      this.skipSliceArray.splice(idx, 1);
-    }
+    this.skipSlicesDic[index] = undefined;
+    this.nrrd_states.contrastNum = 0;
     this.resetDisplaySlicesStatus();
   }
 
@@ -224,9 +236,10 @@ export class nrrd_tools {
     this.paintImages.x.length = 0;
     this.paintImages.y.length = 0;
     this.paintImages.z.length = 0;
-    this.skipSliceArray.length = 0;
-    this.backUpDisplaySlices.length = 0;
 
+    this.clearDictionary(this.skipSlicesDic);
+
+    this.backUpDisplaySlices.length = 0;
     this.mainPreSlice = undefined;
     this.currentShowingSlice = undefined;
     this.previousDrawingImage.src = "";
@@ -310,14 +323,18 @@ export class nrrd_tools {
   }
 
   private loadDisplaySlicesArray() {
-    let len = this.skipSliceArray.length;
-    if (len === 0) {
-      this.displaySlices = [...this.backUpDisplaySlices];
-    } else {
+    const remainSlices = Object.values(this.skipSlicesDic);
+    if (remainSlices.length === 0) {
+      // load all display slices
       this.backUpDisplaySlices.forEach((slice, index) => {
-        const result = this.skipSliceArray.includes(index);
-        if (!result) {
-          this.displaySlices.push(slice);
+        this.skipSlicesDic[index] = slice;
+        this.displaySlices.push(slice);
+      });
+    } else {
+      remainSlices.forEach((slice, index) => {
+        if (!!slice) {
+          this.displaySlices.push(this.backUpDisplaySlices[index]);
+          this.skipSlicesDic[index] = this.backUpDisplaySlices[index];
         }
       });
     }
@@ -325,6 +342,10 @@ export class nrrd_tools {
 
   private resetDisplaySlicesStatus() {
     this.setDisplaySlicesBaseOnAxis();
+    this.setupConfigs();
+  }
+
+  private setupConfigs() {
     this.setMainPreSlice();
     this.updateMaxIndex();
     this.setOriginCanvasAndPre();
@@ -335,14 +356,18 @@ export class nrrd_tools {
   }
 
   private setMainPreSlice() {
-    this.mainPreSlice = this.displaySlices[0];
-    this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
-    const initIndex = this.mainPreSlice.index;
-    this.findLastCanvas();
+    console.log(this.displaySlices);
 
-    // this.findLastCanvas();
-    this.mainPreSlice.index = initIndex;
-    this.mainPreSlice.repaint.call(this.mainPreSlice);
+    this.mainPreSlice = this.displaySlices[0];
+    if (this.mainPreSlice) {
+      this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
+      const initIndex = this.mainPreSlice.index;
+      this.findLastCanvas();
+
+      // this.findLastCanvas();
+      this.mainPreSlice.index = initIndex;
+      this.mainPreSlice.repaint.call(this.mainPreSlice);
+    }
   }
 
   private findLastCanvas() {
@@ -1554,6 +1579,12 @@ export class nrrd_tools {
     const validation = canvas.toDataURL() === this.emptyCanvas.toDataURL();
 
     return validation;
+  }
+
+  private clearDictionary(dic: skipSlicesDictType) {
+    for (var key in dic) {
+      delete dic[key];
+    }
   }
 
   private storeAllImages() {

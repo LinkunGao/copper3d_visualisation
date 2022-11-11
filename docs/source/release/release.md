@@ -1101,3 +1101,10 @@ const resetMainAreaSize = (factor: number) => {
   - Suppose we want to get the index 10 slice image. which is 10th dicom file image. Using multiplication: we can use the index 10 to times voxel spacing to get the 10th dicom file image in threejs environment.
 - update copper3d nrrd loader, in order to match the real nrrd slice, all position max slice index minus 1.
 - update nrrd_tools GUI some parameters name.
+
+## Release v1.12.12
+
+- fixed switch display contrasts issues
+  - using a skipSlicesDic dictionary to store all remain contrast images, and the removed contrast images' index numbers.
+  - add a skipSlicesDic type.
+  - add a clearDictionary() function to reset dictionary.
