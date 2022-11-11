@@ -186,6 +186,10 @@ interface dicomLoaderOptsType {
   ) => number;
 }
 
+interface skipSlicesDictType {
+  [key: string]: any;
+}
+
 export type {
   SceneMapType,
   optType,
@@ -211,4 +215,5 @@ export type {
   undoType,
   copperVolumeType,
   dicomLoaderOptsType,
+  skipSlicesDictType,
 };
