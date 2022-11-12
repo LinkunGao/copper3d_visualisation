@@ -356,14 +356,11 @@ export class nrrd_tools {
   }
 
   private setMainPreSlice() {
-    console.log(this.displaySlices);
-
     this.mainPreSlice = this.displaySlices[0];
     if (this.mainPreSlice) {
       this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
       const initIndex = this.mainPreSlice.index;
       this.findLastCanvas();
-
       // this.findLastCanvas();
       this.mainPreSlice.index = initIndex;
       this.mainPreSlice.repaint.call(this.mainPreSlice);

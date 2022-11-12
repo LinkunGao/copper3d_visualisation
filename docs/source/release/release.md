@@ -1108,3 +1108,7 @@ const resetMainAreaSize = (factor: number) => {
   - using a skipSlicesDic dictionary to store all remain contrast images, and the removed contrast images' index numbers.
   - add a skipSlicesDic type.
   - add a clearDictionary() function to reset dictionary.
+
+## Release v1.12.13
+
+- remove useless code.
