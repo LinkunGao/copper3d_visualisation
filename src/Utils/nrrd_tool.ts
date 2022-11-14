@@ -73,6 +73,10 @@ export class nrrd_tools {
     Max_sensitive: 100,
     readyToUpdate: true,
     showContrast: false,
+    enableCursorChoose: false,
+    isCursorSelect: false,
+    cursorPageX: 0,
+    cursorPageY: 0,
     Mouse_Over_x: 0,
     Mouse_Over_y: 0,
     Mouse_Over: false,
@@ -160,12 +164,12 @@ export class nrrd_tools {
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
       if (ev.key === "Shift") {
         this.Is_Shift_Pressed = true;
+        this.nrrd_states.enableCursorChoose = false;
       }
-      if (ev.key === "ArrowUp") {
-        this.setSliceMoving(-1);
-      }
-      if (ev.key === "ArrowDown") {
-        this.setSliceMoving(1);
+      if (ev.key === "s") {
+        this.Is_Draw = false;
+        this.nrrd_states.enableCursorChoose =
+          !this.nrrd_states.enableCursorChoose;
       }
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
@@ -860,30 +864,33 @@ export class nrrd_tools {
         this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
 
         if (e.button === 0) {
-          if (!this.Is_Shift_Pressed) {
-            return;
+          if (this.Is_Shift_Pressed) {
+            leftclicked = true;
+            lines = [];
+            Is_Painting = true;
+            this.Is_Draw = true;
+
+            if (this.gui_states.Eraser) {
+              this.drawingCanvas.style.cursor =
+                "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/circular-cursor.png) 52 52, crosshair";
+            } else {
+              this.drawingCanvas.style.cursor =
+                this.nrrd_states.defaultPaintCursor;
+            }
+
+            this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
+            this.drawingLayerOneCtx.beginPath();
+            this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
+            this.drawingCanvas.addEventListener(
+              "pointermove",
+              handleOnPainterMove
+            );
+          } else if (this.nrrd_states.enableCursorChoose) {
+            this.nrrd_states.cursorPageX =
+              e.offsetX / this.nrrd_states.sizeFoctor;
+            this.nrrd_states.cursorPageY =
+              e.offsetY / this.nrrd_states.sizeFoctor;
           }
-
-          leftclicked = true;
-          lines = [];
-          Is_Painting = true;
-          this.Is_Draw = true;
-
-          if (this.gui_states.Eraser) {
-            this.drawingCanvas.style.cursor =
-              "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/circular-cursor.png) 52 52, crosshair";
-          } else {
-            this.drawingCanvas.style.cursor =
-              this.nrrd_states.defaultPaintCursor;
-          }
-
-          this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
-          this.drawingLayerOneCtx.beginPath();
-          this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
-          this.drawingCanvas.addEventListener(
-            "pointermove",
-            handleOnPainterMove
-          );
         } else if (e.button === 2) {
           rightclicked = true;
           let offsetX = parseInt(this.drawingCanvas.style.left);
@@ -1075,6 +1082,22 @@ export class nrrd_tools {
               this.drawingCtx.stroke();
             }
           }
+          if (this.nrrd_states.enableCursorChoose) {
+            this.drawingCtx.clearRect(
+              0,
+              0,
+              this.nrrd_states.changedWidth,
+              this.nrrd_states.changedHeight
+            );
+
+            const ex =
+              this.nrrd_states.cursorPageX * this.nrrd_states.sizeFoctor;
+            const ey =
+              this.nrrd_states.cursorPageY * this.nrrd_states.sizeFoctor;
+
+            this.drawLine(ex, 0, ex, this.drawingCanvas.height);
+            this.drawLine(0, ey, this.drawingCanvas.width, ey);
+          }
         }
         this.drawingCtx.drawImage(this.drawingCanvasLayerOne, 0, 0);
       } else {
@@ -1088,6 +1111,14 @@ export class nrrd_tools {
       }
     });
   }
+
+  private drawLine = (x1: number, y1: number, x2: number, y2: number) => {
+    this.drawingCtx.beginPath();
+    this.drawingCtx.moveTo(x1, y1);
+    this.drawingCtx.lineTo(x2, y2);
+    this.drawingCtx.strokeStyle = this.gui_states.color;
+    this.drawingCtx.stroke();
+  };
 
   private undoLastPainting() {
     this.Is_Draw = true;

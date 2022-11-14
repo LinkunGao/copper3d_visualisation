@@ -1112,3 +1112,9 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.12.13
 
 - remove useless code.
+
+## Release v1.12.14
+
+- remove arrow key function in nrrd tools.
+- add using cursor function to selete the point position on NRRD slice via corsshair.
+  - press `s` on keyboard to use this function.
