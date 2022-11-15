@@ -1116,5 +1116,10 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.12.14
 
 - remove arrow key function in nrrd tools.
-- add using cursor function to selete the point position on NRRD slice via corsshair.
+- add using cursor function to selete the point position on NRRD slice via crosshair.
   - press `s` on keyboard to use this function.
+
+## Release v1.12.15
+
+- Add basic logic for crosshair system.
+  - Now when using crosshair system mode, when user click the cursor on nrrd slice and use the switch orientation function, the next position's slice index will base the click point.

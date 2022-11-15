@@ -67,6 +67,7 @@ export class nrrd_tools {
     currentIndex: 0,
     maxIndex: 0,
     minIndex: 0,
+    z_Index: 0,
     RSARatio: 0,
     latestNotEmptyImg: new Image(),
     contrastNum: 0,
@@ -206,16 +207,30 @@ export class nrrd_tools {
    * @param {string} aixs:"x" | "y" | "z"
    *  */
   setSliceOrientation(axis: "x" | "y" | "z") {
+    if (this.nrrd_states.enableCursorChoose) {
+      if (this.axis === "z") {
+        this.nrrd_states.z_Index = this.nrrd_states.currentIndex;
+      }
+
+      if (axis === "z") {
+        this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+          this.nrrd_states.z_Index;
+      } else if (axis === "x") {
+        this.nrrd_states.oldIndex = this.nrrd_states.currentIndex = Math.ceil(
+          this.nrrd_states.cursorPageX
+        );
+      } else if (axis === "y") {
+        this.nrrd_states.oldIndex = this.nrrd_states.currentIndex = Math.ceil(
+          this.nrrd_states.cursorPageY
+        );
+      }
+    }
+
     this.axis = axis;
     this.resetDisplaySlicesStatus();
   }
 
   addSkip(index: number) {
-    // const result = this.backUpDisplaySlices.includes(index);
-    // if (result) {
-    //   this.displaySlices.splice(index, 0, result);
-    //   this.nrrd_states.contrastNum = index;
-    // }
     this.skipSlicesDic[index] = this.backUpDisplaySlices[index];
     if (index >= this.displaySlices.length) {
       this.nrrd_states.contrastNum = this.displaySlices.length;
