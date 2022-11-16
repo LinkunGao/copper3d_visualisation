@@ -1123,3 +1123,8 @@ const resetMainAreaSize = (factor: number) => {
 
 - Add basic logic for crosshair system.
   - Now when using crosshair system mode, when user click the cursor on nrrd slice and use the switch orientation function, the next position's slice index will base the click point.
+
+## Release v1.12.16
+
+- fixed the crosshair system bug.
+- add `getCurrentSlicesNumAndContrastNum()`, it will return current index number and contrast index number.

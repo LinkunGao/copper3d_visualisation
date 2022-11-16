@@ -67,7 +67,6 @@ export class nrrd_tools {
     currentIndex: 0,
     maxIndex: 0,
     minIndex: 0,
-    z_Index: 0,
     RSARatio: 0,
     latestNotEmptyImg: new Image(),
     contrastNum: 0,
@@ -86,6 +85,27 @@ export class nrrd_tools {
     defaultPaintCursor:
       "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
     drawStartPos: new THREE.Vector2(1, 1),
+  };
+
+  private cursorPage = {
+    x: {
+      cursorPageX: 0,
+      cursorPageY: 0,
+      index: 0,
+      updated: false,
+    },
+    y: {
+      cursorPageX: 0,
+      cursorPageY: 0,
+      index: 0,
+      updated: false,
+    },
+    z: {
+      cursorPageX: 0,
+      cursorPageY: 0,
+      index: 0,
+      updated: false,
+    },
   };
 
   private gui_states = {
@@ -209,20 +229,137 @@ export class nrrd_tools {
   setSliceOrientation(axis: "x" | "y" | "z") {
     if (this.nrrd_states.enableCursorChoose) {
       if (this.axis === "z") {
-        this.nrrd_states.z_Index = this.nrrd_states.currentIndex;
+        this.cursorPage.z.index = this.nrrd_states.currentIndex;
+        this.cursorPage.z.cursorPageX = this.nrrd_states.cursorPageX;
+        this.cursorPage.z.cursorPageY = this.nrrd_states.cursorPageY;
+      } else if (this.axis === "x") {
+        this.cursorPage.x.index = this.nrrd_states.currentIndex;
+        this.cursorPage.x.cursorPageX = this.nrrd_states.cursorPageX;
+        this.cursorPage.x.cursorPageY = this.nrrd_states.cursorPageY;
+      } else if (this.axis === "y") {
+        this.cursorPage.y.index = this.nrrd_states.currentIndex;
+        this.cursorPage.y.cursorPageX = this.nrrd_states.cursorPageX;
+        this.cursorPage.y.cursorPageY = this.nrrd_states.cursorPageY;
       }
-
       if (axis === "z") {
-        this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
-          this.nrrd_states.z_Index;
+        if (this.nrrd_states.isCursorSelect && !this.cursorPage.z.updated) {
+          if (this.axis === "x") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.x.cursorPageX /
+                  this.mainPreSlice.volume.RASDimensions[0]) *
+                  this.mainPreSlice.volume.dimensions[0]
+              );
+            this.nrrd_states.cursorPageX = Math.ceil(
+              (this.cursorPage.x.index /
+                this.mainPreSlice.volume.dimensions[0]) *
+                this.mainPreSlice.volume.RASDimensions[0]
+            );
+          }
+          if (this.axis === "y") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(this.cursorPage.y.cursorPageY);
+            this.nrrd_states.cursorPageY = Math.ceil(
+              (1 -
+                this.cursorPage.y.index /
+                  this.mainPreSlice.volume.dimensions[1]) *
+                this.mainPreSlice.volume.RASDimensions[1]
+            );
+          }
+          this.cursorPage.z.updated = true;
+        } else {
+          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.cursorPage.z.index;
+          this.nrrd_states.cursorPageX = this.cursorPage.z.cursorPageX;
+          this.nrrd_states.cursorPageY = this.cursorPage.z.cursorPageY;
+        }
       } else if (axis === "x") {
-        this.nrrd_states.oldIndex = this.nrrd_states.currentIndex = Math.ceil(
-          this.nrrd_states.cursorPageX
-        );
+        if (this.nrrd_states.isCursorSelect && !this.cursorPage.x.updated) {
+          if (this.axis === "z") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.z.cursorPageX /
+                  this.mainPreSlice.volume.RASDimensions[0]) *
+                  this.mainPreSlice.volume.dimensions[0]
+              );
+            this.nrrd_states.cursorPageX = Math.ceil(
+              (this.cursorPage.z.index /
+                this.mainPreSlice.volume.dimensions[2]) *
+                this.mainPreSlice.volume.RASDimensions[2]
+            );
+          }
+          if (this.axis === "y") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.y.cursorPageX /
+                  this.mainPreSlice.volume.RASDimensions[1]) *
+                  this.mainPreSlice.volume.dimensions[1]
+              );
+
+            this.nrrd_states.cursorPageX = this.cursorPage.y.cursorPageY;
+            this.nrrd_states.cursorPageY = Math.ceil(
+              (1 -
+                this.cursorPage.y.index /
+                  this.mainPreSlice.volume.dimensions[1]) *
+                this.mainPreSlice.volume.RASDimensions[1]
+            );
+          }
+          this.cursorPage.x.updated = true;
+        } else {
+          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.cursorPage.x.index;
+          this.nrrd_states.cursorPageX = this.cursorPage.x.cursorPageX;
+          this.nrrd_states.cursorPageY = this.cursorPage.x.cursorPageY;
+        }
       } else if (axis === "y") {
-        this.nrrd_states.oldIndex = this.nrrd_states.currentIndex = Math.ceil(
-          this.nrrd_states.cursorPageY
-        );
+        if (this.nrrd_states.isCursorSelect && !this.cursorPage.y.updated) {
+          if (this.axis === "z") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              this.mainPreSlice.volume.dimensions[1] -
+              Math.ceil(
+                (this.cursorPage.z.cursorPageY /
+                  this.mainPreSlice.volume.RASDimensions[1]) *
+                  this.mainPreSlice.volume.dimensions[1]
+              );
+            this.nrrd_states.cursorPageY = Math.ceil(
+              (this.cursorPage.z.index /
+                this.mainPreSlice.volume.dimensions[2]) *
+                this.mainPreSlice.volume.RASDimensions[2]
+            );
+          }
+          if (this.axis === "x") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              this.mainPreSlice.volume.dimensions[0] -
+              Math.ceil(
+                (this.cursorPage.x.cursorPageY /
+                  this.mainPreSlice.volume.RASDimensions[0]) *
+                  this.mainPreSlice.volume.dimensions[0]
+              );
+            this.nrrd_states.cursorPageX = Math.ceil(
+              (this.cursorPage.x.index /
+                this.mainPreSlice.volume.dimensions[0]) *
+                this.mainPreSlice.volume.RASDimensions[0]
+            );
+            this.nrrd_states.cursorPageY = Math.ceil(
+              (this.cursorPage.x.cursorPageY /
+                this.mainPreSlice.volume.RASDimensions[0]) *
+                this.mainPreSlice.volume.RASDimensions[2]
+            );
+          }
+          this.cursorPage.y.updated = true;
+        } else {
+          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.cursorPage.y.index;
+          this.nrrd_states.cursorPageX = this.cursorPage.y.cursorPageX;
+          this.nrrd_states.cursorPageY = this.cursorPage.y.cursorPageY;
+        }
+      }
+      if (
+        this.cursorPage.x.updated &&
+        this.cursorPage.y.updated &&
+        this.cursorPage.z.updated
+      ) {
+        this.nrrd_states.isCursorSelect = false;
       }
     }
 
@@ -311,6 +448,12 @@ export class nrrd_tools {
       return [this.nrrd_states.maxIndex];
     }
   }
+  getCurrentSlicesNumAndContrastNum() {
+    return {
+      currentIndex: this.nrrd_states.currentIndex,
+      contrastIndex: this.nrrd_states.contrastNum,
+    };
+  }
 
   getCurrentSliceIndex() {
     return Math.ceil(this.mainPreSlice.index / this.nrrd_states.RSARatio);
@@ -378,11 +521,11 @@ export class nrrd_tools {
     this.mainPreSlice = this.displaySlices[0];
     if (this.mainPreSlice) {
       this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
-      const initIndex = this.mainPreSlice.index;
-      this.findLastCanvas();
+      // const initIndex = this.mainPreSlice.index;
       // this.findLastCanvas();
-      this.mainPreSlice.index = initIndex;
-      this.mainPreSlice.repaint.call(this.mainPreSlice);
+      // // this.findLastCanvas();
+      // this.mainPreSlice.index = initIndex;
+      // this.mainPreSlice.repaint.call(this.mainPreSlice);
     }
   }
 
@@ -411,7 +554,8 @@ export class nrrd_tools {
         this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
       } else {
         // !need to change
-        this.mainPreSlice.index = this.nrrd_states.oldIndex;
+        this.mainPreSlice.index =
+          this.nrrd_states.oldIndex * this.nrrd_states.RSARatio;
       }
 
       this.originCanvas = this.mainPreSlice.canvas;
@@ -696,16 +840,17 @@ export class nrrd_tools {
         let needToUpdateSlice = this.updateCurrentContrastSlice();
         needToUpdateSlice.repaint.call(needToUpdateSlice);
 
-        let verify = true;
-        if (this.nrrd_states.maxIndex - this.nrrd_states.currentIndex <= 30) {
-          verify = !this.verifyCanvasIsEmpty(needToUpdateSlice.canvas);
-        }
+        // let verify = true;
+        // if (this.nrrd_states.maxIndex - this.nrrd_states.currentIndex <= 5) {
+        //   verify = !this.verifyCanvasIsEmpty(needToUpdateSlice.canvas);
+        // }
 
-        if (verify) {
-          this.drawDragSlice(needToUpdateSlice.canvas, newIndex);
-        } else {
-          this.drawDragSlice(this.nrrd_states.latestNotEmptyImg, newIndex);
-        }
+        // if (verify) {
+        //   this.drawDragSlice(needToUpdateSlice.canvas, newIndex);
+        // } else {
+        //   this.drawDragSlice(this.nrrd_states.latestNotEmptyImg, newIndex);
+        // }
+        this.drawDragSlice(needToUpdateSlice.canvas, newIndex);
       }
       // this.nrrd_states.oldIndex = this.mainPreSlice.index;
       this.nrrd_states.oldIndex = newIndex;
@@ -905,6 +1050,24 @@ export class nrrd_tools {
               e.offsetX / this.nrrd_states.sizeFoctor;
             this.nrrd_states.cursorPageY =
               e.offsetY / this.nrrd_states.sizeFoctor;
+            this.nrrd_states.isCursorSelect = true;
+            switch (this.axis) {
+              case "x":
+                this.cursorPage.x.updated = true;
+                this.cursorPage.y.updated = false;
+                this.cursorPage.z.updated = false;
+                break;
+              case "y":
+                this.cursorPage.x.updated = false;
+                this.cursorPage.y.updated = true;
+                this.cursorPage.z.updated = false;
+                break;
+              case "z":
+                this.cursorPage.x.updated = false;
+                this.cursorPage.y.updated = false;
+                this.cursorPage.z.updated = true;
+                break;
+            }
           }
         } else if (e.button === 2) {
           rightclicked = true;
