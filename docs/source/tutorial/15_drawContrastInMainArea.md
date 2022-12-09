@@ -616,9 +616,6 @@ const resetLoadState = () => {
 };
 
 const loaded = (uploadFile: UploadFile) => {
-  //   console.log(uploadFile);
-  //   console.log(uploadFile.name);
-  //   console.log(uploadFile.raw);
   if (loadedFiles) {
     loadedFiles = false;
     resetLoadState();
@@ -639,7 +636,6 @@ const removeLoadFile = (uploadFile: UploadFile) => {
   files = files.filter((file) => {
     return file.name !== uploadFile.name;
   });
-  console.log(files);
 };
 
 /**
