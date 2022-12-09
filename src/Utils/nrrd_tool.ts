@@ -246,10 +246,12 @@ export class nrrd_tools {
           if (this.axis === "x") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
               Math.ceil(
-                (this.cursorPage.x.cursorPageX /
-                  this.mainPreSlice.volume.RASDimensions[0]) *
-                  this.mainPreSlice.volume.dimensions[0]
+                (1 -
+                  this.cursorPage.x.cursorPageX /
+                    this.mainPreSlice.volume.dimensions[2]) *
+                  this.mainPreSlice.volume.RASDimensions[2]
               );
+
             this.nrrd_states.cursorPageX = Math.ceil(
               (this.cursorPage.x.index /
                 this.mainPreSlice.volume.dimensions[0]) *
@@ -258,7 +260,12 @@ export class nrrd_tools {
           }
           if (this.axis === "y") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
-              Math.ceil(this.cursorPage.y.cursorPageY);
+              Math.ceil(
+                (1 -
+                  this.cursorPage.y.cursorPageY /
+                    this.mainPreSlice.volume.dimensions[2]) *
+                  this.mainPreSlice.volume.RASDimensions[2]
+              );
             this.nrrd_states.cursorPageY = Math.ceil(
               (1 -
                 this.cursorPage.y.index /
@@ -283,8 +290,9 @@ export class nrrd_tools {
                   this.mainPreSlice.volume.dimensions[0]
               );
             this.nrrd_states.cursorPageX = Math.ceil(
-              (this.cursorPage.z.index /
-                this.mainPreSlice.volume.dimensions[2]) *
+              (1 -
+                this.cursorPage.z.index /
+                  this.mainPreSlice.volume.dimensions[2]) *
                 this.mainPreSlice.volume.RASDimensions[2]
             );
           }
@@ -341,9 +349,7 @@ export class nrrd_tools {
                 this.mainPreSlice.volume.RASDimensions[0]
             );
             this.nrrd_states.cursorPageY = Math.ceil(
-              (this.cursorPage.x.cursorPageY /
-                this.mainPreSlice.volume.RASDimensions[0]) *
-                this.mainPreSlice.volume.RASDimensions[2]
+              this.cursorPage.x.cursorPageX
             );
           }
           this.cursorPage.y.updated = true;

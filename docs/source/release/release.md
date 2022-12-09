@@ -1128,3 +1128,27 @@ const resetMainAreaSize = (factor: number) => {
 
 - fixed the crosshair system bug.
 - add `getCurrentSlicesNumAndContrastNum()`, it will return current index number and contrast index number.
+
+## Release v1.12.17
+
+- solved the crosshair Inaccuracy issue.
+
+  - Notice: the real cursor x is releted slice's RASDimension, but in copper3d system the slice index is releted to slice's dimension. So we need to do some convert things!
+  - z -> x:
+    slice_z cursor x is slice_x's index, so we need to convert cursor x to slice's dimension format.
+    slice_z's index is slice_x cursor x, so we need to convert the dimention to RASDimention.
+  - z -> y:
+    slice_z's cursor y is slice_y's index
+    slice_z's index is slice_y's cursor y
+  - x -> z:
+    slice_x's cursor x is slice_z's index
+    slice_x's index is slice_z's cursor x
+  - x -> y:
+    slice_x's cursor y is slice_y's index
+    slice_x's index is slice_y's cursor x
+  - y -> z:
+    slice_y's cursor y is slice_z's index
+    slice_y's index is slice_z's cursor y
+  - y -> x:
+    slice_y's cursor x is slice_x's index
+    slice_y's index is slice_x's cursor y
