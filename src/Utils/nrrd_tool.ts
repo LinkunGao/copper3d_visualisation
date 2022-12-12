@@ -84,6 +84,7 @@ export class nrrd_tools {
     sizeFoctor: 1,
     defaultPaintCursor:
       "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
+
     drawStartPos: new THREE.Vector2(1, 1),
   };
 
@@ -1477,7 +1478,7 @@ export class nrrd_tools {
     const actionsFolder = modeFolder.addFolder("Default Actions");
 
     actionsFolder
-      .add(this.gui_states, "cursor", ["crosshair", "pencil"])
+      .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
       .name("cursor icons")
       .onChange((value) => {
         if (value === "crosshair") {
@@ -1486,6 +1487,10 @@ export class nrrd_tools {
         if (value === "pencil") {
           this.nrrd_states.defaultPaintCursor =
             "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto";
+        }
+        if (value === "dot") {
+          this.nrrd_states.defaultPaintCursor =
+            "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto";
         }
         this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
       });
