@@ -1152,3 +1152,7 @@ const resetMainAreaSize = (factor: number) => {
   - y -> x:
     slice_y's cursor x is slice_x's index
     slice_y's index is slice_x's cursor y
+
+## Release v1.12.18
+
+- Add cursor dot in nrrd_tools GUI.
