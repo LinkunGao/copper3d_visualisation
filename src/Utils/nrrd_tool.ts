@@ -82,9 +82,10 @@ export class nrrd_tools {
     Mouse_Over: false,
     stepClear: 1,
     sizeFoctor: 1,
+    // defaultPaintCursor:
+    //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
     defaultPaintCursor:
-      "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
-
+      "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto",
     drawStartPos: new THREE.Vector2(1, 1),
   };
 
@@ -120,7 +121,7 @@ export class nrrd_tools {
     fillColor: "#3fac58",
     brushColor: "#3fac58",
     brushAndEraserSize: 15,
-    cursor: "pencil",
+    cursor: "dot",
     // EraserSize: 25,
     clear: () => {
       // const text = "Are you sure remove annotations on Current slice?";
@@ -372,6 +373,7 @@ export class nrrd_tools {
 
     this.axis = axis;
     this.resetDisplaySlicesStatus();
+    console.log(this.mainPreSlice);
   }
 
   addSkip(index: number) {
