@@ -1159,4 +1159,4 @@ const resetMainAreaSize = (factor: number) => {
 
 ## Release v1.12.19
 
-- set defaut cursor to dot in nrrd_tools.
+- set default cursor to dot in nrrd_tools.
