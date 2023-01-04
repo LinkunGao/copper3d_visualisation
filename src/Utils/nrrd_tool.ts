@@ -21,6 +21,7 @@ export class nrrd_tools {
   paintImages: paintImagesType = { x: [], y: [], z: [] };
   // store all contrast slices, include x, y, z orientation
   private allSlicesArray: Array<nrrdSliceType> = [];
+  // to store all display slices, only include one orientation (e.g, x,y,z) for all contrast slices.
   private displaySlices: Array<any> = [];
   // Designed for reload displaySlices Array
   private backUpDisplaySlices: Array<any> = [];
@@ -373,7 +374,6 @@ export class nrrd_tools {
 
     this.axis = axis;
     this.resetDisplaySlicesStatus();
-    console.log(this.mainPreSlice);
   }
 
   addSkip(index: number) {
@@ -425,8 +425,8 @@ export class nrrd_tools {
     }
   }
 
-  setShowInMainArea(flag: boolean) {
-    this.nrrd_states.showContrast = flag;
+  setShowInMainArea(isShowContrast: boolean) {
+    this.nrrd_states.showContrast = isShowContrast;
     this.nrrd_states.contrastNum = 0;
     if (this.mainPreSlice) {
       this.redrawMianPreOnDisplayCanvas();
@@ -802,11 +802,18 @@ export class nrrd_tools {
       contrastModifyNum = move % this.displaySlices.length;
       this.nrrd_states.contrastNum += contrastModifyNum;
       if (move > 0) {
-        sliceModifyNum = Math.floor(move / this.displaySlices.length);
+        if (
+          this.mainPreSlice.index / this.nrrd_states.RSARatio <
+          this.nrrd_states.maxIndex
+        ) {
+          sliceModifyNum = Math.floor(move / this.displaySlices.length);
 
-        if (this.nrrd_states.contrastNum > this.displaySlices.length - 1) {
-          sliceModifyNum += 1;
-          this.nrrd_states.contrastNum -= this.displaySlices.length;
+          if (this.nrrd_states.contrastNum > this.displaySlices.length - 1) {
+            sliceModifyNum += 1;
+            this.nrrd_states.contrastNum -= this.displaySlices.length;
+          }
+        } else {
+          sliceModifyNum = 0;
         }
       } else {
         sliceModifyNum = Math.ceil(move / this.displaySlices.length);
