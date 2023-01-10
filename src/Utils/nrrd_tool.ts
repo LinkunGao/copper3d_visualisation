@@ -36,6 +36,7 @@ export class nrrd_tools {
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadCanvas: HTMLCanvasElement = document.createElement("canvas");
+  // use to convert the store image with original size in storeAllImages function!
   private emptyCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadImage: HTMLAnchorElement = document.createElement("a");
   private drawingCanvasLayerOne: HTMLCanvasElement =
@@ -43,6 +44,7 @@ export class nrrd_tools {
   private currentShowingSlice: any;
   private displayCtx: CanvasRenderingContext2D;
   private drawingCtx: CanvasRenderingContext2D;
+  private emptyCtx: CanvasRenderingContext2D;
   private drawingLayerOneCtx: CanvasRenderingContext2D;
   private originCanvas: HTMLCanvasElement | any;
   private mainPreSlice: any;
@@ -162,6 +164,9 @@ export class nrrd_tools {
       "2d"
     ) as CanvasRenderingContext2D;
     this.drawingCtx = this.drawingCanvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.emptyCtx = this.emptyCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
     this.drawingLayerOneCtx = this.drawingCanvasLayerOne.getContext(
@@ -1162,14 +1167,20 @@ export class nrrd_tools {
           this.previousDrawingImage.src =
             this.drawingCanvasLayerOne.toDataURL();
           this.storeAllImages();
-          console.log(
-            this.drawingCtx.getImageData(
-              0,
-              0,
-              this.drawingCanvas.width,
-              this.drawingCanvas.height
-            )
+
+          // update 1.12.22
+
+          const imageData = this.drawingCtx.getImageData(
+            0,
+            0,
+            this.drawingCanvas.width,
+            this.drawingCanvas.height
           );
+          console.log(imageData);
+          // const blueComponent =
+          //   imageData.data[50 * (imageData.width * 4) + 200 * 4 + 2];
+          // console.log(blueComponent);
+
           Is_Painting = false;
 
           /**
@@ -1733,8 +1744,6 @@ export class nrrd_tools {
 
     this.redrawDisplayCanvas();
 
-    // this.paintedImage = undefined;
-
     if (!this.paintedImage?.image) {
     }
     switch (this.axis) {
@@ -1798,6 +1807,7 @@ export class nrrd_tools {
       });
   }
 
+  // Not use this function now!!!
   private verifyCanvasIsEmpty(canvas: any) {
     this.emptyCanvas.width = canvas.width;
     this.emptyCanvas.height = canvas.height;
@@ -1815,8 +1825,19 @@ export class nrrd_tools {
 
   private storeAllImages() {
     const image: HTMLImageElement = new Image();
-    image.src = this.drawingCanvasLayerOne.toDataURL();
+    this.emptyCanvas.width = this.nrrd_states.originWidth;
+    this.emptyCanvas.height = this.nrrd_states.originHeight;
+    this.emptyCtx.drawImage(
+      this.drawingCanvasLayerOne,
+      0,
+      0,
+      this.nrrd_states.originWidth,
+      this.nrrd_states.originHeight
+    );
+    image.src = this.emptyCanvas.toDataURL();
+    console.log(this.nrrd_states.originWidth, this.nrrd_states.originHeight);
 
+    console.log(this.emptyCanvas.width, this.emptyCanvas.height);
     let temp: paintImageType = {
       index: this.nrrd_states.currentIndex,
       image,

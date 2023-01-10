@@ -1165,3 +1165,7 @@ const resetMainAreaSize = (factor: number) => {
 
 - Modify the drag method logic in nrrd_tools.
   - now when user enable the showContrast (nrrdTools.setShowInMainArea(true)), the last slice's index contrast image will disable the drag function.
+
+## Release v1.12.21
+
+- Changed the store image to original size.
