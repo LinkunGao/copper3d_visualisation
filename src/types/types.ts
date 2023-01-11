@@ -142,7 +142,7 @@ interface paintImagesType {
 
 interface paintImageType {
   index: number;
-  image: HTMLImageElement;
+  image: ImageData;
 }
 
 interface optionsGltfExporterType {
