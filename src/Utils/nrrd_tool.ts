@@ -64,6 +64,9 @@ export class nrrd_tools {
   private nrrd_states = {
     originWidth: 0,
     originHeight: 0,
+    nrrd_x: 0,
+    nrrd_y: 0,
+    nrrd_z: 0,
     changedWidth: 0,
     changedHeight: 0,
     oldIndex: 0,
@@ -220,6 +223,10 @@ export class nrrd_tools {
   setAllSlices(allSlices: Array<nrrdSliceType>) {
     this.allSlicesArray = [...allSlices];
 
+    this.nrrd_states.nrrd_x = this.allSlicesArray[0].z.canvas.width;
+    this.nrrd_states.nrrd_y = this.allSlicesArray[0].z.canvas.height;
+    this.nrrd_states.nrrd_z = this.allSlicesArray[0].x.canvas.width;
+
     this.allSlicesArray.forEach((item, index) => {
       item.x.contrastOrder = index;
       item.y.contrastOrder = index;
@@ -254,31 +261,28 @@ export class nrrd_tools {
           if (this.axis === "x") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
               Math.ceil(
-                (1 -
-                  this.cursorPage.x.cursorPageX /
-                    this.mainPreSlice.volume.dimensions[2]) *
-                  this.mainPreSlice.volume.RASDimensions[2]
+                (1 - this.cursorPage.x.cursorPageX / this.nrrd_states.nrrd_z) *
+                  this.mainPreSlice.volume.dimensions[2]
               );
 
             this.nrrd_states.cursorPageX = Math.ceil(
               (this.cursorPage.x.index /
                 this.mainPreSlice.volume.dimensions[0]) *
-                this.mainPreSlice.volume.RASDimensions[0]
+                this.nrrd_states.nrrd_x
             );
           }
           if (this.axis === "y") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
               Math.ceil(
-                (1 -
-                  this.cursorPage.y.cursorPageY /
-                    this.mainPreSlice.volume.dimensions[2]) *
-                  this.mainPreSlice.volume.RASDimensions[2]
+                (this.cursorPage.y.cursorPageY / this.nrrd_states.nrrd_z) *
+                  this.mainPreSlice.volume.dimensions[2]
               );
+
             this.nrrd_states.cursorPageY = Math.ceil(
               (1 -
                 this.cursorPage.y.index /
                   this.mainPreSlice.volume.dimensions[1]) *
-                this.mainPreSlice.volume.RASDimensions[1]
+                this.nrrd_states.nrrd_y
             );
           }
           this.cursorPage.z.updated = true;
@@ -293,22 +297,20 @@ export class nrrd_tools {
           if (this.axis === "z") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
               Math.ceil(
-                (this.cursorPage.z.cursorPageX /
-                  this.mainPreSlice.volume.RASDimensions[0]) *
+                (this.cursorPage.z.cursorPageX / this.nrrd_states.nrrd_x) *
                   this.mainPreSlice.volume.dimensions[0]
               );
             this.nrrd_states.cursorPageX = Math.ceil(
               (1 -
                 this.cursorPage.z.index /
                   this.mainPreSlice.volume.dimensions[2]) *
-                this.mainPreSlice.volume.RASDimensions[2]
+                this.nrrd_states.nrrd_z
             );
           }
           if (this.axis === "y") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
               Math.ceil(
-                (this.cursorPage.y.cursorPageX /
-                  this.mainPreSlice.volume.RASDimensions[1]) *
+                (this.cursorPage.y.cursorPageX / this.nrrd_states.nrrd_y) *
                   this.mainPreSlice.volume.dimensions[1]
               );
 
@@ -317,7 +319,7 @@ export class nrrd_tools {
               (1 -
                 this.cursorPage.y.index /
                   this.mainPreSlice.volume.dimensions[1]) *
-                this.mainPreSlice.volume.RASDimensions[1]
+                this.nrrd_states.nrrd_y
             );
           }
           this.cursorPage.x.updated = true;
@@ -333,28 +335,26 @@ export class nrrd_tools {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
               this.mainPreSlice.volume.dimensions[1] -
               Math.ceil(
-                (this.cursorPage.z.cursorPageY /
-                  this.mainPreSlice.volume.RASDimensions[1]) *
+                (this.cursorPage.z.cursorPageY / this.nrrd_states.nrrd_y) *
                   this.mainPreSlice.volume.dimensions[1]
               );
             this.nrrd_states.cursorPageY = Math.ceil(
               (this.cursorPage.z.index /
                 this.mainPreSlice.volume.dimensions[2]) *
-                this.mainPreSlice.volume.RASDimensions[2]
+                this.nrrd_states.nrrd_z
             );
           }
           if (this.axis === "x") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
               this.mainPreSlice.volume.dimensions[0] -
               Math.ceil(
-                (this.cursorPage.x.cursorPageY /
-                  this.mainPreSlice.volume.RASDimensions[0]) *
+                (this.cursorPage.x.cursorPageY / this.nrrd_states.nrrd_x) *
                   this.mainPreSlice.volume.dimensions[0]
               );
             this.nrrd_states.cursorPageX = Math.ceil(
               (this.cursorPage.x.index /
                 this.mainPreSlice.volume.dimensions[0]) *
-                this.mainPreSlice.volume.RASDimensions[0]
+                this.nrrd_states.nrrd_x
             );
             this.nrrd_states.cursorPageY = Math.ceil(
               this.cursorPage.x.cursorPageX
@@ -535,11 +535,6 @@ export class nrrd_tools {
     this.mainPreSlice = this.displaySlices[0];
     if (this.mainPreSlice) {
       this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
-      // const initIndex = this.mainPreSlice.index;
-      // this.findLastCanvas();
-      // // this.findLastCanvas();
-      // this.mainPreSlice.index = initIndex;
-      // this.mainPreSlice.repaint.call(this.mainPreSlice);
     }
   }
 
@@ -620,10 +615,11 @@ export class nrrd_tools {
   private updateOriginAndChangedWH() {
     this.nrrd_states.originWidth = this.originCanvas.width;
     this.nrrd_states.originHeight = this.originCanvas.height;
+
     this.nrrd_states.changedWidth =
-      this.originCanvas.width * Number(this.gui_states.mainAreaSize);
+      this.nrrd_states.originWidth * Number(this.gui_states.mainAreaSize);
     this.nrrd_states.changedHeight =
-      this.originCanvas.height * Number(this.gui_states.mainAreaSize);
+      this.nrrd_states.originWidth * Number(this.gui_states.mainAreaSize);
   }
 
   private initAllCanvas() {
@@ -1168,7 +1164,7 @@ export class nrrd_tools {
             this.drawingCanvasLayerOne.toDataURL();
           this.storeAllImages();
 
-          // update 1.12.22
+          // update 1.12.23
 
           const imageData = this.drawingCtx.getImageData(
             0,
@@ -1177,9 +1173,6 @@ export class nrrd_tools {
             this.drawingCanvas.height
           );
           console.log(imageData);
-          // const blueComponent =
-          //   imageData.data[50 * (imageData.width * 4) + 200 * 4 + 2];
-          // console.log(blueComponent);
 
           Is_Painting = false;
 
@@ -1834,10 +1827,35 @@ export class nrrd_tools {
       this.nrrd_states.originWidth,
       this.nrrd_states.originHeight
     );
-    image.src = this.emptyCanvas.toDataURL();
-    console.log(this.nrrd_states.originWidth, this.nrrd_states.originHeight);
 
-    console.log(this.emptyCanvas.width, this.emptyCanvas.height);
+    const imageData = this.emptyCtx.getImageData(
+      0,
+      0,
+      this.emptyCanvas.width,
+      this.emptyCanvas.height
+    );
+
+    // 1.12.23
+    switch (this.axis) {
+      case "x":
+        break;
+      case "y":
+        break;
+      case "z":
+        // for x slices get cols' pixels
+
+        // for y slices get rows' pixels
+
+        break;
+    }
+    const newImage = this.emptyCtx.createImageData(
+      this.nrrd_states.nrrd_x,
+      this.nrrd_states.nrrd_y
+    );
+    console.log(newImage);
+    console.log(imageData);
+
+    image.src = this.emptyCanvas.toDataURL();
     let temp: paintImageType = {
       index: this.nrrd_states.currentIndex,
       image,
