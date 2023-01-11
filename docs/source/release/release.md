@@ -1169,3 +1169,7 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.12.21
 
 - Changed the store image to original size.
+
+## Release v1.12.22
+
+- solved the precise issue on crosshair function.
