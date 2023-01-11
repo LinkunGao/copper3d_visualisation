@@ -1172,4 +1172,10 @@ const resetMainAreaSize = (factor: number) => {
 
 ## Release v1.12.22
 
-- solved the precise issue on crosshair function.
+- Solved the precise issue on crosshair function.
+
+## Release v1.12.23
+
+- Change the data type of the storing mark data.
+  - initially, we use HTMLImageElement to store the mark data, but this method only can be used in canvas's ctx.drawImage() function. And we are very hard to get the image data.
+  - Then we changed to use ImageData type to store the marks' pixel data. And this method we cannot use the canvas's ctx.drawImage() function anymore, we can only use the ctx.putImageData() instead. The benefit for use this function is that we can easily to write and read marked data.

@@ -18,7 +18,9 @@ import { throttle } from "../Utils/raycaster";
 export class nrrd_tools {
   container: HTMLDivElement;
 
+  // used to store all marks
   paintImages: paintImagesType = { x: [], y: [], z: [] };
+
   // store all contrast slices, include x, y, z orientation
   private allSlicesArray: Array<nrrdSliceType> = [];
   // to store all display slices, only include one orientation (e.g, x,y,z) for all contrast slices.
@@ -56,7 +58,7 @@ export class nrrd_tools {
   start: () => void = () => {};
 
   private paintedImage: paintImageType | undefined;
-  private previousDrawingImage: HTMLImageElement = new Image();
+  private previousDrawingImage: ImageData;
   private undoArray: Array<undoType> = [];
   private initState: boolean = true;
   private preTimer: any;
@@ -74,6 +76,7 @@ export class nrrd_tools {
     maxIndex: 0,
     minIndex: 0,
     RSARatio: 0,
+    dimensions: [],
     latestNotEmptyImg: new Image(),
     contrastNum: 0,
     Max_sensitive: 100,
@@ -175,6 +178,7 @@ export class nrrd_tools {
     this.drawingLayerOneCtx = this.drawingCanvasLayerOne.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
+    this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
     this.init();
   }
 
@@ -226,6 +230,7 @@ export class nrrd_tools {
     this.nrrd_states.nrrd_x = this.allSlicesArray[0].z.canvas.width;
     this.nrrd_states.nrrd_y = this.allSlicesArray[0].z.canvas.height;
     this.nrrd_states.nrrd_z = this.allSlicesArray[0].x.canvas.width;
+    this.nrrd_states.dimensions = this.allSlicesArray[0].x.volume.dimensions;
 
     this.allSlicesArray.forEach((item, index) => {
       item.x.contrastOrder = index;
@@ -412,7 +417,7 @@ export class nrrd_tools {
     this.backUpDisplaySlices.length = 0;
     this.mainPreSlice = undefined;
     this.currentShowingSlice = undefined;
-    this.previousDrawingImage.src = "";
+    this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
     this.initState = true;
     this.axis = "z";
     this.nrrd_states.sizeFoctor = 1;
@@ -896,8 +901,10 @@ export class nrrd_tools {
         );
 
         if (this.paintedImage?.image) {
+          this.emptyCanvas.width = this.emptyCanvas.width;
+          this.emptyCtx.putImageData(this.paintedImage.image, 0, 0);
           this.drawingLayerOneCtx.drawImage(
-            this.paintedImage.image,
+            this.emptyCanvas,
             0,
             0,
             this.nrrd_states.changedWidth,
@@ -977,7 +984,13 @@ export class nrrd_tools {
       this.nrrd_states.changedWidth,
       this.nrrd_states.changedHeight
     );
-    this.previousDrawingImage.src = this.drawingCanvas.toDataURL();
+
+    this.previousDrawingImage = this.drawingCtx.getImageData(
+      0,
+      0,
+      this.drawingCanvas.width,
+      this.drawingCanvas.height
+    );
 
     // let a global variable to store the wheel move event
     this.handleWheelMove = this.configMouseWheel(this.sceneIn?.controls);
@@ -1033,7 +1046,7 @@ export class nrrd_tools {
 
         // when switch slice, clear previousDrawingImage
         if (currentSliceIndex !== this.mainPreSlice.index) {
-          this.previousDrawingImage.src = "";
+          this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
           currentSliceIndex = this.mainPreSlice.index;
         }
 
@@ -1142,8 +1155,10 @@ export class nrrd_tools {
               if (tempPreImg) {
                 this.previousDrawingImage = tempPreImg;
               }
+              this.emptyCanvas.width = this.emptyCanvas.width;
+              this.emptyCtx.putImageData(this.previousDrawingImage, 0, 0);
               this.drawingLayerOneCtx.drawImage(
-                this.previousDrawingImage,
+                this.emptyCanvas,
                 0,
                 0,
                 this.nrrd_states.changedWidth,
@@ -1160,8 +1175,13 @@ export class nrrd_tools {
               this.drawingLayerOneCtx.fill();
             }
           }
-          this.previousDrawingImage.src =
-            this.drawingCanvasLayerOne.toDataURL();
+
+          this.previousDrawingImage = this.drawingLayerOneCtx.getImageData(
+            0,
+            0,
+            this.drawingCanvasLayerOne.width,
+            this.drawingCanvasLayerOne.height
+          );
           this.storeAllImages();
 
           // update 1.12.23
@@ -1339,7 +1359,12 @@ export class nrrd_tools {
           this.nrrd_states.changedHeight
         );
       }
-      this.previousDrawingImage.src = this.drawingCanvasLayerOne.toDataURL();
+      this.previousDrawingImage = this.drawingLayerOneCtx.getImageData(
+        0,
+        0,
+        this.drawingCanvasLayerOne.width,
+        this.drawingCanvasLayerOne.height
+      );
       this.storeAllImages();
       this.setIsDrawFalse(1000);
     }
@@ -1421,7 +1446,7 @@ export class nrrd_tools {
     this.drawingCanvasLayerOne.width = this.drawingCanvas.width;
     this.originCanvas.width = this.originCanvas.width;
     this.mainPreSlice.repaint.call(this.mainPreSlice);
-    this.previousDrawingImage.src = "";
+    this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
     this.storeAllImages();
     this.setIsDrawFalse(1000);
   }
@@ -1737,8 +1762,8 @@ export class nrrd_tools {
 
     this.redrawDisplayCanvas();
 
-    if (!this.paintedImage?.image) {
-    }
+    // if (!this.paintedImage?.image) {
+    // }
     switch (this.axis) {
       case "x":
         if (this.paintImages.x.length > 0) {
@@ -1773,8 +1798,10 @@ export class nrrd_tools {
         break;
     }
     if (this.paintedImage?.image) {
+      this.emptyCanvas.width = this.emptyCanvas.width;
+      this.emptyCtx.putImageData(this.paintedImage.image, 0, 0);
       this.drawingLayerOneCtx?.drawImage(
-        this.paintedImage.image,
+        this.emptyCanvas,
         0,
         0,
         this.nrrd_states.changedWidth,
@@ -1817,7 +1844,7 @@ export class nrrd_tools {
   }
 
   private storeAllImages() {
-    const image: HTMLImageElement = new Image();
+    // const image: HTMLImageElement = new Image();
     this.emptyCanvas.width = this.nrrd_states.originWidth;
     this.emptyCanvas.height = this.nrrd_states.originHeight;
     this.emptyCtx.drawImage(
@@ -1842,23 +1869,43 @@ export class nrrd_tools {
       case "y":
         break;
       case "z":
+        const b = [];
+
         // for x slices get cols' pixels
 
         // for y slices get rows' pixels
+        for (let i = 0; i < this.nrrd_states.nrrd_y; i++) {
+          const start = i * this.nrrd_states.nrrd_x * 4;
+          const end = (i + 1) * this.nrrd_states.nrrd_x * 4;
+          b.push(imageData.data.slice(start, end));
+        }
+        console.log(this.nrrd_states.dimensions);
 
+        for (let i = 0; i < this.nrrd_states.dimensions[1]; i++) {
+          try {
+            let oldSaveImage = this.paintImages.y[i];
+            if (!!oldSaveImage) {
+            } else {
+              const emptyImage = this.emptyCtx.createImageData(
+                this.nrrd_states.nrrd_x,
+                this.nrrd_states.nrrd_y
+              );
+              // oldSaveImage = {
+              //   index:i,
+              //   image:emptyImage
+              // }
+            }
+          } catch (error) {
+            console.log("Error happens in across views conversion");
+          }
+        }
         break;
     }
-    const newImage = this.emptyCtx.createImageData(
-      this.nrrd_states.nrrd_x,
-      this.nrrd_states.nrrd_y
-    );
-    console.log(newImage);
-    console.log(imageData);
 
-    image.src = this.emptyCanvas.toDataURL();
+    // image.src = this.emptyCanvas.toDataURL();
     let temp: paintImageType = {
       index: this.nrrd_states.currentIndex,
-      image,
+      image: imageData,
     };
     let drawedImage: paintImageType;
 
@@ -1869,7 +1916,7 @@ export class nrrd_tools {
           this.nrrd_states.currentIndex
         );
         drawedImage
-          ? (drawedImage.image = image)
+          ? (drawedImage.image = imageData)
           : this.paintImages.x?.push(temp);
         break;
       case "y":
@@ -1878,7 +1925,7 @@ export class nrrd_tools {
           this.nrrd_states.currentIndex
         );
         drawedImage
-          ? (drawedImage.image = image)
+          ? (drawedImage.image = imageData)
           : this.paintImages.y?.push(temp);
         break;
       case "z":
@@ -1887,7 +1934,7 @@ export class nrrd_tools {
           this.nrrd_states.currentIndex
         );
         drawedImage
-          ? (drawedImage.image = image)
+          ? (drawedImage.image = imageData)
           : this.paintImages.z?.push(temp);
         break;
     }
