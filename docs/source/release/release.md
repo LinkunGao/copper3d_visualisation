@@ -1179,3 +1179,70 @@ const resetMainAreaSize = (factor: number) => {
 - Change the data type of the storing mark data.
   - initially, we use HTMLImageElement to store the mark data, but this method only can be used in canvas's ctx.drawImage() function. And we are very hard to get the image data.
   - Then we changed to use ImageData type to store the marks' pixel data. And this method we cannot use the canvas's ctx.drawImage() function anymore, we can only use the ctx.putImageData() instead. The benefit for use this function is that we can easily to write and read marked data.
+
+## Release v1.12.24
+
+- Add the switch view with the 3D marks function.
+
+  - achieve Z -> X, Z -> Y.
+
+    - Basic solution for this:
+      As for Z to X:
+
+      1. The slice Z's each x's pixels are related to each slice X. So we can through the slice Z to get each cols' data, then we can base on the x's pixels to find out the slice X index. Finnally, we can get currently slice Z's index, and use it to find out which col's data should be replaced in slice X.
+
+      1.1 get the cols' 2d array for slice x
+
+      1.2 get x axis ratio for converting, to match the number slice x with the slice z's x axis pixel number.
+
+      1.3 convert the slice Z's index and to identify which row/col data should be replace.
+
+      1.4 Maping slice x's index to slice z x/col coordinates. To find which index of slice x and which col's data should be replaced.
+
+      Core algorithms:
+
+      ```ts
+      for (let i = 0, len = this.nrrd_states.dimensions[0]; i < len; i++) {
+        const index = Math.floor(i * ratio_a);
+        const convertImageArray = this.paintImages.x[i].image.data;
+        const mark_data = marked_a[index];
+        const base_a = this.nrrd_states.nrrd_z * 4;
+        for (let j = 0, len = mark_data.length; j < len; j += 4) {
+          const start = (j / 4) * base_a + convertZIndex * 4;
+          convertImageArray[start] = mark_data[j];
+          convertImageArray[start + 1] = mark_data[j + 1];
+          convertImageArray[start + 2] = mark_data[j + 2];
+          convertImageArray[start + 3] = mark_data[j + 3];
+        }
+      }
+      ```
+
+      In terms of Z to Y:
+
+      2. The slice Z's each y's pixels are related to each slice Y. So we can through the slice Z to get each rows' data, then we can base on the y's pixels to find out the slice Y index. Finnally, we can get currently slice Z's index, and use it to find out which row's data should be replaced in slice Y.
+
+      2.1 get the rows' 2d array for slice y.
+
+      2.2 get y axis ratio for converting.
+
+      2.3 convert the slice Z's index and to identify which row/col data should be replace.
+
+      2.4 Maping slice y's index to slice z y/row coordinates. To find which index of slice y and which row's data should be replaced.
+
+      Core algorithms:
+
+      ```ts
+      for (let i = 0, len = this.nrrd_states.dimensions[1]; i < len; i++) {
+        // Closest index share same mark data. Because the real slice's index is gearter than the image each axis pixels numbers.
+        const index = Math.floor(i * ratio_b);
+        // find out each slice Y's image
+        const convertImageArray = this.paintImages.y[i].image.data;
+        // find out which marked data should be used, base on the slice Y's index
+        const mark_data = marked_b[index];
+        // find out the rows which need be replaced in identify image.
+        const start = this.nrrd_states.nrrd_x * convertZIndex * 4;
+        for (let j = 0, len = mark_data.length; j < len; j++) {
+          convertImageArray[start + j] = mark_data[j];
+        }
+      }
+      ```
