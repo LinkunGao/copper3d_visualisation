@@ -76,6 +76,7 @@ export class nrrd_tools {
     maxIndex: 0,
     minIndex: 0,
     RSARatio: 0,
+    RSARatioArray: [],
     dimensions: [],
     latestNotEmptyImg: new Image(),
     contrastNum: 0,
@@ -232,14 +233,59 @@ export class nrrd_tools {
     this.nrrd_states.nrrd_z = this.allSlicesArray[0].x.canvas.width;
     this.nrrd_states.dimensions = this.allSlicesArray[0].x.volume.dimensions;
 
+    this.nrrd_states.RSARatioArray = this.allSlicesArray[0].x.volume.spacing;
+
     this.allSlicesArray.forEach((item, index) => {
       item.x.contrastOrder = index;
       item.y.contrastOrder = index;
       item.z.contrastOrder = index;
     });
+
+    // init paintImages array
+    this.initPaintImages(this.nrrd_states.dimensions);
+
     // init displayslices array, the axis default is "z"
     this.setDisplaySlicesBaseOnAxis();
     this.afterLoadSlice();
+  }
+
+  private initPaintImages(dimensions: Array<number>) {
+    // for x slices' marks
+    for (let i = 0; i < dimensions[0]; i++) {
+      const markImage_x = this.emptyCtx.createImageData(
+        this.nrrd_states.nrrd_z,
+        this.nrrd_states.nrrd_y
+      );
+      const initMark_x: paintImageType = {
+        index: i,
+        image: markImage_x,
+      };
+      this.paintImages.x.push(initMark_x);
+    }
+    // for y slices' marks
+    for (let i = 0; i < dimensions[1]; i++) {
+      const markImage_y = this.emptyCtx.createImageData(
+        this.nrrd_states.nrrd_x,
+        this.nrrd_states.nrrd_z
+      );
+      const initMark_y: paintImageType = {
+        index: i,
+        image: markImage_y,
+      };
+      this.paintImages.y.push(initMark_y);
+    }
+    // for z slices' marks
+    for (let i = 0; i < dimensions[2]; i++) {
+      const markImage_z = this.emptyCtx.createImageData(
+        this.nrrd_states.nrrd_x,
+        this.nrrd_states.nrrd_y
+      );
+      const initMark_z: paintImageType = {
+        index: i,
+        image: markImage_z,
+      };
+      this.paintImages.z.push(initMark_z);
+    }
   }
 
   /**
@@ -901,7 +947,8 @@ export class nrrd_tools {
         );
 
         if (this.paintedImage?.image) {
-          this.emptyCanvas.width = this.emptyCanvas.width;
+          this.emptyCanvas.width = this.nrrd_states.originWidth;
+          this.emptyCanvas.height = this.nrrd_states.originHeight;
           this.emptyCtx.putImageData(this.paintedImage.image, 0, 0);
           this.drawingLayerOneCtx.drawImage(
             this.emptyCanvas,
@@ -1192,7 +1239,7 @@ export class nrrd_tools {
             this.drawingCanvas.width,
             this.drawingCanvas.height
           );
-          console.log(imageData);
+          console.log("Paint mark data -----> :", imageData);
 
           Is_Painting = false;
 
@@ -1455,6 +1502,7 @@ export class nrrd_tools {
     this.paintImages.x.length = 0;
     this.paintImages.y.length = 0;
     this.paintImages.z.length = 0;
+    this.initPaintImages(this.nrrd_states.dimensions);
   }
 
   private enableDownload() {
@@ -1798,7 +1846,8 @@ export class nrrd_tools {
         break;
     }
     if (this.paintedImage?.image) {
-      this.emptyCanvas.width = this.emptyCanvas.width;
+      this.emptyCanvas.width = this.nrrd_states.originWidth;
+      this.emptyCanvas.height = this.nrrd_states.originHeight;
       this.emptyCtx.putImageData(this.paintedImage.image, 0, 0);
       this.drawingLayerOneCtx?.drawImage(
         this.emptyCanvas,
@@ -1869,34 +1918,61 @@ export class nrrd_tools {
       case "y":
         break;
       case "z":
-        const b = [];
-
         // for x slices get cols' pixels
 
         // for y slices get rows' pixels
-        for (let i = 0; i < this.nrrd_states.nrrd_y; i++) {
-          const start = i * this.nrrd_states.nrrd_x * 4;
-          const end = (i + 1) * this.nrrd_states.nrrd_x * 4;
-          b.push(imageData.data.slice(start, end));
-        }
-        console.log(this.nrrd_states.dimensions);
+        // 1. slice z 的 y轴对应了slice y的index，所以我们可以通过slice z 确定在y轴上那些行是有pixels的，我们就可以将它的y坐标（或者是行号）对应到slice y的index，并将该index下的marked image提取出来。
+        // 2. 接着我们可以通过当前slice z 的index，来确定marked image 需要替换或重组的 行 pixel array。
 
-        for (let i = 0; i < this.nrrd_states.dimensions[1]; i++) {
-          try {
-            let oldSaveImage = this.paintImages.y[i];
-            if (!!oldSaveImage) {
-            } else {
-              const emptyImage = this.emptyCtx.createImageData(
-                this.nrrd_states.nrrd_x,
-                this.nrrd_states.nrrd_y
-              );
-              // oldSaveImage = {
-              //   index:i,
-              //   image:emptyImage
-              // }
-            }
-          } catch (error) {
-            console.log("Error happens in across views conversion");
+        // 1. get slice z's each row's and col's pixel as a 2d array.
+        // 1.1 get the cols' 2d array for slice x
+        const marked_a = this.sliceArrayV(
+          imageData.data,
+          this.nrrd_states.nrrd_y,
+          this.nrrd_states.nrrd_x
+        );
+
+        // 1.2 get the rows' 2d array for slice y
+        const marked_b = this.sliceArrayH(
+          imageData.data,
+          this.nrrd_states.nrrd_y,
+          this.nrrd_states.nrrd_x
+        );
+        // 1.3 get x axis ratio for converting, to match the number slice x with the slice z's x axis pixel number.
+        const ratio_a =
+          this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
+
+        // 1.4 get y axis ratio for converting
+        const ratio_b =
+          this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
+        // 1.5 To identify which row/col data should be replace
+        const convertZIndex = Math.floor(
+          (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[2]) *
+            this.nrrd_states.nrrd_z
+        );
+        // 2. Mapping coordinates
+        // 2.1 Maping slice x's index to slice z x/col coordinates
+        for (let i = 0, len = this.nrrd_states.dimensions[0]; i < len; i++) {
+          const index = Math.floor(i * ratio_a);
+          const convertImageArray = this.paintImages.x[i].image.data;
+          const mark_data = marked_a[index];
+          const base_a = this.nrrd_states.nrrd_z * 4;
+          for (let j = 0, len = mark_data.length; j < len; j += 4) {
+            const start = (j / 4) * base_a + convertZIndex * 4;
+            convertImageArray[start] = mark_data[j];
+            convertImageArray[start + 1] = mark_data[j + 1];
+            convertImageArray[start + 2] = mark_data[j + 2];
+            convertImageArray[start + 3] = mark_data[j + 3];
+          }
+        }
+        // 2.2 Maping slice y's index to slice z y/row coordinates
+        for (let i = 0, len = this.nrrd_states.dimensions[1]; i < len; i++) {
+          const index = Math.floor(i * ratio_b);
+          const convertImageArray = this.paintImages.y[i].image.data;
+          const mark_data = marked_b[index];
+          const start = this.nrrd_states.nrrd_x * convertZIndex * 4;
+          for (let j = 0, len = mark_data.length; j < len; j++) {
+            convertImageArray[start + j] = mark_data[j];
           }
         }
         break;
@@ -1937,6 +2013,43 @@ export class nrrd_tools {
           ? (drawedImage.image = imageData)
           : this.paintImages.z?.push(temp);
         break;
+    }
+  }
+  // slice array to 2d array
+  private sliceArrayH(arr: Uint8ClampedArray, row: number, col: number) {
+    const arr2D = [];
+    for (let i = 0; i < row; i++) {
+      const start = i * col * 4;
+      const end = (i + 1) * col * 4;
+      arr2D.push(arr.slice(start, end));
+    }
+    return arr2D;
+  }
+  private sliceArrayV(arr: Uint8ClampedArray, row: number, col: number) {
+    const arr2D = [];
+    const base = col * 4;
+    for (let i = 0; i < col; i++) {
+      const temp = [];
+      for (let j = 0; j < row; j++) {
+        const index = base * j + i * 4;
+        temp.push(arr[index]);
+        temp.push(arr[index + 1]);
+        temp.push(arr[index + 2]);
+        temp.push(arr[index + 3]);
+      }
+      arr2D.push(temp);
+    }
+    return arr2D;
+  }
+
+  // replace Array
+  private replaceArray(mainArr: number[], replaceArr: number[]) {
+    for (let i = 0, len = replaceArr.length; i < len; i++) {
+      if (replaceArr[i] === 0 || mainArr[i] !== 0) {
+        continue;
+      } else {
+        mainArr[i] = replaceArr[i];
+      }
     }
   }
 }
