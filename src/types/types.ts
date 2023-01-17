@@ -145,6 +145,18 @@ interface paintImageType {
   image: ImageData;
 }
 
+interface exportPaintImagesType {
+  x: Array<exportPaintImageType>;
+  y: Array<exportPaintImageType>;
+  z: Array<exportPaintImageType>;
+}
+
+interface exportPaintImageType {
+  sliceIndex: number;
+  dataFormat: string;
+  data: number[];
+}
+
 interface optionsGltfExporterType {
   trs?: boolean;
   onlyVisible?: boolean;
@@ -216,4 +228,6 @@ export type {
   copperVolumeType,
   dicomLoaderOptsType,
   skipSlicesDictType,
+  exportPaintImagesType,
+  exportPaintImageType,
 };
