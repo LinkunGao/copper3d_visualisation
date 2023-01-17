@@ -32,6 +32,7 @@
   "devDependencies": {
     "@rollup/plugin-image": "^2.1.1",
     "@rollup/plugin-typescript": "^8.3.2",
+    "@types/file-saver": "^2.0.5",
     "postcss": "^8.4.14",
     "rollup": "^2.74.1",
     "rollup-plugin-commonjs": "^10.1.0",
@@ -50,6 +51,7 @@
     "dat.gui": "^0.7.9",
     "dicom-parser": "^1.8.13",
     "fflate": "^0.7.3",
+    "file-saver": "^2.0.5",
     "glsl-blend-soft-light": "^1.0.5",
     "glsl-film-grain": "^1.0.4",
     "three": "^0.144.0"

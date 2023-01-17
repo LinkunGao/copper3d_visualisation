@@ -1251,3 +1251,4 @@ const resetMainAreaSize = (factor: number) => {
 
 - Add export marks function.
   - export all x,y,z views marks image arrays with three json files.
+  - use file-saver npm package.
