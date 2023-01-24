@@ -1252,3 +1252,17 @@ const resetMainAreaSize = (factor: number) => {
 - Add export marks function.
   - export all x,y,z views marks image arrays with three json files.
   - use file-saver npm package.
+
+## Release v1.12.26
+
+- Filped the Slice X Y Z images.
+
+  - Reordered the Slice Y and Slice X.
+
+- Achieved the transfer function
+
+  - Slice z to x, y.
+  - Slice y to x, z.
+  - Slice x to y, z.
+
+- More information see features 07_nrrd_transfer_function

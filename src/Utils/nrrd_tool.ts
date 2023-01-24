@@ -319,7 +319,7 @@ export class nrrd_tools {
           if (this.axis === "x") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
               Math.ceil(
-                (1 - this.cursorPage.x.cursorPageX / this.nrrd_states.nrrd_z) *
+                (this.cursorPage.x.cursorPageX / this.nrrd_states.nrrd_z) *
                   this.mainPreSlice.volume.dimensions[2]
               );
 
@@ -337,9 +337,8 @@ export class nrrd_tools {
               );
 
             this.nrrd_states.cursorPageY = Math.ceil(
-              (1 -
-                this.cursorPage.y.index /
-                  this.mainPreSlice.volume.dimensions[1]) *
+              (this.cursorPage.y.index /
+                this.mainPreSlice.volume.dimensions[1]) *
                 this.nrrd_states.nrrd_y
             );
           }
@@ -358,10 +357,9 @@ export class nrrd_tools {
                 (this.cursorPage.z.cursorPageX / this.nrrd_states.nrrd_x) *
                   this.mainPreSlice.volume.dimensions[0]
               );
-            this.nrrd_states.cursorPageX = Math.ceil(
-              (1 -
-                this.cursorPage.z.index /
-                  this.mainPreSlice.volume.dimensions[2]) *
+            this.nrrd_states.cursorPageX = Math.floor(
+              (this.cursorPage.z.index /
+                this.mainPreSlice.volume.dimensions[2]) *
                 this.nrrd_states.nrrd_z
             );
           }
@@ -374,9 +372,8 @@ export class nrrd_tools {
 
             this.nrrd_states.cursorPageX = this.cursorPage.y.cursorPageY;
             this.nrrd_states.cursorPageY = Math.ceil(
-              (1 -
-                this.cursorPage.y.index /
-                  this.mainPreSlice.volume.dimensions[1]) *
+              (this.cursorPage.y.index /
+                this.mainPreSlice.volume.dimensions[1]) *
                 this.nrrd_states.nrrd_y
             );
           }
@@ -391,7 +388,6 @@ export class nrrd_tools {
         if (this.nrrd_states.isCursorSelect && !this.cursorPage.y.updated) {
           if (this.axis === "z") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
-              this.mainPreSlice.volume.dimensions[1] -
               Math.ceil(
                 (this.cursorPage.z.cursorPageY / this.nrrd_states.nrrd_y) *
                   this.mainPreSlice.volume.dimensions[1]
@@ -404,7 +400,6 @@ export class nrrd_tools {
           }
           if (this.axis === "x") {
             this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
-              this.mainPreSlice.volume.dimensions[0] -
               Math.ceil(
                 (this.cursorPage.x.cursorPageY / this.nrrd_states.nrrd_x) *
                   this.mainPreSlice.volume.dimensions[0]
@@ -621,8 +616,15 @@ export class nrrd_tools {
         this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
       } else {
         // !need to change
-        this.mainPreSlice.index =
-          this.nrrd_states.oldIndex * this.nrrd_states.RSARatio;
+
+        if (this.axis === "y" || this.axis === "x") {
+          this.mainPreSlice.index =
+            (this.nrrd_states.dimensions[1] - 1 - this.nrrd_states.oldIndex) *
+            this.nrrd_states.RSARatio;
+        } else {
+          this.mainPreSlice.index =
+            this.nrrd_states.oldIndex * this.nrrd_states.RSARatio;
+        }
       }
 
       this.originCanvas = this.mainPreSlice.canvas;
@@ -754,6 +756,9 @@ export class nrrd_tools {
 
   private updateShowNumDiv(contrastNum: number) {
     if (this.mainPreSlice) {
+      if (this.nrrd_states.currentIndex > this.nrrd_states.maxIndex) {
+        this.nrrd_states.currentIndex = this.nrrd_states.maxIndex;
+      }
       if (this.nrrd_states.showContrast) {
         this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
           this.displaySlices.length - 1
@@ -862,7 +867,7 @@ export class nrrd_tools {
       this.nrrd_states.contrastNum += contrastModifyNum;
       if (move > 0) {
         if (
-          this.mainPreSlice.index / this.nrrd_states.RSARatio <
+          this.mainPreSlice.index / this.nrrd_states.RSARatio <=
           this.nrrd_states.maxIndex
         ) {
           sliceModifyNum = Math.floor(move / this.displaySlices.length);
@@ -888,6 +893,7 @@ export class nrrd_tools {
     // this.updateShowNumDiv(this.contrastNum, this.oldIndex);
 
     let newIndex = this.nrrd_states.oldIndex + sliceModifyNum;
+
     if (
       newIndex != this.nrrd_states.oldIndex ||
       this.nrrd_states.showContrast
@@ -899,7 +905,13 @@ export class nrrd_tools {
         newIndex = this.nrrd_states.minIndex;
         this.nrrd_states.contrastNum = 0;
       } else {
-        this.mainPreSlice.index = newIndex * this.nrrd_states.RSARatio;
+        if (this.axis === "y" || this.axis === "x") {
+          this.mainPreSlice.index =
+            (this.nrrd_states.maxIndex - newIndex) * this.nrrd_states.RSARatio;
+        } else {
+          this.mainPreSlice.index = newIndex * this.nrrd_states.RSARatio;
+        }
+
         this.nrrd_states.currentIndex = newIndex;
 
         if (newIndex != this.nrrd_states.oldIndex)
@@ -934,6 +946,9 @@ export class nrrd_tools {
   }
 
   private drawDragSlice(canvas: any, newIndex: number) {
+    this.displayCtx.save();
+    //  flip images
+    this.flipDisplayImageByYAxis();
     this.displayCtx.drawImage(
       canvas,
       0,
@@ -942,6 +957,7 @@ export class nrrd_tools {
       this.nrrd_states.changedHeight
     );
 
+    this.displayCtx.restore();
     if (
       this.paintImages.x.length > 0 ||
       this.paintImages.y.length > 0 ||
@@ -1031,6 +1047,8 @@ export class nrrd_tools {
     this.initAllCanvas();
     this.configGui(modeFolder);
 
+    this.displayCtx?.save();
+    this.flipDisplayImageByYAxis();
     this.displayCtx?.drawImage(
       this.originCanvas,
       0,
@@ -1038,6 +1056,8 @@ export class nrrd_tools {
       this.nrrd_states.changedWidth,
       this.nrrd_states.changedHeight
     );
+
+    this.displayCtx?.restore();
 
     this.previousDrawingImage = this.drawingCtx.getImageData(
       0,
@@ -1768,6 +1788,10 @@ export class nrrd_tools {
     this.originCanvas.width = this.originCanvas.width;
     if (this.currentShowingSlice) {
       this.currentShowingSlice.repaint.call(this.currentShowingSlice);
+      this.displayCtx?.save();
+
+      this.flipDisplayImageByYAxis();
+
       this.displayCtx?.drawImage(
         this.currentShowingSlice.canvas,
         0,
@@ -1775,6 +1799,7 @@ export class nrrd_tools {
         this.nrrd_states.changedWidth,
         this.nrrd_states.changedHeight
       );
+      this.displayCtx?.restore();
     }
   }
 
@@ -1784,6 +1809,8 @@ export class nrrd_tools {
     this.originCanvas.width = this.originCanvas.width;
     if (this.mainPreSlice) {
       this.mainPreSlice.repaint.call(this.mainPreSlice);
+
+      this.flipDisplayImageByYAxis();
       this.displayCtx?.drawImage(
         this.originCanvas,
         0,
@@ -1868,6 +1895,10 @@ export class nrrd_tools {
     }
   }
 
+  private flipDisplayImageByYAxis() {
+    this.displayCtx?.scale(-1, 1);
+    this.displayCtx?.translate(-this.nrrd_states.changedWidth, 0);
+  }
   private filterDrawedImage(axis: "x" | "y" | "z", sliceIndex: number) {
     return this.paintImages[axis].filter((item) => {
       return item.index === sliceIndex;
@@ -1923,8 +1954,88 @@ export class nrrd_tools {
     // 1.12.23
     switch (this.axis) {
       case "x":
+        const marked_a_x = this.sliceArrayV(
+          imageData.data,
+          this.nrrd_states.nrrd_y,
+          this.nrrd_states.nrrd_z
+        );
+        const marked_b_x = this.sliceArrayH(
+          imageData.data,
+          this.nrrd_states.nrrd_y,
+          this.nrrd_states.nrrd_z
+        );
+
+        const ratio_a_x =
+          this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
+        const ratio_b_x =
+          this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
+
+        const convertXIndex = Math.floor(
+          (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[0]) *
+            this.nrrd_states.nrrd_x
+        );
+        // from x the target z will replace the col pixel
+        this.replaceVerticalColPixels(
+          this.paintImages.z,
+          this.nrrd_states.dimensions[2],
+          ratio_a_x,
+          marked_a_x,
+          this.nrrd_states.nrrd_x,
+          convertXIndex
+        );
+        // from x the target y will replace the col pixel
+        this.replaceVerticalColPixels(
+          this.paintImages.y,
+          this.nrrd_states.dimensions[1],
+          ratio_b_x,
+          marked_b_x,
+          this.nrrd_states.nrrd_x,
+          convertXIndex
+        );
         break;
       case "y":
+        const marked_a_y = this.sliceArrayV(
+          imageData.data,
+          this.nrrd_states.nrrd_z,
+          this.nrrd_states.nrrd_x
+        );
+        const marked_b_y = this.sliceArrayH(
+          imageData.data,
+          this.nrrd_states.nrrd_z,
+          this.nrrd_states.nrrd_x
+        );
+
+        const ratio_a_y =
+          this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
+        const ratio_b_y =
+          this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
+
+        const convertYIndex = Math.floor(
+          (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[1]) *
+            this.nrrd_states.nrrd_y
+        );
+
+        console.log(marked_a_y.length, this.paintImages.x.length);
+        console.log(marked_b_y.length, this.paintImages.z.length);
+
+        this.replaceHorizontalRowPixels(
+          this.paintImages.x,
+          this.nrrd_states.dimensions[0],
+          ratio_a_y,
+          marked_a_y,
+          this.nrrd_states.nrrd_z,
+          convertYIndex
+        );
+
+        this.replaceHorizontalRowPixels(
+          this.paintImages.z,
+          this.nrrd_states.dimensions[2],
+          ratio_b_y,
+          marked_b_y,
+          this.nrrd_states.nrrd_x,
+          convertYIndex
+        );
+
         break;
       case "z":
         // for x slices get cols' pixels
@@ -1935,24 +2046,24 @@ export class nrrd_tools {
 
         // 1. get slice z's each row's and col's pixel as a 2d array.
         // 1.1 get the cols' 2d array for slice x
-        const marked_a = this.sliceArrayV(
+        const marked_a_z = this.sliceArrayV(
           imageData.data,
           this.nrrd_states.nrrd_y,
           this.nrrd_states.nrrd_x
         );
 
         // 1.2 get the rows' 2d array for slice y
-        const marked_b = this.sliceArrayH(
+        const marked_b_z = this.sliceArrayH(
           imageData.data,
           this.nrrd_states.nrrd_y,
           this.nrrd_states.nrrd_x
         );
         // 1.3 get x axis ratio for converting, to match the number slice x with the slice z's x axis pixel number.
-        const ratio_a =
+        const ratio_a_z =
           this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
 
         // 1.4 get y axis ratio for converting
-        const ratio_b =
+        const ratio_b_z =
           this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
         // 1.5 To identify which row/col data should be replace
         const convertZIndex = Math.floor(
@@ -1960,30 +2071,25 @@ export class nrrd_tools {
             this.nrrd_states.nrrd_z
         );
         // 2. Mapping coordinates
-        // 2.1 Maping slice x's index to slice z x/col coordinates
-        for (let i = 0, len = this.nrrd_states.dimensions[0]; i < len; i++) {
-          const index = Math.floor(i * ratio_a);
-          const convertImageArray = this.paintImages.x[i].image.data;
-          const mark_data = marked_a[index];
-          const base_a = this.nrrd_states.nrrd_z * 4;
-          for (let j = 0, len = mark_data.length; j < len; j += 4) {
-            const start = (j / 4) * base_a + convertZIndex * 4;
-            convertImageArray[start] = mark_data[j];
-            convertImageArray[start + 1] = mark_data[j + 1];
-            convertImageArray[start + 2] = mark_data[j + 2];
-            convertImageArray[start + 3] = mark_data[j + 3];
-          }
-        }
-        // 2.2 Maping slice y's index to slice z y/row coordinates
-        for (let i = 0, len = this.nrrd_states.dimensions[1]; i < len; i++) {
-          const index = Math.floor(i * ratio_b);
-          const convertImageArray = this.paintImages.y[i].image.data;
-          const mark_data = marked_b[index];
-          const start = this.nrrd_states.nrrd_x * convertZIndex * 4;
-          for (let j = 0, len = mark_data.length; j < len; j++) {
-            convertImageArray[start + j] = mark_data[j];
-          }
-        }
+        // from z the target x will replace the col pixel
+        this.replaceVerticalColPixels(
+          this.paintImages.x,
+          this.nrrd_states.dimensions[0],
+          ratio_a_z,
+          marked_a_z,
+          this.nrrd_states.nrrd_z,
+          convertZIndex
+        );
+
+        // from z the target y will replace row pixel
+        this.replaceHorizontalRowPixels(
+          this.paintImages.y,
+          this.nrrd_states.dimensions[1],
+          ratio_b_z,
+          marked_b_z,
+          this.nrrd_states.nrrd_x,
+          convertZIndex
+        );
         break;
     }
 
@@ -2030,7 +2136,8 @@ export class nrrd_tools {
     for (let i = 0; i < row; i++) {
       const start = i * col * 4;
       const end = (i + 1) * col * 4;
-      arr2D.push(arr.slice(start, end));
+      const temp = arr.slice(start, end);
+      arr2D.push(temp);
     }
     return arr2D;
   }
@@ -2049,6 +2156,68 @@ export class nrrd_tools {
       arr2D.push(temp);
     }
     return arr2D;
+  }
+
+  /**
+   *
+   * @param paintImageArray : the target view slice's marked images array
+   * @param length : the target view slice's dimention (total slice index num)
+   * @param ratio : the target slice image's width/height ratio of its dimention length
+   * @param markedArr : current painted image's vertical 2d Array
+   * @param targetWidth : the target image width
+   * @param convertIndex : Mapping current image's index to target slice image's width/height pixel start point
+   */
+
+  private replaceVerticalColPixels(
+    paintImageArray: paintImageType[],
+    length: number,
+    ratio: number,
+    markedArr: number[][] | Uint8ClampedArray[],
+    targetWidth: number,
+    convertIndex: number
+  ) {
+    for (let i = 0, len = length; i < len; i++) {
+      const index = Math.floor(i * ratio);
+      const convertImageArray = paintImageArray[i].image.data;
+      const mark_data = markedArr[index];
+      const base_a = targetWidth * 4;
+
+      for (let j = 0, len = mark_data.length; j < len; j += 4) {
+        const start = (j / 4) * base_a + convertIndex * 4;
+        convertImageArray[start] = mark_data[j];
+        convertImageArray[start + 1] = mark_data[j + 1];
+        convertImageArray[start + 2] = mark_data[j + 2];
+        convertImageArray[start + 3] = mark_data[j + 3];
+      }
+    }
+  }
+
+  /**
+   *
+   * @param paintImageArray : the target view slice's marked images array
+   * @param length : the target view slice's dimention (total slice index num)
+   * @param ratio : the target slice image's width/height ratio of its dimention length
+   * @param markedArr : current painted image's horizontal 2d Array
+   * @param targetWidth : the target image width
+   * @param convertIndex : Mapping current image's index to target slice image's width/height pixel start point
+   */
+  private replaceHorizontalRowPixels(
+    paintImageArray: paintImageType[],
+    length: number,
+    ratio: number,
+    markedArr: number[][] | Uint8ClampedArray[],
+    targetWidth: number,
+    convertIndex: number
+  ) {
+    for (let i = 0, len = length; i < len; i++) {
+      const index = Math.floor(i * ratio);
+      const convertImageArray = paintImageArray[i].image.data;
+      const mark_data = markedArr[index] as number[];
+      const start = targetWidth * convertIndex * 4;
+      for (let j = 0, len = mark_data.length; j < len; j++) {
+        convertImageArray[start + j] = mark_data[j];
+      }
+    }
   }
 
   // replace Array
@@ -2079,31 +2248,36 @@ export class nrrd_tools {
       this.paintImages.z.length
     );
 
-    for (let i = 0; i < 3; i++) {
-      switch (i) {
-        case 0:
-          const blob = new Blob([JSON.stringify(exportDataFormat.x)], {
-            type: "text/plain;charset=utf-8",
-          });
-          saveFileAsJson(blob, "copper3D_export data_x.json");
-          break;
+    window.alert("Export all images, starting!!!");
+    try {
+      for (let i = 0; i < 3; i++) {
+        switch (i) {
+          case 0:
+            const blob = new Blob([JSON.stringify(exportDataFormat.x)], {
+              type: "text/plain;charset=utf-8",
+            });
+            saveFileAsJson(blob, "copper3D_export data_x.json");
+            break;
 
-        case 1:
-          const blob1 = new Blob([JSON.stringify(exportDataFormat.y)], {
-            type: "text/plain;charset=utf-8",
-          });
-          saveFileAsJson(blob1, "copper3D_export data_y.json");
-          break;
-        case 2:
-          const blob2 = new Blob([JSON.stringify(exportDataFormat.z)], {
-            type: "text/plain;charset=utf-8",
-          });
-          saveFileAsJson(blob2, "copper3D_export data_z.json");
-          break;
+          case 1:
+            const blob1 = new Blob([JSON.stringify(exportDataFormat.y)], {
+              type: "text/plain;charset=utf-8",
+            });
+            saveFileAsJson(blob1, "copper3D_export data_y.json");
+            break;
+          case 2:
+            const blob2 = new Blob([JSON.stringify(exportDataFormat.z)], {
+              type: "text/plain;charset=utf-8",
+            });
+            saveFileAsJson(blob2, "copper3D_export data_z.json");
+            break;
+        }
       }
-    }
 
-    console.log("down");
+      window.alert("Export all images successfully!!!");
+    } catch (error) {
+      window.alert("Export failed!");
+    }
   }
   private restructData(originArr: paintImageType[], len: number) {
     const reformatData = [];

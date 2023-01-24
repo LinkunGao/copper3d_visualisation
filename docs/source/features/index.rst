@@ -11,3 +11,4 @@ Main Features (For developer)
     04_kiwrious
     05_animation
     06_nrrd_tools
+    07_nrrd_transfer_function
