@@ -279,7 +279,7 @@ export class nrrd_tools {
   private getSharedPlace(len: number, ratio: number): number[] {
     let old = -1;
     let same: number[] = [];
-    let temp = new Set();
+    let temp = new Set<number>();
     for (let i = 0; i < len; i++) {
       const index = Math.floor(i * ratio);
       if (index === old) {
@@ -290,9 +290,9 @@ export class nrrd_tools {
       }
     }
 
-    for (const item of temp) {
-      same.push(item as number);
-    }
+    temp.forEach((value) => {
+      same.push(value);
+    });
     return same;
   }
 
