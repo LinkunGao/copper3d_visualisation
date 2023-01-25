@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
 
+// import { NRRDLoader } from "./nrrd_loader_support/NRRDLoader";
+
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
 import cm_gray from "../css/images/cm_gray.png";
@@ -50,6 +52,7 @@ export function copperNrrdLoader(
       configGui(opts);
 
       volume.axisOrder = ["x", "y", "z"];
+      // volume.matrix.set(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
 
       const rasdimensions = volume.RASDimensions;
       const dimensions = volume.dimensions;
