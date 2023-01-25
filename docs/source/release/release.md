@@ -1266,3 +1266,7 @@ const resetMainAreaSize = (factor: number) => {
   - Slice x to y, z.
 
 - More information see features 07_nrrd_transfer_function
+
+## Release v1.12.27
+
+- Fixed flip the slice image issue.

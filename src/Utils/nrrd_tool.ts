@@ -81,6 +81,8 @@ export class nrrd_tools {
     RSARatio: 0,
     RSARatioArray: [],
     dimensions: [],
+    ratios: { x: 1, y: 1, z: 1 },
+    sharedPlace: { x: [-1], y: [-1], z: [-1] },
     latestNotEmptyImg: new Image(),
     contrastNum: 0,
     Max_sensitive: 100,
@@ -153,7 +155,7 @@ export class nrrd_tools {
     undo: () => {
       this.undoLastPainting();
     },
-    downloadCurrentImage: () => {
+    downloadCurrentMask: () => {
       this.enableDownload();
     },
     resetZoom: () => {
@@ -239,7 +241,6 @@ export class nrrd_tools {
     this.nrrd_states.nrrd_y = this.allSlicesArray[0].z.canvas.height;
     this.nrrd_states.nrrd_z = this.allSlicesArray[0].x.canvas.width;
     this.nrrd_states.dimensions = this.allSlicesArray[0].x.volume.dimensions;
-
     this.nrrd_states.RSARatioArray = this.allSlicesArray[0].x.volume.spacing;
 
     this.allSlicesArray.forEach((item, index) => {
@@ -248,12 +249,51 @@ export class nrrd_tools {
       item.z.contrastOrder = index;
     });
 
+    this.nrrd_states.ratios.x =
+      this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
+    this.nrrd_states.ratios.y =
+      this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
+    this.nrrd_states.ratios.z =
+      this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
+
+    this.nrrd_states.sharedPlace.x = this.getSharedPlace(
+      this.nrrd_states.dimensions[0],
+      this.nrrd_states.ratios.x
+    );
+    this.nrrd_states.sharedPlace.y = this.getSharedPlace(
+      this.nrrd_states.dimensions[1],
+      this.nrrd_states.ratios.y
+    );
+    this.nrrd_states.sharedPlace.z = this.getSharedPlace(
+      this.nrrd_states.dimensions[2],
+      this.nrrd_states.ratios.z
+    );
     // init paintImages array
     this.initPaintImages(this.nrrd_states.dimensions);
 
     // init displayslices array, the axis default is "z"
     this.setDisplaySlicesBaseOnAxis();
     this.afterLoadSlice();
+  }
+
+  private getSharedPlace(len: number, ratio: number): number[] {
+    let old = -1;
+    let same: number[] = [];
+    let temp = new Set();
+    for (let i = 0; i < len; i++) {
+      const index = Math.floor(i * ratio);
+      if (index === old) {
+        temp.add(i - 1);
+        temp.add(i);
+      } else {
+        old = index;
+      }
+    }
+
+    for (const item of temp) {
+      same.push(item as number);
+    }
+    return same;
   }
 
   private initPaintImages(dimensions: Array<number>) {
@@ -589,6 +629,7 @@ export class nrrd_tools {
     if (this.mainPreSlice) {
       this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
     }
+    console.log(this.mainPreSlice);
   }
 
   private findLastCanvas() {
@@ -1533,7 +1574,7 @@ export class nrrd_tools {
   }
 
   private enableDownload() {
-    this.downloadImage.download = `slice_${this.axis}_#${this.mainPreSlice.index}`;
+    this.downloadImage.download = `slice_${this.axis}_#${this.nrrd_states.currentIndex}`;
     const downloadCtx = this.downloadCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
@@ -1541,13 +1582,13 @@ export class nrrd_tools {
     this.downloadCanvas.height = this.nrrd_states.originHeight;
     // downloadCtx.globalAlpha = this.gui_states.globalAlpha;
 
-    downloadCtx.drawImage(
-      this.displayCanvas,
-      0,
-      0,
-      this.nrrd_states.originWidth,
-      this.nrrd_states.originHeight
-    );
+    // downloadCtx.drawImage(
+    //   this.displayCanvas,
+    //   0,
+    //   0,
+    //   this.nrrd_states.originWidth,
+    //   this.nrrd_states.originHeight
+    // );
     downloadCtx.drawImage(
       this.drawingCanvas,
       0,
@@ -1686,7 +1727,7 @@ export class nrrd_tools {
     bushFolder.addColor(this.gui_states, "brushColor");
     // modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
 
-    advanceFolder.add(this.gui_states, "downloadCurrentImage");
+    advanceFolder.add(this.gui_states, "downloadCurrentMask");
 
     const contrastFolder = advanceFolder.addFolder("contrast advance settings");
     contrastFolder
@@ -1896,7 +1937,21 @@ export class nrrd_tools {
   }
 
   private flipDisplayImageByYAxis() {
+    // if (this.axis !== "y") {
+    //   this.displayCtx?.scale(-1, 1);
+
+    //   this.displayCtx?.translate(-this.nrrd_states.changedWidth, 0);
+    // } else {
+    //   this.displayCtx?.scale(-1, -1);
+
+    //   this.displayCtx?.translate(
+    //     -this.nrrd_states.changedWidth,
+    //     -this.nrrd_states.changedHeight
+    //   );
+    // }
+
     this.displayCtx?.scale(-1, 1);
+
     this.displayCtx?.translate(-this.nrrd_states.changedWidth, 0);
   }
   private filterDrawedImage(axis: "x" | "y" | "z", sliceIndex: number) {
@@ -1954,6 +2009,11 @@ export class nrrd_tools {
     // 1.12.23
     switch (this.axis) {
       case "x":
+        const baseArr = this.emptyCtx.createImageData(
+          this.nrrd_states.nrrd_z,
+          this.nrrd_states.nrrd_y
+        ).data;
+
         const marked_a_x = this.sliceArrayV(
           imageData.data,
           this.nrrd_states.nrrd_y,
@@ -1965,10 +2025,10 @@ export class nrrd_tools {
           this.nrrd_states.nrrd_z
         );
 
-        const ratio_a_x =
-          this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
-        const ratio_b_x =
-          this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
+        // const ratio_a_x =
+        //   this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
+        // const ratio_b_x =
+        //   this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
 
         const convertXIndex = Math.floor(
           (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[0]) *
@@ -1978,7 +2038,7 @@ export class nrrd_tools {
         this.replaceVerticalColPixels(
           this.paintImages.z,
           this.nrrd_states.dimensions[2],
-          ratio_a_x,
+          this.nrrd_states.ratios.z,
           marked_a_x,
           this.nrrd_states.nrrd_x,
           convertXIndex
@@ -1987,7 +2047,7 @@ export class nrrd_tools {
         this.replaceVerticalColPixels(
           this.paintImages.y,
           this.nrrd_states.dimensions[1],
-          ratio_b_x,
+          this.nrrd_states.ratios.y,
           marked_b_x,
           this.nrrd_states.nrrd_x,
           convertXIndex
@@ -2005,23 +2065,20 @@ export class nrrd_tools {
           this.nrrd_states.nrrd_x
         );
 
-        const ratio_a_y =
-          this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
-        const ratio_b_y =
-          this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
+        // const ratio_a_y =
+        //   this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
+        // const ratio_b_y =
+        //   this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
 
         const convertYIndex = Math.floor(
           (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[1]) *
             this.nrrd_states.nrrd_y
         );
 
-        console.log(marked_a_y.length, this.paintImages.x.length);
-        console.log(marked_b_y.length, this.paintImages.z.length);
-
         this.replaceHorizontalRowPixels(
           this.paintImages.x,
           this.nrrd_states.dimensions[0],
-          ratio_a_y,
+          this.nrrd_states.ratios.x,
           marked_a_y,
           this.nrrd_states.nrrd_z,
           convertYIndex
@@ -2030,7 +2087,7 @@ export class nrrd_tools {
         this.replaceHorizontalRowPixels(
           this.paintImages.z,
           this.nrrd_states.dimensions[2],
-          ratio_b_y,
+          this.nrrd_states.ratios.z,
           marked_b_y,
           this.nrrd_states.nrrd_x,
           convertYIndex
@@ -2044,27 +2101,47 @@ export class nrrd_tools {
         // 1. slice z 的 y轴对应了slice y的index，所以我们可以通过slice z 确定在y轴上那些行是有pixels的，我们就可以将它的y坐标（或者是行号）对应到slice y的index，并将该index下的marked image提取出来。
         // 2. 接着我们可以通过当前slice z 的index，来确定marked image 需要替换或重组的 行 pixel array。
 
+        let maskData = this.emptyCtx.createImageData(
+          this.nrrd_states.nrrd_x,
+          this.nrrd_states.nrrd_y
+        ).data;
+
+        if (
+          this.nrrd_states.sharedPlace.z.includes(this.nrrd_states.currentIndex)
+        ) {
+          const sharedPlaceArr = this.findSliceInSharedPlace();
+          sharedPlaceArr.push(imageData);
+          if (sharedPlaceArr.length > 0) {
+            for (let i = 0; i < sharedPlaceArr.length; i++) {
+              this.replaceArray(maskData, sharedPlaceArr[i].data);
+            }
+          }
+        } else {
+          maskData = imageData.data;
+        }
+        // maskData = imageData.data;
+
         // 1. get slice z's each row's and col's pixel as a 2d array.
         // 1.1 get the cols' 2d array for slice x
         const marked_a_z = this.sliceArrayV(
-          imageData.data,
+          maskData,
           this.nrrd_states.nrrd_y,
           this.nrrd_states.nrrd_x
         );
 
         // 1.2 get the rows' 2d array for slice y
         const marked_b_z = this.sliceArrayH(
-          imageData.data,
+          maskData,
           this.nrrd_states.nrrd_y,
           this.nrrd_states.nrrd_x
         );
         // 1.3 get x axis ratio for converting, to match the number slice x with the slice z's x axis pixel number.
-        const ratio_a_z =
-          this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
+        // const ratio_a_z =
+        //   this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
 
-        // 1.4 get y axis ratio for converting
-        const ratio_b_z =
-          this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
+        // // 1.4 get y axis ratio for converting
+        // const ratio_b_z =
+        //   this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
         // 1.5 To identify which row/col data should be replace
         const convertZIndex = Math.floor(
           (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[2]) *
@@ -2075,7 +2152,7 @@ export class nrrd_tools {
         this.replaceVerticalColPixels(
           this.paintImages.x,
           this.nrrd_states.dimensions[0],
-          ratio_a_z,
+          this.nrrd_states.ratios.x,
           marked_a_z,
           this.nrrd_states.nrrd_z,
           convertZIndex
@@ -2085,7 +2162,7 @@ export class nrrd_tools {
         this.replaceHorizontalRowPixels(
           this.paintImages.y,
           this.nrrd_states.dimensions[1],
-          ratio_b_z,
+          this.nrrd_states.ratios.y,
           marked_b_z,
           this.nrrd_states.nrrd_x,
           convertZIndex
@@ -2221,7 +2298,10 @@ export class nrrd_tools {
   }
 
   // replace Array
-  private replaceArray(mainArr: number[], replaceArr: number[]) {
+  private replaceArray(
+    mainArr: number[] | Uint8ClampedArray,
+    replaceArr: number[] | Uint8ClampedArray
+  ) {
     for (let i = 0, len = replaceArr.length; i < len; i++) {
       if (replaceArr[i] === 0 || mainArr[i] !== 0) {
         continue;
@@ -2229,6 +2309,39 @@ export class nrrd_tools {
         mainArr[i] = replaceArr[i];
       }
     }
+  }
+
+  private findSliceInSharedPlace() {
+    const sharedPlaceImages = [];
+
+    const base = Math.floor(
+      this.nrrd_states.currentIndex * this.nrrd_states.ratios[this.axis]
+    );
+
+    for (let i = 1; i <= 3; i++) {
+      const index = this.nrrd_states.currentIndex - i;
+      if (index < this.nrrd_states.minIndex) {
+        break;
+      } else {
+        const newIndex = Math.floor(index * this.nrrd_states.ratios[this.axis]);
+        if (newIndex === base) {
+          sharedPlaceImages.push(this.paintImages[this.axis][index].image);
+        }
+      }
+    }
+
+    for (let i = 1; i <= 3; i++) {
+      const index = this.nrrd_states.currentIndex + i;
+      if (index > this.nrrd_states.maxIndex) {
+        break;
+      } else {
+        const newIndex = Math.floor(index * this.nrrd_states.ratios[this.axis]);
+        if (newIndex === base) {
+          sharedPlaceImages.push(this.paintImages[this.axis][index].image);
+        }
+      }
+    }
+    return sharedPlaceImages;
   }
 
   private exportData() {

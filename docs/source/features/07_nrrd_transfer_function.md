@@ -6,21 +6,21 @@ Firstly, we should define something for us to explain:
 
 1. Define our coordinates:
 
-![Shape, arrow Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.001.png)![A picture containing text, signDescription automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.002.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.001.png)![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.002.png)
 
 1. Define each position’s slices
 
 - Slice xy: all slices on the z axis.
 
-![A picture containing text Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.003.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.003.png)
 
 - Slice yz: all slices on the x axis.
 
-![A picture containing text, blackboard Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.004.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.004.png)
 
 - Slice xz: all slices on the y axis.
 
-![A picture containing text, blackboard Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.005.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.005.png)
 
 Then, suppose we load a nrrd file with dimension [448, 448, 160]. The dimension here means the total number of slices on each axis. For example:
 
@@ -30,28 +30,28 @@ Then, suppose we load a nrrd file with dimension [448, 448, 160]. The dimension 
 
 Thus, when we load the nrrd file, I create a dictionary to store each slice’s mask. The dictionary structure like this:
 
-![Text Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.006.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.006.png)
 
-![A picture containing line chart Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.007.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.007.png)
 
 And we can imagine if we render the whole nrrd file (all slices with all directions), they will form a cube. And currently the display slice is slice xy at index number 80. So this slice xy will stay on the z-axis at 80 position, you can see the green line on the left.
 
 Then the mask for this slice xy is stored in the dictionary in this position:
 ` `**const mask_image_array = dic.xy[80].**
 
-![A picture containing text, sign Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.008.png)![A picture containing graphical user interface Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.009.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.008.png)![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.009.png)
 
 All the **yellow slices** belong to **Slice yz**. We can also see that each position (pixel point) of the width of slice xy is related to each Slice yz.
 
-![A picture containing diagram Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.010.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.010.png)
 
 All the **green slices** belong to **Slice xy**. We can also see that each position (pixel point) of the width of slice yz is related to each Slice xy.
 
-![A picture containing text, blackboard Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.011.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.011.png)
 
 All the **blue slices** belong to **Slice xz**. We can also see that each position (pixel point) of the height of slice xy / slice yz is related to each Slice xz.
 
-![A picture containing text Description automatically generated](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.012.png)
+![](../_static/images/transfer_function/1/Aspose.Words.fa8b7deb-afbc-4380-bace-f2d6706ba597.012.png)
 
 ## Implement transfer function
 
@@ -59,13 +59,13 @@ When we have these knowledge, we can implement the transfer function now.
 
 For example, if we draw something on Slice xy index number 80. You can find a green shape on the Slice xy 80.
 
-![Shape Description automatically generated](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.001.png)
+![](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.001.png)
 
 We can follow these steps below to transfer marked pixels to all Slice yz.
 
 1. Get Slice xy index number 80 marked image array from JS canvas, notice this is a 1D array. In order to transfer the marked pixels to Slice yz, we need to convert this one-dimensional array to a two-dimensional array based on the pixels in each column of that image.
 
-![A picture containing text Description automatically generated](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.002.png)
+![](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.002.png)
 
 1. Here you can see each column pixels data should be put into its relate Slice yz. For example, the first column pixel data should be put into Slice yz index 0.
 
@@ -89,11 +89,11 @@ Slice yz index 447: **dic.yz[447]**
 
 1. Now we’ve already found out all the column pixels data and Slice yz's mask images corresponding to them. Then we need to understand where we need to put the column pixel data into its Slice yz's mask images. Here we know the current mask image is belong to Slice xy’s index 80, so we need to replace the all Slice yz’s 80th column pixel data.
 
-![A picture containing shape Description automatically generated](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.003.png)![A picture containing text, sign Description automatically generated](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.004.png) ![A picture containing text Description automatically generated](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.005.png)
+![](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.003.png)![](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.004.png) ![](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.005.png)
 
 As for transfering marked pixels to all Slice xz, we can do the same solution, but the only thing we need to change is that we need the current mask image’s horizontal/row pixel data rather than the vertical/column pixel data.
 
-![A picture containing text Description automatically generated](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.006.png)
+![](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.006.png)
 
 For the Slice xz’ mask images we can get them very easily via:
 
@@ -115,7 +115,7 @@ Slice xz index 447: **dic.xz[447]**
 
 Thus, the dictionary store’s all NRRD direction’s slices’ mask image array.
 
-![A picture containing line chart Description automatically generated](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.007.png)
+![](../_static/images/transfer_function/2/Aspose.Words.19819821-06c3-4585-8590-fea343ac9b62.007.png)
 
 ## Issues
 
