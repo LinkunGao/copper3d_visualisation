@@ -6,5 +6,6 @@ declare module "*.jpg";
 declare module "*.glsl";
 declare module "fflate";
 declare module "dicom-parser";
+declare module "copper3d_plugin_nrrd";
 declare module "copper3d_plugin_heart_k";
 declare module "copper3d_plugin_nrrd";

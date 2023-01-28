@@ -1,6 +1,6 @@
 import * as THREE from "three";
 // import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
-import * as N from "copper3d_plugin_nrrd";
+import * as NRRD from "copper3d_plugin_nrrd";
 
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
@@ -12,7 +12,9 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
 
-const loader = new N.NRRDLoader();
+console.log(NRRD);
+
+const loader = new NRRD.NRRDLoader();
 loader.setSegmentation(true);
 
 // loader.setSegmentationn(true);
@@ -183,7 +185,7 @@ export function copperNrrdLoader1(
 
   let mesh: THREE.Mesh;
 
-  new N.NRRDLoader().load(
+  new NRRD.NRRDLoader().load(
     url,
     function (volume: any) {
       volume.axisOrder = ["x", "y", "z"];

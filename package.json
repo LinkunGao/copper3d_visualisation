@@ -1,7 +1,7 @@
 {
   "name": "copper3d_visualisation",
   "description": "A 3d visualisation package base on threejs provides multiple scenes and Nrrd image load funtion.",
-  "version": "1.12.27",
+  "version": "1.13.0",
   "main": "dist/bundle.umd.js",
   "moudle": "dist/bundle.esm.js",
   "types": "dist/types/index.d.ts",
@@ -48,7 +48,7 @@
     "@types/dat.gui": "^0.7.7",
     "@types/three": "^0.140.0",
     "copper3d_plugin_heart_k": "^1.0.14",
-    "copper3d_plugin_nrrd": "^1.1.1",
+    "copper3d_plugin_nrrd": "^1.1.2",
     "dat.gui": "^0.7.9",
     "dicom-parser": "^1.8.13",
     "fflate": "^0.7.3",
