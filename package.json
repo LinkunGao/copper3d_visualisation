@@ -54,6 +54,6 @@
     "file-saver": "^2.0.5",
     "glsl-blend-soft-light": "^1.0.5",
     "glsl-film-grain": "^1.0.4",
-    "three": "^0.144.0"
+    "three": "^0.148.0"
   }
 }

@@ -27,7 +27,7 @@ The result should be `"default"`.
 - Update GUI, allows user to show and hide child mesh under ModelFolder->ModelVisualisation folder.
 
 Demo:
-![](../_static/images/release_1.3.4_show:hide.gif)
+![](../_static/images/release_1.3.4_show_hide.gif)
 
 ## Release v1.4.0
 
