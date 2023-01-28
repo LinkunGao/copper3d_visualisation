@@ -668,9 +668,6 @@ export class nrrd_tools {
     ];
     this.nrrd_states.oldIndex = this.mainPreSlice.initIndex;
     this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
-
-    console.log(this.mainPreSlice);
-    
     // compute max index
     this.updateMaxIndex();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
