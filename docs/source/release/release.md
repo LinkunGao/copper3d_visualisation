@@ -1270,3 +1270,8 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.12.27
 
 - Fixed flip the slice image issue.
+
+## Release v1.13.0
+
+- almost finished the transfer function in nrrd_tool.
+- create a new package copper3d_plugin_nrrd to support load the nrrd files with a right size.
