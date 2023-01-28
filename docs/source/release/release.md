@@ -1275,3 +1275,7 @@ const resetMainAreaSize = (factor: number) => {
 
 - almost finished the transfer function in nrrd_tool.
 - create a new package copper3d_plugin_nrrd to support load the nrrd files with a right size.
+
+## Release v1.13.3
+
+- fixed nrrd plugin import issue.
