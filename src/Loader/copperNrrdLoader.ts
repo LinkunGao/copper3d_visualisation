@@ -190,7 +190,15 @@ export function copperNrrdLoader1(
 
   let mesh: THREE.Mesh;
 
-  new NRRD.NRRDLoader().load(
+  let loader: any;
+
+  if (!!NRRD.NRRDLoader) {
+    loader = new NRRD.NRRDLoader();
+  } else {
+    loader = new NRRD.default.NRRDLoader();
+  }
+
+  loader.load(
     url,
     function (volume: any) {
       volume.axisOrder = ["x", "y", "z"];
