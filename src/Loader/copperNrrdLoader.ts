@@ -57,9 +57,6 @@ export function copperNrrdLoader(
     function (volume: any) {
       configGui(opts);
 
-      volume.axisOrder = ["x", "y", "z"];
-      // volume.matrix.set(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-
       const rasdimensions = volume.RASDimensions;
       const dimensions = volume.dimensions;
 
@@ -194,8 +191,6 @@ export function copperNrrdLoader1(
   loader.load(
     url,
     function (volume: any) {
-      volume.axisOrder = ["x", "y", "z"];
-
       const is_Int16Array = volume.data.byteLength / volume.data.length === 2;
       volume.lowerThreshold = 19;
       volume.upperThreshold = 498;

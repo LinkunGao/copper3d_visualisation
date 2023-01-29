@@ -1279,3 +1279,9 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.13.3
 
 - fixed nrrd plugin import issue.
+
+## Release v1.13.5
+
+- impoved the nrrd plugin
+  - fixed the 16 bits nrrd axis cannot found issue
+  - remove the code axis = ["x","y","z"] in the nrrdloader class.
