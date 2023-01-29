@@ -1,6 +1,7 @@
 import * as THREE from "three";
 // import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
-import * as NRRD from "copper3d_plugin_nrrd";
+// import * as NRRD from "copper3d_plugin_nrrd";
+import { NRRDLoader } from "copper3d_plugin_nrrd";
 
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
@@ -14,11 +15,7 @@ import { loading } from "../Utils/utils";
 
 let loader: any;
 
-if (!!NRRD.NRRDLoader) {
-  loader = new NRRD.NRRDLoader();
-} else {
-  loader = new NRRD.default.NRRDLoader();
-}
+loader = new NRRDLoader();
 
 loader.setSegmentation(true);
 
@@ -192,11 +189,7 @@ export function copperNrrdLoader1(
 
   let loader: any;
 
-  if (!!NRRD.NRRDLoader) {
-    loader = new NRRD.NRRDLoader();
-  } else {
-    loader = new NRRD.default.NRRDLoader();
-  }
+  loader = new NRRDLoader();
 
   loader.load(
     url,
