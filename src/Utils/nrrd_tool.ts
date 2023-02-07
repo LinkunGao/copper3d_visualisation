@@ -251,7 +251,6 @@ export class nrrd_tools {
       this.allSlicesArray[0].x.volume.dimensions[2];
     this.nrrd_states.dimensions = this.allSlicesArray[0].x.volume.dimensions;
     this.nrrd_states.voxelSpacing = this.allSlicesArray[0].x.volume.spacing;
-    console.log(this.nrrd_states.voxelSpacing);
 
     this.allSlicesArray.forEach((item, index) => {
       item.x.contrastOrder = index;
@@ -677,10 +676,6 @@ export class nrrd_tools {
     this.updateMaxIndex();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
     this.initState = false;
-
-    console.log(this.nrrd_states.sharedPlace);
-    console.log(this.mainPreSlice.volume);
-    console.log(this.drawingCanvas.width, this.drawingCanvas.height);
   }
 
   private updateMaxIndex() {
@@ -2363,6 +2358,8 @@ export class nrrd_tools {
       this.nrrd_states.nrrd_y_centimeter
     );
 
+    console.log(exportDataFormat.z);
+
     window.alert("Export all images, starting!!!");
     try {
       for (let i = 0; i < 3; i++) {
@@ -2397,6 +2394,8 @@ export class nrrd_tools {
 
       window.alert("Export all images successfully!!!");
     } catch (error) {
+      console.log(error);
+
       window.alert("Export failed!");
     }
   }

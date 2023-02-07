@@ -1291,3 +1291,7 @@ const resetMainAreaSize = (factor: number) => {
 - rewrite the export function
   - only export axis z slices' masks.
   - export with centimeter image, not base onthe pixel.
+
+## Release v1.13.7
+
+- debug windows
