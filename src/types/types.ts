@@ -154,6 +154,9 @@ interface exportPaintImagesType {
 interface exportPaintImageType {
   sliceIndex: number;
   dataFormat: string;
+  width: number;
+  height: number;
+  voxelSpacing: number[];
   data: number[];
 }
 
