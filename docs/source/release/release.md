@@ -1285,3 +1285,9 @@ const resetMainAreaSize = (factor: number) => {
 - impoved the nrrd plugin
   - fixed the 16 bits nrrd axis cannot found issue
   - remove the code axis = ["x","y","z"] in the nrrdloader class.
+
+## Release v1.13.6
+
+- rewrite the export function
+  - only export axis z slices' masks.
+  - export with centimeter image, not base onthe pixel.
