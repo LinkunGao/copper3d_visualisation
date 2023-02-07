@@ -2358,8 +2358,6 @@ export class nrrd_tools {
       this.nrrd_states.nrrd_y_centimeter
     );
 
-    console.log(exportDataFormat.z);
-
     window.alert("Export all images, starting!!!");
     try {
       for (let i = 0; i < 3; i++) {
