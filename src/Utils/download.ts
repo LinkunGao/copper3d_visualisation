@@ -6,7 +6,9 @@ import * as Saver from "file-saver";
 // var FileSaver = require("file-saver");
 
 export function saveFileAsJson(blob: Blob, name: string) {
-  if (!!Saver) {
+  if (!!Saver && !!Saver.default) {
+    (Saver as any).default.saveAs(blob, name);
+  } else if (!!Saver) {
     Saver.saveAs(blob, name);
   } else {
     var FileSaver = require("file-saver");
