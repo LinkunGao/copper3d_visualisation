@@ -1296,6 +1296,6 @@ const resetMainAreaSize = (factor: number) => {
 
 - debug windows
 
-## Release v1.13.8
+## Release v1.13.9
 
 - remove the gltf-exporter for test in nuxt.js
