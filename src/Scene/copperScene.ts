@@ -119,6 +119,7 @@ export default class copperScene extends baseScene {
 
     models.forEach((model) => {
       const geometries: Array<THREE.BufferGeometry> = [];
+
       model.urls.forEach((url, index) => {
         vtkLoader.load(url, (geometry) => {
           geometry.center();

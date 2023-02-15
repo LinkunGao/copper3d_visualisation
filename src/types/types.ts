@@ -73,6 +73,15 @@ interface nrrdDragImageOptType {
   getSliceNum?: (index: number, contrastNum: number) => void;
 }
 
+interface nrrdDrawImageOptType {
+  getMaskData?: (
+    masks: paintImageType[],
+    len: number,
+    width: number,
+    height: number
+  ) => void;
+}
+
 // kiwrious
 interface SensorDecodedValue_kiwrious {
   type: string;
@@ -157,6 +166,7 @@ interface exportPaintImageType {
   width: number;
   height: number;
   voxelSpacing: number[];
+  spaceOrigin: number[];
   data: number[];
 }
 
@@ -215,6 +225,7 @@ export type {
   nrrdMeshesType,
   nrrdSliceType,
   nrrdDragImageOptType,
+  nrrdDrawImageOptType,
   loadingBarType,
   SensorDecodedValue_kiwrious,
   SensorReadResult_kiwrious,
