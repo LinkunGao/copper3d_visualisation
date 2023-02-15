@@ -8,7 +8,10 @@ interface SceneMapType {
 }
 interface optType {
   guiOpen: boolean;
-  [key: string]: string | boolean;
+  camera?: boolean;
+  performance?: boolean;
+  light?: boolean;
+  [key: string]: string | boolean | undefined;
 }
 interface stateType {
   playbackSpeed: number;

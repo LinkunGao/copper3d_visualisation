@@ -189,7 +189,16 @@ export default class baseRenderer {
     }
     this.visualCtrls = [];
 
-    setTimeout(() => {
+    let count = 0;
+
+    const timer = setInterval(() => {
+      if (this.currentScene.content.children.length > 0) {
+        count = 0;
+      } else if (count === 5) {
+        count = 0;
+        clearInterval(timer);
+      }
+
       let flag: boolean = true;
       let modelChildrenArray: Array<modelVisualisationDataType> = [];
       const modelChildren = this.currentScene.content
@@ -254,6 +263,7 @@ export default class baseRenderer {
         up.add(this.currentScene.camera.up, "y");
         up.add(this.currentScene.camera.up, "z");
       }
+      count += 1;
     }, 1500);
   }
 }
