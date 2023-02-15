@@ -67,3 +67,33 @@ export function loading() {
 
   return { loadingContainer, progress };
 }
+
+export function switchEraserSize(size: number) {
+  let url = "";
+  if (size <= 3) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_3.png) 3 3, crosshair`;
+  } else if (3 < size && size <= 8) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_8.png) 8 8, crosshair`;
+  } else if (8 < size && size <= 13) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_13.png) 13 13, crosshair`;
+  } else if (13 < size && size <= 18) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_18.png) 18 18, crosshair`;
+  } else if (18 < size && size <= 23) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_23.png) 23 23, crosshair`;
+  } else if (23 < size && size <= 28) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_28.png) 28 28, crosshair`;
+  } else if (28 < size && size <= 33) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_33.png) 33 33, crosshair`;
+  } else if (33 < size && size <= 38) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_38.png) 38 38, crosshair`;
+  } else if (38 < size && size <= 43) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_43.png) 43 43, crosshair`;
+  } else if (43 < size && size <= 48) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_48.png) 48 48, crosshair`;
+  } else if (48 < size && size <= 53) {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_52.png) 52 52, crosshair`;
+  } else {
+    url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_52.png) 52 52, crosshair`;
+  }
+  return url;
+}

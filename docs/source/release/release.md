@@ -1299,3 +1299,19 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.13.9
 
 - remove the gltf-exporter for test in nuxt.js
+
+## Release v1.13.10
+
+- solved the eraser size issue.
+- add opts in draw function.
+  ```ts
+  interface nrrdDrawImageOptType {
+    getMaskData?: (
+      masks: paintImageType[],
+      len: number,
+      width: number,
+      height: number
+    ) => void;
+  }
+  ```
+  - We can use this callback function to get the mask data.

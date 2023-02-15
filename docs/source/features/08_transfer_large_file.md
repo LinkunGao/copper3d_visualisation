@@ -1,0 +1,21 @@
+# Transfer large file to backend
+
+- try async await
+  - not work
+- try web worker
+  - not work: when use the original object.
+  - test deep copy the object: will cost `50s`
+    - Good news: the deep copy not affect the draw function on canvas
+    - Bad news: Causes browser crashes, if deal with the deep copy too many times.
+  - test pruning PaintImages array first, then use deep copy to deal with the object.
+    - Good news: pruning Array only include Uint8ClampedArray cause `0s`
+    - Good news: reformat the Uint8ClampedArray to normal list cause `1ms`
+    - Bad news: deep copy the object still cost `50s`
+  - test pruning PaintImages array(to Uint8ClampedArray[]), then reformat it without the deep copy.
+    - Bad news: the reformat array without deep copy will affect the paint function on canvas.
+  - test axios send the Uint8ClampedArray[] direactly
+    - Bad news: the JSON cannot convert the Uint8ClampedArray[] when use the axios.
+- Choose solution with Web worker, deepcopy, reformat array, axios.
+  - deepCopy: `40s`
+  - reformat data: `1ms`
+  - axios send to backend: `2~4ms`
