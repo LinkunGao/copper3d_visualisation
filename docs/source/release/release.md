@@ -1320,6 +1320,7 @@ const resetMainAreaSize = (factor: number) => {
 
 - Fixed copperRenderer gui ModelVisualisation bug.
 - update the copperRenderer optional type.
+
   ```ts
   interface optType {
     guiOpen: boolean;
@@ -1329,3 +1330,7 @@ const resetMainAreaSize = (factor: number) => {
     [key: string]: string | boolean | undefined;
   }
   ```
+
+  ## Release v1.13.12
+
+  - Fixed gui repeat issue
