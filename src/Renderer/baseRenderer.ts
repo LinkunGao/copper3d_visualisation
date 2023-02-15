@@ -192,9 +192,7 @@ export default class baseRenderer {
     let count = 0;
 
     const timer = setInterval(() => {
-      if (this.currentScene.content.children.length > 0) {
-        count = 0;
-      } else if (count === 5) {
+      if (this.currentScene.content.children.length > 0 || count >= 5) {
         count = 0;
         clearInterval(timer);
       }
@@ -264,6 +262,6 @@ export default class baseRenderer {
         up.add(this.currentScene.camera.up, "z");
       }
       count += 1;
-    }, 1500);
+    }, 3000);
   }
 }
