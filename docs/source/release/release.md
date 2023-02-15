@@ -1315,3 +1315,17 @@ const resetMainAreaSize = (factor: number) => {
   }
   ```
   - We can use this callback function to get the mask data.
+
+## Release v1.13.11
+
+- Fixed copperRenderer gui ModelVisualisation bug.
+- update the copperRenderer optional type.
+  ```ts
+  interface optType {
+    guiOpen: boolean;
+    camera?: boolean;
+    performance?: boolean;
+    light?: boolean;
+    [key: string]: string | boolean | undefined;
+  }
+  ```
