@@ -1334,3 +1334,79 @@ const resetMainAreaSize = (factor: number) => {
   ## Release v1.13.12
 
   - Fixed gui repeat issue
+
+  ## Release v1.13.13 - version for Nuxt - heart app
+
+  - removed Gltf exporter, because it cannot be build in Nuxt app.
+  - Update the vtkloader
+
+    - modified the opts, now we can customise the material `wireframe`, `color`, `transparent`, and `opacity`.
+      ```ts
+      scene?.loadVtks([
+        {
+          name: "heart_inner",
+          urls,
+          opts: { wireframe: true, color: "#cccccc" },
+        },
+        {
+          name: "heart_outer",
+          urls: urls_1,
+          opts: {
+            wireframe: false,
+            color: "rgb(214, 211, 212)",
+            transparent: true,
+            opacity: 0.5,
+          },
+        },
+      ]);
+      ```
+      - types
+      ```ts
+      interface IOptVTKLoader {
+        wireframe?: boolean;
+        color?: string | number;
+        transparent?: boolean;
+        opacity?: number;
+      }
+      ```
+
+  - Update the dicom loader
+    - we can use `getMesh`, `getCopperVolume` in copperSence.loadDicom() opts.
+      ```ts
+      scene.loadDicom(urls, {
+        gui,
+        getMesh(mesh) {
+          console.log(mesh);
+        },
+        getCopperVolume(copperVolume, updateTexture) {
+          copperVolume.windowWidth = 424;
+          copperVolume.windowCenter = 236;
+          updateTexture(copperVolume);
+        },
+        setAnimation(currentValue, depth, depthStep, copperVolume) {
+          currentValue += depthStep;
+          if (currentValue > depth) {
+            currentValue = 0;
+          }
+          return currentValue;
+        },
+      });
+      ```
+      - optsType:
+      ```ts
+      interface dicomLoaderOptsType {
+        gui?: GUI;
+        getMesh?: (mesh: THREE.Mesh) => void;
+        getCopperVolume?: (
+          copperVolume: copperVolumeType,
+          updateTexture: Function
+        ) => void;
+        setAnimation?: (
+          currentValue: number,
+          depth: number,
+          depthStep: number,
+          copperVolume: copperVolumeType
+        ) => number;
+      }
+      ```
+    - We can in getCopperVolume() function to update the volume windowWidth and windowCenter

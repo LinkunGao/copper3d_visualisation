@@ -45,7 +45,7 @@ export function createTexture2D_Array(
   depth: number,
   scene: THREE.Scene,
   gui?: GUI
-): THREE.Mesh {
+) {
   planeWidth = copperVolume.width / 2;
   planeHeight = copperVolume.height / 2;
 
@@ -64,20 +64,22 @@ export function createTexture2D_Array(
   texture.needsUpdate = true;
   if (gui) {
     gui
-      .add(state, "windowWidth")
+      .add(copperVolume, "windowWidth")
       .min(1)
       .max(copperVolume.windowWidth * 2)
       .step(1)
-      .onChange(() => {
-        updateTexture();
+      .onChange((value) => {
+        copperVolume.windowWidth = value;
+        updateTexture(copperVolume);
       });
     gui
-      .add(state, "windowCenter")
+      .add(copperVolume, "windowCenter")
       .min(1)
       .max(copperVolume.windowCenter * 2)
       .step(1)
-      .onChange(() => {
-        updateTexture();
+      .onChange((value) => {
+        copperVolume.windowCenter = value;
+        updateTexture(copperVolume);
       });
   }
 
@@ -99,20 +101,22 @@ export function createTexture2D_Array(
   scene.add(mesh);
   mesh.name = "texture2d_mesh_array";
 
-  function updateTexture() {
-    let voiLUT;
-    let lut = getLut(
-      copperVolume.uint16,
-      state.windowWidth,
-      state.windowCenter,
-      copperVolume.invert,
-      voiLUT
-    );
-    for (let i = 0, len = copperVolume.uint16.length; i < len; i++) {
-      copperVolume.uint8[i] = lut.lutArray[copperVolume.uint16[i]];
+  function updateTexture(copperVolumeUp: copperVolumeType) {
+    if (!!copperVolumeUp) {
+      let voiLUT;
+      let lut = getLut(
+        copperVolumeUp.uint16,
+        copperVolumeUp.windowWidth,
+        copperVolumeUp.windowCenter,
+        copperVolumeUp.invert,
+        voiLUT
+      );
+      for (let i = 0, len = copperVolumeUp.uint16.length; i < len; i++) {
+        copperVolumeUp.uint8[i] = lut.lutArray[copperVolumeUp.uint16[i]];
+      }
+      texture.needsUpdate = true;
     }
-    texture.needsUpdate = true;
   }
 
-  return mesh;
+  return { mesh, copperVolume, updateTexture };
 }

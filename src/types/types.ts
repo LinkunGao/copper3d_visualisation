@@ -185,6 +185,7 @@ interface optionsGltfExporterType {
 interface vtkModels {
   name: string;
   urls: Array<string>;
+  opts?: IOptVTKLoader;
 }
 
 interface undoType {
@@ -207,15 +208,27 @@ interface copperVolumeType {
 interface dicomLoaderOptsType {
   gui?: GUI;
   getMesh?: (mesh: THREE.Mesh) => void;
+  getCopperVolume?: (
+    copperVolume: copperVolumeType,
+    updateTexture: Function
+  ) => void;
   setAnimation?: (
     currentValue: number,
     depth: number,
-    depthStep: number
+    depthStep: number,
+    copperVolume: copperVolumeType
   ) => number;
 }
 
 interface skipSlicesDictType {
   [key: string]: any;
+}
+
+interface IOptVTKLoader {
+  wireframe?: boolean;
+  color?: string | number;
+  transparent?: boolean;
+  opacity?: number;
 }
 
 export type {
@@ -247,4 +260,5 @@ export type {
   skipSlicesDictType,
   exportPaintImagesType,
   exportPaintImageType,
+  IOptVTKLoader,
 };
