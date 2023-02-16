@@ -98,7 +98,8 @@ export default class copperScene extends baseScene {
 
   loadVtks(models: Array<vtkModels>) {
     let count = 0;
-    const { vtkLoader, vtkmaterial } = copperMultipleVtk();
+    let { vtkLoader } = copperMultipleVtk();
+
     const group = new THREE.Group();
 
     const finishInterval = setInterval(() => {
@@ -148,6 +149,7 @@ export default class copperScene extends baseScene {
       geometries: Array<THREE.BufferGeometry>,
       model: vtkModels
     ) => {
+      let { vtkmaterial } = copperMultipleVtk(model.opts);
       let geometry = geometries[0];
       geometries.forEach((child, index) => {
         if (index === 0) {

@@ -195,14 +195,21 @@ export default class commonScene {
 
       const finishLoad = (copperVolume: copperVolumeType) => {
         if (gui) gui.add(this, "depthStep").min(0.01).max(1).step(0.01);
-        const texture2dMesh = createTexture2D_Array(
+        const texture2d = createTexture2D_Array(
           copperVolume,
           depth,
           this.scene as THREE.Scene,
           gui
         );
 
-        let value = (texture2dMesh.material as any).uniforms["depth"].value;
+        if (opts?.getMesh) {
+          opts.getMesh(texture2d.mesh);
+        }
+        if (opts?.getCopperVolume) {
+          opts.getCopperVolume(texture2d.copperVolume, texture2d.updateTexture);
+        }
+
+        let value = (texture2d.mesh.material as any).uniforms["depth"].value;
 
         const render_texture2d = () => {
           // if (value > depth) {
@@ -211,8 +218,16 @@ export default class commonScene {
           // eval(
           //   "value += this.depthStep;if (value > depth) {value = 0;}"
           // );
+
+          // console.log(copperVolume);
+
           if (opts?.setAnimation) {
-            value = opts.setAnimation(value, depth, this.depthStep);
+            value = opts.setAnimation(
+              value,
+              depth,
+              this.depthStep,
+              copperVolume
+            );
           } else {
             value += this.depthStep;
             if (value > depth || value < 0.0) {
@@ -222,7 +237,7 @@ export default class commonScene {
             }
           }
 
-          (texture2dMesh.material as any).uniforms["depth"].value = value;
+          (texture2d.mesh.material as any).uniforms["depth"].value = value;
         };
         this.addPreRenderCallbackFunction(render_texture2d);
       };

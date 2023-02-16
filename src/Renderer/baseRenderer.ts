@@ -5,7 +5,7 @@ import { environments, environmentType } from "../lib/environment/index";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
 import Stats from "three/examples/jsm/libs/stats.module";
 import { GUI, GUIController } from "dat.gui";
-import ExportGltf from "../Utils/gltfExporter";
+
 import { optType, stateType, modelVisualisationDataType } from "../types/types";
 
 export default class baseRenderer {
@@ -24,7 +24,6 @@ export default class baseRenderer {
   private visualiseFolder: GUI | null;
   private visualCtrls: Array<GUIController> = [];
   private cameraFolder: GUI | null;
-  private exporter: ExportGltf | null = null;
 
   constructor(container: HTMLDivElement, options?: optType) {
     this.container = container;
@@ -57,14 +56,6 @@ export default class baseRenderer {
       directColor: 0xffffff,
       bgColor1: "#5454ad",
       bgColor2: "#18e5a7",
-      exportGltf: () => {
-        if (!this.exporter) {
-          this.exporter = new ExportGltf({
-            animations: this.currentScene.exportContent.animations,
-          });
-        }
-        this.exporter.export(this.currentScene.exportContent);
-      },
     };
     this.visualiseFolder = null;
     this.cameraFolder = null;
