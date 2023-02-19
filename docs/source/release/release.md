@@ -1410,3 +1410,8 @@ const resetMainAreaSize = (factor: number) => {
       }
       ```
     - We can in getCopperVolume() function to update the volume windowWidth and windowCenter
+
+## Release v1.13.14
+
+- re-add the export gltf function.
+- use these version to develop the nrrd tools app.

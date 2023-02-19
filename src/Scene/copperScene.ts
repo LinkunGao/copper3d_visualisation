@@ -151,11 +151,21 @@ export default class copperScene extends baseScene {
     ) => {
       let { vtkmaterial } = copperMultipleVtk(model.opts);
       let geometry = geometries[0];
+      const position = geometry.attributes.position;
       geometries.forEach((child, index) => {
         if (index === 0) {
           geometry = child;
           geometry.morphAttributes.position = [];
         } else {
+          // if (index == 1) {
+          //   geometry.morphAttributes.position.push(position);
+          // }
+          // if (index == 6) {
+          //   geometry.morphAttributes.position.push(child.attributes.position);
+          // }
+          // if (index == 7) {
+          //   geometry.morphAttributes.position.push(position);
+          // }
           geometry.morphAttributes.position.push(child.attributes.position);
         }
       });
@@ -171,6 +181,7 @@ export default class copperScene extends baseScene {
       let j = 0;
       let tracks = [];
       let duration = geometries.length - 1;
+      // let duration = 5;
       for (let i = 0; i < duration; i++) {
         const track = new THREE.KeyframeTrack(
           `${mesh.name}.morphTargetInfluences[${i}]`,
