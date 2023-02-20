@@ -1433,3 +1433,7 @@ const resetMainAreaSize = (factor: number) => {
   baseRenderer.setClearColor(clearColor?: number, alpha?: number): void
   ```
   - the default value is clearColor: 0x000000, alpha: 0
+
+## Release v1.13.16 - version for Nuxt - heart app
+
+- fixed the gui bug

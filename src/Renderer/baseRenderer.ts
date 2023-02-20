@@ -186,7 +186,7 @@ export default class baseRenderer {
       );
     }
 
-    gui.add(this.state, "exportGltf");
+    // gui.add(this.state, "exportGltf");
   }
 
   updateGui() {
