@@ -5,7 +5,6 @@ import { environments, environmentType } from "../lib/environment/index";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
 import Stats from "three/examples/jsm/libs/stats.module";
 import { GUI, GUIController } from "dat.gui";
-import ExportGltf from "../Utils/gltfExporter";
 import { optType, stateType, modelVisualisationDataType } from "../types/types";
 
 export default class baseRenderer {
@@ -24,14 +23,22 @@ export default class baseRenderer {
   private visualiseFolder: GUI | null;
   private visualCtrls: Array<GUIController> = [];
   private cameraFolder: GUI | null;
-  private exporter: ExportGltf | null = null;
 
   constructor(container: HTMLDivElement, options?: optType) {
     this.container = container;
     this.options = options;
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-    });
+    if (this.options?.alpha) {
+      this.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+      });
+      this.setClearColor();
+    } else {
+      this.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+      });
+    }
+
     this.renderer.physicallyCorrectLights = true;
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.gui = null;
@@ -39,10 +46,15 @@ export default class baseRenderer {
     this.pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     this.pmremGenerator.compileEquirectangularShader();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    if (!!this.options?.alpha) {
+      this.currentScene = new baseScene(this.container, this.renderer, true);
+    } else {
+      this.currentScene = new baseScene(this.container, this.renderer, false);
+    }
 
-    this.currentScene = new baseScene(this.container, this.renderer);
     this.currentScene.sceneName = "default";
-    this.updateEnvironment(this.currentScene.vignette);
+    !!this.currentScene.vignette &&
+      this.updateEnvironment(this.currentScene.vignette);
     this.state = {
       playbackSpeed: 1.0,
       wireframe: false,
@@ -57,14 +69,6 @@ export default class baseRenderer {
       directColor: 0xffffff,
       bgColor1: "#5454ad",
       bgColor2: "#18e5a7",
-      exportGltf: () => {
-        if (!this.exporter) {
-          this.exporter = new ExportGltf({
-            animations: this.currentScene.exportContent.animations,
-          });
-        }
-        this.exporter.export(this.currentScene.exportContent);
-      },
     };
     this.visualiseFolder = null;
     this.cameraFolder = null;
@@ -121,6 +125,10 @@ export default class baseRenderer {
   }
   closeGui() {
     this.gui && (this.gui.closed = true);
+  }
+
+  setClearColor(clearColor = 0x000000, alpha = 0) {
+    this.renderer.setClearColor(clearColor, alpha);
   }
 
   addGui() {

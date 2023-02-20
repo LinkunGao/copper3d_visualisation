@@ -12,7 +12,7 @@ export default class baseScene extends commonScene {
   // scene: THREE.Scene;
   // camera: THREE.PerspectiveCamera;
   sceneName: string = "";
-  vignette: customMeshType;
+  vignette: customMeshType | undefined;
   directionalLight: THREE.DirectionalLight;
   ambientLight: THREE.AmbientLight;
   copperControl: Controls;
@@ -26,19 +26,25 @@ export default class baseScene extends commonScene {
   private color2: string = "#18e5a7";
   private lights: any[] = [];
 
-  constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
+  constructor(
+    container: HTMLDivElement,
+    renderer: THREE.WebGLRenderer,
+    alpha?: boolean
+  ) {
     super(container);
     this.renderer = renderer;
 
     this.ambientLight = new THREE.AmbientLight(0x202020, 0.3);
     this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.3);
-    this.vignette = createBackground({
-      aspect: this.container.clientWidth / this.container.clientHeight,
-      grainScale: IS_IOS ? 0 : 0.001,
-      colors: [this.color1, this.color2],
-    });
-    this.vignette.mesh.name = "Vignette";
-    this.vignette.mesh.renderOrder = -1;
+    if (!alpha) {
+      this.vignette = createBackground({
+        aspect: this.container.clientWidth / this.container.clientHeight,
+        grainScale: IS_IOS ? 0 : 0.001,
+        colors: [this.color1, this.color2],
+      });
+      this.vignette.mesh.name = "Vignette";
+      this.vignette.mesh.renderOrder = -1;
+    }
 
     this.copperControl = new Controls(this.camera as THREE.PerspectiveCamera);
 
@@ -170,7 +176,9 @@ export default class baseScene extends commonScene {
     });
   }
   updateBackground(color1: string, color2: string) {
-    this.vignette.style({
+    console.log(this.vignette);
+
+    this.vignette?.style({
       colors: [color1, color2],
     });
   }
@@ -188,7 +196,7 @@ export default class baseScene extends commonScene {
     (this.camera as THREE.PerspectiveCamera).aspect =
       this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();
-    this.vignette.style({
+    this.vignette?.style({
       aspect: (this.camera as THREE.PerspectiveCamera).aspect,
     });
     this.renderer.setSize(

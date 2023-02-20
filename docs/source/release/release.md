@@ -1415,3 +1415,21 @@ const resetMainAreaSize = (factor: number) => {
 
 - re-add the export gltf function.
 - use these version to develop the nrrd tools app.
+
+## Release v1.13.15 - version for Nuxt - heart app
+
+- add an alpha attribute(optional) in options, when create a copper render.
+  ```ts
+  appRenderer = new Copper.copperRenderer(bg, {
+    guiOpen: true,
+    camera: true,
+    performance: true,
+    light: true,
+    alpha: true,
+  });
+  ```
+- add a setClearColor function in copper render.
+  ```ts
+  baseRenderer.setClearColor(clearColor?: number, alpha?: number): void
+  ```
+  - the default value is clearColor: 0x000000, alpha: 0

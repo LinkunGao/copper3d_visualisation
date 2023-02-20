@@ -11,6 +11,7 @@ interface optType {
   camera?: boolean;
   performance?: boolean;
   light?: boolean;
+  alpha?: boolean;
   [key: string]: string | boolean | undefined;
 }
 interface stateType {
