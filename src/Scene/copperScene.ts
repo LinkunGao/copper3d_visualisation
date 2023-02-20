@@ -39,8 +39,12 @@ export default class copperScene extends baseScene {
   // private preRenderCallbackFunctions: preRenderCallbackFunctionType;
   // private sort: boolean = true; //default ascending order
 
-  constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
-    super(container, renderer);
+  constructor(
+    container: HTMLDivElement,
+    renderer: THREE.WebGLRenderer,
+    alpha?: boolean
+  ) {
+    super(container, renderer, alpha);
     this.controls = new TrackballControls(
       this.camera,
       this.renderer.domElement
