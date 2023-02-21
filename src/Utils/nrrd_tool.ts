@@ -18,8 +18,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import copperMScene from "../Scene/copperMScene";
 import copperScene from "../Scene/copperScene";
 import { throttle } from "./raycaster";
-import { saveFileAsJson } from "./download";
 import { switchEraserSize } from "./utils";
+import { saveFileAsJson } from "./download";
 
 export class nrrd_tools {
   container: HTMLDivElement;
@@ -2433,107 +2433,39 @@ export class nrrd_tools {
     //   this.paintImages.y,
     //   this.paintImages.y.length
     // );
-    exportDataFormat.z = this.restructData(
-      this.paintImages.z,
-      this.paintImages.z.length,
-      this.nrrd_states.nrrd_x_centimeter,
-      this.nrrd_states.nrrd_y_centimeter
+
+    const worker = new Worker(
+      new URL("./workers/reformatSaveDataWorker.ts", import.meta.url),
+      {
+        type: "module",
+      }
     );
+    window.alert("Export masks, starting!!!");
+    worker.postMessage({
+      masksData: this.paintImages.z,
+      len: this.paintImages.z.length,
+      width: this.nrrd_states.nrrd_x_centimeter,
+      height: this.nrrd_states.nrrd_y_centimeter,
+      type: "reformat",
+    });
 
-    window.alert("Export all images, starting!!!");
-    try {
-      for (let i = 0; i < 3; i++) {
-        switch (i) {
-          case 0:
-            if (exportDataFormat.x.length > 0) {
-              const blob = new Blob([JSON.stringify(exportDataFormat.x)], {
-                type: "text/plain;charset=utf-8",
-              });
-              saveFileAsJson(blob, "copper3D_export data_x.json");
-            }
-            break;
+    worker.onmessage = (ev: MessageEvent) => {
+      const result = ev.data;
+      if (result.type === "reformat") {
+        exportDataFormat.z = result.masks;
 
-          case 1:
-            if (exportDataFormat.y.length > 0) {
-              const blob1 = new Blob([JSON.stringify(exportDataFormat.y)], {
-                type: "text/plain;charset=utf-8",
-              });
-              saveFileAsJson(blob1, "copper3D_export data_y.json");
-            }
-            break;
-          case 2:
-            if (exportDataFormat.z.length > 0) {
-              const blob2 = new Blob([JSON.stringify(exportDataFormat.z)], {
-                type: "text/plain;charset=utf-8",
-              });
-              saveFileAsJson(blob2, "copper3D_export data_z.json");
-            }
-            break;
+        worker.postMessage({
+          masksData: exportDataFormat.z,
+          type: "saveBlob",
+        });
+      } else if (result.type === "saveBlob") {
+        if (result.data) {
+          saveFileAsJson(result.data, "copper3D_export data_z.json");
+          window.alert("Export masks successfully!!!");
+        } else {
+          window.alert("Export failed!");
         }
       }
-
-      window.alert("Export all images successfully!!!");
-    } catch (error) {
-      console.log(error);
-
-      window.alert("Export failed!");
-    }
-  }
-  restructData(
-    originArr: paintImageType[],
-    len: number,
-    width: number,
-    height: number
-  ) {
-    const reformatData = [];
-    // const convertCanvas = document.createElement("canvas");
-    // const convertCtx = convertCanvas.getContext(
-    //   "2d"
-    // ) as CanvasRenderingContext2D;
-    for (let i = 0; i < len; i++) {
-      let exportTemp: exportPaintImageType = {
-        sliceIndex: 0,
-        dataFormat:
-          "RGBA - Each successive 4-digit number forms a pixel point in data array",
-        width,
-        height,
-        voxelSpacing: this.nrrd_states.voxelSpacing,
-        spaceOrigin: this.nrrd_states.spaceOrigin,
-        data: [],
-      };
-      exportTemp.sliceIndex = originArr[i].index;
-
-      // this.setEmptyCanvasSize();
-      // convertCanvas.width = this.nrrd_states.originWidth;
-      // convertCanvas.height = this.nrrd_states.originHeight;
-      // this.emptyCtx.putImageData(originArr[i].image, 0, 0);
-
-      // convertCtx.drawImage(
-      //   this.emptyCanvas,
-      //   0,
-      //   0,
-      //   convertCanvas.width,
-      //   convertCanvas.height
-      // );
-
-      // const imageData = convertCtx.getImageData(
-      //   0,
-      //   0,
-      //   convertCanvas.width,
-      //   convertCanvas.height
-      // );
-
-      const imageData = originArr[i].image;
-
-      const temp = [];
-      for (let j = 0; j < imageData.data.length; j++) {
-        temp.push(imageData.data[j]);
-      }
-
-      exportTemp.data = temp;
-      reformatData.push(exportTemp);
-    }
-
-    return reformatData;
+    };
   }
 }
