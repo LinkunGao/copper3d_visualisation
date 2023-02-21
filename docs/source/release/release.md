@@ -1437,3 +1437,7 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.13.16 - version for Nuxt - heart app
 
 - fixed the gui bug
+
+## Release v1.13.17
+
+- add web work in nrrd tools for export/download masks.
