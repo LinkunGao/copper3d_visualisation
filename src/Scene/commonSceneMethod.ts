@@ -44,16 +44,18 @@ export default class commonScene {
     );
     this.preRenderCallbackFunctions = {
       index: 0,
-      cache: {},
+      cache: [],
       add(fn) {
         if (!fn.id) {
-          fn.id = ++this.index;
-          this.cache[fn.id] = fn;
+          fn.id = this.cache.length;
+          this.cache.push(fn);
           return;
         }
       },
       remove(id) {
-        if (this.cache[id]) delete this.cache[id];
+        if (this.cache[id]) {
+          this.cache.splice(id, 1);
+        }
       },
     };
   }

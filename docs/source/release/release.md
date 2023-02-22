@@ -1454,4 +1454,11 @@ const resetMainAreaSize = (factor: number) => {
   setTimeout(() => {
     scene?.removePreRenderCallbackFunction(index);
   }, 3000);
+  // if we want add the a function again
+  setTimeout(() => {
+    if ((a as any).id) {
+      (a as any).id = undefind;
+    }
+    index = scene.addPreRenderCallbackFunction(a);
+  }, 3000);
   ```
