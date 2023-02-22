@@ -70,7 +70,7 @@ export default class copperMScene extends commonScene {
     this.controls = new OrbitControls(this.camera, this.container);
     this.preRenderCallbackFunctions = {
       index: 0,
-      cache: {},
+      cache: [],
       add(fn) {
         if (!fn.id) {
           fn.id = ++this.index;
