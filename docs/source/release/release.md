@@ -1440,4 +1440,18 @@ const resetMainAreaSize = (factor: number) => {
 
 ## Release v1.13.17
 
-- add web work in nrrd tools for export/download masks.
+- add web worker in nrrd tools for export/download masks.
+
+## Release v1.13.18
+
+- reset web worker url
+- add a remove prerender callback function
+  ```ts
+  const a = () => {
+    console.log("a");
+  };
+  const index = scene.addPreRenderCallbackFunction(a);
+  setTimeout(() => {
+    scene?.removePreRenderCallbackFunction(index);
+  }, 3000);
+  ```

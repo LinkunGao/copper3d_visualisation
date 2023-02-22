@@ -49,6 +49,7 @@ interface preRenderCallbackFunctionType {
   index: number;
   cache: cacheType;
   add: (fn: any) => void;
+  remove: (id: number) => void;
 }
 
 interface baseStateType {
