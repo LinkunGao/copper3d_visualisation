@@ -52,6 +52,9 @@ export default class commonScene {
           return;
         }
       },
+      remove(id) {
+        if (this.cache[id]) delete this.cache[id];
+      },
     };
   }
 
@@ -85,6 +88,10 @@ export default class commonScene {
     this.preRenderCallbackFunctions.add(callbackFunction);
     const id = this.preRenderCallbackFunctions.index;
     return id;
+  }
+
+  removePreRenderCallbackFunction(id: number) {
+    this.preRenderCallbackFunctions.remove(id);
   }
 
   pickModel(

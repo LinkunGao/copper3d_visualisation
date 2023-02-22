@@ -2434,12 +2434,15 @@ export class nrrd_tools {
     //   this.paintImages.y.length
     // );
 
-    const worker = new Worker(
-      new URL("./workers/reformatSaveDataWorker.ts", import.meta.url),
-      {
-        type: "module",
-      }
-    );
+    // const worker = new Worker(
+    //   new URL("./workers/reformatSaveDataWorker.ts", import.meta.url),
+    //   {
+    //     type: "module",
+    //   }
+    // );
+    const worker = new Worker("./workers/reformatSaveDataWorker.ts", {
+      type: "module",
+    });
     window.alert("Export masks, starting!!!");
     worker.postMessage({
       masksData: this.paintImages.z,
