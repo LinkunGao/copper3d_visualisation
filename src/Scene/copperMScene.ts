@@ -78,6 +78,9 @@ export default class copperMScene extends commonScene {
           return;
         }
       },
+      remove(id) {
+        if (this.cache[id]) delete this.cache[id];
+      },
     };
     this.init();
   }
@@ -320,6 +323,9 @@ export default class copperMScene extends commonScene {
     if (typeof position.z === "number") this.camera.position.z = position.z;
 
     this.setViewPoint(this.camera as THREE.PerspectiveCamera);
+  }
+  removePreRenderCallbackFunction(id: number) {
+    this.preRenderCallbackFunctions.remove(id);
   }
 
   resetView() {
