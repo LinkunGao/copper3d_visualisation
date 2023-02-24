@@ -228,8 +228,6 @@ export default class commonScene {
           //   "value += this.depthStep;if (value > depth) {value = 0;}"
           // );
 
-          // console.log(copperVolume);
-
           if (opts?.setAnimation) {
             value = opts.setAnimation(
               value,
@@ -253,7 +251,6 @@ export default class commonScene {
     } else {
       const url = urls;
       copperDicomLoader(url, (copperVolume) => {
-        // console.log(copperVolume.tags);
         createTexture2D_Array(copperVolume, 1, this.scene as THREE.Scene);
       });
     }
