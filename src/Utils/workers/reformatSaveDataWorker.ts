@@ -109,7 +109,7 @@ function restructData(
   return reformatData;
 }
 
-function convertReformatDataToBlob(maskData: paintImageType[]) {
+function convertReformatDataToBlob(maskData: any) {
   try {
     const blob = new Blob([JSON.stringify(maskData)], {
       type: "text/plain;charset=utf-8",
@@ -123,4 +123,4 @@ function convertReformatDataToBlob(maskData: paintImageType[]) {
   }
 }
 
-export { pruningData, restructData };
+export { pruningData, restructData, convertReformatDataToBlob };

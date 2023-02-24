@@ -1462,3 +1462,9 @@ const resetMainAreaSize = (factor: number) => {
     index = scene.addPreRenderCallbackFunction(a);
   }, 3000);
   ```
+
+## Release v1.13.20
+
+- test web worker
+  - add rollup-plugin-worker
+- remove logs

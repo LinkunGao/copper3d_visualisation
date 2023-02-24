@@ -20,6 +20,10 @@ import copperScene from "../Scene/copperScene";
 import { throttle } from "./raycaster";
 import { switchEraserSize } from "./utils";
 import { saveFileAsJson } from "./download";
+import {
+  restructData,
+  convertReformatDataToBlob,
+} from "./workers/reformatSaveDataWorker";
 
 export class nrrd_tools {
   container: HTMLDivElement;
@@ -2440,35 +2444,47 @@ export class nrrd_tools {
     //     type: "module",
     //   }
     // );
-    const worker = new Worker("./workers/reformatSaveDataWorker.ts", {
-      type: "module",
-    });
+
     window.alert("Export masks, starting!!!");
-    worker.postMessage({
-      masksData: this.paintImages.z,
-      len: this.paintImages.z.length,
-      width: this.nrrd_states.nrrd_x_centimeter,
-      height: this.nrrd_states.nrrd_y_centimeter,
-      type: "reformat",
-    });
+    const masks = restructData(
+      this.paintImages.z,
+      this.nrrd_states.nrrd_z_centimeter,
+      this.nrrd_states.nrrd_x_centimeter,
+      this.nrrd_states.nrrd_y_centimeter
+    );
+    const blob = convertReformatDataToBlob(masks);
+    if (blob) {
+      saveFileAsJson(blob, "copper3D_export data_z.json");
+      window.alert("Export masks successfully!!!");
+    } else {
+      window.alert("Export failed!");
+    }
 
-    worker.onmessage = (ev: MessageEvent) => {
-      const result = ev.data;
-      if (result.type === "reformat") {
-        exportDataFormat.z = result.masks;
+    // worker.postMessage({
+    //   masksData: this.paintImages.z,
+    //   len: this.paintImages.z.length,
+    //   width: this.nrrd_states.nrrd_x_centimeter,
+    //   height: this.nrrd_states.nrrd_y_centimeter,
+    //   type: "reformat",
+    // });
 
-        worker.postMessage({
-          masksData: exportDataFormat.z,
-          type: "saveBlob",
-        });
-      } else if (result.type === "saveBlob") {
-        if (result.data) {
-          saveFileAsJson(result.data, "copper3D_export data_z.json");
-          window.alert("Export masks successfully!!!");
-        } else {
-          window.alert("Export failed!");
-        }
-      }
-    };
+    // worker.onmessage = (ev: MessageEvent) => {
+    //   const result = ev.data;
+    //   if (result.type === "reformat") {
+    //     exportDataFormat.z = result.masks;
+
+    //     worker.postMessage({
+    //       masksData: exportDataFormat.z,
+    //       type: "saveBlob",
+    //     });
+    //   } else if (result.type === "saveBlob") {
+    //     if (result.data) {
+    //       saveFileAsJson(result.data, "copper3D_export data_z.json");
+    //       window.alert("Export masks successfully!!!");
+    //     } else {
+    //       window.alert("Export failed!");
+    //     }
+    //   }
+    // };
   }
 }

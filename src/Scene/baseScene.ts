@@ -176,8 +176,6 @@ export default class baseScene extends commonScene {
     });
   }
   updateBackground(color1: string, color2: string) {
-    console.log(this.vignette);
-
     this.vignette?.style({
       colors: [color1, color2],
     });
