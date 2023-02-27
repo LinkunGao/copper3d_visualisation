@@ -109,9 +109,9 @@ export class nrrd_tools {
     Mouse_Over: false,
     stepClear: 1,
     sizeFoctor: 1,
-    getMasks: (
-      masks: paintImageType[],
-      len: number,
+    getMask: (
+      mask: ImageData,
+      sliceId: number,
       width: number,
       height: number
     ) => {},
@@ -1070,7 +1070,7 @@ export class nrrd_tools {
     let subViewFolder: GUI;
 
     if (!!opts) {
-      this.nrrd_states.getMasks = opts?.getMaskData as any;
+      this.nrrd_states.getMask = opts?.getMaskData as any;
     }
 
     this.sceneIn = sceneIn;
@@ -2233,9 +2233,9 @@ export class nrrd_tools {
     }
 
     if (!this.nrrd_states.loadMaskJson) {
-      this.nrrd_states.getMasks(
-        this.paintImages.z,
-        this.paintImages.z.length,
+      this.nrrd_states.getMask(
+        imageData,
+        this.nrrd_states.currentIndex,
         this.nrrd_states.nrrd_x_centimeter,
         this.nrrd_states.nrrd_y_centimeter
       );
