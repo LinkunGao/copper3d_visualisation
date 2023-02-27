@@ -1468,3 +1468,7 @@ const resetMainAreaSize = (factor: number) => {
 - test web worker
   - add rollup-plugin-worker
 - remove logs
+
+## Release v1.13.21
+
+- fixed the export mask data no data value bug.
