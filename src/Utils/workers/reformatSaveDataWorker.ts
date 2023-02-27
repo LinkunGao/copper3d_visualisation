@@ -73,7 +73,7 @@ function restructData(
 
   let start: unknown = new Date();
 
-  const copiedArray = deepCopy(originArr) as paintImageType[];
+  // const copiedArray = deepCopy(originArr) as paintImageType[];
 
   let end: unknown = new Date();
   let timeDiff = (end as number) - (start as number); // time difference in milliseconds
@@ -93,13 +93,15 @@ function restructData(
 
     exportTemp.sliceIndex = originArr[i].index;
 
-    const imageData = copiedArray[i].image;
+    // const imageData = copiedArray[i].image;
 
     // const temp = Array.from(imageData.data).map((x) => Number(x));
-    const temp = [];
-    for (let j = 0; j < imageData.data.length; j++) {
-      temp.push(imageData.data[j]);
-    }
+    // const temp = [];
+    const copiedArray = originArr[i].image.data.slice();
+    const temp = [...copiedArray];
+    // for (let j = 0; j < imageData.data.length; j++) {
+    //   temp.push(imageData.data[j]);
+    // }
 
     (exportTemp as any).data = temp;
     reformatData.push(exportTemp);
