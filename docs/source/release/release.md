@@ -1472,3 +1472,9 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.13.21
 
 - fixed the export mask data no data value bug.
+
+## Release v1.13.22
+
+- update nrrd tools
+  - getVoxelSpacing()
+  - getSpaceOrigin()

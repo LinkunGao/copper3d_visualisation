@@ -336,6 +336,13 @@ export class nrrd_tools {
     return this.nrrd_states.dimensions;
   }
 
+  getVoxelSpacing() {
+    return this.nrrd_states.voxelSpacing;
+  }
+  getSpaceOrigin() {
+    return this.nrrd_states.spaceOrigin;
+  }
+
   private getSharedPlace(len: number, ratio: number): number[] {
     let old = -1;
     let same: number[] = [];
