@@ -1478,3 +1478,22 @@ const resetMainAreaSize = (factor: number) => {
 - update nrrd tools
   - getVoxelSpacing()
   - getSpaceOrigin()
+
+## Release v1.13.23
+
+- update nrrd_tools draw callback function
+
+  - now we can get current mask image, slice number, image width/height.
+
+  ```ts
+  const getMaskData = (
+    image: ImageData,
+    sliceId: number,
+    width: number,
+    height: number
+  ) => {
+    console.log(image);
+    console.log(sliceId);
+  };
+  nrrdTools.draw(scene as Copper.copperScene, gui, { getMaskData });
+  ```

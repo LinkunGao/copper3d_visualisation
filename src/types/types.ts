@@ -80,8 +80,8 @@ interface nrrdDragImageOptType {
 
 interface nrrdDrawImageOptType {
   getMaskData?: (
-    masks: paintImageType[],
-    len: number,
+    mask: ImageData,
+    sliceId: number,
     width: number,
     height: number
   ) => void;
