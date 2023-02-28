@@ -309,12 +309,12 @@ export class nrrd_tools {
     }
 
     this.setEmptyCanvasSize();
-    let imageData = this.emptyCtx.createImageData(
-      this.nrrd_states.nrrd_x_centimeter,
-      this.nrrd_states.nrrd_y_centimeter
-    );
 
     masksData.forEach((mask, index) => {
+      let imageData = this.emptyCtx.createImageData(
+        this.nrrd_states.nrrd_x_centimeter,
+        this.nrrd_states.nrrd_y_centimeter
+      );
       this.setEmptyCanvasSize();
 
       for (let j = 0; j < mask.data.length; j++) {

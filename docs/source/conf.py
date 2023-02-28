@@ -22,7 +22,7 @@ copyright = '2022, LinkunGao'
 author = 'LinkunGao'
 
 # The full version, including alpha/beta/rc tags
-release = 'v1.13.23'
+release = 'v1.13.24'
 
 
 # -- General configuration ---------------------------------------------------
