@@ -1497,3 +1497,12 @@ const resetMainAreaSize = (factor: number) => {
   };
   nrrdTools.draw(scene as Copper.copperScene, gui, { getMaskData });
   ```
+
+## Release v1.13.24
+
+- update the setMaskData() in nrrd tools
+
+## Release v1.13.25
+
+- update nrrd_tools eraser and it's size response speed
+  - now it can quick response when user drag the brushAndEraserSize slider.

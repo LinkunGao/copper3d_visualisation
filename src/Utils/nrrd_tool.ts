@@ -1716,13 +1716,18 @@ export class nrrd_tools {
       .add(this.gui_states, "brushAndEraserSize")
       .min(5)
       .max(50)
-      .step(1);
+      .step(1)
+      .onChange(() => {
+        if (this.gui_states.Eraser) {
+          this.drawingCanvas.style.cursor = switchEraserSize(
+            this.gui_states.brushAndEraserSize
+          );
+        }
+      });
 
     actionsFolder.add(this.gui_states, "Eraser").onChange((value) => {
       this.gui_states.Eraser = value;
       if (this.gui_states.Eraser) {
-        // this.drawingCanvas.style.cursor =
-        //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/circular-cursor.png) 52 52, crosshair";
         this.drawingCanvas.style.cursor = switchEraserSize(
           this.gui_states.brushAndEraserSize
         );
