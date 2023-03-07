@@ -35,7 +35,7 @@ export class nrrd_tools {
   private allSlicesArray: Array<nrrdSliceType> = [];
   // to store all display slices, only include one orientation (e.g, x,y,z) for all contrast slices.
   private displaySlices: Array<any> = [];
-  // Designed for reload displaySlices Array
+  // Designed for reload displaySlices Array, only one orientation!
   private backUpDisplaySlices: Array<any> = [];
   private skipSlicesDic: skipSlicesDictType = {};
   // The default axis for all contrast slice is set to "z" orientation.
@@ -990,7 +990,7 @@ export class nrrd_tools {
     ) {
       if (newIndex > this.nrrd_states.maxIndex) {
         newIndex = this.nrrd_states.maxIndex;
-        this.nrrd_states.contrastNum = 4;
+        this.nrrd_states.contrastNum = this.displaySlices.length - 1;
       } else if (newIndex < this.nrrd_states.minIndex) {
         newIndex = this.nrrd_states.minIndex;
         this.nrrd_states.contrastNum = 0;

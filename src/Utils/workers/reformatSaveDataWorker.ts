@@ -42,6 +42,14 @@ function deepCopy(obj: any): unknown {
     return copiedArray;
   }
 
+  if (obj instanceof Uint8ClampedArray) {
+    let copiedArray = [];
+    for (let i = 0; i < obj.length; i++) {
+      copiedArray[i] = deepCopy(obj[i]);
+    }
+    return copiedArray;
+  }
+
   if (obj instanceof Object) {
     let copiedObject: any = {};
     for (let key in obj) {
