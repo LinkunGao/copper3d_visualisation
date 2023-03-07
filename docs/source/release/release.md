@@ -1506,3 +1506,7 @@ const resetMainAreaSize = (factor: number) => {
 
 - update nrrd_tools eraser and it's size response speed
   - now it can quick response when user drag the brushAndEraserSize slider.
+
+## Release v1.13.26
+
+- fixed the nrrd_tools images disappear issue!
