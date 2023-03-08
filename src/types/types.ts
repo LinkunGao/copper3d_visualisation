@@ -83,7 +83,8 @@ interface nrrdDrawImageOptType {
     mask: ImageData,
     sliceId: number,
     width: number,
-    height: number
+    height: number,
+    clearAllFlag?: boolean
   ) => void;
 }
 
