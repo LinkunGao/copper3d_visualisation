@@ -1515,3 +1515,7 @@ const resetMainAreaSize = (factor: number) => {
 
 - add a clearAllFlag in getMask() function
   - users can get the flag outside
+
+## Release v1.13.28
+
+- update getMask() type
