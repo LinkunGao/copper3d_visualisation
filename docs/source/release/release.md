@@ -1510,3 +1510,8 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.13.26
 
 - fixed the nrrd_tools images disappear issue!
+
+## Release v1.13.27
+
+- add a clearAllFlag in getMask() function
+  - users can get the flag outside

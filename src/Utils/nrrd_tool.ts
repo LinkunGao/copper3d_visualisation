@@ -109,11 +109,13 @@ export class nrrd_tools {
     Mouse_Over: false,
     stepClear: 1,
     sizeFoctor: 1,
+    clearAllFlag: false,
     getMask: (
       mask: ImageData,
       sliceId: number,
       width: number,
-      height: number
+      height: number,
+      clearAllFlag: boolean
     ) => {},
     // defaultPaintCursor:
     //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
@@ -166,9 +168,11 @@ export class nrrd_tools {
     clearAll: () => {
       const text = "Are you sure remove annotations on All slice?";
       if (confirm(text) === true) {
+        this.nrrd_states.clearAllFlag = true;
         this.clearPaint();
         this.clearStoreImages();
       }
+      this.nrrd_states.clearAllFlag = false;
     },
     undo: () => {
       this.undoLastPainting();
@@ -2242,21 +2246,9 @@ export class nrrd_tools {
         imageData,
         this.nrrd_states.currentIndex,
         this.nrrd_states.nrrd_x_centimeter,
-        this.nrrd_states.nrrd_y_centimeter
+        this.nrrd_states.nrrd_y_centimeter,
+        this.nrrd_states.clearAllFlag
       );
-      // if (!!this.exportTimer) {
-      //   clearTimeout(this.exportTimer);
-      // }
-
-      // this.exportTimer = setTimeout(() => {
-      //   const masks = this.restructData(
-      //     this.paintImages.z,
-      //     this.paintImages.z.length,
-      //     this.nrrd_states.nrrd_x_centimeter,
-      //     this.nrrd_states.nrrd_y_centimeter
-      //   );
-      //   this.nrrd_states.getMasks(masks);
-      // }, 10000);
     }
   }
   // slice array to 2d array
