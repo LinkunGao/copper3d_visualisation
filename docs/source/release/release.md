@@ -1519,3 +1519,8 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.13.28
 
 - update getMask() type
+
+## Release v1.13.29
+
+- fixed the load mask function bug.
+  - if load a empty mask accidentally, there is no bugs any more!

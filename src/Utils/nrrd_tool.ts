@@ -305,34 +305,36 @@ export class nrrd_tools {
   }
 
   setMasksData(masksData: exportPaintImageType[], loadingBar?: loadingBarType) {
-    this.nrrd_states.loadMaskJson = true;
-    if (loadingBar) {
-      let { loadingContainer, progress } = loadingBar;
-      loadingContainer.style.display = "flex";
-      progress.innerText = "Loading masks data......";
-    }
-
-    this.setEmptyCanvasSize();
-
-    masksData.forEach((mask, index) => {
-      let imageData = this.emptyCtx.createImageData(
-        this.nrrd_states.nrrd_x_centimeter,
-        this.nrrd_states.nrrd_y_centimeter
-      );
-      this.setEmptyCanvasSize();
-
-      for (let j = 0; j < mask.data.length; j++) {
-        imageData.data[j] = mask.data[j];
+    if (!!masksData) {
+      this.nrrd_states.loadMaskJson = true;
+      if (loadingBar) {
+        let { loadingContainer, progress } = loadingBar;
+        loadingContainer.style.display = "flex";
+        progress.innerText = "Loading masks data......";
       }
 
-      this.emptyCtx.putImageData(imageData, 0, 0);
+      this.setEmptyCanvasSize();
 
-      this.storeAllImages(index);
-    });
-    this.nrrd_states.loadMaskJson = false;
-    this.gui_states.resetZoom();
-    if (loadingBar) {
-      loadingBar.loadingContainer.style.display = "none";
+      masksData.forEach((mask, index) => {
+        let imageData = this.emptyCtx.createImageData(
+          this.nrrd_states.nrrd_x_centimeter,
+          this.nrrd_states.nrrd_y_centimeter
+        );
+        this.setEmptyCanvasSize();
+
+        for (let j = 0; j < mask.data.length; j++) {
+          imageData.data[j] = mask.data[j];
+        }
+
+        this.emptyCtx.putImageData(imageData, 0, 0);
+
+        this.storeAllImages(index);
+      });
+      this.nrrd_states.loadMaskJson = false;
+      this.gui_states.resetZoom();
+      if (loadingBar) {
+        loadingBar.loadingContainer.style.display = "none";
+      }
     }
   }
 
