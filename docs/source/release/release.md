@@ -1524,3 +1524,10 @@ const resetMainAreaSize = (factor: number) => {
 
 - fixed the load mask function bug.
   - if load a empty mask accidentally, there is no bugs any more!
+
+## Release v1.13.30
+
+- the display panel doesn't reset to centre after select nrrd contrast images.
+- fixed bugs:
+  - Drag panel (right click) response speed too slow.
+  - Right click to drag panel not work initially, only work after using zoom. Now everything works well.
