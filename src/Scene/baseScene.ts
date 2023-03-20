@@ -201,6 +201,7 @@ export default class baseScene extends commonScene {
       this.container.clientWidth,
       this.container.clientHeight
     );
+    console.log("resize------------>");
   };
   render() {
     // this.onWindowResize();

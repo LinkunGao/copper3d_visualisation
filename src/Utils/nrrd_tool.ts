@@ -110,6 +110,8 @@ export class nrrd_tools {
     stepClear: 1,
     sizeFoctor: 1,
     clearAllFlag: false,
+    previousPanelL: -99999,
+    previousPanelT: -99999,
     getMask: (
       mask: ImageData,
       sliceId: number,
@@ -369,6 +371,11 @@ export class nrrd_tools {
     return same;
   }
 
+  /**
+   * init all painted images for store images
+   * @param dimensions
+   */
+
   private initPaintImages(dimensions: Array<number>) {
     // for x slices' marks
     for (let i = 0; i < dimensions[0]; i++) {
@@ -572,6 +579,10 @@ export class nrrd_tools {
     this.paintImages.z.length = 0;
 
     this.clearDictionary(this.skipSlicesDic);
+
+    // this.nrrd_states.previousPanelL = this.nrrd_states.previousPanelT = -99999;
+    this.displayCanvas.style.left = this.drawingCanvas.style.left = "";
+    this.displayCanvas.style.top = this.drawingCanvas.style.top = "";
 
     this.backUpDisplaySlices.length = 0;
     this.mainPreSlice = undefined;
@@ -795,13 +806,11 @@ export class nrrd_tools {
      */
     this.drawingCanvas.style.zIndex = "10";
     this.drawingCanvas.style.position = "absolute";
+
     this.drawingCanvas.width = this.nrrd_states.changedWidth;
     this.drawingCanvas.height = this.nrrd_states.changedHeight;
     this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
     this.drawingCanvas.oncontextmenu = () => false;
-
-    // this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
-    // this.displayCanvas.style.top = this.drawingCanvas.style.top = "0px";
 
     /**
      * layer1
@@ -1163,13 +1172,16 @@ export class nrrd_tools {
       passive: false,
     });
 
-    const handleDragPaintPanel = throttle((e: MouseEvent) => {
+    const handleDragPaintPanel = (e: MouseEvent) => {
       this.drawingCanvas.style.cursor = "grabbing";
+      this.nrrd_states.previousPanelL = e.clientX - panelMoveInnerX;
+      this.nrrd_states.previousPanelT = e.clientY - panelMoveInnerY;
       this.displayCanvas.style.left = this.drawingCanvas.style.left =
-        e.clientX - panelMoveInnerX + "px";
+        this.nrrd_states.previousPanelL + "px";
       this.displayCanvas.style.top = this.drawingCanvas.style.top =
-        e.clientY - panelMoveInnerY + "px";
-    }, 80);
+        this.nrrd_states.previousPanelT + "px";
+    };
+    // throttle(, 80);
     const handleDisplayMouseMove = (e: MouseEvent) => {
       this.nrrd_states.Mouse_Over_x = e.offsetX;
       this.nrrd_states.Mouse_Over_y = e.offsetY;
@@ -1268,10 +1280,15 @@ export class nrrd_tools {
           }
         } else if (e.button === 2) {
           rightclicked = true;
-          let offsetX = parseInt(this.drawingCanvas.style.left);
-          let offsetY = parseInt(this.drawingCanvas.style.top);
+
+          // let offsetX = parseInt(this.drawingCanvas.style.left);
+          // let offsetY = parseInt(this.drawingCanvas.style.top);
+          let offsetX = this.drawingCanvas.offsetLeft;
+          let offsetY = this.drawingCanvas.offsetTop;
+
           panelMoveInnerX = e.clientX - offsetX;
           panelMoveInnerY = e.clientY - offsetY;
+
           this.drawingCanvas.style.cursor = "grab";
           this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
           this.drawingCanvas.addEventListener(
@@ -1875,8 +1892,6 @@ export class nrrd_tools {
       this.displayCanvas.style.left = this.drawingCanvas.style.left = l + "px";
       this.displayCanvas.style.top = this.drawingCanvas.style.top = t + "px";
     } else {
-      this.displayCanvas.style.left = this.drawingCanvas.style.left = "";
-      this.displayCanvas.style.top = this.drawingCanvas.style.top = "";
       this.mainAreaContainer.style.justifyContent = "center";
       this.mainAreaContainer.style.alignItems = "center";
     }
