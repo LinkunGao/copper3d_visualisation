@@ -20,6 +20,16 @@ body {
   justify-content: center;
   align-items: center;
 }
+.split-bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  background-color: #555;
+  cursor: col-resize;
+  z-index: 99;
+}
 .copper3D_scene_div {
   border: 1px solid grey;
   position: relative;
