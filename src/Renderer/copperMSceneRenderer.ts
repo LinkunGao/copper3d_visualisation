@@ -118,6 +118,7 @@ export default class copperMSceneRenderer {
     const needResize =
       this.renderer.domElement.width !== width ||
       this.renderer.domElement.height !== height;
+
     if (needResize) {
       // to create a grid for multiple scenes
       this.elems.map((elem, index) => {

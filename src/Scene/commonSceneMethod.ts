@@ -14,6 +14,7 @@ import { createTexture2D_Array } from "../Utils/texture2d";
 import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
 import { pickModelDefault } from "../Utils/raycaster";
 import { Controls } from "../Controls/copperControls";
+import { objLoader } from "../Loader/copperOBJLoader";
 
 export default class commonScene {
   container: HTMLDivElement;
@@ -268,5 +269,21 @@ export default class commonScene {
     opts?: optsType
   ) {
     copperNrrdLoader(url, loadingBar, callback, opts);
+  }
+
+  loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
+    objLoader.load(
+      url,
+      (obj) => {
+        this.scene.add(obj);
+      }, // called when loading is in progresses
+      (xhr: any) => {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      (error: any) => {
+        console.log("An error happened");
+      }
+    );
   }
 }
