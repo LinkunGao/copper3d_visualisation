@@ -1535,3 +1535,8 @@ const resetMainAreaSize = (factor: number) => {
 ## Release v1.13.31
 
 - add a objloader
+
+## Release v1.13.32
+
+- update copper3d_nrrd_loader
+  - fixed the space issue.
