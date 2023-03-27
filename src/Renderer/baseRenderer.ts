@@ -240,7 +240,7 @@ export default class baseRenderer {
 
       modelChildrenArray.forEach((item) => {
         const ctrl = (this.visualiseFolder as GUI)
-          .add(item, "visible")
+          .add(item as any, "visible")
           .name(item.name)
           .onChange(() => {
             this.currentScene.updateModelChildrenVisualisation(item.mesh);
@@ -261,8 +261,8 @@ export default class baseRenderer {
           });
         }
 
-        this.cameraFolder?.add(this.currentScene.camera, "near");
-        this.cameraFolder?.add(this.currentScene.camera, "far");
+        this.cameraFolder?.add(this.currentScene.camera as any, "near");
+        this.cameraFolder?.add(this.currentScene.camera as any, "far");
         const subCameraFolders = this.cameraFolder?.__folders;
         for (let key in subCameraFolders) {
           if (Object.prototype.hasOwnProperty.call(subCameraFolders, key)) {
@@ -271,13 +271,13 @@ export default class baseRenderer {
           }
         }
         const position = this.cameraFolder?.addFolder("position") as GUI;
-        position.add(this.currentScene.camera.position, "x");
-        position.add(this.currentScene.camera.position, "y");
-        position.add(this.currentScene.camera.position, "z");
+        position.add(this.currentScene.camera.position as any, "x");
+        position.add(this.currentScene.camera.position as any, "y");
+        position.add(this.currentScene.camera.position as any, "z");
         const up = this.cameraFolder?.addFolder("up") as GUI;
-        up.add(this.currentScene.camera.up, "x");
-        up.add(this.currentScene.camera.up, "y");
-        up.add(this.currentScene.camera.up, "z");
+        up.add(this.currentScene.camera.up as any, "x");
+        up.add(this.currentScene.camera.up as any, "y");
+        up.add(this.currentScene.camera.up as any, "z");
       }
       count += 1;
     }, 3000);
