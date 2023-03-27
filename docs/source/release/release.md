@@ -1540,3 +1540,23 @@ const resetMainAreaSize = (factor: number) => {
 
 - update copper3d_nrrd_loader
   - fixed the space issue.
+
+## Release v1.13.33
+
+- update the copperNrrdLoader with segmentation.
+
+```ts
+copperNrrdLoader(
+  url: string,
+  loadingBar: loadingBarType,
+  segmentation: boolean,
+  callback?: (
+    volume: any,
+    nrrdMeshes: nrrdMeshesType,
+    nrrdSlices: nrrdSliceType,
+    gui?: GUI
+  ) => void,
+  opts?: optsType
+)
+sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
+```

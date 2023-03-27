@@ -17,8 +17,6 @@ let loader: any;
 
 loader = new NRRDLoader();
 
-loader.setSegmentation(true);
-
 // loader.setSegmentationn(true);
 
 let cube: THREE.Mesh;
@@ -38,6 +36,7 @@ export interface optsType {
 export function copperNrrdLoader(
   url: string,
   loadingBar: loadingBarType,
+  segmentation: boolean,
   callback?: (
     volume: any,
     nrrdMeshes: nrrdMeshesType,
@@ -52,6 +51,9 @@ export function copperNrrdLoader(
   let { loadingContainer, progress } = loadingBar;
 
   let name: string = url.split("/").pop() as string;
+
+  loader.setSegmentation(segmentation);
+
   loader.load(
     url,
     function (volume: any) {
