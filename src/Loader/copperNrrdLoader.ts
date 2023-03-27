@@ -396,7 +396,7 @@ export function getWholeSlices(
       //   // : (slicesX[index].visible = true);
       // }
     });
-  gui.add(controls, "enabled").name("controls");
+  gui.add(controls as any, "enabled").name("controls");
 }
 
 export function addBoxHelper(

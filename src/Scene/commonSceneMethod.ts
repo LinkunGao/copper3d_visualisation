@@ -204,7 +204,12 @@ export default class commonScene {
       });
 
       const finishLoad = (copperVolume: copperVolumeType) => {
-        if (gui) gui.add(this, "depthStep").min(0.01).max(1).step(0.01);
+        if (gui)
+          gui
+            .add(this as any, "depthStep")
+            .min(0.01)
+            .max(1)
+            .step(0.01);
         const texture2d = createTexture2D_Array(
           copperVolume,
           depth,
@@ -275,7 +280,16 @@ export default class commonScene {
     objLoader.load(
       url,
       (obj) => {
+        obj.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            (child as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+              side: THREE.DoubleSide,
+              color: 0xfff000,
+            });
+          }
+        });
         this.scene.add(obj);
+        !!callback && callback(obj);
       }, // called when loading is in progresses
       (xhr: any) => {
         console.log((xhr.loaded / xhr.total) * 100 + "% loaded");

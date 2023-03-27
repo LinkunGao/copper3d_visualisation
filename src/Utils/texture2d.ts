@@ -64,7 +64,7 @@ export function createTexture2D_Array(
   texture.needsUpdate = true;
   if (gui) {
     gui
-      .add(copperVolume, "windowWidth")
+      .add(copperVolume as any, "windowWidth")
       .min(1)
       .max(copperVolume.windowWidth * 2)
       .step(1)
@@ -73,7 +73,7 @@ export function createTexture2D_Array(
         updateTexture(copperVolume);
       });
     gui
-      .add(copperVolume, "windowCenter")
+      .add(copperVolume as any, "windowCenter")
       .min(1)
       .max(copperVolume.windowCenter * 2)
       .step(1)

@@ -8,6 +8,7 @@ import { pickModelDefault } from "../Utils/raycaster";
 import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
 import { copperVtkLoader, copperMultipleVtk } from "../Loader/copperVtkLoader";
 import { createTexture2D_Array, createTexture2D_Zip } from "../Utils/texture2d";
+import { objLoader } from "../Loader/copperOBJLoader";
 import baseScene from "./baseScene";
 import { GUI } from "dat.gui";
 import { copperDicomLoader } from "../Loader/copperDicomLoader";
@@ -95,6 +96,52 @@ export default class copperScene extends baseScene {
       }
     );
   }
+  // loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
+  //   objLoader.load(
+  //     url,
+  //     (obj) => {
+  //       obj.traverse((child) => {
+  //         if ((child as THREE.Mesh).isMesh) {
+  //           // (child as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+  //           //   side: THREE.DoubleSide,
+  //           //   color: 0xffffff,
+  //           // });
+  //           // ((child as THREE.Mesh).material as THREE.MeshPhongMaterial).color =
+  //           //   new THREE.Color(0xffffff);
+  //         }
+  //       });
+  //       const box = new THREE.Box3().setFromObject(obj);
+  //       const size = box.getSize(new THREE.Vector3()).length();
+  //       const center = box.getCenter(new THREE.Vector3());
+
+  //       this.controls.maxDistance = size * 10;
+  //       obj.position.x += obj.position.x - center.x;
+  //       obj.position.y += obj.position.y - center.y;
+  //       obj.position.z += obj.position.z - center.z;
+
+  //       if (!this.cameraPositionFlag) {
+  //         this.camera.position.copy(center);
+  //         this.camera.position.x += size / 2.0;
+  //         this.camera.position.y += size / 5.0;
+  //         this.camera.position.z += size / 2.0;
+  //         this.camera.lookAt(center);
+  //         this.viewPoint = this.setViewPoint(
+  //           this.camera as THREE.PerspectiveCamera,
+  //           [center.x, center.y, center.z]
+  //         );
+  //       }
+  //       this.scene.add(obj);
+  //       !!callback && callback(obj);
+  //     }, // called when loading is in progresses
+  //     (xhr: any) => {
+  //       console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+  //     },
+  //     // called when loading has errors
+  //     (error: any) => {
+  //       console.log("An error happened");
+  //     }
+  //   );
+  // }
 
   loadVtk(url: string) {
     copperVtkLoader(url, this.scene, this.content);
