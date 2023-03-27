@@ -265,6 +265,7 @@ export default class commonScene {
   loadNrrd(
     url: string,
     loadingBar: loadingBarType,
+    segmentation: boolean,
     callback?: (
       volume: any,
       nrrdMeshes: nrrdMeshesType,
@@ -273,7 +274,7 @@ export default class commonScene {
     ) => void,
     opts?: optsType
   ) {
-    copperNrrdLoader(url, loadingBar, callback, opts);
+    copperNrrdLoader(url, loadingBar, segmentation, callback, opts);
   }
 
   loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
