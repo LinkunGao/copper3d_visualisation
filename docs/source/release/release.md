@@ -1585,3 +1585,4 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 - fixed the nrrd_tools load mask issue.
 - update default nrrd gui.
   - now it base on mm slice number.
+- update nrrd plugin based on threejs team suggestions.
