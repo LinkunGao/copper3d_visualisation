@@ -96,23 +96,35 @@ export function copperNrrdLoader(
         z: sliceZ,
       };
 
+      const state = {
+        indexX: initIndexX,
+        indexY: initIndexY,
+        indexZ: initIndexZ,
+      };
+
       if (gui) {
         gui
-          .add(sliceX, "index", 0, volume.RASDimensions[0] - 1, 1)
+          .add(state, "indexX", 0, volume.dimensions[0] - 1)
+          .step(1)
           .name("indexX")
-          .onChange(function () {
+          .onChange(function (val) {
+            sliceX.index = val * sliceX.RSARatio;
             sliceX.repaint.call(sliceX);
           });
         gui
-          .add(sliceY, "index", 0, volume.RASDimensions[1] - 1, 1)
+          .add(state, "indexY", 0, volume.dimensions[1] - 1)
+          .step(1)
           .name("indexY")
-          .onChange(function () {
+          .onChange(function (val) {
+            sliceY.index = val * sliceY.RSARatio;
             sliceY.repaint.call(sliceY);
           });
         gui
-          .add(sliceZ, "index", 0, volume.RASDimensions[2] - 1, 1)
+          .add(state, "indexZ", 0, volume.dimensions[2] - 1)
+          .step(1)
           .name("indexZ")
-          .onChange(function () {
+          .onChange(function (val) {
+            sliceZ.index = val * sliceZ.RSARatio;
             sliceZ.repaint.call(sliceZ);
           });
 
