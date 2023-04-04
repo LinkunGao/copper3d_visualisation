@@ -68,10 +68,10 @@ export function copperNrrdLoader(
       const initIndexY = Math.floor(dimensions[1] / 2);
       const initIndexX = Math.floor(dimensions[0] / 2);
 
-      const sliceZ = volume.extractSlice("z", initIndexZ);
-      const sliceY = volume.extractSlice("y", initIndexY);
+      const sliceZ = volume.extractSlice("z", initIndexZ * ratio[2]);
+      const sliceY = volume.extractSlice("y", initIndexY * ratio[1]);
       //x plane
-      const sliceX = volume.extractSlice("x", initIndexX);
+      const sliceX = volume.extractSlice("x", initIndexX * ratio[0]);
       sliceZ.initIndex = initIndexZ;
       sliceY.initIndex = initIndexY;
       sliceX.initIndex = initIndexX;
@@ -98,13 +98,13 @@ export function copperNrrdLoader(
 
       if (gui) {
         gui
-          .add(sliceX, "index", 0, volume.RASDimensions[0], 1)
+          .add(sliceX, "index", 0, volume.RASDimensions[0] - 1, 1)
           .name("indexX")
           .onChange(function () {
             sliceX.repaint.call(sliceX);
           });
         gui
-          .add(sliceY, "index", 0, volume.RASDimensions[1], 1)
+          .add(sliceY, "index", 0, volume.RASDimensions[1] - 1, 1)
           .name("indexY")
           .onChange(function () {
             sliceY.repaint.call(sliceY);

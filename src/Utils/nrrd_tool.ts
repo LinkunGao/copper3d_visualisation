@@ -251,6 +251,8 @@ export class nrrd_tools {
 
   /**
    *
+   * entry function
+   * 
    * @param allSlices - all nrrd contrast slices
    * {
    *    x:slice,
@@ -270,8 +272,12 @@ export class nrrd_tools {
       this.allSlicesArray[0].x.volume.dimensions[1];
     this.nrrd_states.nrrd_z_centimeter =
       this.allSlicesArray[0].x.volume.dimensions[2];
-    this.nrrd_states.dimensions = this.allSlicesArray[0].x.volume.dimensions;
     this.nrrd_states.voxelSpacing = this.allSlicesArray[0].x.volume.spacing;
+    this.nrrd_states.ratios.x = this.allSlicesArray[0].x.volume.spacing[0]
+    this.nrrd_states.ratios.y = this.allSlicesArray[0].x.volume.spacing[1]
+    this.nrrd_states.ratios.z = this.allSlicesArray[0].x.volume.spacing[2]
+    this.nrrd_states.dimensions = this.allSlicesArray[0].x.volume.dimensions;
+    
 
     this.allSlicesArray.forEach((item, index) => {
       item.x.contrastOrder = index;
@@ -437,12 +443,13 @@ export class nrrd_tools {
       if (axis === "z") {
         if (this.nrrd_states.isCursorSelect && !this.cursorPage.z.updated) {
           if (this.axis === "x") {
-            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.nrrd_states.currentIndex =
               Math.ceil(
                 (this.cursorPage.x.cursorPageX /
                   this.nrrd_states.nrrd_z_pixel) *
                   this.nrrd_states.dimensions[2]
               );
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex*this.nrrd_states.ratios.z
 
             this.nrrd_states.cursorPageX = Math.ceil(
               (this.cursorPage.x.index / this.nrrd_states.dimensions[0]) *
@@ -450,13 +457,13 @@ export class nrrd_tools {
             );
           }
           if (this.axis === "y") {
-            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.nrrd_states.currentIndex =
               Math.ceil(
                 (this.cursorPage.y.cursorPageY /
                   this.nrrd_states.nrrd_z_pixel) *
                   this.nrrd_states.dimensions[2]
               );
-
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex*this.nrrd_states.ratios.z
             this.nrrd_states.cursorPageY = Math.ceil(
               (this.cursorPage.y.index / this.nrrd_states.dimensions[1]) *
                 this.nrrd_states.nrrd_y_pixel
@@ -464,33 +471,34 @@ export class nrrd_tools {
           }
           this.cursorPage.z.updated = true;
         } else {
-          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
-            this.cursorPage.z.index;
+           this.nrrd_states.currentIndex = this.cursorPage.z.index;
+           this.nrrd_states.oldIndex = this.cursorPage.z.index * this.nrrd_states.ratios.z;
           this.nrrd_states.cursorPageX = this.cursorPage.z.cursorPageX;
           this.nrrd_states.cursorPageY = this.cursorPage.z.cursorPageY;
         }
       } else if (axis === "x") {
         if (this.nrrd_states.isCursorSelect && !this.cursorPage.x.updated) {
           if (this.axis === "z") {
-            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.nrrd_states.currentIndex =
               Math.ceil(
                 (this.cursorPage.z.cursorPageX /
                   this.nrrd_states.nrrd_x_pixel) *
                   this.nrrd_states.dimensions[0]
               );
+            this.nrrd_states.oldIndex =  this.nrrd_states.currentIndex * this.nrrd_states.ratios.x
             this.nrrd_states.cursorPageX = Math.floor(
               (this.cursorPage.z.index / this.nrrd_states.dimensions[2]) *
                 this.nrrd_states.nrrd_z_pixel
             );
           }
           if (this.axis === "y") {
-            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.nrrd_states.currentIndex =
               Math.ceil(
                 (this.cursorPage.y.cursorPageX /
                   this.nrrd_states.nrrd_y_pixel) *
                   this.nrrd_states.dimensions[1]
               );
-
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex * this.nrrd_states.ratios.x
             this.nrrd_states.cursorPageX = this.cursorPage.y.cursorPageY;
             this.nrrd_states.cursorPageY = Math.ceil(
               (this.cursorPage.y.index / this.nrrd_states.dimensions[1]) *
@@ -499,32 +507,34 @@ export class nrrd_tools {
           }
           this.cursorPage.x.updated = true;
         } else {
-          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
-            this.cursorPage.x.index;
+          this.nrrd_states.currentIndex = this.cursorPage.x.index;
+            this.nrrd_states.oldIndex = this.cursorPage.x.index * this.nrrd_states.ratios.x
           this.nrrd_states.cursorPageX = this.cursorPage.x.cursorPageX;
           this.nrrd_states.cursorPageY = this.cursorPage.x.cursorPageY;
         }
       } else if (axis === "y") {
         if (this.nrrd_states.isCursorSelect && !this.cursorPage.y.updated) {
           if (this.axis === "z") {
-            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.nrrd_states.currentIndex =
               Math.ceil(
                 (this.cursorPage.z.cursorPageY /
                   this.nrrd_states.nrrd_y_pixel) *
                   this.nrrd_states.dimensions[1]
               );
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex * this.nrrd_states.ratios.y
             this.nrrd_states.cursorPageY = Math.ceil(
               (this.cursorPage.z.index / this.nrrd_states.dimensions[2]) *
                 this.nrrd_states.nrrd_z_pixel
             );
           }
           if (this.axis === "x") {
-            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.nrrd_states.currentIndex =
               Math.ceil(
                 (this.cursorPage.x.cursorPageY /
                   this.nrrd_states.nrrd_x_pixel) *
                   this.nrrd_states.dimensions[0]
               );
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex * this.nrrd_states.ratios.y
             this.nrrd_states.cursorPageX = Math.ceil(
               (this.cursorPage.x.index / this.nrrd_states.dimensions[0]) *
                 this.nrrd_states.nrrd_x_pixel
@@ -533,8 +543,8 @@ export class nrrd_tools {
           }
           this.cursorPage.y.updated = true;
         } else {
-          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
-            this.cursorPage.y.index;
+          this.nrrd_states.currentIndex = this.cursorPage.y.index;
+          this.nrrd_states.oldIndex = this.cursorPage.y.index * this.nrrd_states.ratios.y
           this.nrrd_states.cursorPageX = this.cursorPage.y.cursorPageX;
           this.nrrd_states.cursorPageY = this.cursorPage.y.cursorPageY;
         }
@@ -645,7 +655,8 @@ export class nrrd_tools {
   }
 
   getCurrentSliceIndex() {
-    return Math.ceil(this.mainPreSlice.index);
+    
+    return Math.ceil(this.mainPreSlice.index/this.nrrd_states.RSARatio);
   }
 
   getIsShowContrastState() {
@@ -728,11 +739,11 @@ export class nrrd_tools {
         this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
 
       if (this.initState) {
-        this.nrrd_states.oldIndex = this.mainPreSlice.initIndex;
+        this.nrrd_states.oldIndex = this.mainPreSlice.initIndex*this.nrrd_states.RSARatio;
         this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
       } else {
         // !need to change
-
+        // todo
         this.mainPreSlice.index = this.nrrd_states.oldIndex;
       }
 
@@ -745,14 +756,17 @@ export class nrrd_tools {
     this.setMainPreSlice();
     this.setOriginCanvasAndPre();
     this.currentShowingSlice = this.mainPreSlice;
+    this.nrrd_states.oldIndex = this.mainPreSlice.initIndex*this.nrrd_states.RSARatio;
+    this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
     this.undoArray = [
       {
-        sliceIndex: this.mainPreSlice.index,
+        // todo
+        // sliceIndex: this.mainPreSlice.index,
+        sliceIndex:this.nrrd_states.currentIndex,
         undos: [],
       },
     ];
-    this.nrrd_states.oldIndex = this.mainPreSlice.initIndex;
-    this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
+    
     // compute max index
     this.updateMaxIndex();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
@@ -909,12 +923,11 @@ export class nrrd_tools {
           handleOnMouseMove,
           false
         );
-        // this.nrrd_states.oldIndex = this.mainPreSlice.index;
         sensivity = this.sensitiveArray[this.gui_states.dragSensitivity - 1];
       }
     };
     handleOnMouseMove = throttle((ev: MouseEvent) => {
-      // this.nrrd_states.oldIndex = this.mainPreSlice.index;
+
       if (y - ev.offsetY / h >= 0) {
         move = -Math.ceil(((y - ev.offsetY / h) * 10) / sensivity);
       } else {
@@ -974,7 +987,9 @@ export class nrrd_tools {
       contrastModifyNum = move % this.displaySlices.length;
       this.nrrd_states.contrastNum += contrastModifyNum;
       if (move > 0) {
-        if (this.mainPreSlice.index <= this.nrrd_states.maxIndex) {
+        // todo
+        // if (this.mainPreSlice.index <= this.nrrd_states.maxIndex) {
+        if (this.nrrd_states.currentIndex <= this.nrrd_states.maxIndex) {
           sliceModifyNum = Math.floor(move / this.displaySlices.length);
 
           if (this.nrrd_states.contrastNum > this.displaySlices.length - 1) {
@@ -995,12 +1010,11 @@ export class nrrd_tools {
       sliceModifyNum = move;
     }
 
-    // this.updateShowNumDiv(this.contrastNum, this.oldIndex);
-
-    let newIndex = this.nrrd_states.oldIndex + sliceModifyNum;
+    // let newIndex = this.nrrd_states.oldIndex + sliceModifyNum;
+    let newIndex = this.nrrd_states.currentIndex + sliceModifyNum;
 
     if (
-      newIndex != this.nrrd_states.oldIndex ||
+      newIndex != this.nrrd_states.currentIndex ||
       this.nrrd_states.showContrast
     ) {
       if (newIndex > this.nrrd_states.maxIndex) {
@@ -1010,12 +1024,14 @@ export class nrrd_tools {
         newIndex = this.nrrd_states.minIndex;
         this.nrrd_states.contrastNum = 0;
       } else {
-        this.mainPreSlice.index = newIndex;
 
-        this.nrrd_states.currentIndex = newIndex;
 
-        if (newIndex != this.nrrd_states.oldIndex)
+        this.mainPreSlice.index = newIndex*this.nrrd_states.RSARatio;
+        // clear drawing canvas, and display next slice
+        if (newIndex != this.nrrd_states.currentIndex){
           this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
+        }
+          
         this.displayCanvas.width = this.displayCanvas.width;
 
         if (this.nrrd_states.changedWidth === 0) {
@@ -1025,12 +1041,13 @@ export class nrrd_tools {
 
         // get the slice that need to be updated on displayCanvas
         let needToUpdateSlice = this.updateCurrentContrastSlice();
+        
         needToUpdateSlice.repaint.call(needToUpdateSlice);
 
         this.drawDragSlice(needToUpdateSlice.canvas, newIndex);
       }
-      // this.nrrd_states.oldIndex = this.mainPreSlice.index;
-      this.nrrd_states.oldIndex = newIndex;
+      this.nrrd_states.currentIndex = newIndex;
+      this.nrrd_states.oldIndex = newIndex*this.nrrd_states.RSARatio;
       this.updateShowNumDiv(this.nrrd_states.contrastNum);
     }
   }
@@ -1053,7 +1070,7 @@ export class nrrd_tools {
       this.paintImages.y.length > 0 ||
       this.paintImages.z.length > 0
     ) {
-      if (newIndex != this.nrrd_states.oldIndex) {
+      if (newIndex != this.nrrd_states.currentIndex) {
         this.paintedImage = this.filterDrawedImage(
           this.axis,
           this.nrrd_states.currentIndex
@@ -1135,6 +1152,8 @@ export class nrrd_tools {
     let panelMoveInnerX = 0;
     let panelMoveInnerY = 0;
 
+    // todo
+    // let currentSliceIndex = this.mainPreSlice.index;
     let currentSliceIndex = this.mainPreSlice.index;
 
     // draw lines starts position
@@ -1221,6 +1240,7 @@ export class nrrd_tools {
         }
 
         // when switch slice, clear previousDrawingImage
+        // todo
         if (currentSliceIndex !== this.mainPreSlice.index) {
           this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
           currentSliceIndex = this.mainPreSlice.index;

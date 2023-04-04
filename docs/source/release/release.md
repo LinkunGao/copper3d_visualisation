@@ -1560,3 +1560,22 @@ copperNrrdLoader(
 )
 sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ```
+
+## Release v1.14.0
+
+- Update objloader.
+  - now the callback function works.
+  - can get mesh out side.
+- Update CopperMScene.
+  - set the trackball control as default controller.
+- Update copper3d_nrrd_plugin.
+  - display as micorns, not the pixels.
+    - pixels \* spacing = mm
+  - addressed the threejs loader to load the 16-bits nrrds.
+  - addressed the spacing issue among each direction of nrrd.
+- Update nrrd_tools to fit the new nrrd volume format by threejs loader.
+  - drag function.
+  - paint function.
+  - save mask data function.
+  - undo function.
+  - crosshair function.

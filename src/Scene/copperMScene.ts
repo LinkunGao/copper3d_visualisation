@@ -6,6 +6,7 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
+import { objLoader } from "../Loader/copperOBJLoader";
 import { isPickedModel, throttle } from "../Utils/raycaster";
 import {
   mouseMovePositionType,
@@ -16,6 +17,7 @@ import { copperNrrdLoader1, getWholeSlices } from "../Loader/copperNrrdLoader";
 import { isIOS } from "../Utils/utils";
 
 import commonScene from "./commonSceneMethod";
+
 
 const IS_IOS = isIOS();
 
@@ -66,8 +68,10 @@ export default class copperMScene extends commonScene {
     this.vignette.mesh.renderOrder = -1;
 
     this.copperControl = new Controls(this.camera);
-    // this.controls = new TrackballControls(this.camera, container);
-    this.controls = new OrbitControls(this.camera, this.container);
+    this.controls = new TrackballControls(this.camera, this.container);
+    this.controls.rotateSpeed = 0.02;
+    this.controls.staticMoving = true
+    // this.controls = new OrbitControls(this.camera, this.container);
     this.preRenderCallbackFunctions = {
       index: 0,
       cache: [],
@@ -126,6 +130,7 @@ export default class copperMScene extends commonScene {
       default:
         this.controls = new TrackballControls(this.camera, this.container);
         this.controls.rotateSpeed = 0.01;
+        this.controls.staticMoving = true
         break;
     }
   }
@@ -249,6 +254,53 @@ export default class copperMScene extends commonScene {
     this.controls.enablePan = false;
     this.renderNrrdVolume = true;
     copperNrrdLoader1(url, this.scene, this.container, callback);
+  }
+
+  loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
+    objLoader.load(
+      url,
+      (obj) => {
+        obj.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            // (child as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+            //   side: THREE.DoubleSide,
+            //   color: 0xffffff,
+            // });
+            // ((child as THREE.Mesh).material as THREE.MeshPhongMaterial).color =
+            //   new THREE.Color(0xffffff);
+          }
+        });
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = box.getSize(new THREE.Vector3()).length();
+        const center = box.getCenter(new THREE.Vector3());
+
+        this.controls.maxDistance = size * 10;
+        obj.position.x += obj.position.x - center.x;
+        obj.position.y += obj.position.y - center.y;
+        obj.position.z += obj.position.z - center.z;
+
+        if (!this.cameraPositionFlag) {
+          this.camera.position.copy(center);
+          this.camera.position.x += size / 2.0;
+          this.camera.position.y += size / 5.0;
+          this.camera.position.z += size / 2.0;
+          this.camera.lookAt(center);
+          this.viewPoint = this.setViewPoint(
+            this.camera as THREE.PerspectiveCamera,
+            [center.x, center.y, center.z]
+          );
+        }
+        this.scene.add(obj);
+        !!callback && callback(obj);
+      }, // called when loading is in progresses
+      (xhr: any) => {
+        // console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      (error: any) => {
+        console.log("An error happened");
+      }
+    );
   }
 
   drawWholeNrrd(nrrdSlices: nrrdSliceType) {

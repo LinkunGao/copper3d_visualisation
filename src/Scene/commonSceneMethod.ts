@@ -293,7 +293,7 @@ export default class commonScene {
         !!callback && callback(obj);
       }, // called when loading is in progresses
       (xhr: any) => {
-        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+        // console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
       },
       // called when loading has errors
       (error: any) => {
