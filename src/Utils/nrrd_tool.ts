@@ -775,6 +775,7 @@ export class nrrd_tools {
   }
 
   private updateCurrentContrastSlice() {
+    
     this.currentShowingSlice = this.displaySlices[this.nrrd_states.contrastNum];
     return this.currentShowingSlice;
   }
@@ -911,7 +912,7 @@ export class nrrd_tools {
       // before start drag event, remove wheel event.
       this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
       if (ev.button === 0) {
-        this.setSyncsliceNum();
+        // this.setSyncsliceNum();
         y = ev.offsetY / h;
         this.container.addEventListener(
           "pointermove",
@@ -1019,8 +1020,9 @@ export class nrrd_tools {
         this.nrrd_states.contrastNum = 0;
       } else {
         this.mainPreSlice.index = newIndex * this.nrrd_states.RSARatio;
-        // clear drawing canvas, and display next slice
-
+        // clear drawing canvas, and display next slicez
+        this.setSyncsliceNum();
+        
         if (newIndex != this.nrrd_states.currentIndex) {
           this.nrrd_states.switchSliceFlag = true;
           this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
@@ -1035,7 +1037,7 @@ export class nrrd_tools {
 
         // get the slice that need to be updated on displayCanvas
         let needToUpdateSlice = this.updateCurrentContrastSlice();
-
+        
         needToUpdateSlice.repaint.call(needToUpdateSlice);
         this.nrrd_states.currentIndex = newIndex;
         this.drawDragSlice(needToUpdateSlice.canvas);
