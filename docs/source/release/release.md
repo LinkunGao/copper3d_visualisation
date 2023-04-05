@@ -1586,3 +1586,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 - update default nrrd gui.
   - now it base on mm slice number.
 - update nrrd plugin based on threejs team suggestions.
+
+## Release v1.14.2
+
+- fixed the slice order issue, when we drag the slice down.
