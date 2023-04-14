@@ -82,6 +82,7 @@ interface nrrdDrawImageOptType {
   getMaskData?: (
     mask: ImageData,
     sliceId: number,
+    label:string,
     width: number,
     height: number,
     clearAllFlag?: boolean
@@ -159,6 +160,11 @@ interface paintImageType {
   index: number;
   image: ImageData;
 }
+interface storedPaintImagesType {
+  label1: paintImagesType;
+  label2: paintImagesType;
+  label3: paintImagesType;
+}
 
 interface exportPaintImagesType {
   x: Array<exportPaintImageType>;
@@ -176,6 +182,12 @@ interface exportPaintImageType {
   data: number[];
 }
 
+interface storeExportPaintImageType{
+  label1:exportPaintImageType[];
+  label2:exportPaintImageType[];
+  label3:exportPaintImageType[];
+}
+
 interface optionsGltfExporterType {
   trs?: boolean;
   onlyVisible?: boolean;
@@ -190,10 +202,15 @@ interface vtkModels {
   urls: Array<string>;
   opts?: IOptVTKLoader;
 }
+interface undoLayerType {
+  label1: Array<HTMLImageElement>;
+  label2: Array<HTMLImageElement>;
+  label3: Array<HTMLImageElement>;
+}
 
 interface undoType {
   sliceIndex: number;
-  undos: Array<HTMLImageElement>;
+  layers: undoLayerType;
 }
 
 interface copperVolumeType {
@@ -255,6 +272,7 @@ export type {
   positionType,
   paintImagesType,
   paintImageType,
+  storedPaintImagesType,
   optionsGltfExporterType,
   vtkModels,
   undoType,
@@ -263,5 +281,6 @@ export type {
   skipSlicesDictType,
   exportPaintImagesType,
   exportPaintImageType,
+  storeExportPaintImageType,
   IOptVTKLoader,
 };

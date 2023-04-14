@@ -6,10 +6,12 @@ import {
   nrrdDrawImageOptType,
   paintImagesType,
   paintImageType,
+  storedPaintImagesType,
   mouseMovePositionType,
   undoType,
   skipSlicesDictType,
   exportPaintImageType,
+  storeExportPaintImageType,
   exportPaintImagesType,
   loadingBarType,
 } from "../types/types";
@@ -28,7 +30,15 @@ import {
 export class nrrd_tools {
   container: HTMLDivElement;
 
-  // used to store all marks
+  // used to store one label all marks
+  paintImagesLabel1: paintImagesType = { x: [], y: [], z: [] };
+  paintImagesLabel2: paintImagesType = { x: [], y: [], z: [] };
+  paintImagesLabel3: paintImagesType = { x: [], y: [], z: [] };
+  storedPaintImages: storedPaintImagesType = {
+    label1: this.paintImagesLabel1,
+    label2: this.paintImagesLabel2,
+    label3: this.paintImagesLabel3,
+  };
   paintImages: paintImagesType = { x: [], y: [], z: [] };
 
   // store all contrast slices, include x, y, z orientation
@@ -51,13 +61,22 @@ export class nrrd_tools {
   // use to convert the store image with original size in storeAllImages function!
   private emptyCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadImage: HTMLAnchorElement = document.createElement("a");
+  private drawingCanvasLayerMaster: HTMLCanvasElement =
+    document.createElement("canvas");
   private drawingCanvasLayerOne: HTMLCanvasElement =
+    document.createElement("canvas");
+  private drawingCanvasLayerTwo: HTMLCanvasElement =
+    document.createElement("canvas");
+  private drawingCanvasLayerThree: HTMLCanvasElement =
     document.createElement("canvas");
   private currentShowingSlice: any;
   private displayCtx: CanvasRenderingContext2D;
   private drawingCtx: CanvasRenderingContext2D;
   private emptyCtx: CanvasRenderingContext2D;
+  private drawingLayerMasterCtx: CanvasRenderingContext2D;
   private drawingLayerOneCtx: CanvasRenderingContext2D;
+  private drawingLayerTwoCtx: CanvasRenderingContext2D;
+  private drawingLayerThreeCtx: CanvasRenderingContext2D;
   private originCanvas: HTMLCanvasElement | any;
   private mainPreSlice: any;
   private sceneIn: copperScene | copperMScene | undefined;
@@ -113,9 +132,11 @@ export class nrrd_tools {
     previousPanelL: -99999,
     previousPanelT: -99999,
     switchSliceFlag: false,
+    labels: ["label1", "label2", "label3"],
     getMask: (
       mask: ImageData,
       sliceId: number,
+      label: string,
       width: number,
       height: number,
       clearAllFlag: boolean
@@ -152,14 +173,15 @@ export class nrrd_tools {
     mainAreaSize: 1,
     dragSensitivity: 75,
     Eraser: false,
-    globalAlpha: 0.7,
+    globalAlpha: 0.5,
     lineWidth: 2,
     color: "#f50a33",
     segmentation: true,
-    fillColor: "#3fac58",
-    brushColor: "#3fac58",
+    fillColor: "#00ff00",
+    brushColor: "#00ff00",
     brushAndEraserSize: 15,
     cursor: "dot",
+    label: "label1",
     // EraserSize: 25,
     clear: () => {
       // const text = "Are you sure remove annotations on Current slice?";
@@ -210,7 +232,16 @@ export class nrrd_tools {
     this.emptyCtx = this.emptyCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
+    this.drawingLayerMasterCtx = this.drawingCanvasLayerMaster.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
     this.drawingLayerOneCtx = this.drawingCanvasLayerOne.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.drawingLayerTwoCtx = this.drawingCanvasLayerTwo.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.drawingLayerThreeCtx = this.drawingCanvasLayerThree.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
     this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
@@ -309,7 +340,27 @@ export class nrrd_tools {
     this.afterLoadSlice();
   }
 
-  setMasksData(masksData: exportPaintImageType[], loadingBar?: loadingBarType) {
+  private loadingMaskByLabel(
+    masks: exportPaintImageType[],
+    index: number,
+    imageData: ImageData
+  ) {
+    let imageDataLable = this.emptyCtx.createImageData(
+      this.nrrd_states.nrrd_x_mm,
+      this.nrrd_states.nrrd_y_mm
+    );
+    this.setEmptyCanvasSize();
+    for (let j = 0; j < masks[index].data.length; j++) {
+      imageDataLable.data[j] = masks[index].data[j];
+      imageData.data[j] += masks[index].data[j];
+    }
+    return imageDataLable;
+  }
+
+  setMasksData(
+    masksData: storeExportPaintImageType,
+    loadingBar?: loadingBarType
+  ) {
     if (!!masksData) {
       this.nrrd_states.loadMaskJson = true;
       if (loadingBar) {
@@ -320,21 +371,48 @@ export class nrrd_tools {
 
       this.setEmptyCanvasSize();
 
-      masksData.forEach((mask, index) => {
+      const len = masksData["label1"].length;
+      for (let i = 0; i < len; i++) {
         let imageData = this.emptyCtx.createImageData(
           this.nrrd_states.nrrd_x_mm,
           this.nrrd_states.nrrd_y_mm
         );
-        this.setEmptyCanvasSize();
-
-        for (let j = 0; j < mask.data.length; j++) {
-          imageData.data[j] = mask.data[j];
+        let imageDataLabel1, imageDataLabel2, imageDataLabel3;
+        if (masksData["label1"][i].data.length > 0) {
+          this.setEmptyCanvasSize();
+          imageDataLabel1 = this.loadingMaskByLabel(
+            masksData["label1"],
+            i,
+            imageData
+          );
+          this.emptyCtx.putImageData(imageDataLabel1, 0, 0);
+          this.storeEachLayerImage(i, "label1");
         }
-
+        if (masksData["label2"][i].data.length > 0) {
+          this.setEmptyCanvasSize();
+          imageDataLabel2 = this.loadingMaskByLabel(
+            masksData["label2"],
+            i,
+            imageData
+          );
+          this.emptyCtx.putImageData(imageDataLabel2, 0, 0);
+          this.storeEachLayerImage(i, "label2");
+        }
+        if (masksData["label3"][i].data.length > 0) {
+          this.setEmptyCanvasSize();
+          imageDataLabel3 = this.loadingMaskByLabel(
+            masksData["label3"],
+            i,
+            imageData
+          );
+          this.emptyCtx.putImageData(imageDataLabel3, 0, 0);
+          this.storeEachLayerImage(i, "label3");
+        }
+        this.setEmptyCanvasSize();
         this.emptyCtx.putImageData(imageData, 0, 0);
+        this.storeAllImages(i, "default");
+      }
 
-        this.storeAllImages(index);
-      });
       this.nrrd_states.loadMaskJson = false;
       this.gui_states.resetZoom();
       if (loadingBar) {
@@ -380,7 +458,16 @@ export class nrrd_tools {
    */
 
   private initPaintImages(dimensions: Array<number>) {
-    // for x slices' marks
+    this.createEmptyPaintImage(dimensions, this.paintImages);
+    this.createEmptyPaintImage(dimensions, this.paintImagesLabel1);
+    this.createEmptyPaintImage(dimensions, this.paintImagesLabel2);
+    this.createEmptyPaintImage(dimensions, this.paintImagesLabel3);
+  }
+
+  private createEmptyPaintImage(
+    dimensions: Array<number>,
+    paintImages: paintImagesType
+  ) {
     for (let i = 0; i < dimensions[0]; i++) {
       const markImage_x = this.emptyCtx.createImageData(
         this.nrrd_states.nrrd_z_mm,
@@ -390,7 +477,7 @@ export class nrrd_tools {
         index: i,
         image: markImage_x,
       };
-      this.paintImages.x.push(initMark_x);
+      paintImages.x.push(initMark_x);
     }
     // for y slices' marks
     for (let i = 0; i < dimensions[1]; i++) {
@@ -402,7 +489,7 @@ export class nrrd_tools {
         index: i,
         image: markImage_y,
       };
-      this.paintImages.y.push(initMark_y);
+      paintImages.y.push(initMark_y);
     }
     // for z slices' marks
     for (let i = 0; i < dimensions[2]; i++) {
@@ -414,10 +501,9 @@ export class nrrd_tools {
         index: i,
         image: markImage_z,
       };
-      this.paintImages.z.push(initMark_z);
+      paintImages.z.push(initMark_z);
     }
   }
-
   /**
    * Switch all contrast slices' orientation
    * @param {string} aixs:"x" | "y" | "z"
@@ -581,6 +667,15 @@ export class nrrd_tools {
     this.paintImages.x.length = 0;
     this.paintImages.y.length = 0;
     this.paintImages.z.length = 0;
+    this.paintImagesLabel1.x.length = 0;
+    this.paintImagesLabel1.y.length = 0;
+    this.paintImagesLabel1.z.length = 0;
+    this.paintImagesLabel2.x.length = 0;
+    this.paintImagesLabel2.y.length = 0;
+    this.paintImagesLabel2.z.length = 0;
+    this.paintImagesLabel3.x.length = 0;
+    this.paintImagesLabel3.y.length = 0;
+    this.paintImagesLabel3.z.length = 0;
 
     this.clearDictionary(this.skipSlicesDic);
 
@@ -595,7 +690,7 @@ export class nrrd_tools {
     this.initState = true;
     this.axis = "z";
     this.nrrd_states.sizeFoctor = 1;
-    this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
+    this.resetLayerCanvas();
     this.drawingCanvas.width = this.drawingCanvas.width;
     this.displayCanvas.width = this.displayCanvas.width;
   }
@@ -755,10 +850,8 @@ export class nrrd_tools {
     this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
     this.undoArray = [
       {
-        // todo
-        // sliceIndex: this.mainPreSlice.index,
         sliceIndex: this.nrrd_states.currentIndex,
-        undos: [],
+        layers: { label1: [], label2: [], label3: [] },
       },
     ];
 
@@ -775,7 +868,6 @@ export class nrrd_tools {
   }
 
   private updateCurrentContrastSlice() {
-    
     this.currentShowingSlice = this.displaySlices[this.nrrd_states.contrastNum];
     return this.currentShowingSlice;
   }
@@ -827,8 +919,16 @@ export class nrrd_tools {
      * it should be hide, so we don't need to add it to mainAreaContainer
      */
 
-    this.drawingCanvasLayerOne.width = this.nrrd_states.changedWidth;
-    this.drawingCanvasLayerOne.height = this.nrrd_states.changedHeight;
+    this.drawingCanvasLayerMaster.width =
+      this.drawingCanvasLayerOne.width =
+      this.drawingCanvasLayerTwo.width =
+      this.drawingCanvasLayerThree.width =
+        this.nrrd_states.changedWidth;
+    this.drawingCanvasLayerMaster.height =
+      this.drawingCanvasLayerOne.height =
+      this.drawingCanvasLayerTwo.height =
+      this.drawingCanvasLayerThree.height =
+        this.nrrd_states.changedHeight;
 
     /**
      * display and drawing canvas container
@@ -1022,10 +1122,15 @@ export class nrrd_tools {
         this.mainPreSlice.index = newIndex * this.nrrd_states.RSARatio;
         // clear drawing canvas, and display next slicez
         this.setSyncsliceNum();
-        
+
         if (newIndex != this.nrrd_states.currentIndex) {
           this.nrrd_states.switchSliceFlag = true;
+          this.drawingCanvasLayerMaster.width =
+            this.drawingCanvasLayerMaster.width;
           this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
+          this.drawingCanvasLayerTwo.width = this.drawingCanvasLayerTwo.width;
+          this.drawingCanvasLayerThree.width =
+            this.drawingCanvasLayerThree.width;
         }
 
         this.displayCanvas.width = this.displayCanvas.width;
@@ -1037,7 +1142,7 @@ export class nrrd_tools {
 
         // get the slice that need to be updated on displayCanvas
         let needToUpdateSlice = this.updateCurrentContrastSlice();
-        
+
         needToUpdateSlice.repaint.call(needToUpdateSlice);
         this.nrrd_states.currentIndex = newIndex;
         this.drawDragSlice(needToUpdateSlice.canvas);
@@ -1069,24 +1174,50 @@ export class nrrd_tools {
       if (this.nrrd_states.switchSliceFlag) {
         this.paintedImage = this.filterDrawedImage(
           this.axis,
-          this.nrrd_states.currentIndex
+          this.nrrd_states.currentIndex,
+          this.paintImages
+        );
+        this.drawMaskToLabelCtx(this.paintImages, this.drawingLayerMasterCtx);
+        this.drawMaskToLabelCtx(
+          this.paintImagesLabel1,
+          this.drawingLayerOneCtx
+        );
+        this.drawMaskToLabelCtx(
+          this.paintImagesLabel2,
+          this.drawingLayerTwoCtx
+        );
+        this.drawMaskToLabelCtx(
+          this.paintImagesLabel3,
+          this.drawingLayerThreeCtx
         );
 
-        if (this.paintedImage?.image) {
-          // redraw the stored data to empty point 2
-          this.setEmptyCanvasSize();
-
-          this.emptyCtx.putImageData(this.paintedImage.image, 0, 0);
-          this.drawingLayerOneCtx.drawImage(
-            this.emptyCanvas,
-            0,
-            0,
-            this.nrrd_states.changedWidth,
-            this.nrrd_states.changedHeight
-          );
-        }
         this.nrrd_states.switchSliceFlag = false;
       }
+    }
+  }
+
+  private drawMaskToLabelCtx(
+    paintedImages: paintImagesType,
+    ctx: CanvasRenderingContext2D
+  ) {
+    const paintedImage = this.filterDrawedImage(
+      this.axis,
+      this.nrrd_states.currentIndex,
+      paintedImages
+    );
+
+    if (paintedImage?.image) {
+      // redraw the stored data to empty point 2
+      this.setEmptyCanvasSize();
+
+      this.emptyCtx.putImageData(paintedImage.image, 0, 0);
+      ctx.drawImage(
+        this.emptyCanvas,
+        0,
+        0,
+        this.nrrd_states.changedWidth,
+        this.nrrd_states.changedHeight
+      );
     }
   }
 
@@ -1232,7 +1363,7 @@ export class nrrd_tools {
       (e: MouseEvent) => {
         if (leftclicked || rightclicked) {
           this.drawingCanvas.removeEventListener("pointerup", handlePointerUp);
-          this.drawingLayerOneCtx.closePath();
+          this.drawingLayerMasterCtx.closePath();
           return;
         }
 
@@ -1265,7 +1396,7 @@ export class nrrd_tools {
             }
 
             this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
-            this.drawingLayerOneCtx.beginPath();
+            // this.drawingLayerMasterCtx.beginPath();
             this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
             this.drawingCanvas.addEventListener(
               "pointermove",
@@ -1330,16 +1461,58 @@ export class nrrd_tools {
           clearArc(e.offsetX, e.offsetY, this.gui_states.brushAndEraserSize);
         } else {
           lines.push({ x: e.offsetX, y: e.offsetY });
-          this.paintOnCanvasLayerOne(e.offsetX, e.offsetY);
+          this.paintOnCanvasLayer(e.offsetX, e.offsetY);
         }
       }
+    };
+
+    const redrawPreviousImageToLabelCtx = (
+      ctx: CanvasRenderingContext2D,
+      label: string = "default"
+    ) => {
+      let paintImages: paintImagesType;
+      switch (label) {
+        case "label1":
+          paintImages = this.paintImagesLabel1;
+          break;
+        case "label2":
+          paintImages = this.paintImagesLabel2;
+          break;
+        case "label3":
+          paintImages = this.paintImagesLabel3;
+          break;
+        default:
+          paintImages = this.paintImages;
+          break;
+      }
+      const tempPreImg = this.filterDrawedImage(
+        this.axis,
+        this.nrrd_states.currentIndex,
+        paintImages
+      )?.image;
+      this.emptyCanvas.width = this.emptyCanvas.width;
+
+      if (tempPreImg && label == "default") {
+        this.previousDrawingImage = tempPreImg;
+      }
+      this.emptyCtx.putImageData(tempPreImg, 0, 0);
+      // draw privous image
+      ctx.drawImage(
+        this.emptyCanvas,
+        0,
+        0,
+        this.nrrd_states.changedWidth,
+        this.nrrd_states.changedHeight
+      );
     };
 
     const handlePointerUp = (e: MouseEvent) => {
       if (e.button === 0) {
         if (this.Is_Shift_Pressed || Is_Painting) {
           leftclicked = false;
-          this.drawingLayerOneCtx.closePath();
+          let { ctx, canvas } = this.setCurrentLayer();
+
+          ctx.closePath();
 
           this.drawingCanvas.removeEventListener(
             "pointermove",
@@ -1347,53 +1520,53 @@ export class nrrd_tools {
           );
           if (!this.gui_states.Eraser) {
             if (this.gui_states.segmentation) {
-              this.drawingCanvasLayerOne.width =
-                this.drawingCanvasLayerOne.width;
-              const tempPreImg = this.filterDrawedImage(
-                this.axis,
-                this.nrrd_states.currentIndex
-              )?.image;
-              if (tempPreImg) {
-                this.previousDrawingImage = tempPreImg;
+              this.drawingCanvasLayerMaster.width =
+                this.drawingCanvasLayerMaster.width;
+              canvas.width = canvas.width;
+              redrawPreviousImageToLabelCtx(this.drawingLayerMasterCtx);
+              redrawPreviousImageToLabelCtx(ctx, this.gui_states.label);
+              // draw new drawings
+              ctx.beginPath();
+              ctx.moveTo(lines[0].x, lines[0].y);
+              for (let i = 1; i < lines.length; i++) {
+                ctx.lineTo(lines[i].x, lines[i].y);
               }
-              this.emptyCanvas.width = this.emptyCanvas.width;
-              this.emptyCtx.putImageData(this.previousDrawingImage, 0, 0);
-              this.drawingLayerOneCtx.drawImage(
-                this.emptyCanvas,
+              ctx.closePath();
+              ctx.lineWidth = 1;
+              ctx.fillStyle = this.gui_states.fillColor;
+              ctx.fill();
+              // draw layer to master layer
+              this.drawingLayerMasterCtx.drawImage(
+                canvas,
                 0,
                 0,
                 this.nrrd_states.changedWidth,
                 this.nrrd_states.changedHeight
               );
-              this.drawingLayerOneCtx.beginPath();
-              this.drawingLayerOneCtx.moveTo(lines[0].x, lines[0].y);
-              for (let i = 1; i < lines.length; i++) {
-                this.drawingLayerOneCtx.lineTo(lines[i].x, lines[i].y);
-              }
-              this.drawingLayerOneCtx.closePath();
-              this.drawingLayerOneCtx.lineWidth = 1;
-              this.drawingLayerOneCtx.fillStyle = this.gui_states.fillColor;
-              this.drawingLayerOneCtx.fill();
             }
           }
 
-          this.previousDrawingImage = this.drawingLayerOneCtx.getImageData(
+          this.previousDrawingImage = this.drawingLayerMasterCtx.getImageData(
             0,
             0,
-            this.drawingCanvasLayerOne.width,
-            this.drawingCanvasLayerOne.height
+            this.drawingCanvasLayerMaster.width,
+            this.drawingCanvasLayerMaster.height
           );
-          this.storeAllImages(this.nrrd_states.currentIndex);
-
-          // update 1.12.23
-
-          // const imageData = this.drawingCtx.getImageData(
-          //   0,
-          //   0,
-          //   this.drawingCanvas.width,
-          //   this.drawingCanvas.height
-          // );
-          // console.log("Paint mark data -----> :", imageData);
+          this.storeAllImages(
+            this.nrrd_states.currentIndex,
+            this.gui_states.label
+          );
+          if (this.gui_states.Eraser) {
+            const restLabels = this.getRestLabel();
+            this.storeEachLayerImage(
+              this.nrrd_states.currentIndex,
+              restLabels[0]
+            );
+            this.storeEachLayerImage(
+              this.nrrd_states.currentIndex,
+              restLabels[1]
+            );
+          }
 
           Is_Painting = false;
 
@@ -1401,17 +1574,21 @@ export class nrrd_tools {
            * store undo array
            */
           const currentUndoObj = this.getCurrentUndo();
-          const src = this.drawingCanvasLayerOne.toDataURL();
+          const src = this.drawingCanvasLayerMaster.toDataURL();
           const image = new Image();
           image.src = src;
           if (currentUndoObj.length > 0) {
-            currentUndoObj[0].undos.push(image);
+            currentUndoObj[0].layers[
+              this.gui_states.label as "label1" | "label2" | "label3"
+            ].push(image);
           } else {
             const undoObj: undoType = {
               sliceIndex: this.nrrd_states.currentIndex,
-              undos: [],
+              layers: { label1: [], label2: [], label3: [] },
             };
-            undoObj.undos.push(image);
+            undoObj.layers[
+              this.gui_states.label as "label1" | "label2" | "label3"
+            ].push(image);
             this.undoArray.push(undoObj);
           }
         }
@@ -1440,7 +1617,7 @@ export class nrrd_tools {
       // (this.sceneIn as copperScene).controls.enabled = true;
       if (leftclicked) {
         leftclicked = false;
-        this.drawingLayerOneCtx.closePath();
+        this.drawingLayerMasterCtx.closePath();
         this.drawingCanvas.removeEventListener(
           "pointermove",
           handleOnPainterMove
@@ -1471,8 +1648,8 @@ export class nrrd_tools {
         );
         this.drawingCtx.globalAlpha = this.gui_states.globalAlpha;
         if (this.Is_Draw) {
-          this.drawingLayerOneCtx.lineCap = "round";
-          this.drawingLayerOneCtx.globalAlpha = 1;
+          this.drawingLayerMasterCtx.lineCap = "round";
+          this.drawingLayerMasterCtx.globalAlpha = 1;
           // this.redrawOriginCanvas();
         } else {
           if (this.Is_Shift_Pressed) {
@@ -1518,7 +1695,7 @@ export class nrrd_tools {
             this.drawLine(0, ey, this.drawingCanvas.width, ey);
           }
         }
-        this.drawingCtx.drawImage(this.drawingCanvasLayerOne, 0, 0);
+        this.drawingCtx.drawImage(this.drawingCanvasLayerMaster, 0, 0);
       } else {
         this.redrawDisplayCanvas();
       }
@@ -1539,20 +1716,26 @@ export class nrrd_tools {
     this.drawingCtx.stroke();
   };
 
+  // need to update
   private undoLastPainting() {
+    let { ctx, canvas } = this.setCurrentLayer();
     this.Is_Draw = true;
-    this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
+    this.drawingCanvasLayerMaster.width = this.drawingCanvasLayerMaster.width;
+    canvas.width = canvas.width;
     this.mainPreSlice.repaint.call(this.mainPreSlice);
     const currentUndoObj = this.getCurrentUndo();
     if (currentUndoObj.length > 0) {
       const undo = currentUndoObj[0];
-      if (undo.undos.length === 0) return;
-      undo.undos.pop();
+      const layerUndos =
+        undo.layers[this.gui_states.label as "label1" | "label2" | "label3"];
+      const layerLen = layerUndos.length;
+      // if (layerLen === 0) return;
+      layerUndos.pop();
 
-      if (undo.undos.length > 0) {
-        const image = undo.undos[undo.undos.length - 1];
-
-        this.drawingLayerOneCtx.drawImage(
+      if (layerLen > 0) {
+        // const imageSrc = undo.undos[undo.undos.length - 1];
+        const image = layerUndos[layerLen - 1];
+        ctx.drawImage(
           image,
           0,
           0,
@@ -1560,13 +1743,44 @@ export class nrrd_tools {
           this.nrrd_states.changedHeight
         );
       }
-      this.previousDrawingImage = this.drawingLayerOneCtx.getImageData(
+      if (undo.layers.label1.length > 0) {
+        const image = undo.layers.label1[undo.layers.label1.length - 1];
+
+        this.drawingLayerMasterCtx.drawImage(
+          image,
+          0,
+          0,
+          this.nrrd_states.changedWidth,
+          this.nrrd_states.changedHeight
+        );
+      }
+      if (undo.layers.label2.length > 0) {
+        const image = undo.layers.label2[undo.layers.label2.length - 1];
+        this.drawingLayerMasterCtx.drawImage(
+          image,
+          0,
+          0,
+          this.nrrd_states.changedWidth,
+          this.nrrd_states.changedHeight
+        );
+      }
+      if (undo.layers.label3.length > 0) {
+        const image = undo.layers.label3[undo.layers.label3.length - 1];
+        this.drawingLayerMasterCtx.drawImage(
+          image,
+          0,
+          0,
+          this.nrrd_states.changedWidth,
+          this.nrrd_states.changedHeight
+        );
+      }
+      this.previousDrawingImage = this.drawingLayerMasterCtx.getImageData(
         0,
         0,
-        this.drawingCanvasLayerOne.width,
-        this.drawingCanvasLayerOne.height
+        this.drawingCanvasLayerMaster.width,
+        this.drawingCanvasLayerMaster.height
       );
-      this.storeAllImages(this.nrrd_states.currentIndex);
+      this.storeAllImages(this.nrrd_states.currentIndex, this.gui_states.label);
       this.setIsDrawFalse(1000);
     }
   }
@@ -1634,8 +1848,12 @@ export class nrrd_tools {
       var posY = y - calcHeight;
       var widthX = 2 * calcWidth;
       var heightY = 2 * calcHeight;
+
       if (this.nrrd_states.stepClear <= radius) {
+        this.drawingLayerMasterCtx.clearRect(posX, posY, widthX, heightY);
         this.drawingLayerOneCtx.clearRect(posX, posY, widthX, heightY);
+        this.drawingLayerTwoCtx.clearRect(posX, posY, widthX, heightY);
+        this.drawingLayerThreeCtx.clearRect(posX, posY, widthX, heightY);
         this.nrrd_states.stepClear += 1;
         clearArc(x, y, radius);
       }
@@ -1644,18 +1862,39 @@ export class nrrd_tools {
   }
   private clearPaint() {
     this.Is_Draw = true;
-    this.drawingCanvasLayerOne.width = this.drawingCanvas.width;
+    this.resetLayerCanvas();
     this.originCanvas.width = this.originCanvas.width;
     this.mainPreSlice.repaint.call(this.mainPreSlice);
     this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
-    this.storeAllImages(this.nrrd_states.currentIndex);
+
+    this.storeAllImages(this.nrrd_states.currentIndex, this.gui_states.label);
+    const restLabels = this.getRestLabel();
+    this.storeEachLayerImage(this.nrrd_states.currentIndex, restLabels[0]);
+    this.storeEachLayerImage(this.nrrd_states.currentIndex, restLabels[1]);
     this.setIsDrawFalse(1000);
+  }
+
+  private getRestLabel() {
+    const labels = this.nrrd_states.labels;
+    const restLabel = labels.filter((item) => {
+      return item !== this.gui_states.label;
+    });
+    return restLabel;
   }
 
   private clearStoreImages() {
     this.paintImages.x.length = 0;
     this.paintImages.y.length = 0;
     this.paintImages.z.length = 0;
+    this.paintImagesLabel1.x.length = 0;
+    this.paintImagesLabel1.y.length = 0;
+    this.paintImagesLabel1.z.length = 0;
+    this.paintImagesLabel2.x.length = 0;
+    this.paintImagesLabel2.y.length = 0;
+    this.paintImagesLabel2.z.length = 0;
+    this.paintImagesLabel3.x.length = 0;
+    this.paintImagesLabel3.y.length = 0;
+    this.paintImagesLabel3.z.length = 0;
     this.initPaintImages(this.nrrd_states.dimensions);
   }
 
@@ -1666,15 +1905,7 @@ export class nrrd_tools {
     ) as CanvasRenderingContext2D;
     this.downloadCanvas.width = this.nrrd_states.originWidth;
     this.downloadCanvas.height = this.nrrd_states.originHeight;
-    // downloadCtx.globalAlpha = this.gui_states.globalAlpha;
 
-    // downloadCtx.drawImage(
-    //   this.displayCanvas,
-    //   0,
-    //   0,
-    //   this.nrrd_states.originWidth,
-    //   this.nrrd_states.originHeight
-    // );
     downloadCtx.drawImage(
       this.drawingCanvas,
       0,
@@ -1685,29 +1916,62 @@ export class nrrd_tools {
     this.downloadImage.href = this.downloadCanvas.toDataURL();
     this.downloadImage.click();
   }
-  private paintOnCanvasLayerOne(x: number, y: number) {
-    this.drawingLayerOneCtx.beginPath();
+  private paintOnCanvasLayer(x: number, y: number) {
+    let { ctx, canvas } = this.setCurrentLayer();
 
-    this.drawingLayerOneCtx.moveTo(
+    this.drawLinesOnLayer(ctx, x, y);
+    this.drawLinesOnLayer(this.drawingLayerMasterCtx, x, y);
+    // reset drawing start position to current position.
+    this.nrrd_states.drawStartPos.set(x, y);
+    // need to flag the map as needing updating.
+    this.mainPreSlice.mesh.material.map.needsUpdate = true;
+  }
+
+  private drawLinesOnLayer(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number
+  ) {
+    ctx.beginPath();
+    ctx.moveTo(
       this.nrrd_states.drawStartPos.x,
       this.nrrd_states.drawStartPos.y
     );
     if (this.gui_states.segmentation) {
-      this.drawingLayerOneCtx.strokeStyle = this.gui_states.color;
-      this.drawingLayerOneCtx.lineWidth = this.gui_states.lineWidth;
+      ctx.strokeStyle = this.gui_states.color;
+      ctx.lineWidth = this.gui_states.lineWidth;
     } else {
-      this.drawingLayerOneCtx.strokeStyle = this.gui_states.brushColor;
-      this.drawingLayerOneCtx.lineWidth = this.gui_states.brushAndEraserSize;
+      ctx.strokeStyle = this.gui_states.brushColor;
+      ctx.lineWidth = this.gui_states.brushAndEraserSize;
     }
 
-    this.drawingLayerOneCtx.lineTo(x, y);
-    this.drawingLayerOneCtx.stroke();
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.closePath();
+  }
 
-    // reset drawing start position to current position.
-    this.nrrd_states.drawStartPos.set(x, y);
-    this.drawingLayerOneCtx.closePath();
-    // need to flag the map as needing updating.
-    this.mainPreSlice.mesh.material.map.needsUpdate = true;
+  private setCurrentLayer() {
+    let ctx: CanvasRenderingContext2D;
+    let canvas: HTMLCanvasElement;
+    switch (this.gui_states.label) {
+      case "label1":
+        ctx = this.drawingLayerOneCtx;
+        canvas = this.drawingCanvasLayerOne;
+        break;
+      case "label2":
+        ctx = this.drawingLayerTwoCtx;
+        canvas = this.drawingCanvasLayerTwo;
+        break;
+      case "label3":
+        ctx = this.drawingLayerThreeCtx;
+        canvas = this.drawingCanvasLayerThree;
+        break;
+      default:
+        ctx = this.drawingLayerOneCtx;
+        canvas = this.drawingCanvasLayerOne;
+        break;
+    }
+    return { ctx, canvas };
   }
 
   private configGui(modeFolder: GUI) {
@@ -1716,6 +1980,21 @@ export class nrrd_tools {
 
     modeFolder.open();
     const actionsFolder = modeFolder.addFolder("Default Actions");
+
+    actionsFolder
+      .add(this.gui_states, "label", ["label1", "label2", "label3"])
+      .onChange((val) => {
+        if (val === "label1") {
+          this.gui_states.fillColor = "#00ff00";
+          this.gui_states.brushColor = "#00ff00";
+        } else if (val === "label2") {
+          this.gui_states.fillColor = "#ff0000";
+          this.gui_states.brushColor = "#ff0000";
+        } else if (val === "label3") {
+          this.gui_states.fillColor = "#0000ff";
+          this.gui_states.brushColor = "#0000ff";
+        }
+      });
 
     actionsFolder
       .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
@@ -1914,6 +2193,13 @@ export class nrrd_tools {
     }
   }
 
+  private resetLayerCanvas() {
+    this.drawingCanvasLayerMaster.width = this.drawingCanvasLayerMaster.width;
+    this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
+    this.drawingCanvasLayerTwo.width = this.drawingCanvasLayerTwo.width;
+    this.drawingCanvasLayerThree.width = this.drawingCanvasLayerThree.width;
+  }
+
   private redrawDisplayCanvas() {
     this.updateCurrentContrastSlice();
     this.displayCanvas.width = this.displayCanvas.width;
@@ -1962,7 +2248,7 @@ export class nrrd_tools {
     this.originCanvas.width = this.originCanvas.width;
     this.displayCanvas.width = this.displayCanvas.width;
     this.drawingCanvas.width = this.drawingCanvas.width;
-    this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
+    this.resetLayerCanvas();
 
     this.nrrd_states.changedWidth = this.nrrd_states.originWidth * factor;
     this.nrrd_states.changedHeight = this.nrrd_states.originHeight * factor;
@@ -1974,51 +2260,73 @@ export class nrrd_tools {
     this.displayCanvas.height = this.nrrd_states.changedHeight;
     this.drawingCanvas.width = this.nrrd_states.changedWidth;
     this.drawingCanvas.height = this.nrrd_states.changedHeight;
+    this.drawingCanvasLayerMaster.width = this.nrrd_states.changedWidth;
+    this.drawingCanvasLayerMaster.height = this.nrrd_states.changedHeight;
     this.drawingCanvasLayerOne.width = this.nrrd_states.changedWidth;
     this.drawingCanvasLayerOne.height = this.nrrd_states.changedHeight;
+    this.drawingCanvasLayerTwo.width = this.nrrd_states.changedWidth;
+    this.drawingCanvasLayerTwo.height = this.nrrd_states.changedHeight;
+    this.drawingCanvasLayerThree.width = this.nrrd_states.changedWidth;
+    this.drawingCanvasLayerThree.height = this.nrrd_states.changedHeight;
 
     this.redrawDisplayCanvas();
+    this.reloadMaskToLabel(this.paintImages, this.drawingLayerMasterCtx);
+    this.reloadMaskToLabel(this.paintImagesLabel1, this.drawingLayerOneCtx);
+    this.reloadMaskToLabel(this.paintImagesLabel2, this.drawingLayerTwoCtx);
+    this.reloadMaskToLabel(this.paintImagesLabel3, this.drawingLayerTwoCtx);
+  }
 
-    // if (!this.paintedImage?.image) {
-    // }
+  /**
+   * Used to init the mask on each label and reload
+   * @param paintImages
+   * @param ctx
+   */
+  private reloadMaskToLabel(
+    paintImages: paintImagesType,
+    ctx: CanvasRenderingContext2D
+  ) {
+    let paintedImage;
     switch (this.axis) {
       case "x":
-        if (this.paintImages.x.length > 0) {
-          this.paintedImage = this.filterDrawedImage(
+        if (paintImages.x.length > 0) {
+          paintedImage = this.filterDrawedImage(
             "x",
-            this.nrrd_states.currentIndex
+            this.nrrd_states.currentIndex,
+            paintImages
           );
         } else {
-          this.paintedImage = undefined;
+          paintedImage = undefined;
         }
         break;
       case "y":
-        if (this.paintImages.y.length > 0) {
-          this.paintedImage = this.filterDrawedImage(
+        if (paintImages.y.length > 0) {
+          paintedImage = this.filterDrawedImage(
             "y",
-            this.nrrd_states.currentIndex
+            this.nrrd_states.currentIndex,
+            paintImages
           );
         } else {
-          this.paintedImage = undefined;
+          paintedImage = undefined;
         }
 
         break;
       case "z":
-        if (this.paintImages.z.length > 0) {
-          this.paintedImage = this.filterDrawedImage(
+        if (paintImages.z.length > 0) {
+          paintedImage = this.filterDrawedImage(
             "z",
-            this.nrrd_states.currentIndex
+            this.nrrd_states.currentIndex,
+            paintImages
           );
         } else {
-          this.paintedImage = undefined;
+          paintedImage = undefined;
         }
         break;
     }
-    if (this.paintedImage?.image) {
+    if (paintedImage?.image) {
       // redraw the stored data to empty point 1
       this.setEmptyCanvasSize();
-      this.emptyCtx.putImageData(this.paintedImage.image, 0, 0);
-      this.drawingLayerOneCtx?.drawImage(
+      this.emptyCtx.putImageData(paintedImage.image, 0, 0);
+      ctx?.drawImage(
         this.emptyCanvas,
         0,
         0,
@@ -2044,8 +2352,12 @@ export class nrrd_tools {
 
     // this.displayCtx?.translate(0, -this.nrrd_states.changedHeight);
   }
-  private filterDrawedImage(axis: "x" | "y" | "z", sliceIndex: number) {
-    return this.paintImages[axis].filter((item) => {
+  private filterDrawedImage(
+    axis: "x" | "y" | "z",
+    sliceIndex: number,
+    paintedImages: paintImagesType
+  ) {
+    return paintedImages[axis].filter((item) => {
       return item.index === sliceIndex;
     })[0];
   }
@@ -2077,15 +2389,14 @@ export class nrrd_tools {
     }
   }
 
-  private storeAllImages(index: number) {
+  private storeAllImages(index: number, label: string) {
     // const image: HTMLImageElement = new Image();
 
     // resize the drawing image data
     if (!this.nrrd_states.loadMaskJson) {
       this.setEmptyCanvasSize();
-
       this.emptyCtx.drawImage(
-        this.drawingCanvasLayerOne,
+        this.drawingCanvasLayerMaster,
         0,
         0,
         this.emptyCanvas.width,
@@ -2253,44 +2564,112 @@ export class nrrd_tools {
         break;
     }
 
-    // image.src = this.emptyCanvas.toDataURL();
+    this.storeImageToAxis(index, this.paintImages, imageData);
+    if (!this.nrrd_states.loadMaskJson) {
+      this.storeEachLayerImage(index, label);
+    }
+  }
+
+  private storeImageToAxis(
+    index: number,
+    paintedImages: paintImagesType,
+    imageData: ImageData
+  ) {
     let temp: paintImageType = {
       index,
       image: imageData,
     };
-    let drawedImage: paintImageType;
 
+    let drawedImage: paintImageType;
     switch (this.axis) {
       case "x":
-        drawedImage = this.filterDrawedImage("x", index);
+        drawedImage = this.filterDrawedImage("x", index, paintedImages);
         drawedImage
           ? (drawedImage.image = imageData)
-          : this.paintImages.x?.push(temp);
+          : paintedImages.x?.push(temp);
         break;
       case "y":
-        drawedImage = this.filterDrawedImage("y", index);
+        drawedImage = this.filterDrawedImage("y", index, paintedImages);
         drawedImage
           ? (drawedImage.image = imageData)
-          : this.paintImages.y?.push(temp);
+          : paintedImages.y?.push(temp);
         break;
       case "z":
-        drawedImage = this.filterDrawedImage("z", index);
+        drawedImage = this.filterDrawedImage("z", index, paintedImages);
         drawedImage
           ? (drawedImage.image = imageData)
-          : this.paintImages.z?.push(temp);
+          : paintedImages.z?.push(temp);
         break;
     }
+  }
 
+  private storeImageToLabel(
+    index: number,
+    canvas: HTMLCanvasElement,
+    paintedImages: paintImagesType
+  ) {
     if (!this.nrrd_states.loadMaskJson) {
+      this.setEmptyCanvasSize();
+      this.emptyCtx.drawImage(
+        canvas,
+        0,
+        0,
+        this.emptyCanvas.width,
+        this.emptyCanvas.height
+      );
+    }
+    const imageData = this.emptyCtx.getImageData(
+      0,
+      0,
+      this.emptyCanvas.width,
+      this.emptyCanvas.height
+    );
+    this.storeImageToAxis(index, paintedImages, imageData);
+    // this.setEmptyCanvasSize()
+    return imageData;
+  }
+
+  private storeEachLayerImage(index: number, label: string) {
+    if (!this.nrrd_states.loadMaskJson) {
+      this.setEmptyCanvasSize();
+    }
+    let imageData;
+    switch (label) {
+      case "label1":
+        imageData = this.storeImageToLabel(
+          index,
+          this.drawingCanvasLayerOne,
+          this.paintImagesLabel1
+        );
+        break;
+      case "label2":
+        imageData = this.storeImageToLabel(
+          index,
+          this.drawingCanvasLayerTwo,
+          this.paintImagesLabel2
+        );
+        break;
+      case "label3":
+        imageData = this.storeImageToLabel(
+          index,
+          this.drawingCanvasLayerThree,
+          this.paintImagesLabel3
+        );
+        break;
+    }
+    // callback function to return the painted image
+    if (!this.nrrd_states.loadMaskJson && this.axis == "z") {
       this.nrrd_states.getMask(
-        imageData,
+        imageData as ImageData,
         this.nrrd_states.currentIndex,
+        label,
         this.nrrd_states.nrrd_x_mm,
         this.nrrd_states.nrrd_y_mm,
         this.nrrd_states.clearAllFlag
       );
     }
   }
+
   // slice array to 2d array
   private sliceArrayH(arr: Uint8ClampedArray, row: number, col: number) {
     const arr2D = [];
