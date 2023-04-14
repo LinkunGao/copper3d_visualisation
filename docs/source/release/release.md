@@ -1590,3 +1590,24 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.14.2
 
 - fixed the slice order issue, when we drag the slice down.
+
+## Release v1.14.3
+
+- Develop a multi-label function for nrrd tools
+
+- Function updated:
+  - undo
+  - eraser
+  - clear
+  - resize
+  - store mask
+  - draw lines / segmentation
+  - upload mask data
+- add a variable to get store all labels masks.
+  ```ts
+  storedPaintImages: storedPaintImagesType = {
+    label1: this.paintImagesLabel1,
+    label2: this.paintImagesLabel2,
+    label3: this.paintImagesLabel3,
+  };
+  ```
