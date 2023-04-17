@@ -1611,3 +1611,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
     label3: this.paintImagesLabel3,
   };
   ```
+
+## Release v1.14.4
+
+- Fixed bug: draw lines not continuous on label 1, 2, 3.
