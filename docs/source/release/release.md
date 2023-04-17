@@ -1615,3 +1615,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.14.4
 
 - Fixed bug: draw lines not continuous on label 1, 2, 3.
+
+## Release v1.14.5
+
+- Fixed GUI overload issue in copperNrrdLoader.

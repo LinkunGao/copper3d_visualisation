@@ -20,7 +20,8 @@ loader = new NRRDLoader();
 // loader.setSegmentationn(true);
 
 let cube: THREE.Mesh;
-let gui: GUI;
+let gui: GUI | undefined;
+let oldGuiDom:HTMLDivElement;
 
 let CircleGeometry = new THREE.RingGeometry(5, 6, 30);
 let CircleMaterial = new THREE.MeshBasicMaterial({
@@ -158,6 +159,7 @@ export function copperNrrdLoader(
       } else {
         callback && callback(volume, nrrdMeshes, nrrdSlices);
       }
+      gui = undefined
     },
     function (xhr: ProgressEvent<EventTarget>) {
       loadingContainer.style.display = "flex";
@@ -427,13 +429,17 @@ export function addBoxHelper(
 }
 
 function configGui(opts?: optsType) {
+  
   if (opts && opts.openGui) {
     if (opts.container) {
+      if(oldGuiDom){
+        opts.container.removeChild(oldGuiDom);
+      }
       gui = new GUI({
         width: 260,
         autoPlace: false,
       });
-
+      oldGuiDom = gui.domElement as HTMLDivElement;
       opts.container.appendChild(gui.domElement);
     } else {
       gui = new GUI();
