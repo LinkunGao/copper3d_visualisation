@@ -1619,3 +1619,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.14.5
 
 - Fixed GUI overload issue in copperNrrdLoader.
+
+## Release v1.14.6
+
+- move pickSpecifiedModel function into commonSceneMethod class.

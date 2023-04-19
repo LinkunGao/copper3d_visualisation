@@ -189,22 +189,22 @@ export default class copperMScene extends commonScene {
     );
   }
 
-  pickSpecifiedModel(
-    content: THREE.Mesh | Array<THREE.Mesh>,
-    mousePosition: mouseMovePositionType
-  ) {
-    if (Array.isArray(content)) {
-      this.pickableObjects = content;
-    } else {
-      this.pickableObjects.push(content);
-    }
-    return isPickedModel(
-      this.camera as THREE.PerspectiveCamera,
-      this.container,
-      this.pickableObjects,
-      mousePosition
-    );
-  }
+  // pickSpecifiedModel(
+  //   content: THREE.Mesh | Array<THREE.Mesh>,
+  //   mousePosition: mouseMovePositionType
+  // ) {
+  //   if (Array.isArray(content)) {
+  //     this.pickableObjects = content;
+  //   } else {
+  //     this.pickableObjects.push(content);
+  //   }
+  //   return isPickedModel(
+  //     this.camera as THREE.PerspectiveCamera,
+  //     this.container,
+  //     this.pickableObjects,
+  //     mousePosition
+  //   );
+  // }
 
   setViewPoint(
     camera: THREE.PerspectiveCamera,
