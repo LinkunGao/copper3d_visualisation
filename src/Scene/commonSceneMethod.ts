@@ -6,6 +6,7 @@ import {
   copperVolumeType,
   loadingBarType,
   dicomLoaderOptsType,
+  mouseMovePositionType
 } from "../types/types";
 import * as THREE from "three";
 import { GUI } from "dat.gui";
@@ -15,6 +16,7 @@ import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
 import { pickModelDefault } from "../Utils/raycaster";
 import { Controls } from "../Controls/copperControls";
 import { objLoader } from "../Loader/copperOBJLoader";
+import { isPickedModel} from "../Utils/raycaster";
 
 export default class commonScene {
   container: HTMLDivElement;
@@ -116,6 +118,23 @@ export default class commonScene {
       this.container,
       this.pickableObjects,
       callback
+    );
+  }
+
+  pickSpecifiedModel(
+    content: THREE.Mesh | Array<THREE.Mesh>,
+    mousePosition: mouseMovePositionType
+  ) {
+    if (Array.isArray(content)) {
+      this.pickableObjects = content;
+    } else {
+      this.pickableObjects.push(content);
+    }
+    return isPickedModel(
+      this.camera as THREE.PerspectiveCamera,
+      this.container,
+      this.pickableObjects,
+      mousePosition
     );
   }
 
