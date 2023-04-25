@@ -1,5 +1,5 @@
 {
-  "name": "copper3d",
+  "name": "copper3d_visualisation",
   "description": "A 3d visualisation package base on threejs provides multiple scenes and Nrrd image load funtion.",
   "version": "1.14.7",
   "main": "dist/bundle.umd.js",
