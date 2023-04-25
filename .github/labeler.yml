@@ -1,0 +1,43 @@
+"@documentation":
+  - docs/source/**/*
+"@Controls":
+  - src/Controls/**/*
+"@core":
+  - src/core/**/*
+"@css":
+  - src/css/**/*
+"@lib":
+  - src/lib/**/*
+"@copperDicomLoader":
+  - src/Loader/copperDicomLoader.ts/**/*
+"@copperGltfLoader":
+  - src/Loader/copperGltfLoader.ts/**/*
+"@copperNrrdLoader":
+  - src/Loader/copperNrrdLoader.ts/**/*
+"@copperOBJLoader":
+  - src/Loader/copperOBJLoader.ts/**/*
+"@copperVtkLoader":
+  - src/Loader/copperVtkLoader.ts/**/*
+"@Renderer":
+  - src/Renderer/**/*
+"@Scene":
+  - src/Scene/**/*
+"@Utils":
+  - src/Utils/**/*
+"@Utils/nrrd_tools":
+  - src/Utils/nrrd_tools.ts/**/*
+"@eslint":
+  - packages/eslint-config-custom/**/*
+"@stack":
+  - packages/stack/**/*
+  - stacks/**/*
+"@tsconfig":
+  - packages/tsconfig/**/*
+"@ui":
+  - packages/ui/**/*
+"documentation":
+  - "*.md"
+"workflow":
+  - .github/**/*
+"tests":
+  - "**/*.spec.*"
