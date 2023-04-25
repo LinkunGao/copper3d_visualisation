@@ -1,15 +1,15 @@
 "@documentation":
   - docs/source/**/*
-"@controls":
-  - src/Controls/**/*
-"@core":
-  - src/core/**/*
-"@css":
-  - src/css/**/*
-"@lib":
-  - src/lib/**/*
-"@loader":
-  - src/Loader/**/*
+# "@controls":
+#   - src/Controls/**/*
+# "@core":
+#   - src/core/**/*
+# "@css":
+#   - src/css/**/*
+# "@lib":
+#   - src/lib/**/*
+# "@loader":
+#   - src/Loader/**/*
 # "@copperDicomLoader":
 #   - src/Loader/copperDicomLoader.ts
 # "@copperGltfLoader":
@@ -20,12 +20,12 @@
 #   - src/Loader/copperOBJLoader.ts
 # "@copperVtkLoader":
 #   - src/Loader/copperVtkLoader.ts
-"@renderer":
-  - src/Renderer/**/*
-"@scene":
-  - src/Scene/**/*
-"@utils":
-  - src/Utils/**/*
+# "@renderer":
+#   - src/Renderer/**/*
+# "@scene":
+#   - src/Scene/**/*
+# "@utils":
+#   - src/Utils/**/*
 # "@Utils/nrrd_tools":
 #   - src/Utils/nrrd_tools.ts
 "@eslint":
