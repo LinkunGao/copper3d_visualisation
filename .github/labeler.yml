@@ -9,15 +9,15 @@
 "@lib":
   - src/lib/**/*
 "@copperDicomLoader":
-  - src/Loader/copperDicomLoader.ts/**/*
+  - src/Loader/copperDicomLoader.ts
 "@copperGltfLoader":
-  - src/Loader/copperGltfLoader.ts/**/*
+  - src/Loader/copperGltfLoader.ts
 "@copperNrrdLoader":
-  - src/Loader/copperNrrdLoader.ts/**/*
+  - src/Loader/copperNrrdLoader.ts
 "@copperOBJLoader":
-  - src/Loader/copperOBJLoader.ts/**/*
+  - src/Loader/copperOBJLoader.ts
 "@copperVtkLoader":
-  - src/Loader/copperVtkLoader.ts/**/*
+  - src/Loader/copperVtkLoader.ts
 "@Renderer":
   - src/Renderer/**/*
 "@Scene":
@@ -25,7 +25,7 @@
 "@Utils":
   - src/Utils/**/*
 "@Utils/nrrd_tools":
-  - src/Utils/nrrd_tools.ts/**/*
+  - src/Utils/nrrd_tools.ts
 "@eslint":
   - packages/eslint-config-custom/**/*
 "@stack":
