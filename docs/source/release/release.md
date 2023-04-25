@@ -1623,3 +1623,9 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.14.6
 
 - move pickSpecifiedModel function into commonSceneMethod class.
+
+## Release v1.14.7
+
+- Add setEraserUrls(urls:string[]) in nrrd_tools
+  - this is for customise the eraser images and offline.
+- Add new workflow for auto-label and auto-release.

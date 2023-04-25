@@ -1,0 +1,26 @@
+# Read .github/labeler.yml and apply labels to PRs based on the files that have changed.
+name: "Pull Request Labeler"
+on:
+  - pull_request
+
+jobs:
+  # Apply labels based on the location of changed files, configured by .github/labeler.yml
+  changed_files:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v4
+        with:
+          repo-token: "${{ secrets.COOPER3D_NPM_TOKEN }}"
+
+  # Apply labels based on branch name, configured by .github/pr-branch-labeler.yml
+  branch_name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PRs
+        uses: ffittschen/pr-branch-labeler@v1
+        if: github.event.action == 'opened' # Only run the action when the PR was first opened
+        with:
+          repo-token: ${{ secrets.COOPER3D_NPM_TOKEN }}

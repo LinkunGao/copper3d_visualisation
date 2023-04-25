@@ -1,0 +1,8 @@
+breaking:
+  head: ["breaking/*", "bc/*", "major/*"]
+feature:
+  head: ["feat/*", "feature/*", "enhancement/*", "minor/*"]
+bug:
+  head: ["bugfix/*", "hotfix/*", "fix/*", "bug/*"]
+chore:
+  head: ["chore/*", "maint/*", "refactor/*"]
