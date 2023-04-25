@@ -34,7 +34,7 @@ export class nrrd_tools {
   paintImagesLabel1: paintImagesType = { x: [], y: [], z: [] };
   paintImagesLabel2: paintImagesType = { x: [], y: [], z: [] };
   paintImagesLabel3: paintImagesType = { x: [], y: [], z: [] };
-  storedPaintImages:storedPaintImagesType = {
+  storedPaintImages: storedPaintImagesType = {
     label1: this.paintImagesLabel1,
     label2: this.paintImagesLabel2,
     label3: this.paintImagesLabel3,
@@ -91,7 +91,7 @@ export class nrrd_tools {
   private undoArray: Array<undoType> = [];
   private initState: boolean = true;
   private preTimer: any;
-  private eraserUrls:string[] = [];
+  private eraserUrls: string[] = [];
 
   private nrrd_states = {
     originWidth: 0,
@@ -134,11 +134,11 @@ export class nrrd_tools {
     previousPanelT: -99999,
     switchSliceFlag: false,
     labels: ["label1", "label2", "label3"],
-   
+
     getMask: (
       mask: ImageData,
       sliceId: number,
-      label:string,
+      label: string,
       width: number,
       height: number,
       clearAllFlag: boolean
@@ -342,7 +342,11 @@ export class nrrd_tools {
     this.afterLoadSlice();
   }
 
-  private loadingMaskByLabel(masks:exportPaintImageType[], index:number, imageData:ImageData){
+  private loadingMaskByLabel(
+    masks: exportPaintImageType[],
+    index: number,
+    imageData: ImageData
+  ) {
     let imageDataLable = this.emptyCtx.createImageData(
       this.nrrd_states.nrrd_x_mm,
       this.nrrd_states.nrrd_y_mm
@@ -352,10 +356,13 @@ export class nrrd_tools {
       imageDataLable.data[j] = masks[index].data[j];
       imageData.data[j] += masks[index].data[j];
     }
-    return imageDataLable
+    return imageDataLable;
   }
 
-  setMasksData(masksData: storeExportPaintImageType, loadingBar?: loadingBarType) {
+  setMasksData(
+    masksData: storeExportPaintImageType,
+    loadingBar?: loadingBarType
+  ) {
     if (!!masksData) {
       this.nrrd_states.loadMaskJson = true;
       if (loadingBar) {
@@ -367,27 +374,39 @@ export class nrrd_tools {
       this.setEmptyCanvasSize();
 
       const len = masksData["label1"].length;
-      for(let i = 0; i < len; i++){
+      for (let i = 0; i < len; i++) {
         let imageData = this.emptyCtx.createImageData(
           this.nrrd_states.nrrd_x_mm,
           this.nrrd_states.nrrd_y_mm
         );
-        let imageDataLabel1, imageDataLabel2, imageDataLabel3
-        if(masksData["label1"][i].data.length>0){
+        let imageDataLabel1, imageDataLabel2, imageDataLabel3;
+        if (masksData["label1"][i].data.length > 0) {
           this.setEmptyCanvasSize();
-          imageDataLabel1 = this.loadingMaskByLabel(masksData["label1"], i, imageData)
+          imageDataLabel1 = this.loadingMaskByLabel(
+            masksData["label1"],
+            i,
+            imageData
+          );
           this.emptyCtx.putImageData(imageDataLabel1, 0, 0);
           this.storeEachLayerImage(i, "label1");
         }
-        if(masksData["label2"][i].data.length>0){
+        if (masksData["label2"][i].data.length > 0) {
           this.setEmptyCanvasSize();
-          imageDataLabel2 = this.loadingMaskByLabel(masksData["label2"], i, imageData)
+          imageDataLabel2 = this.loadingMaskByLabel(
+            masksData["label2"],
+            i,
+            imageData
+          );
           this.emptyCtx.putImageData(imageDataLabel2, 0, 0);
           this.storeEachLayerImage(i, "label2");
         }
-        if(masksData["label3"][i].data.length>0){
+        if (masksData["label3"][i].data.length > 0) {
           this.setEmptyCanvasSize();
-          imageDataLabel3 = this.loadingMaskByLabel(masksData["label3"], i, imageData)
+          imageDataLabel3 = this.loadingMaskByLabel(
+            masksData["label3"],
+            i,
+            imageData
+          );
           this.emptyCtx.putImageData(imageDataLabel3, 0, 0);
           this.storeEachLayerImage(i, "label3");
         }
@@ -404,8 +423,8 @@ export class nrrd_tools {
     }
   }
 
-  setEraserUrls(urls:string[]){
-    this.eraserUrls = urls
+  setEraserUrls(urls: string[]) {
+    this.eraserUrls = urls;
   }
   getCurrentImageDimension() {
     return this.nrrd_states.dimensions;
@@ -1163,23 +1182,35 @@ export class nrrd_tools {
           this.nrrd_states.currentIndex,
           this.paintImages
         );
-        this.drawMaskToLabelCtx(this.paintImages,this.drawingLayerMasterCtx)
-        this.drawMaskToLabelCtx(this.paintImagesLabel1,this.drawingLayerOneCtx)
-        this.drawMaskToLabelCtx(this.paintImagesLabel2,this.drawingLayerTwoCtx)
-        this.drawMaskToLabelCtx(this.paintImagesLabel3,this.drawingLayerThreeCtx)
-        
+        this.drawMaskToLabelCtx(this.paintImages, this.drawingLayerMasterCtx);
+        this.drawMaskToLabelCtx(
+          this.paintImagesLabel1,
+          this.drawingLayerOneCtx
+        );
+        this.drawMaskToLabelCtx(
+          this.paintImagesLabel2,
+          this.drawingLayerTwoCtx
+        );
+        this.drawMaskToLabelCtx(
+          this.paintImagesLabel3,
+          this.drawingLayerThreeCtx
+        );
+
         this.nrrd_states.switchSliceFlag = false;
       }
     }
   }
 
-  private drawMaskToLabelCtx(paintedImages:paintImagesType, ctx:CanvasRenderingContext2D){
+  private drawMaskToLabelCtx(
+    paintedImages: paintImagesType,
+    ctx: CanvasRenderingContext2D
+  ) {
     const paintedImage = this.filterDrawedImage(
       this.axis,
       this.nrrd_states.currentIndex,
       paintedImages
     );
-    
+
     if (paintedImage?.image) {
       // redraw the stored data to empty point 2
       this.setEmptyCanvasSize();
@@ -1361,9 +1392,14 @@ export class nrrd_tools {
             if (this.gui_states.Eraser) {
               // this.drawingCanvas.style.cursor =
               //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_48.png) 48 48, crosshair";
-              this.eraserUrls.length > 0 ? this.drawingCanvas.style.cursor = switchEraserSize(
-                this.gui_states.brushAndEraserSize, this.eraserUrls):
-                this.drawingCanvas.style.cursor = switchEraserSize( this.gui_states.brushAndEraserSize);
+              this.eraserUrls.length > 0
+                ? (this.drawingCanvas.style.cursor = switchEraserSize(
+                    this.gui_states.brushAndEraserSize,
+                    this.eraserUrls
+                  ))
+                : (this.drawingCanvas.style.cursor = switchEraserSize(
+                    this.gui_states.brushAndEraserSize
+                  ));
             } else {
               this.drawingCanvas.style.cursor =
                 this.nrrd_states.defaultPaintCursor;
@@ -1440,20 +1476,23 @@ export class nrrd_tools {
       }
     };
 
-    const redrawPreviousImageToLabelCtx = (ctx: CanvasRenderingContext2D,label:string="default")=>{
-      let paintImages:paintImagesType
+    const redrawPreviousImageToLabelCtx = (
+      ctx: CanvasRenderingContext2D,
+      label: string = "default"
+    ) => {
+      let paintImages: paintImagesType;
       switch (label) {
         case "label1":
-          paintImages = this.paintImagesLabel1
+          paintImages = this.paintImagesLabel1;
           break;
         case "label2":
-          paintImages = this.paintImagesLabel2
+          paintImages = this.paintImagesLabel2;
           break;
         case "label3":
-          paintImages = this.paintImagesLabel3
+          paintImages = this.paintImagesLabel3;
           break;
         default:
-          paintImages = this.paintImages
+          paintImages = this.paintImages;
           break;
       }
       const tempPreImg = this.filterDrawedImage(
@@ -1462,8 +1501,8 @@ export class nrrd_tools {
         paintImages
       )?.image;
       this.emptyCanvas.width = this.emptyCanvas.width;
-      
-      if (tempPreImg&&label=="default") {
+
+      if (tempPreImg && label == "default") {
         this.previousDrawingImage = tempPreImg;
       }
       this.emptyCtx.putImageData(tempPreImg, 0, 0);
@@ -1475,10 +1514,9 @@ export class nrrd_tools {
         this.nrrd_states.changedWidth,
         this.nrrd_states.changedHeight
       );
-    }
+    };
 
     const handlePointerUp = (e: MouseEvent) => {
-      
       if (e.button === 0) {
         if (this.Is_Shift_Pressed || Is_Painting) {
           leftclicked = false;
@@ -1495,8 +1533,8 @@ export class nrrd_tools {
               this.drawingCanvasLayerMaster.width =
                 this.drawingCanvasLayerMaster.width;
               canvas.width = canvas.width;
-              redrawPreviousImageToLabelCtx(this.drawingLayerMasterCtx)
-              redrawPreviousImageToLabelCtx(ctx, this.gui_states.label)
+              redrawPreviousImageToLabelCtx(this.drawingLayerMasterCtx);
+              redrawPreviousImageToLabelCtx(ctx, this.gui_states.label);
               // draw new drawings
               ctx.beginPath();
               ctx.moveTo(lines[0].x, lines[0].y);
@@ -1530,8 +1568,14 @@ export class nrrd_tools {
           );
           if (this.gui_states.Eraser) {
             const restLabels = this.getRestLabel();
-            this.storeEachLayerImage(this.nrrd_states.currentIndex, restLabels[0]);
-            this.storeEachLayerImage(this.nrrd_states.currentIndex, restLabels[1]);
+            this.storeEachLayerImage(
+              this.nrrd_states.currentIndex,
+              restLabels[0]
+            );
+            this.storeEachLayerImage(
+              this.nrrd_states.currentIndex,
+              restLabels[1]
+            );
           }
 
           Is_Painting = false;
@@ -1812,7 +1856,6 @@ export class nrrd_tools {
   }
 
   private useEraser() {
-
     const clearArc = (x: number, y: number, radius: number) => {
       var calcWidth = radius - this.nrrd_states.stepClear;
       var calcHeight = Math.sqrt(radius * radius - calcWidth * calcWidth);
@@ -1962,11 +2005,9 @@ export class nrrd_tools {
         } else if (val === "label2") {
           this.gui_states.fillColor = "#ff0000";
           this.gui_states.brushColor = "#ff0000";
-          
         } else if (val === "label3") {
           this.gui_states.fillColor = "#0000ff";
           this.gui_states.brushColor = "#0000ff";
-          
         }
       });
 
@@ -2012,18 +2053,28 @@ export class nrrd_tools {
       .step(1)
       .onChange(() => {
         if (this.gui_states.Eraser) {
-          this.eraserUrls.length > 0 ? this.drawingCanvas.style.cursor = switchEraserSize(
-            this.gui_states.brushAndEraserSize, this.eraserUrls):
-            this.drawingCanvas.style.cursor = switchEraserSize( this.gui_states.brushAndEraserSize);
+          this.eraserUrls.length > 0
+            ? (this.drawingCanvas.style.cursor = switchEraserSize(
+                this.gui_states.brushAndEraserSize,
+                this.eraserUrls
+              ))
+            : (this.drawingCanvas.style.cursor = switchEraserSize(
+                this.gui_states.brushAndEraserSize
+              ));
         }
       });
 
     actionsFolder.add(this.gui_states, "Eraser").onChange((value) => {
       this.gui_states.Eraser = value;
       if (this.gui_states.Eraser) {
-        this.eraserUrls.length > 0 ? this.drawingCanvas.style.cursor = switchEraserSize(
-          this.gui_states.brushAndEraserSize, this.eraserUrls):
-          this.drawingCanvas.style.cursor = switchEraserSize( this.gui_states.brushAndEraserSize);
+        this.eraserUrls.length > 0
+          ? (this.drawingCanvas.style.cursor = switchEraserSize(
+              this.gui_states.brushAndEraserSize,
+              this.eraserUrls
+            ))
+          : (this.drawingCanvas.style.cursor = switchEraserSize(
+              this.gui_states.brushAndEraserSize
+            ));
       } else {
         this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
       }
@@ -2244,19 +2295,21 @@ export class nrrd_tools {
     this.drawingCanvasLayerThree.height = this.nrrd_states.changedHeight;
 
     this.redrawDisplayCanvas();
-    this.reloadMaskToLabel(this.paintImages,this.drawingLayerMasterCtx)
-    this.reloadMaskToLabel(this.paintImagesLabel1,this.drawingLayerOneCtx)
-    this.reloadMaskToLabel(this.paintImagesLabel2,this.drawingLayerTwoCtx)
-    this.reloadMaskToLabel(this.paintImagesLabel3,this.drawingLayerTwoCtx)
-    
+    this.reloadMaskToLabel(this.paintImages, this.drawingLayerMasterCtx);
+    this.reloadMaskToLabel(this.paintImagesLabel1, this.drawingLayerOneCtx);
+    this.reloadMaskToLabel(this.paintImagesLabel2, this.drawingLayerTwoCtx);
+    this.reloadMaskToLabel(this.paintImagesLabel3, this.drawingLayerTwoCtx);
   }
 
   /**
    * Used to init the mask on each label and reload
-   * @param paintImages 
-   * @param ctx 
+   * @param paintImages
+   * @param ctx
    */
-  private reloadMaskToLabel(paintImages:paintImagesType, ctx:CanvasRenderingContext2D){
+  private reloadMaskToLabel(
+    paintImages: paintImagesType,
+    ctx: CanvasRenderingContext2D
+  ) {
     let paintedImage;
     switch (this.axis) {
       case "x":
@@ -2540,7 +2593,6 @@ export class nrrd_tools {
     if (!this.nrrd_states.loadMaskJson) {
       this.storeEachLayerImage(index, label);
     }
-
   }
 
   private storeImageToAxis(
@@ -2552,7 +2604,7 @@ export class nrrd_tools {
       index,
       image: imageData,
     };
-    
+
     let drawedImage: paintImageType;
     switch (this.axis) {
       case "x":
@@ -2581,10 +2633,8 @@ export class nrrd_tools {
     canvas: HTMLCanvasElement,
     paintedImages: paintImagesType
   ) {
-    
-    
     if (!this.nrrd_states.loadMaskJson) {
-      this.setEmptyCanvasSize()
+      this.setEmptyCanvasSize();
       this.emptyCtx.drawImage(
         canvas,
         0,
@@ -2601,7 +2651,7 @@ export class nrrd_tools {
     );
     this.storeImageToAxis(index, paintedImages, imageData);
     // this.setEmptyCanvasSize()
-    return imageData
+    return imageData;
   }
 
   private storeEachLayerImage(index: number, label: string) {
@@ -2632,8 +2682,8 @@ export class nrrd_tools {
         );
         break;
     }
-     // callback function to return the painted image
-     if (!this.nrrd_states.loadMaskJson && this.axis=="z") {
+    // callback function to return the painted image
+    if (!this.nrrd_states.loadMaskJson && this.axis == "z") {
       this.nrrd_states.getMask(
         imageData as ImageData,
         this.nrrd_states.currentIndex,
