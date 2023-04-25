@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/labeler@v4
         with:
-          repo-token: "${{ secrets.COOPER3D_NPM_TOKEN }}"
+          repo-token: "${{ secrets.COPPER3D_GITHUB_TOKEN }}"
 
   # Apply labels based on branch name, configured by .github/pr-branch-labeler.yml
   branch_name:
@@ -23,4 +23,4 @@ jobs:
         uses: ffittschen/pr-branch-labeler@v1
         if: github.event.action == 'opened' # Only run the action when the PR was first opened
         with:
-          repo-token: ${{ secrets.COOPER3D_NPM_TOKEN }}
+          repo-token: ${{ secrets.COPPER3D_GITHUB_TOKEN }}

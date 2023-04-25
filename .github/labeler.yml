@@ -1,4 +1,4 @@
- "@documentation":
+"@documentation":
   - docs/source/**/*
 "@controls":
   - src/Controls/**/*
