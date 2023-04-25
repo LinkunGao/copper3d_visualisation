@@ -1,17 +1,33 @@
-"@backend":
-  - apps/backend/**/*
-"@customer":
-  - src/customer/**/*
+ "@documentation":
+  - docs/source/**/*
+"@controls":
+  - src/Controls/**/*
 "@core":
   - src/core/**/*
-"@service-provider":
-  - src/serviceprovider/**/*
-"@store-member":
-  - apps/storemember/**/*
-"@support-centre":
-  - apps/supportcentre/**/*
-"@api":
-  - packages/api/**/*
+"@css":
+  - src/css/**/*
+"@lib":
+  - src/lib/**/*
+"@loader":
+  - src/Loader/**/*
+"@copperDicomLoader":
+  - src/Loader/copperDicomLoader.ts
+"@copperGltfLoader":
+  - src/Loader/copperGltfLoader.ts
+"@copperNrrdLoader":
+  - src/Loader/copperNrrdLoader.ts
+"@copperOBJLoader":
+  - src/Loader/copperOBJLoader.ts
+"@copperVtkLoader":
+  - src/Loader/copperVtkLoader.ts
+"@renderer":
+  - src/Renderer/**/*
+"@scene":
+  - src/Scene/**/*
+"@utils":
+  - src/Utils/**/*
+"@Utils/nrrd_tools":
+  - src/Utils/nrrd_tools.ts
 "@eslint":
   - packages/eslint-config-custom/**/*
 "@stack":
