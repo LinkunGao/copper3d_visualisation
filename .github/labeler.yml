@@ -1,6 +1,6 @@
 "@documentation":
   - docs/source/**/*
-"@Controls":
+"@controls":
   - src/Controls/**/*
 "@core":
   - src/core/**/*
@@ -20,11 +20,11 @@
 #   - src/Loader/copperOBJLoader.ts
 # "@copperVtkLoader":
 #   - src/Loader/copperVtkLoader.ts
-"@Renderer":
+"@renderer":
   - src/Renderer/**/*
-"@Scene":
+"@scene":
   - src/Scene/**/*
-"@Utils":
+"@utils":
   - src/Utils/**/*
 # "@Utils/nrrd_tools":
 #   - src/Utils/nrrd_tools.ts
