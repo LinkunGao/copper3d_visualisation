@@ -91,6 +91,7 @@ export class nrrd_tools {
   private undoArray: Array<undoType> = [];
   private initState: boolean = true;
   private preTimer: any;
+  private eraserUrls:string[] = [];
 
   private nrrd_states = {
     originWidth: 0,
@@ -133,6 +134,7 @@ export class nrrd_tools {
     previousPanelT: -99999,
     switchSliceFlag: false,
     labels: ["label1", "label2", "label3"],
+   
     getMask: (
       mask: ImageData,
       sliceId: number,
@@ -402,6 +404,9 @@ export class nrrd_tools {
     }
   }
 
+  setEraserUrls(urls:string[]){
+    this.eraserUrls = urls
+  }
   getCurrentImageDimension() {
     return this.nrrd_states.dimensions;
   }
@@ -1356,9 +1361,9 @@ export class nrrd_tools {
             if (this.gui_states.Eraser) {
               // this.drawingCanvas.style.cursor =
               //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_48.png) 48 48, crosshair";
-              this.drawingCanvas.style.cursor = switchEraserSize(
-                this.gui_states.brushAndEraserSize
-              );
+              this.eraserUrls.length > 0 ? this.drawingCanvas.style.cursor = switchEraserSize(
+                this.gui_states.brushAndEraserSize, this.eraserUrls):
+                this.drawingCanvas.style.cursor = switchEraserSize( this.gui_states.brushAndEraserSize);
             } else {
               this.drawingCanvas.style.cursor =
                 this.nrrd_states.defaultPaintCursor;
@@ -2007,18 +2012,18 @@ export class nrrd_tools {
       .step(1)
       .onChange(() => {
         if (this.gui_states.Eraser) {
-          this.drawingCanvas.style.cursor = switchEraserSize(
-            this.gui_states.brushAndEraserSize
-          );
+          this.eraserUrls.length > 0 ? this.drawingCanvas.style.cursor = switchEraserSize(
+            this.gui_states.brushAndEraserSize, this.eraserUrls):
+            this.drawingCanvas.style.cursor = switchEraserSize( this.gui_states.brushAndEraserSize);
         }
       });
 
     actionsFolder.add(this.gui_states, "Eraser").onChange((value) => {
       this.gui_states.Eraser = value;
       if (this.gui_states.Eraser) {
-        this.drawingCanvas.style.cursor = switchEraserSize(
-          this.gui_states.brushAndEraserSize
-        );
+        this.eraserUrls.length > 0 ? this.drawingCanvas.style.cursor = switchEraserSize(
+          this.gui_states.brushAndEraserSize, this.eraserUrls):
+          this.drawingCanvas.style.cursor = switchEraserSize( this.gui_states.brushAndEraserSize);
       } else {
         this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
       }
