@@ -1629,3 +1629,8 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 - Add setEraserUrls(urls:string[]) in nrrd_tools
   - this is for customise the eraser images and offline.
 - Add new workflow for auto-label and auto-release.
+
+## Release v1.14.8
+
+- add prerender function in copperRenderer.
+- remove gltf exporter for nuxt
