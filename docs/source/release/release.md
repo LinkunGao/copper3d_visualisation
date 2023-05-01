@@ -1634,3 +1634,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 
 - add prerender function in copperRenderer.
 - remove gltf exporter for nuxt
+
+## Release v1.14.9
+
+- update threejs latest version.
