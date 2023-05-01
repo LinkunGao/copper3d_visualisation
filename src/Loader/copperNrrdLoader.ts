@@ -1,7 +1,7 @@
 import * as THREE from "three";
-// import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
+import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
 // import * as NRRD from "copper3d_plugin_nrrd";
-import { NRRDLoader } from "copper3d_plugin_nrrd";
+// import { NRRDLoader } from "copper3d_plugin_nrrd";
 
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
@@ -21,7 +21,7 @@ loader = new NRRDLoader();
 
 let cube: THREE.Mesh;
 let gui: GUI | undefined;
-let oldGuiDom:HTMLDivElement;
+let oldGuiDom: HTMLDivElement;
 
 let CircleGeometry = new THREE.RingGeometry(5, 6, 30);
 let CircleMaterial = new THREE.MeshBasicMaterial({
@@ -159,7 +159,7 @@ export function copperNrrdLoader(
       } else {
         callback && callback(volume, nrrdMeshes, nrrdSlices);
       }
-      gui = undefined
+      gui = undefined;
     },
     function (xhr: ProgressEvent<EventTarget>) {
       loadingContainer.style.display = "flex";
@@ -429,10 +429,9 @@ export function addBoxHelper(
 }
 
 function configGui(opts?: optsType) {
-  
   if (opts && opts.openGui) {
     if (opts.container) {
-      if(oldGuiDom){
+      if (oldGuiDom) {
         opts.container.removeChild(oldGuiDom);
       }
       gui = new GUI({
