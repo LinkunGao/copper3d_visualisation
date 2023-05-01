@@ -48,13 +48,12 @@
     "@types/dat.gui": "^0.7.9",
     "@types/three": "^0.140.0",
     "copper3d_plugin_heart_k": "^1.0.14",
-    "copper3d_plugin_nrrd": "^1.3.2",
     "dat.gui": "^0.7.9",
     "dicom-parser": "^1.8.13",
     "fflate": "^0.7.3",
     "file-saver": "^2.0.5",
     "glsl-blend-soft-light": "^1.0.5",
     "glsl-film-grain": "^1.0.4",
-    "three": "^0.150.1"
+    "three": "^0.152.2"
   }
 }
