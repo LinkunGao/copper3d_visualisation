@@ -1638,3 +1638,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.14.9
 
 - update threejs latest version.
+
+## Release v1.14.10
+
+- fixed the bugs on copperRender after remove GltfExporter.
