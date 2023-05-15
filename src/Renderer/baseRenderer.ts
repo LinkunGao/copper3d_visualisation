@@ -40,6 +40,7 @@ export default class baseRenderer {
     }
 
     this.renderer.physicallyCorrectLights = true;
+    // this.renderer.useLegacyLights = true;
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.gui = null;
     this.stats = Stats();

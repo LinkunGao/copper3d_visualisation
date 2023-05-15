@@ -189,11 +189,17 @@ export default class baseScene extends commonScene {
     flags.includes(false) ? (this.isHalfed = true) : (this.isHalfed = false);
   }
 
-  onWindowResize = () => {
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  onRenderCameraChange() {
     (this.camera as THREE.PerspectiveCamera).aspect =
       this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();
+  }
+
+  onWindowResize = () => {
+    console.log("adaa");
+
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.onRenderCameraChange();
     this.vignette?.style({
       aspect: (this.camera as THREE.PerspectiveCamera).aspect,
     });

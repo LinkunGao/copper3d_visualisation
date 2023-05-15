@@ -79,13 +79,11 @@ function baseRaycaster(
   mouse_x: number,
   mouse_y: number
 ): THREE.Intersection[] {
-  raycaster.setFromCamera(
-    {
-      x: (mouse_x / container.clientWidth) * 2 - 1,
-      y: -(mouse_y / container.clientHeight) * 2 + 1,
-    },
-    camera
+  const coords = new THREE.Vector2(
+    (mouse_x / container.clientWidth) * 2 - 1,
+    -(mouse_y / container.clientHeight) * 2 + 1
   );
+  raycaster.setFromCamera(coords, camera);
   intersects = raycaster.intersectObjects(pickableObjects, false);
   return intersects;
 }

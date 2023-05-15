@@ -23,3 +23,4 @@ Tutorial
     15_drawContrastInMainArea
     16_loadMultipleVtks
     17_texture2d_heartmodel
+    18_texture2d_nrrd_sharder
