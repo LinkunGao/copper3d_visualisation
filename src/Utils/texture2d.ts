@@ -40,6 +40,36 @@ export function createTexture2D_Zip(url: string, scene: THREE.Scene) {
     });
 }
 
+export function createTexture2D_NRRD(
+  data: Uint8Array,
+  width: number,
+  height: number,
+  depth: number,
+  callback: (mesh: THREE.Mesh) => void
+) {
+  const texture = new THREE.DataArrayTexture(data, width, height, depth);
+  texture.format = THREE.RedFormat;
+  texture.needsUpdate = true;
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      diffuse: { value: texture },
+      depth: { value: 1 },
+      size: { value: new THREE.Vector2(planeWidth, planeHeight) },
+    },
+    vertexShader: vert_2d,
+    fragmentShader: frag_2d,
+    glslVersion: THREE.GLSL3,
+    side: THREE.DoubleSide,
+  });
+
+  const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = "texture2d_mesh_zip";
+  callback(mesh);
+}
+
 export function createTexture2D_Array(
   copperVolume: copperVolumeType,
   depth: number,
