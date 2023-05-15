@@ -39,11 +39,10 @@ export default class baseRenderer {
       });
     }
 
-    this.renderer.physicallyCorrectLights = true;
-    // this.renderer.useLegacyLights = true;
-    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.useLegacyLights = true;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.gui = null;
-    this.stats = Stats();
+    this.stats = new Stats();
     this.pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     this.pmremGenerator.compileEquirectangularShader();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
