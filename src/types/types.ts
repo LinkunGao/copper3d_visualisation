@@ -12,6 +12,7 @@ interface optType {
   performance?: boolean;
   light?: boolean;
   alpha?: boolean;
+  controls?: "copper3d" | "trackball" | "orbit";
   [key: string]: string | boolean | undefined;
 }
 interface stateType {
@@ -82,7 +83,7 @@ interface nrrdDrawImageOptType {
   getMaskData?: (
     mask: ImageData,
     sliceId: number,
-    label:string,
+    label: string,
     width: number,
     height: number,
     clearAllFlag?: boolean
@@ -182,10 +183,10 @@ interface exportPaintImageType {
   data: number[];
 }
 
-interface storeExportPaintImageType{
-  label1:exportPaintImageType[];
-  label2:exportPaintImageType[];
-  label3:exportPaintImageType[];
+interface storeExportPaintImageType {
+  label1: exportPaintImageType[];
+  label2: exportPaintImageType[];
+  label3: exportPaintImageType[];
 }
 
 interface optionsGltfExporterType {

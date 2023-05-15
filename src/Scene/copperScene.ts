@@ -14,7 +14,7 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 
 export default class copperScene extends baseScene {
   clock: THREE.Clock = new THREE.Clock();
-  controls: Copper3dTrackballControls | OrbitControls;
+  controls: Copper3dTrackballControls | OrbitControls | TrackballControls;
   // isHalfed: boolean = false;
 
   private mixer: THREE.AnimationMixer | null = null;
@@ -33,14 +33,25 @@ export default class copperScene extends baseScene {
   constructor(
     container: HTMLDivElement,
     renderer: THREE.WebGLRenderer,
+    controls?: "copper3d" | "orbit" | "trackball",
     alpha?: boolean
   ) {
     super(container, renderer, alpha);
 
-    this.controls = new Copper3dTrackballControls(
-      this.camera,
-      this.renderer.domElement
-    );
+    if (controls === "trackball") {
+      this.controls = new TrackballControls(
+        this.camera,
+        this.renderer.domElement
+      );
+    } else if (controls === "orbit") {
+      this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    } else {
+      this.controls = new Copper3dTrackballControls(
+        this.camera as THREE.PerspectiveCamera,
+        this.renderer.domElement
+      );
+    }
+
     this.controls.panSpeed = 3;
     this.controls.rotateSpeed = 3;
     window.addEventListener("resize", this.onWindowResize, false);
