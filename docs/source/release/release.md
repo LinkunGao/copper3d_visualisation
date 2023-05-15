@@ -1654,3 +1654,11 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
     - one finger rotate
     - two fingers zoom/pan
     - three fingers pan
+
+## Release v1.15.1
+
+- add a option to copperRender
+  - allow user to choose which controls they would like to use.
+  - threejs TrackballControls
+  - copper3dTrackballControls
+  - threejs OrbitControls
