@@ -1642,3 +1642,15 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.14.10
 
 - fixed the bugs on copperRender after remove GltfExporter.
+
+## Release v1.15.0
+
+- Update the texture2d with nrrd volume methode.
+  - Use this function directly by Copper3d createTexture2D_NRRD
+- Update texture3d method, add it into copperScene.
+- Rewrite Threejs trackballcontrols.
+  - The functions are same as the threejs one.
+  - Add new fingers functions on touchscreen part.
+    - one finger rotate
+    - two fingers zoom/pan
+    - three fingers pan
