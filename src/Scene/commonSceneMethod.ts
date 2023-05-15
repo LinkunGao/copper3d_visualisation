@@ -6,7 +6,7 @@ import {
   copperVolumeType,
   loadingBarType,
   dicomLoaderOptsType,
-  mouseMovePositionType
+  mouseMovePositionType,
 } from "../types/types";
 import * as THREE from "three";
 import { GUI } from "dat.gui";
@@ -16,7 +16,11 @@ import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
 import { pickModelDefault } from "../Utils/raycaster";
 import { Controls } from "../Controls/copperControls";
 import { objLoader } from "../Loader/copperOBJLoader";
-import { isPickedModel} from "../Utils/raycaster";
+import { isPickedModel } from "../Utils/raycaster";
+import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { copperNrrdTexture3dLoader } from "../Loader/copperNrrdLoader";
+import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 
 export default class commonScene {
   container: HTMLDivElement;
@@ -26,8 +30,10 @@ export default class commonScene {
   subDiv: HTMLDivElement | null = null;
   subScene: THREE.Scene = new THREE.Scene();
   subCamera: THREE.PerspectiveCamera | null = null;
+  controls: Copper3dTrackballControls | OrbitControls | TrackballControls;
   protected subRender: THREE.WebGLRenderer | null = null;
   protected subCopperControl: Controls | null = null;
+  protected renderNrrdVolume: boolean = false;
 
   protected preRenderCallbackFunctions: preRenderCallbackFunctionType;
   protected sort: boolean = true; //default ascending order
@@ -45,6 +51,8 @@ export default class commonScene {
       0.1,
       500
     );
+    this.controls = new Copper3dTrackballControls(this.camera, this.container);
+    this.controls.dispose();
     this.preRenderCallbackFunctions = {
       index: 0,
       cache: [],
@@ -294,6 +302,38 @@ export default class commonScene {
     opts?: optsType
   ) {
     copperNrrdLoader(url, loadingBar, segmentation, callback, opts);
+  }
+
+  updateControls(camera: THREE.PerspectiveCamera | THREE.OrthographicCamera) {
+    this.controls.dispose();
+    this.controls = new OrbitControls(camera, this.container);
+    this.controls.target.set(0, 0, 0);
+    this.controls.minZoom = 0.5;
+    this.controls.maxZoom = 4;
+    this.controls.enablePan = false;
+  }
+
+  loadNrrdTexture3d(url: string, callback?: (volume: any, gui?: GUI) => void) {
+    // const h = 512; // frustum height
+    const h = 1024;
+    const aspect = window.innerWidth / window.innerHeight;
+
+    this.camera = new THREE.OrthographicCamera(
+      (-h * aspect) / 2,
+      (h * aspect) / 2,
+      h / 2,
+      -h / 2,
+      1,
+      2000
+    );
+
+    this.camera.position.set(0, 0, 1280);
+    this.camera.up.set(0, 0, 1);
+    this.camera.updateProjectionMatrix();
+    this.updateControls(this.camera);
+    this.renderNrrdVolume = true;
+
+    copperNrrdTexture3dLoader(url, this.scene, this.container, callback);
   }
 
   loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
