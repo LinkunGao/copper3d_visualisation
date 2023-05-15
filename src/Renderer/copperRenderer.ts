@@ -34,7 +34,12 @@ export default class copperRenderer extends baseRenderer {
       return undefined;
     } else {
       const alpha = !!this.options?.alpha;
-      const new_scene = new copperScene(this.container, this.renderer, alpha);
+      const new_scene = new copperScene(
+        this.container,
+        this.renderer,
+        this.options?.controls,
+        alpha
+      );
       new_scene.sceneName = name;
       this.updateEnvironment(new_scene.vignette);
       this.sceneMap[name] = new_scene;
