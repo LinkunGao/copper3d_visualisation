@@ -98,6 +98,7 @@ class Copper3dTrackballControls extends EventDispatcher {
     this.enabled = true;
 
     this.screen = { left: 0, top: 0, width: 0, height: 0 };
+
     this.rotateSpeed = 1.0;
     this.zoomSpeed = 1.2;
     this.panSpeed = 0.3;
@@ -294,7 +295,7 @@ class Copper3dTrackballControls extends EventDispatcher {
           _zoomStart.copy(_zoomEnd);
         } else {
           _zoomStart.y +=
-            (_zoomEnd.y - _zoomStart.y) * scope.dynamicDampingFactor;
+            (_zoomEnd.y - _zoomStart.y) * this.dynamicDampingFactor;
         }
       }
     };
@@ -303,6 +304,7 @@ class Copper3dTrackballControls extends EventDispatcher {
       const mouseChange: Vector2 = new Vector2(),
         objectUp: Vector3 = new Vector3(),
         pan: Vector3 = new Vector3();
+
       return function panCamera() {
         mouseChange.copy(_panEnd).sub(_panStart);
 
@@ -318,7 +320,7 @@ class Copper3dTrackballControls extends EventDispatcher {
             const scale_y: number =
               (orth_camera.top - orth_camera.bottom) /
               orth_camera.zoom /
-              scope.domElement.clientHeight;
+              scope.domElement.clientWidth;
 
             mouseChange.x *= scale_x;
             mouseChange.y *= scale_y;
