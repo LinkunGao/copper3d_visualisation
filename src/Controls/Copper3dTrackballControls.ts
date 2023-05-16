@@ -12,6 +12,7 @@ import {
 const _changeEvent = { type: "change" };
 const _startEvent = { type: "start" };
 const _endEvent = { type: "end" };
+
 type IState = {
   NONE: -1;
   ROTATE: 0;
@@ -116,7 +117,7 @@ class Copper3dTrackballControls extends EventDispatcher {
     this.minZoom = 0;
     this.maxZoom = Infinity;
 
-    this.keys = ["KeyA", "KeyS", "KeyD"];
+    this.keys = ["KeyA" /*A*/, "KeyS" /*S*/, "KeyD" /*D*/];
 
     this.mouseButtons = {
       LEFT: MOUSE.ROTATE,
@@ -130,8 +131,8 @@ class Copper3dTrackballControls extends EventDispatcher {
 
     const EPS: number = 0.000001;
 
-    const lastPosition = new Vector3();
-    let lastZoom = 1;
+    const lastPosition: Vector3 = new Vector3();
+    let lastZoom: number = 1;
 
     let _state: number = STATE.NONE,
       _keyState: number = STATE.NONE,
@@ -157,13 +158,12 @@ class Copper3dTrackballControls extends EventDispatcher {
     this.up0 = this.object.up.clone();
     this.zoom0 = this.object.zoom;
 
-    // core methods
-    this.handleResize = function () {
-      const box = scope.domElement.getBoundingClientRect();
+    // methods
 
-      // adjustments come from similar code in the jquery offser() function
-      // get root element
-      const d = scope.domElement.ownerDocument.documentElement;
+    this.handleResize = function () {
+      const box: DOMRect = scope.domElement.getBoundingClientRect();
+      // adjustments come from similar code in the jquery offset() function
+      const d: HTMLElement = scope.domElement.ownerDocument.documentElement;
       scope.screen.left = box.left + window.pageXOffset - d.clientLeft;
       scope.screen.top = box.top + window.pageYOffset - d.clientTop;
       scope.screen.width = box.width;
@@ -172,6 +172,7 @@ class Copper3dTrackballControls extends EventDispatcher {
 
     const getMouseOnScreen = (function () {
       const vector: Vector2 = new Vector2();
+
       return function getMouseOnScreen(pageX: number, pageY: number) {
         vector.set(
           (pageX - scope.screen.left) / scope.screen.width,
@@ -183,18 +184,14 @@ class Copper3dTrackballControls extends EventDispatcher {
     })();
 
     const getMouseOnCircle = (function () {
-      /**
-       * convert screen coordinates to threejs coordinates ratio
-       */
       const vector: Vector2 = new Vector2();
-      return function getMouseonCircle(pageX: number, pageY: number) {
+
+      return function getMouseOnCircle(pageX: number, pageY: number) {
         vector.set(
-          // the width radius of the circle diameter
           (pageX - scope.screen.width * 0.5 - scope.screen.left) /
             (scope.screen.width * 0.5),
-          // the height radius of the circle diameter
           (scope.screen.height + 2 * (scope.screen.top - pageY)) /
-            scope.screen.width //screen.width intentional
+            scope.screen.width // screen.width intentional
         );
 
         return vector;
@@ -215,22 +212,16 @@ class Copper3dTrackballControls extends EventDispatcher {
           _moveCurr.y - _movePrev.y,
           0
         );
-        // Computes the Euclidean length (straight-line length) from (0, 0, 0) to (x, y, z).
         let angle: number = moveDirection.length();
 
         if (angle) {
-          // .sub Subtracts v from this vector.
           _eye.copy(scope.object.position).sub(scope.target);
 
-          // .normalize() Convert this vector to a unit vector - that is, sets it equal to a vector with the same direction as this one, but length 1.
           eyeDirection.copy(_eye).normalize();
           objectUpDirection.copy(scope.object.up).normalize();
-          // .crossVectors Sets this vector to cross product of a and b.
           objectSidewaysDirection
             .crossVectors(objectUpDirection, eyeDirection)
             .normalize();
-
-          // .setLength Set this vector to a vector with the same direction as this one, but length l.
 
           objectUpDirection.setLength(_moveCurr.y - _movePrev.y);
           objectSidewaysDirection.setLength(_moveCurr.x - _movePrev.x);
@@ -242,7 +233,6 @@ class Copper3dTrackballControls extends EventDispatcher {
           angle *= scope.rotateSpeed;
           quaternion.setFromAxisAngle(axis, angle);
 
-          // Applies a Quaternion transform to this vector.
           _eye.applyQuaternion(quaternion);
           scope.object.up.applyQuaternion(quaternion);
 
@@ -283,6 +273,7 @@ class Copper3dTrackballControls extends EventDispatcher {
       if (_state === STATE.TOUCH_ZOOM_PAN) {
         factor = _touchZoomDistanceStart / _touchZoomDistanceEnd;
         _touchZoomDistanceStart = _touchZoomDistanceEnd;
+
         zoomCore(factor);
       } else {
         factor = 1.0 + (_zoomEnd.y - _zoomStart.y) * scope.zoomSpeed;
@@ -308,18 +299,17 @@ class Copper3dTrackballControls extends EventDispatcher {
       return function panCamera() {
         mouseChange.copy(_panEnd).sub(_panStart);
 
-        // .lengthSq() Computes the squared length of this vector. If you are comparing the lengths of vectors, you should compare the length squared instead as it is slightly more efficient to calculate.
         if (mouseChange.lengthSq()) {
           if ((scope.object as OrthographicCamera).isOrthographicCamera) {
-            const orth_camera: OrthographicCamera =
-              scope.object as OrthographicCamera;
             const scale_x: number =
-              (orth_camera.right - orth_camera.left) /
-              orth_camera.zoom /
+              ((scope.object as OrthographicCamera).right -
+                (scope.object as OrthographicCamera).left) /
+              scope.object.zoom /
               scope.domElement.clientWidth;
             const scale_y: number =
-              (orth_camera.top - orth_camera.bottom) /
-              orth_camera.zoom /
+              ((scope.object as OrthographicCamera).top -
+                (scope.object as OrthographicCamera).bottom) /
+              scope.object.zoom /
               scope.domElement.clientWidth;
 
             mouseChange.x *= scale_x;
@@ -440,9 +430,11 @@ class Copper3dTrackballControls extends EventDispatcher {
       if (_pointers.length === 0) {
         scope.domElement.setPointerCapture(event.pointerId);
 
-        scope.domElement.addEventListener("pointermove", onPointerMove, false);
-        scope.domElement.addEventListener("pointerup", onPointerUp, false);
+        scope.domElement.addEventListener("pointermove", onPointerMove);
+        scope.domElement.addEventListener("pointerup", onPointerUp);
       }
+
+      //
 
       addPointer(event);
 
@@ -469,20 +461,18 @@ class Copper3dTrackballControls extends EventDispatcher {
       if (event.pointerType === "touch") {
         onTouchEnd(event);
       } else {
-        onMouseUp(event);
+        onMouseUp();
       }
+
+      //
 
       removePointer(event);
 
       if (_pointers.length === 0) {
         scope.domElement.releasePointerCapture(event.pointerId);
 
-        scope.domElement.removeEventListener(
-          "pointermove",
-          onPointerMove,
-          false
-        );
-        scope.domElement.removeEventListener("pointerup", onPointerUp, false);
+        scope.domElement.removeEventListener("pointermove", onPointerMove);
+        scope.domElement.removeEventListener("pointerup", onPointerUp);
       }
     }
 
@@ -492,6 +482,7 @@ class Copper3dTrackballControls extends EventDispatcher {
 
     function keydown(event: KeyboardEvent) {
       if (scope.enabled === false) return;
+
       window.removeEventListener("keydown", keydown);
 
       if (_keyState !== STATE.NONE) {
@@ -505,30 +496,32 @@ class Copper3dTrackballControls extends EventDispatcher {
       }
     }
 
-    function keyup(event: KeyboardEvent) {
+    function keyup() {
       if (scope.enabled === false) return;
 
       _keyState = STATE.NONE;
 
-      window.addEventListener("keydown", keydown, false);
+      window.addEventListener("keydown", keydown);
     }
 
-    function onMouseDown(event: MouseEvent) {
+    function onMouseDown(event: PointerEvent) {
       if (_state === STATE.NONE) {
         switch (event.button) {
           case scope.mouseButtons.LEFT:
             _state = STATE.ROTATE;
             break;
+
           case scope.mouseButtons.MIDDLE:
             _state = STATE.ZOOM;
             break;
+
           case scope.mouseButtons.RIGHT:
             _state = STATE.PAN;
             break;
         }
       }
 
-      const state = _keyState !== STATE.NONE ? _keyState : _state;
+      const state: number = _keyState !== STATE.NONE ? _keyState : _state;
 
       if (state === STATE.ROTATE && !scope.noRotate) {
         _moveCurr.copy(getMouseOnCircle(event.pageX, event.pageY));
@@ -544,8 +537,8 @@ class Copper3dTrackballControls extends EventDispatcher {
       scope.dispatchEvent(_startEvent);
     }
 
-    function onMouseMove(event: MouseEvent) {
-      const state = _keyState !== STATE.NONE ? _keyState : _state;
+    function onMouseMove(event: PointerEvent) {
+      const state: number = _keyState !== STATE.NONE ? _keyState : _state;
 
       if (state === STATE.ROTATE && !scope.noRotate) {
         _movePrev.copy(_moveCurr);
@@ -557,7 +550,7 @@ class Copper3dTrackballControls extends EventDispatcher {
       }
     }
 
-    function onMouseUp(event: MouseEvent) {
+    function onMouseUp() {
       _state = STATE.NONE;
 
       scope.dispatchEvent(_endEvent);
@@ -565,6 +558,7 @@ class Copper3dTrackballControls extends EventDispatcher {
 
     function onMouseWheel(event: WheelEvent) {
       if (scope.enabled === false) return;
+
       if (scope.noZoom === true) return;
 
       event.preventDefault();
@@ -610,8 +604,8 @@ class Copper3dTrackballControls extends EventDispatcher {
             dx * dx + dy * dy
           );
 
-          const x = (_pointers[0].pageX + _pointers[1].pageX) / 2;
-          const y = (_pointers[0].pageY + _pointers[1].pageY) / 2;
+          const x: number = (_pointers[0].pageX + _pointers[1].pageX) / 2;
+          const y: number = (_pointers[0].pageY + _pointers[1].pageY) / 2;
           _panStart.copy(getMouseOnScreen(x, y));
           _panEnd.copy(_panStart);
           break;
@@ -619,9 +613,9 @@ class Copper3dTrackballControls extends EventDispatcher {
         case 3:
           _state = STATE.TOUCH_PAN;
 
-          const centerX =
+          const centerX: number =
             (_pointers[0].pageX + _pointers[1].pageX + _pointers[2].pageX) / 3;
-          const centerY =
+          const centerY: number =
             (_pointers[0].pageY + _pointers[1].pageY + _pointers[2].pageY) / 3;
           _panStart.copy(getMouseOnScreen(centerX, centerY));
           _panEnd.copy(_panStart);
@@ -658,12 +652,12 @@ class Copper3dTrackballControls extends EventDispatcher {
 
         case 3:
           if (_state != STATE.TOUCH_PAN) return;
-          const point_1 = _pointerPositions[_pointers[0].pointerId];
-          const point_2 = _pointerPositions[_pointers[1].pointerId];
-          const point_3 = _pointerPositions[_pointers[2].pointerId];
+          const point_1: Vector2 = _pointerPositions[_pointers[0].pointerId];
+          const point_2: Vector2 = _pointerPositions[_pointers[1].pointerId];
+          const point_3: Vector2 = _pointerPositions[_pointers[2].pointerId];
 
-          const centerX = (point_1.x + point_2.x + point_3.x) / 3;
-          const centerY = (point_1.y + point_2.y + point_3.y) / 3;
+          const centerX: number = (point_1.x + point_2.x + point_3.x) / 3;
+          const centerY: number = (point_1.y + point_2.y + point_3.y) / 3;
 
           _panEnd.copy(getMouseOnScreen(centerX, centerY));
           break;
@@ -687,7 +681,8 @@ class Copper3dTrackballControls extends EventDispatcher {
 
           for (let i = 0; i < _pointers.length; i++) {
             if (_pointers[i].pointerId !== event.pointerId) {
-              const position = _pointerPositions[_pointers[i].pointerId];
+              const position: Vector2 =
+                _pointerPositions[_pointers[i].pointerId];
               _moveCurr.copy(getMouseOnScreen(position.x, position.y));
               _movePrev.copy(_moveCurr);
               break;
@@ -700,7 +695,8 @@ class Copper3dTrackballControls extends EventDispatcher {
 
           for (let i = 0; i < _pointers.length; i++) {
             if (_pointers[i].pointerId !== event.pointerId) {
-              const position = _pointerPositions[_pointers[i].pointerId];
+              const position: Vector2 =
+                _pointerPositions[_pointers[i].pointerId];
               _moveCurr.copy(getMouseOnScreen(position.x, position.y));
               _movePrev.copy(_moveCurr);
               break;
@@ -712,7 +708,7 @@ class Copper3dTrackballControls extends EventDispatcher {
       scope.dispatchEvent(_endEvent);
     }
 
-    function contextmenu(event: Event) {
+    function contextmenu(event: MouseEvent) {
       if (scope.enabled === false) return;
 
       event.preventDefault();
@@ -726,7 +722,7 @@ class Copper3dTrackballControls extends EventDispatcher {
       delete _pointerPositions[event.pointerId];
 
       for (let i = 0; i < _pointers.length; i++) {
-        if (_pointers[i].pointerId === event.pointerId) {
+        if (_pointers[i].pointerId == event.pointerId) {
           _pointers.splice(i, 1);
           return;
         }
@@ -745,7 +741,7 @@ class Copper3dTrackballControls extends EventDispatcher {
     }
 
     function getSecondPointerPosition(event: PointerEvent) {
-      const pointer =
+      const pointer: PointerEvent =
         event.pointerId === _pointers[0].pointerId
           ? _pointers[1]
           : _pointers[0];
@@ -754,31 +750,27 @@ class Copper3dTrackballControls extends EventDispatcher {
     }
 
     this.dispose = function () {
-      scope.domElement.removeEventListener("contextmenu", contextmenu, false);
+      scope.domElement.removeEventListener("contextmenu", contextmenu);
 
-      scope.domElement.removeEventListener("pointerdown", onPointerDown, false);
-      scope.domElement.removeEventListener(
-        "pointercancel",
-        onPointerCancel,
-        false
-      );
-      scope.domElement.removeEventListener("wheel", onMouseWheel, false);
+      scope.domElement.removeEventListener("pointerdown", onPointerDown);
+      scope.domElement.removeEventListener("pointercancel", onPointerCancel);
+      scope.domElement.removeEventListener("wheel", onMouseWheel);
 
-      scope.domElement.removeEventListener("pointermove", onPointerMove, false);
-      scope.domElement.removeEventListener("pointerup", onPointerUp, false);
+      scope.domElement.removeEventListener("pointermove", onPointerMove);
+      scope.domElement.removeEventListener("pointerup", onPointerUp);
 
-      window.removeEventListener("keydown", keydown, false);
-      window.removeEventListener("keyup", keyup, false);
+      window.removeEventListener("keydown", keydown);
+      window.removeEventListener("keyup", keyup);
     };
 
-    this.domElement.addEventListener("contextmenu", contextmenu, false);
+    this.domElement.addEventListener("contextmenu", contextmenu);
 
-    this.domElement.addEventListener("pointerdown", onPointerDown, false);
-    this.domElement.addEventListener("pointercancel", onPointerCancel, false);
+    this.domElement.addEventListener("pointerdown", onPointerDown);
+    this.domElement.addEventListener("pointercancel", onPointerCancel);
     this.domElement.addEventListener("wheel", onMouseWheel, { passive: false });
 
-    window.addEventListener("keydown", keydown, false);
-    window.addEventListener("keyup", keyup, false);
+    window.addEventListener("keydown", keydown);
+    window.addEventListener("keyup", keyup);
 
     this.handleResize();
 
