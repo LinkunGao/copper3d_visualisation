@@ -79,13 +79,15 @@ class Copper3dTrackballControls1 extends EventDispatcher {
     super();
 
     const scope = this;
-    const STATE = {
+    const STATE: IState = {
       NONE: -1,
       ROTATE: 0,
       ZOOM: 1,
       PAN: 2,
       TOUCH_ROTATE: 3,
-      TOUCH_ZOOM_PAN: 4,
+      TOUCH_ZOOM: 4,
+      TOUCH_PAN: 5,
+      TOUCH_ZOOM_PAN: 6,
     };
 
     this.object = object;
@@ -132,8 +134,8 @@ class Copper3dTrackballControls1 extends EventDispatcher {
     const lastPosition = new Vector3();
     let lastZoom = 1;
 
-    let _state = STATE.NONE,
-      _keyState = STATE.NONE,
+    let _state: number = STATE.NONE,
+      _keyState: number = STATE.NONE,
       _touchZoomDistanceStart = 0,
       _touchZoomDistanceEnd = 0,
       _lastAngle = 0;
@@ -607,10 +609,10 @@ class Copper3dTrackballControls1 extends EventDispatcher {
           _movePrev.copy(_moveCurr);
           break;
 
-        default: // 2 or more
+        case 2:
           _state = STATE.TOUCH_ZOOM_PAN;
-          const dx = _pointers[0].pageX - _pointers[1].pageX;
-          const dy = _pointers[0].pageY - _pointers[1].pageY;
+          const dx: number = _pointers[0].pageX - _pointers[1].pageX;
+          const dy: number = _pointers[0].pageY - _pointers[1].pageY;
           _touchZoomDistanceEnd = _touchZoomDistanceStart = Math.sqrt(
             dx * dx + dy * dy
           );
@@ -620,6 +622,17 @@ class Copper3dTrackballControls1 extends EventDispatcher {
           _panStart.copy(getMouseOnScreen(x, y));
           _panEnd.copy(_panStart);
           break;
+
+        case 3:
+          _state = STATE.TOUCH_PAN;
+
+          const centerX =
+            (_pointers[0].pageX + _pointers[1].pageX + _pointers[2].pageX) / 3;
+          const centerY =
+            (_pointers[0].pageY + _pointers[1].pageY + _pointers[2].pageY) / 3;
+          _panStart.copy(getMouseOnScreen(centerX, centerY));
+          _panEnd.copy(_panStart);
+          break;
       }
 
       scope.dispatchEvent(_startEvent);
@@ -627,23 +640,39 @@ class Copper3dTrackballControls1 extends EventDispatcher {
 
     function onTouchMove(event: PointerEvent) {
       trackPointer(event);
+      let position: Vector2, x: number, y: number;
 
       switch (_pointers.length) {
         case 1:
+          if (_state != STATE.TOUCH_ROTATE) return;
+
           _movePrev.copy(_moveCurr);
           _moveCurr.copy(getMouseOnCircle(event.pageX, event.pageY));
           break;
 
-        default: // 2 or more
-          const position = getSecondPointerPosition(event);
+        case 2:
+          if (_state != STATE.TOUCH_ZOOM_PAN) return;
+          position = getSecondPointerPosition(event);
 
-          const dx = event.pageX - position.x;
-          const dy = event.pageY - position.y;
+          const dx: number = event.pageX - position.x;
+          const dy: number = event.pageY - position.y;
           _touchZoomDistanceEnd = Math.sqrt(dx * dx + dy * dy);
 
-          const x = (event.pageX + position.x) / 2;
-          const y = (event.pageY + position.y) / 2;
+          x = (event.pageX + position.x) / 2;
+          y = (event.pageY + position.y) / 2;
           _panEnd.copy(getMouseOnScreen(x, y));
+          break;
+
+        case 3:
+          if (_state != STATE.TOUCH_PAN) return;
+          const point_1 = _pointerPositions[_pointers[0].pointerId];
+          const point_2 = _pointerPositions[_pointers[1].pointerId];
+          const point_3 = _pointerPositions[_pointers[2].pointerId];
+
+          const centerX = (point_1.x + point_2.x + point_3.x) / 3;
+          const centerY = (point_1.y + point_2.y + point_3.y) / 3;
+
+          _panEnd.copy(getMouseOnScreen(centerX, centerY));
           break;
       }
     }
@@ -666,12 +695,24 @@ class Copper3dTrackballControls1 extends EventDispatcher {
           for (let i = 0; i < _pointers.length; i++) {
             if (_pointers[i].pointerId !== event.pointerId) {
               const position = _pointerPositions[_pointers[i].pointerId];
-              _moveCurr.copy(getMouseOnCircle(position.x, position.y));
+              _moveCurr.copy(getMouseOnScreen(position.x, position.y));
               _movePrev.copy(_moveCurr);
               break;
             }
           }
+          break;
 
+        case 3:
+          _state = STATE.TOUCH_PAN;
+
+          for (let i = 0; i < _pointers.length; i++) {
+            if (_pointers[i].pointerId !== event.pointerId) {
+              const position = _pointerPositions[_pointers[i].pointerId];
+              _moveCurr.copy(getMouseOnScreen(position.x, position.y));
+              _movePrev.copy(_moveCurr);
+              break;
+            }
+          }
           break;
       }
 
