@@ -1662,3 +1662,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
   - threejs TrackballControls
   - copper3dTrackballControls
   - threejs OrbitControls
+
+## Release v1.15.2
+
+- fixed the copper3dTrackballControls bug
