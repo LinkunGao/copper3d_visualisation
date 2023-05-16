@@ -602,10 +602,10 @@ class Copper3dTrackballControls extends EventDispatcher {
           _movePrev.copy(_moveCurr);
           break;
 
-        case 2:
+        default: // 2 or more
           _state = STATE.TOUCH_ZOOM_PAN;
-          const dx: number = _pointers[0].pageX - _pointers[1].pageX;
-          const dy: number = _pointers[0].pageY - _pointers[1].pageY;
+          const dx = _pointers[0].pageX - _pointers[1].pageX;
+          const dy = _pointers[0].pageY - _pointers[1].pageY;
           _touchZoomDistanceEnd = _touchZoomDistanceStart = Math.sqrt(
             dx * dx + dy * dy
           );
@@ -615,17 +615,6 @@ class Copper3dTrackballControls extends EventDispatcher {
           _panStart.copy(getMouseOnScreen(x, y));
           _panEnd.copy(_panStart);
           break;
-
-        case 3:
-          _state = STATE.TOUCH_PAN;
-
-          const centerX =
-            (_pointers[0].pageX + _pointers[1].pageX + _pointers[2].pageX) / 3;
-          const centerY =
-            (_pointers[0].pageY + _pointers[1].pageY + _pointers[2].pageY) / 3;
-          _panStart.copy(getMouseOnScreen(centerX, centerY));
-          _panEnd.copy(_panStart);
-          break;
       }
 
       scope.dispatchEvent(_startEvent);
@@ -633,39 +622,23 @@ class Copper3dTrackballControls extends EventDispatcher {
 
     function onTouchMove(event: PointerEvent) {
       trackPointer(event);
-      let position: Vector2, x: number, y: number;
 
       switch (_pointers.length) {
         case 1:
-          if (_state != STATE.TOUCH_ROTATE) return;
-
           _movePrev.copy(_moveCurr);
           _moveCurr.copy(getMouseOnCircle(event.pageX, event.pageY));
           break;
 
-        case 2:
-          if (_state != STATE.TOUCH_ZOOM_PAN) return;
-          position = getSecondPointerPosition(event);
+        default: // 2 or more
+          const position = getSecondPointerPosition(event);
 
-          const dx: number = event.pageX - position.x;
-          const dy: number = event.pageY - position.y;
+          const dx = event.pageX - position.x;
+          const dy = event.pageY - position.y;
           _touchZoomDistanceEnd = Math.sqrt(dx * dx + dy * dy);
 
-          x = (event.pageX + position.x) / 2;
-          y = (event.pageY + position.y) / 2;
+          const x = (event.pageX + position.x) / 2;
+          const y = (event.pageY + position.y) / 2;
           _panEnd.copy(getMouseOnScreen(x, y));
-          break;
-
-        case 3:
-          if (_state != STATE.TOUCH_PAN) return;
-          const point_1 = _pointerPositions[_pointers[0].pointerId];
-          const point_2 = _pointerPositions[_pointers[1].pointerId];
-          const point_3 = _pointerPositions[_pointers[2].pointerId];
-
-          const centerX = (point_1.x + point_2.x + point_3.x) / 3;
-          const centerY = (point_1.y + point_2.y + point_3.y) / 3;
-
-          _panEnd.copy(getMouseOnScreen(centerX, centerY));
           break;
       }
     }
@@ -688,29 +661,139 @@ class Copper3dTrackballControls extends EventDispatcher {
           for (let i = 0; i < _pointers.length; i++) {
             if (_pointers[i].pointerId !== event.pointerId) {
               const position = _pointerPositions[_pointers[i].pointerId];
-              _moveCurr.copy(getMouseOnScreen(position.x, position.y));
+              _moveCurr.copy(getMouseOnCircle(position.x, position.y));
               _movePrev.copy(_moveCurr);
               break;
             }
           }
-          break;
 
-        case 3:
-          _state = STATE.TOUCH_PAN;
-
-          for (let i = 0; i < _pointers.length; i++) {
-            if (_pointers[i].pointerId !== event.pointerId) {
-              const position = _pointerPositions[_pointers[i].pointerId];
-              _moveCurr.copy(getMouseOnScreen(position.x, position.y));
-              _movePrev.copy(_moveCurr);
-              break;
-            }
-          }
           break;
       }
 
       scope.dispatchEvent(_endEvent);
     }
+
+    // function onTouchStart(event: PointerEvent) {
+    //   trackPointer(event);
+
+    //   switch (_pointers.length) {
+    //     case 1:
+    //       _state = STATE.TOUCH_ROTATE;
+    //       _moveCurr.copy(
+    //         getMouseOnCircle(_pointers[0].pageX, _pointers[0].pageY)
+    //       );
+    //       _movePrev.copy(_moveCurr);
+    //       break;
+
+    //     case 2:
+    //       _state = STATE.TOUCH_ZOOM_PAN;
+    //       const dx: number = _pointers[0].pageX - _pointers[1].pageX;
+    //       const dy: number = _pointers[0].pageY - _pointers[1].pageY;
+    //       _touchZoomDistanceEnd = _touchZoomDistanceStart = Math.sqrt(
+    //         dx * dx + dy * dy
+    //       );
+
+    //       const x = (_pointers[0].pageX + _pointers[1].pageX) / 2;
+    //       const y = (_pointers[0].pageY + _pointers[1].pageY) / 2;
+    //       _panStart.copy(getMouseOnScreen(x, y));
+    //       _panEnd.copy(_panStart);
+    //       break;
+
+    //     case 3:
+    //       _state = STATE.TOUCH_PAN;
+
+    //       const centerX =
+    //         (_pointers[0].pageX + _pointers[1].pageX + _pointers[2].pageX) / 3;
+    //       const centerY =
+    //         (_pointers[0].pageY + _pointers[1].pageY + _pointers[2].pageY) / 3;
+    //       _panStart.copy(getMouseOnScreen(centerX, centerY));
+    //       _panEnd.copy(_panStart);
+    //       break;
+    //   }
+
+    //   scope.dispatchEvent(_startEvent);
+    // }
+
+    // function onTouchMove(event: PointerEvent) {
+    //   trackPointer(event);
+    //   let position: Vector2, x: number, y: number;
+
+    //   switch (_pointers.length) {
+    //     case 1:
+    //       if (_state != STATE.TOUCH_ROTATE) return;
+
+    //       _movePrev.copy(_moveCurr);
+    //       _moveCurr.copy(getMouseOnCircle(event.pageX, event.pageY));
+    //       break;
+
+    //     case 2:
+    //       if (_state != STATE.TOUCH_ZOOM_PAN) return;
+    //       position = getSecondPointerPosition(event);
+
+    //       const dx: number = event.pageX - position.x;
+    //       const dy: number = event.pageY - position.y;
+    //       _touchZoomDistanceEnd = Math.sqrt(dx * dx + dy * dy);
+
+    //       x = (event.pageX + position.x) / 2;
+    //       y = (event.pageY + position.y) / 2;
+    //       _panEnd.copy(getMouseOnScreen(x, y));
+    //       break;
+
+    //     case 3:
+    //       if (_state != STATE.TOUCH_PAN) return;
+    //       const point_1 = _pointerPositions[_pointers[0].pointerId];
+    //       const point_2 = _pointerPositions[_pointers[1].pointerId];
+    //       const point_3 = _pointerPositions[_pointers[2].pointerId];
+
+    //       const centerX = (point_1.x + point_2.x + point_3.x) / 3;
+    //       const centerY = (point_1.y + point_2.y + point_3.y) / 3;
+
+    //       _panEnd.copy(getMouseOnScreen(centerX, centerY));
+    //       break;
+    //   }
+    // }
+
+    // function onTouchEnd(event: PointerEvent) {
+    //   switch (_pointers.length) {
+    //     case 0:
+    //       _state = STATE.NONE;
+    //       break;
+
+    //     case 1:
+    //       _state = STATE.TOUCH_ROTATE;
+    //       _moveCurr.copy(getMouseOnCircle(event.pageX, event.pageY));
+    //       _movePrev.copy(_moveCurr);
+    //       break;
+
+    //     case 2:
+    //       _state = STATE.TOUCH_ZOOM_PAN;
+
+    //       for (let i = 0; i < _pointers.length; i++) {
+    //         if (_pointers[i].pointerId !== event.pointerId) {
+    //           const position = _pointerPositions[_pointers[i].pointerId];
+    //           _moveCurr.copy(getMouseOnScreen(position.x, position.y));
+    //           _movePrev.copy(_moveCurr);
+    //           break;
+    //         }
+    //       }
+    //       break;
+
+    //     case 3:
+    //       _state = STATE.TOUCH_PAN;
+
+    //       for (let i = 0; i < _pointers.length; i++) {
+    //         if (_pointers[i].pointerId !== event.pointerId) {
+    //           const position = _pointerPositions[_pointers[i].pointerId];
+    //           _moveCurr.copy(getMouseOnScreen(position.x, position.y));
+    //           _movePrev.copy(_moveCurr);
+    //           break;
+    //         }
+    //       }
+    //       break;
+    //   }
+
+    //   scope.dispatchEvent(_endEvent);
+    // }
 
     function contextmenu(event: Event) {
       if (scope.enabled === false) return;
