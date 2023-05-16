@@ -1666,3 +1666,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.15.2
 
 - fixed the copper3dTrackballControls bug
+
+## Release v1.15.3
+
+- test copper3dTrackballControls bug
