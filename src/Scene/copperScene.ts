@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Copper3dTrackballControls1 } from "../Controls/Copper3dTrackballControls1";
+import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 
 import { CameraViewPoint } from "../Controls/copperControls";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
@@ -14,7 +14,7 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 
 export default class copperScene extends baseScene {
   clock: THREE.Clock = new THREE.Clock();
-  controls: Copper3dTrackballControls1 | OrbitControls | TrackballControls;
+  controls: Copper3dTrackballControls | OrbitControls | TrackballControls;
   // isHalfed: boolean = false;
 
   private mixer: THREE.AnimationMixer | null = null;
@@ -46,7 +46,7 @@ export default class copperScene extends baseScene {
     } else if (controls === "orbit") {
       this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     } else {
-      this.controls = new Copper3dTrackballControls1(
+      this.controls = new Copper3dTrackballControls(
         this.camera as THREE.PerspectiveCamera,
         this.renderer.domElement
       );
@@ -311,7 +311,7 @@ export default class copperScene extends baseScene {
   }
 
   resetView() {
-    (this.controls as Copper3dTrackballControls1).reset();
+    (this.controls as Copper3dTrackballControls).reset();
     this.updateCamera(this.viewPoint);
   }
 
