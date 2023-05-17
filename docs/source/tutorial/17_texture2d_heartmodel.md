@@ -25,8 +25,8 @@
 - Config Copper and vite
 
 ```ts
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
 
 import * as THREE from "three";
 import { GUI } from "dat.gui";
