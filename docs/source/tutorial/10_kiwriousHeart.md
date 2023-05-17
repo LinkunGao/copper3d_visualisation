@@ -40,8 +40,8 @@
 - config copper3d
 
 ```ts
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
 import { getCurrentInstance, onMounted } from "vue";
 
 let refs = null;

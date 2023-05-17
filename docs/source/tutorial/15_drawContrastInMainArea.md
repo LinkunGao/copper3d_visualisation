@@ -81,8 +81,8 @@
 - config copper3D
 
 ```ts
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
 import { GUI } from "dat.gui";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { getCurrentInstance, onMounted, ref, watchEffect, reactive } from "vue";

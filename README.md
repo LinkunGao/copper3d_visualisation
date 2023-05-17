@@ -4,6 +4,7 @@
 [![Read the Docs][readthedocs]][readthedocs-url]
 [![Copper3d Examples][examples]][examples-url]
 [![NRRD_Segmentation_Tool example][nrrd_example]][nrrd_example-url]
+[![MedTech Heart example][heart_example]][heart_example-url]
 
 A 3d visualisation package base on threejs provides multiple scenes and Nrrd image load funtion.
 
@@ -26,7 +27,7 @@ see: https://www.npmjs.com/package/gltfloader-plugin-test
 - Load demo
 
 ```ts
-import * as Copper from "copper3d_visualisation";
+import * as Copper from "copper3d";
 import { getCurrentInstance, onMounted } from "vue";
 let refs = null;
 let appRenderer;
@@ -50,7 +51,7 @@ appRenderer = new Copper.copperRenderer(bg, { guiOpen: true });
 - Load multiple scenes with gltf-loader
 
 ```ts
-import * as Copper from "copper3d_visualisation";
+import * as Copper from "copper3d";
 import { getCurrentInstance, onMounted } from "vue";
 
 let refs = null;
@@ -99,6 +100,8 @@ function loadModel(url, name) {
 [examples-url]: https://linkungao.github.io/copper3d_examples
 [nrrd_example]: https://img.shields.io/badge/Nrrd__Segmentation__tool-example-orange
 [nrrd_example-url]: https://abi-web-apps.github.io/NRRD_Segmentation_Tool/
+[heart_example-url]: https://uoa-heart-mechanics-research.github.io/medtech-heart/model-heart
+[heart_example]: https://img.shields.io/badge/Medtech%20Heart-example-brightgreen
 
 #### Acknowledgements
 

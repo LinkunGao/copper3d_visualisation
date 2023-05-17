@@ -19,7 +19,7 @@ In Vue environment.
 - load `GLTF` model
 
   ```ts
-  import * as Copper from "copper3d_visualisation";
+  import * as Copper from "copper3d";
   import { getCurrentInstance, onMounted } from "vue";
   let refs = null;
   let appRenderer;
@@ -60,12 +60,12 @@ In Vue environment.
     Data structure
 
     ```ts
-     {
-        nearPlane: number = 0.1; // camera near
-        farPlane: number = 2000.0; // camera far
-        eyePosition: Array<number> = [0.0, 0.0, 0.0]; //camera position
-        targetPosition: Array<number> = [0.0, 0.0, 0.0]; // camera target (look at)
-        upVector: Array<number> = [0.0, 1.0, 0.0]; // camera up
+    {
+      nearPlane: number = 0.1; // camera near
+      farPlane: number = 2000.0; // camera far
+      eyePosition: Array<number> = [0.0, 0.0, 0.0]; //camera position
+      targetPosition: Array<number> = [0.0, 0.0, 0.0]; // camera target (look at)
+      upVector: Array<number> = [0.0, 1.0, 0.0]; // camera up
     }
     ```
 

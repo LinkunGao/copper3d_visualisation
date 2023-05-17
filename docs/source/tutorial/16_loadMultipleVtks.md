@@ -42,7 +42,7 @@
 - config vue and copper3d
 
 ```ts
-import * as Copper from "copper3d_visualisation";
+import * as Copper from "copper3d";
 import * as THREE from "three";
 import { getCurrentInstance, onMounted, ref } from "vue";
 
