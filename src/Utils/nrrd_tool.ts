@@ -308,9 +308,6 @@ export class nrrd_tools {
     this.nrrd_states.nrrd_z_pixel =
       this.allSlicesArray[0].x.volume.dimensions[2];
 
-    console.log("mm", this.nrrd_states.nrrd_x_mm);
-    console.log("pixel", this.nrrd_states.nrrd_x_pixel);
-
     this.nrrd_states.voxelSpacing = this.allSlicesArray[0].x.volume.spacing;
     this.nrrd_states.ratios.x = this.allSlicesArray[0].x.volume.spacing[0];
     this.nrrd_states.ratios.y = this.allSlicesArray[0].x.volume.spacing[1];
