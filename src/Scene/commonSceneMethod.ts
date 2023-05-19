@@ -7,6 +7,7 @@ import {
   loadingBarType,
   dicomLoaderOptsType,
   mouseMovePositionType,
+  ICopperSceneOpts,
 } from "../types/types";
 import * as THREE from "three";
 import { GUI } from "dat.gui";
@@ -27,6 +28,9 @@ export default class commonScene {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
 
+  copperPerspectiveCamera: THREE.PerspectiveCamera;
+  copperOrthographicCamera: THREE.OrthographicCamera;
+
   subDiv: HTMLDivElement | null = null;
   subScene: THREE.Scene = new THREE.Scene();
   subCamera: THREE.PerspectiveCamera | null = null;
@@ -41,16 +45,34 @@ export default class commonScene {
 
   protected pickableObjects: THREE.Mesh[] = [];
 
-  constructor(container: HTMLDivElement) {
+  constructor(container: HTMLDivElement, opt?: ICopperSceneOpts) {
     this.container = container;
     this.scene = new THREE.Scene();
 
-    this.camera = new THREE.PerspectiveCamera(
+    this.copperPerspectiveCamera = new THREE.PerspectiveCamera(
       75,
       container.clientWidth / container.clientHeight,
       0.1,
       500
     );
+    const h = 1024;
+    const aspect = window.innerWidth / window.innerHeight;
+
+    this.copperOrthographicCamera = new THREE.OrthographicCamera(
+      (-h * aspect) / 2,
+      (h * aspect) / 2,
+      h / 2,
+      -h / 2,
+      1,
+      2000
+    );
+
+    if (opt?.camera === "orthographic") {
+      this.camera = this.copperOrthographicCamera;
+    } else {
+      this.camera = this.copperPerspectiveCamera;
+    }
+
     this.controls = new Copper3dTrackballControls(this.camera, this.container);
     this.controls.dispose();
     this.preRenderCallbackFunctions = {
@@ -315,18 +337,7 @@ export default class commonScene {
 
   loadNrrdTexture3d(url: string, callback?: (volume: any, gui?: GUI) => void) {
     // const h = 512; // frustum height
-    const h = 1024;
-    const aspect = window.innerWidth / window.innerHeight;
-
-    this.camera = new THREE.OrthographicCamera(
-      (-h * aspect) / 2,
-      (h * aspect) / 2,
-      h / 2,
-      -h / 2,
-      1,
-      2000
-    );
-
+    this.camera.updateProjectionMatrix();
     this.camera.position.set(0, 0, 1280);
     this.camera.up.set(0, 0, 1);
     this.camera.updateProjectionMatrix();
@@ -351,9 +362,7 @@ export default class commonScene {
         this.scene.add(obj);
         !!callback && callback(obj);
       }, // called when loading is in progresses
-      (xhr: any) => {
-        // console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-      },
+      (xhr: any) => {},
       // called when loading has errors
       (error: any) => {
         console.log("An error happened");

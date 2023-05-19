@@ -5,7 +5,11 @@ import { environments, environmentType } from "../lib/environment/index";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
 import Stats from "three/examples/jsm/libs/stats.module";
 import { GUI, GUIController } from "dat.gui";
-import { optType, stateType, modelVisualisationDataType } from "../types/types";
+import {
+  ICopperRenderOpt,
+  stateType,
+  modelVisualisationDataType,
+} from "../types/types";
 
 export default class baseRenderer {
   container: HTMLDivElement;
@@ -16,7 +20,7 @@ export default class baseRenderer {
   currentScene: baseScene;
   pmremGenerator: THREE.PMREMGenerator;
 
-  options: optType | undefined;
+  options: ICopperRenderOpt | undefined;
   private state: stateType;
 
   // GUI update folder
@@ -24,7 +28,7 @@ export default class baseRenderer {
   private visualCtrls: Array<GUIController> = [];
   private cameraFolder: GUI | null;
 
-  constructor(container: HTMLDivElement, options?: optType) {
+  constructor(container: HTMLDivElement, options?: ICopperRenderOpt) {
     this.container = container;
     this.options = options;
     if (this.options?.alpha) {
@@ -47,9 +51,13 @@ export default class baseRenderer {
     this.pmremGenerator.compileEquirectangularShader();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     if (!!this.options?.alpha) {
-      this.currentScene = new baseScene(this.container, this.renderer, true);
+      this.currentScene = new baseScene(this.container, this.renderer, {
+        alpha: true,
+      });
     } else {
-      this.currentScene = new baseScene(this.container, this.renderer, false);
+      this.currentScene = new baseScene(this.container, this.renderer, {
+        alpha: false,
+      });
     }
 
     this.currentScene.sceneName = "default";
@@ -158,12 +166,12 @@ export default class baseRenderer {
     );
 
     // camera
-    if (this.options?.camera) {
+    if (this.options?.cameraGui) {
       this.cameraFolder = gui.addFolder("Camera");
     }
 
     // Performance
-    if (this.options?.performance) {
+    if (this.options?.performanceGui) {
       const perfFolder = gui.addFolder("Performance");
       const perfLi = document.createElement("li");
       this.stats.dom.style.position = "static";
@@ -173,7 +181,7 @@ export default class baseRenderer {
     }
 
     // lights
-    if (this.options?.light) {
+    if (this.options?.lightGui) {
       const lightFolder = gui.addFolder("LightsFolder");
       [
         lightFolder.add(this.state, "addLights").listen(),

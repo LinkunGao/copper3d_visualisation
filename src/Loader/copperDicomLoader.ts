@@ -14,13 +14,10 @@ export function copperDicomLoader(
     var dicomFileAsBuffer = new Uint8Array(arrayBuffer as ArrayBuffer);
 
     const dataSet = dicomParser.parseDicom(dicomFileAsBuffer);
-    // console.log(dataSet1);
 
     // const dataSet = dicomParser.parseDicom(dicomFileAsBuffer, {
     //   vrCallback(tag) {
     //     const formatted = `(${tag.substring(1, 5)},${tag.substring(5, 9)})`;
-
-    //     // console.log(!!TAG_DICT[formatted] ? TAG_DICT[formatted].vr : undefined);
 
     //     return !!TAG_DICT[formatted] ? TAG_DICT[formatted].vr : undefined;
     //   },

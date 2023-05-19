@@ -12,7 +12,7 @@ import { nrrdMeshesType, nrrdSliceType, loadingBarType } from "../types/types";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
-import { resize3dnrrd } from "./convet";
+import { resize3dnrrd } from "../Utils/convet";
 
 let loader: any;
 
@@ -289,8 +289,6 @@ export function copperNrrdTexture3dLoader(
       const size_ = new THREE.Vector3();
       boundingBox.getSize(size_);
 
-      console.log(size_);
-
       scene.add(mesh);
 
       const gui = new GUI();
@@ -378,7 +376,6 @@ export function getWholeSlices(
   //     nrrdSlices.z.index = i;
   //     nrrdSlices.z.repaint(nrrdSlices.z);
   //     nrrdSlices.z.mesh.position.set(0, 0, 0.5);
-  //     console.log(nrrdSlices.z.mesh);
   //   }, 100);
   // }
   let up = true;
@@ -427,7 +424,6 @@ export function getWholeSlices(
 
       // if (slicesX[index]) {
       //   controls.enabled = false;
-      //   console.log(slicesX[index]);
       //   slicesX[index].visible = false;
       //   // ? (slicesX[index].visible = false)
       //   // : (slicesX[index].visible = true);

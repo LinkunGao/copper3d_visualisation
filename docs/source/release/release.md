@@ -1675,3 +1675,38 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 
 - Fixed the copper3dTrackballControls bug
   - no more bugs on phone.
+
+## Release v1.15.8
+
+- clean code.
+- update the copperRender/copperScene opts.
+
+  ```ts
+  interface ICopperRenderOpt {
+    guiOpen: boolean;
+    cameraGui?: boolean;
+    performanceGui?: boolean;
+    lightGui?: boolean;
+    alpha?: boolean;
+    controls?: "copper3d" | "trackball" | "orbit";
+    cameraType?: "perspective" | "orthographic";
+    [key: string]: string | boolean | undefined;
+  }
+  ```
+
+  ```ts
+  interface ICopperSceneOpts {
+    controls?: "copper3d" | "orbit" | "trackball";
+    camera?: "perspective" | "orthographic";
+    alpha?: boolean;
+  }
+  ```
+
+  - Now the copperRender/copperScene support two type of cameras `"Perspective" | "Orthographic"`. - The default camera is Perspective. - If you want to use Orthographic, when you create the copperRender you can do like this:
+    ```ts
+    appRenderer = new Copper.copperRenderer(bg, {
+      guiOpen: true,
+      cameraGui: true,
+      cameraType: "orthographic",
+    });
+    ```
