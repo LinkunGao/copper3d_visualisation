@@ -11,6 +11,7 @@ import { createTexture2D_Zip } from "../Utils/texture2d";
 import baseScene from "./baseScene";
 import { vtkModels } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { ICopperSceneOpts } from "../types/types";
 
 export default class copperScene extends baseScene {
   clock: THREE.Clock = new THREE.Clock();
@@ -24,30 +25,25 @@ export default class copperScene extends baseScene {
   // rayster pick
 
   // texture2d
-  // private depthStep: number = 0.4;
   private texture2dMesh: THREE.Mesh | null = null;
-  // private preRenderCallbackFunctions: Array<preRenderCallbackFunctionType> = [];
-  // private preRenderCallbackFunctions: preRenderCallbackFunctionType;
-  // private sort: boolean = true; //default ascending order
 
   constructor(
     container: HTMLDivElement,
     renderer: THREE.WebGLRenderer,
-    controls?: "copper3d" | "orbit" | "trackball",
-    alpha?: boolean
+    opt?: ICopperSceneOpts
   ) {
-    super(container, renderer, alpha);
+    super(container, renderer, opt);
 
-    if (controls === "trackball") {
+    if (opt?.controls === "trackball") {
       this.controls = new TrackballControls(
         this.camera,
         this.renderer.domElement
       );
-    } else if (controls === "orbit") {
+    } else if (opt?.controls === "orbit") {
       this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     } else {
       this.controls = new Copper3dTrackballControls(
-        this.camera as THREE.PerspectiveCamera,
+        this.camera,
         this.renderer.domElement
       );
     }
@@ -334,13 +330,15 @@ export default class copperScene extends baseScene {
 
   updateControls(camera: THREE.PerspectiveCamera | THREE.OrthographicCamera) {
     this.controls.dispose();
-    this.controls = new OrbitControls(camera, this.renderer.domElement);
+    this.controls = new Copper3dTrackballControls(
+      camera,
+      this.renderer.domElement
+    );
     // this.controls.target.set(64, 64, 128);
     this.controls.target.set(0, 0, 0);
     this.controls.minZoom = 0.5;
     this.controls.maxZoom = 4;
     // this.controls.enablePan = false;
-    this.controls.update();
   }
 
   onRenderCameraChange(): void {
@@ -355,7 +353,6 @@ export default class copperScene extends baseScene {
     } else {
       (this.camera as THREE.PerspectiveCamera).aspect = aspect;
     }
-    this.camera.updateProjectionMatrix();
   }
 
   render() {

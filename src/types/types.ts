@@ -6,13 +6,14 @@ import { GUI } from "dat.gui";
 interface SceneMapType {
   [key: string]: copperScene | baseScene | copperMScene;
 }
-interface optType {
+interface ICopperRenderOpt {
   guiOpen: boolean;
-  camera?: boolean;
-  performance?: boolean;
-  light?: boolean;
+  cameraGui?: boolean;
+  performanceGui?: boolean;
+  lightGui?: boolean;
   alpha?: boolean;
   controls?: "copper3d" | "trackball" | "orbit";
+  cameraType?: "perspective" | "orthographic";
   [key: string]: string | boolean | undefined;
 }
 interface stateType {
@@ -103,6 +104,12 @@ interface SensorReadResult_kiwrious {
 interface HeartRateResult_kiwrious {
   status: string;
   value?: number;
+}
+
+interface ICopperSceneOpts {
+  controls?: "copper3d" | "orbit" | "trackball";
+  camera?: "perspective" | "orthographic";
+  alpha?: boolean;
 }
 
 declare class SerialService_kiwrious {
@@ -254,7 +261,7 @@ interface IOptVTKLoader {
 
 export type {
   SceneMapType,
-  optType,
+  ICopperRenderOpt,
   stateType,
   modelVisualisationDataType,
   preRenderCallbackFunctionType,
@@ -284,4 +291,5 @@ export type {
   exportPaintImageType,
   storeExportPaintImageType,
   IOptVTKLoader,
+  ICopperSceneOpts,
 };

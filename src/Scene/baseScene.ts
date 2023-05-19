@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { Controls, CameraViewPoint } from "../Controls/copperControls";
 import { createBackground, customMeshType } from "../lib/three-vignette";
-import { baseStateType } from "../types/types";
+import { baseStateType, ICopperSceneOpts } from "../types/types";
 import { isIOS, traverseMaterials } from "../Utils/utils";
 import commonScene from "./commonSceneMethod";
+import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 
 const IS_IOS = isIOS();
 
@@ -29,14 +30,14 @@ export default class baseScene extends commonScene {
   constructor(
     container: HTMLDivElement,
     renderer: THREE.WebGLRenderer,
-    alpha?: boolean
+    opt?: ICopperSceneOpts
   ) {
-    super(container);
+    super(container, opt);
     this.renderer = renderer;
 
     this.ambientLight = new THREE.AmbientLight(0x202020, 0.3);
     this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.3);
-    if (!alpha) {
+    if (!opt?.alpha) {
       this.vignette = createBackground({
         aspect: this.container.clientWidth / this.container.clientHeight,
         grainScale: IS_IOS ? 0 : 0.001,
@@ -54,7 +55,7 @@ export default class baseScene extends commonScene {
     this.copperControl.setCameraViewPoint();
     this.camera.position.z = 2;
 
-    this.scene.add(this.camera);
+    // this.scene.add(this.camera);
 
     this.renderer.setSize(
       this.container.clientWidth,
@@ -196,13 +197,13 @@ export default class baseScene extends commonScene {
   }
 
   onWindowResize = () => {
-    console.log("adaa");
-
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.onRenderCameraChange();
     this.vignette?.style({
       aspect: (this.camera as THREE.PerspectiveCamera).aspect,
     });
+    if (this.controls instanceof Copper3dTrackballControls)
+      this.controls.handleResize();
     this.renderer.setSize(
       this.container.clientWidth,
       this.container.clientHeight
