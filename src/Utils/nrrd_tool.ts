@@ -800,6 +800,12 @@ export class nrrd_tools {
     }
   }
 
+  switchAllSlicesArrayData(allSlices: Array<nrrdSliceType>){
+    this.allSlicesArray.length = 0;
+    this.allSlicesArray = [...allSlices];
+    this.resetDisplaySlicesStatus();
+  }
+
   private resetDisplaySlicesStatus() {
     // reload slice data
     this.setDisplaySlicesBaseOnAxis();
