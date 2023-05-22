@@ -353,6 +353,7 @@ export default class copperScene extends baseScene {
     } else {
       (this.camera as THREE.PerspectiveCamera).aspect = aspect;
     }
+    this.camera.updateProjectionMatrix();
   }
 
   render() {

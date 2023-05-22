@@ -1710,3 +1710,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
       cameraType: "orthographic",
     });
     ```
+
+## Release v1.15.9
+
+- Solved the issue #238, the window size not change the camera issue.
