@@ -14,7 +14,8 @@ https://copper3d-visualisation.readthedocs.io/en/latest/
 
 ### Previous versions
 
-see: https://www.npmjs.com/package/gltfloader-plugin-test
+Old: https://www.npmjs.com/package/copper3d_visualisation
+Very old: https://www.npmjs.com/package/gltfloader-plugin-test
 
 ### Example
 
@@ -93,7 +94,7 @@ function loadModel(url, name) {
 ---
 
 [npm]: https://img.shields.io/npm/v/copper3d_visualisation
-[npm-url]: https://www.npmjs.com/package/copper3d_visualisation
+[npm-url]: https://www.npmjs.com/package/copper3d
 [readthedocs]: https://img.shields.io/readthedocs/copper3d_visualisation
 [readthedocs-url]: https://copper3d-visualisation.readthedocs.io/en/latest/
 [examples]: https://img.shields.io/badge/copper3d__visualisation-examples-orange
