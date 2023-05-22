@@ -202,8 +202,10 @@ export default class baseScene extends commonScene {
     this.vignette?.style({
       aspect: (this.camera as THREE.PerspectiveCamera).aspect,
     });
-    if (this.controls instanceof Copper3dTrackballControls)
+    if (this.controls instanceof Copper3dTrackballControls) {
       this.controls.handleResize();
+    }
+
     this.renderer.setSize(
       this.container.clientWidth,
       this.container.clientHeight
