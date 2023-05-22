@@ -1714,3 +1714,24 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.15.9
 
 - Solved the issue #238, the window size not change the camera issue.
+
+## Release v1.15.10
+
+- add switchAllSlicesArrayData() for switch all images data and keep the default settings, for registration images.
+
+  ```ts
+  // generate by nrrd loader
+  interface nrrdSliceType {
+    x: nrrdslice;
+    y: nrrdslice;
+    z: nrrdslice;
+  }
+  const data = [
+    nrrdSliceType,
+    nrrdSliceType,
+    nrrdSliceType,
+    nrrdSliceType,
+    nrrdSliceType,
+  ];
+  nrrd_tools.switchAllSlicesArrayData(data);
+  ```
