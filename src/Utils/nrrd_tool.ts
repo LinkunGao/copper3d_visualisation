@@ -736,6 +736,16 @@ export class nrrd_tools {
     this.setIsDrawFalse(1000);
   }
 
+  getContainer() {
+    return this.mainAreaContainer;
+  }
+  getDrawingCanvas() {
+    return this.drawingCanvas;
+  }
+  getNrrdToolsSettings() {
+    return this.nrrd_states;
+  }
+
   getMaxSliceNum(): number[] {
     if (this.nrrd_states.showContrast) {
       return [
@@ -800,7 +810,7 @@ export class nrrd_tools {
     }
   }
 
-  switchAllSlicesArrayData(allSlices: Array<nrrdSliceType>){
+  switchAllSlicesArrayData(allSlices: Array<nrrdSliceType>) {
     this.allSlicesArray.length = 0;
     this.allSlicesArray = [...allSlices];
     this.resetDisplaySlicesStatus();
