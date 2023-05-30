@@ -1735,3 +1735,42 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
   ];
   nrrd_tools.switchAllSlicesArrayData(data);
   ```
+
+## Release v1.15.11
+
+- add a new option `fps` for copperRender
+  ```ts
+  interface ICopperRenderOpt {
+    guiOpen: boolean;
+    cameraGui?: boolean;
+    performanceGui?: boolean;
+    lightGui?: boolean;
+    alpha?: boolean;
+    controls?: "copper3d" | "trackball" | "orbit";
+    cameraType?: "perspective" | "orthographic";
+    fpsMode?: "0" | "1";
+    [key: string]: string | boolean | undefined;
+  }
+  ```
+  - now you can switch into different fps mode control.
+- allow users to set their fps.
+  ```ts
+  setFPS(fps: number) {
+    this.fps = fps;
+  }
+  copperRender.setFPS(60);
+  ```
+- For nrrd tools, allow user to get main canvas containor div, drawing canvas, and nrrd_states object.
+
+  ```ts
+     getContainer() {
+      return this.mainAreaContainer;
+      }
+     getDrawingCanvas() {
+        return this.drawingCanvas;
+      }
+     getNrrdToolsSettings() {
+        return this.nrrd_states;
+      }
+
+  ```

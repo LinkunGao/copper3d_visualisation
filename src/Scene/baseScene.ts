@@ -211,7 +211,7 @@ export default class baseScene extends commonScene {
       this.container.clientHeight
     );
   };
-  render() {
+  render(time?: number) {
     // this.onWindowResize();
     this.renderer.render(this.scene, this.camera);
   }

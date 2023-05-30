@@ -356,16 +356,19 @@ export default class copperScene extends baseScene {
     this.camera.updateProjectionMatrix();
   }
 
-  render() {
+  render(time?: number) {
     this.controls.update();
 
     if (this.modelReady) {
       this.mixer && this.mixer.update(this.clock.getDelta() * this.playRate);
+      // this.mixer && this.mixer.update((time as number) * this.playRate);
     }
 
-    Object.values(this.preRenderCallbackFunctions.cache).forEach((item) => {
-      item && item.call(null);
-    });
+    if (this.preRenderCallbackFunctions.cache.length > 0) {
+      Object.values(this.preRenderCallbackFunctions.cache).forEach((item) => {
+        item && item.call(null);
+      });
+    }
 
     if (this.subDiv && this.subCamera && this.subRender) {
       this.subCamera.aspect =

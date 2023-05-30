@@ -14,6 +14,7 @@ interface ICopperRenderOpt {
   alpha?: boolean;
   controls?: "copper3d" | "trackball" | "orbit";
   cameraType?: "perspective" | "orthographic";
+  fpsMode?: "0" | "1";
   [key: string]: string | boolean | undefined;
 }
 interface stateType {
