@@ -68,9 +68,9 @@ export function loading() {
   return { loadingContainer, progress };
 }
 
-export function switchEraserSize(size: number, urls?:string[]) {
+export function switchEraserSize(size: number, urls?: string[]) {
   let url = "";
-  if(!!urls&&urls.length>0){
+  if (!!urls && urls.length > 0) {
     if (size <= 3) {
       url = `url(${urls[0]}) 3 3, crosshair`;
     } else if (3 < size && size <= 8) {
@@ -96,7 +96,7 @@ export function switchEraserSize(size: number, urls?:string[]) {
     } else {
       url = `url(${urls[11]}) 52 52, crosshair`;
     }
-  }else{
+  } else {
     if (size <= 3) {
       url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_3.png) 3 3, crosshair`;
     } else if (3 < size && size <= 8) {
@@ -123,6 +123,55 @@ export function switchEraserSize(size: number, urls?:string[]) {
       url = `url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_52.png) 52 52, crosshair`;
     }
   }
-  
+
   return url;
+}
+
+export function createFpsCap(loop: Function, fps = 60) {
+  let targetFps = 0,
+    fpsInterval = 0;
+  let lastTime = 0,
+    lastOverTime = 0,
+    prevOverTime = 0,
+    deltaTime = 0;
+
+  function updateFps(value: number) {
+    targetFps = value;
+    fpsInterval = 1000 / targetFps;
+  }
+
+  updateFps(fps);
+
+  return {
+    // the targeted frame rate
+    get fps() {
+      return targetFps;
+    },
+    set fps(value) {
+      updateFps(value);
+    },
+
+    // the frame-capped loop function
+    loop: function (_scope: any, time: number) {
+      if (!!time) {
+        console.log(time, lastTime);
+        console.log(deltaTime);
+
+        deltaTime = time - lastTime;
+        console.log(deltaTime);
+
+        if (deltaTime < fpsInterval) {
+          return;
+        }
+
+        prevOverTime = lastOverTime;
+        lastOverTime = deltaTime % fpsInterval;
+        lastTime = time - lastOverTime;
+
+        deltaTime -= prevOverTime;
+      }
+
+      return loop(_scope, deltaTime);
+    },
+  };
 }

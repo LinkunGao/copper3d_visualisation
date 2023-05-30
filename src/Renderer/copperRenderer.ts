@@ -1,13 +1,19 @@
 import baseRenderer from "./baseRenderer";
 import copperScene from "../Scene/copperScene";
+import { createFpsCap } from "../Utils/utils";
 import {
   preRenderCallbackFunctionType,
   SceneMapType,
   ICopperRenderOpt,
 } from "../types/types";
+import * as THREE from "three";
 
 export default class copperRenderer extends baseRenderer {
   private sceneMap: SceneMapType = {};
+  private fps: number = 30;
+  private renderClock: THREE.Clock = new THREE.Clock();
+  private delta: number = 0;
+  private interval: number = 1 / this.fps;
 
   preRenderCallbackFunctions: Array<Function> = [];
 
@@ -17,6 +23,10 @@ export default class copperRenderer extends baseRenderer {
 
   getSceneByName(name: string) {
     return this.sceneMap[name];
+  }
+
+  setFPS(fps: number) {
+    this.fps = fps;
   }
 
   setCurrentScene(sceneIn: copperScene) {
@@ -51,11 +61,37 @@ export default class copperRenderer extends baseRenderer {
   }
 
   onWindowResize() {}
-  animate = () => {
-    this.render();
-    this.stats.update();
-    requestAnimationFrame(this.animate);
+
+  animate = (time?: number) => {
+    // if (this.start) {
+    //   this.fpsCap = createFpsCap(this.render, 10);
+    //   this.start = false;
+    // }
+
+    switch (this.options?.fpsMode) {
+      case "1":
+        // fpsControl one: 30fps
+        setTimeout(() => {
+          requestAnimationFrame(this.animate);
+        }, 1000 / this.fps);
+        this.render();
+        if (this.options?.performanceGui) this.stats.update();
+        break;
+      default:
+        // fpsControl two: 30fps
+        requestAnimationFrame(this.animate);
+        if (this.delta === 0) {
+          this.render();
+        }
+        this.delta += this.renderClock.getDelta();
+        if (this.delta > this.interval) {
+          this.render();
+          if (this.options?.performanceGui) this.stats.update();
+          this.delta = this.delta % this.interval;
+        }
+    }
   };
+
   render() {
     this.currentScene.render();
     this.preRenderCallbackFunctions.forEach((item) => {
