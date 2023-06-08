@@ -1774,3 +1774,20 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
       }
 
   ```
+
+## Release v1.15.12
+
+- add a sphere function in nrrd_tools
+
+  - in sphere mode:
+    - user can not zoom/switch index/annotate on image
+  - there are two modes:
+    - A(default): draw single circle in three views
+    - B: draw a series of circles in Axial view, use save/crosshair function to draw on other views.
+
+- if you want to switch these mode in code:
+
+  ```ts
+  nrrd_tools.spherePlanB = false; // mode A
+  nrrd_tools.spherePlanB = true; // mode B
+  ```
