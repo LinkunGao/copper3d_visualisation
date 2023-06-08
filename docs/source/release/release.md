@@ -1777,6 +1777,8 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 
 ## Release v1.15.12
 
+- optimse nrrd_tools class code, more easy to maintain.
+
 - add a sphere function in nrrd_tools
 
   - in sphere mode:
