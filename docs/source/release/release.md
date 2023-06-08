@@ -1793,3 +1793,8 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
   nrrd_tools.spherePlanB = false; // mode A
   nrrd_tools.spherePlanB = true; // mode B
   ```
+
+## Release v1.15.13
+
+- clean code
+- when user disable sphere, clear all sphere on canvas.
