@@ -1628,8 +1628,6 @@ export class nrrd_tools {
             e.offsetY / this.nrrd_states.sizeFoctor;
           this.enableCrosshair();
         } else if (this.gui_states.sphere) {
-          console.log("sphere down");
-
           let mouseX = e.offsetX;
           let mouseY = e.offsetY;
 
@@ -1813,7 +1811,6 @@ export class nrrd_tools {
           this.gui_states.sphere &&
           !this.nrrd_states.enableCursorChoose
         ) {
-          console.log("sphere up");
           let { ctx, canvas } = this.setCurrentLayer();
           let mouseX = e.offsetX;
           let mouseY = e.offsetY;
@@ -1825,7 +1822,6 @@ export class nrrd_tools {
           ];
           /************ */
           this.setUpSphereOrigins(mouseX, mouseY);
-          console.log(this.nrrd_states.sphereOrigin);
           this.nrrd_states.cursorPageX = mouseX;
           this.nrrd_states.cursorPageY = mouseY;
           this.enableCrosshair();
@@ -1867,8 +1863,6 @@ export class nrrd_tools {
               ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
           }
-
-          console.log(this.nrrd_states.sphereRadius);
 
           this.drawingCanvas.removeEventListener(
             "wheel",
@@ -3233,6 +3227,9 @@ export class nrrd_tools {
             this.drawingPrameters.handleZoomWheel
           );
           this.configDragMode();
+          // clear canvas
+          this.clearPaint();
+          this.clearStoreImages();
         }
       });
     actionsFolder
