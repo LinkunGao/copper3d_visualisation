@@ -67,6 +67,8 @@ export class nrrd_tools {
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadCanvas: HTMLCanvasElement = document.createElement("canvas");
+  private drawingSphereCanvas: HTMLCanvasElement =
+    document.createElement("canvas");
   // use to convert the store image with original size in storeAllImages function!
   private emptyCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadImage: HTMLAnchorElement = document.createElement("a");
@@ -82,6 +84,7 @@ export class nrrd_tools {
   private displayCtx: CanvasRenderingContext2D;
   private drawingCtx: CanvasRenderingContext2D;
   private emptyCtx: CanvasRenderingContext2D;
+  private drawingSphereCtx: CanvasRenderingContext2D;
   private drawingLayerMasterCtx: CanvasRenderingContext2D;
   private drawingLayerOneCtx: CanvasRenderingContext2D;
   private drawingLayerTwoCtx: CanvasRenderingContext2D;
@@ -134,7 +137,7 @@ export class nrrd_tools {
     cursorPageY: 0,
     // x: [cursorX, cursorY, sliceIndex]
     sphereOrigin: { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0] },
-    spherePlanB: false,
+    spherePlanB: true,
     sphereRadius: 10,
     Mouse_Over_x: 0,
     Mouse_Over_y: 0,
@@ -263,6 +266,9 @@ export class nrrd_tools {
       "2d"
     ) as CanvasRenderingContext2D;
     this.emptyCtx = this.emptyCanvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.drawingSphereCtx = this.drawingSphereCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
     this.drawingLayerMasterCtx = this.drawingCanvasLayerMaster.getContext(
@@ -1631,7 +1637,7 @@ export class nrrd_tools {
           let mouseX = e.offsetX;
           let mouseY = e.offsetY;
 
-          // draw circle
+          // draw circle setup width/height for sphere canvas
           this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
           this.drawingCanvas.addEventListener(
             "wheel",
@@ -1811,7 +1817,7 @@ export class nrrd_tools {
           this.gui_states.sphere &&
           !this.nrrd_states.enableCursorChoose
         ) {
-          let { ctx, canvas } = this.setCurrentLayer();
+          // let { ctx, canvas } = this.setCurrentLayer();
           let mouseX = e.offsetX;
           let mouseY = e.offsetY;
 
@@ -1832,35 +1838,9 @@ export class nrrd_tools {
             // clear stroe images
             this.clearStoreImages();
             for (let i = 0; i < this.nrrd_states.sphereRadius; i++) {
-              this.setEmptyCanvasSize();
-              const preIndex = this.nrrd_states.currentIndex - i;
-              const nextIndex = this.nrrd_states.currentIndex + i;
-              if (
-                preIndex < this.nrrd_states.minIndex ||
-                nextIndex > this.nrrd_states.maxIndex
-              )
-                return;
-              if (preIndex === nextIndex) {
-                this.drawSphereCore(
-                  ctx,
-                  mouseX,
-                  mouseY,
-                  this.nrrd_states.sphereRadius
-                );
-                this.drawImageOnEmptyImage(canvas);
-                this.storeAllImages(preIndex, "");
-              } else {
-                this.drawSphereCore(
-                  ctx,
-                  mouseX,
-                  mouseY,
-                  this.nrrd_states.sphereRadius - i
-                );
-                this.drawImageOnEmptyImage(canvas);
-                this.storeAllImages(preIndex, "");
-                this.storeAllImages(nextIndex, "");
-              }
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              this.drawSphereOnEachViews(i, "x");
+              this.drawSphereOnEachViews(i, "y");
+              this.drawSphereOnEachViews(i, "z");
             }
           }
 
@@ -2061,6 +2041,39 @@ export class nrrd_tools {
 
   // for sphere
 
+  private drawSphereOnEachViews(decay: number, axis: "x" | "y" | "z") {
+    // init sphere canvas width and height
+    this.setSphereCanvasSize(axis);
+
+    const mouseX = this.nrrd_states.sphereOrigin[axis][0];
+    const mouseY = this.nrrd_states.sphereOrigin[axis][1];
+    const originIndex = this.nrrd_states.sphereOrigin[axis][2];
+    const preIndex = originIndex - decay;
+    const nextIndex = originIndex + decay;
+    const ctx = this.drawingSphereCtx;
+    const canvas = this.drawingSphereCanvas;
+    // if (
+    //   preIndex < this.nrrd_states.minIndex ||
+    //   nextIndex > this.nrrd_states.maxIndex
+    // )
+    //   return;
+    if (preIndex === nextIndex) {
+      this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius);
+      this.storeSphereImages(preIndex, axis);
+    } else {
+      this.drawSphereCore(
+        ctx,
+        mouseX,
+        mouseY,
+        this.nrrd_states.sphereRadius - decay
+      );
+      this.drawImageOnEmptyImage(canvas);
+      this.storeSphereImages(preIndex, axis);
+      this.storeSphereImages(nextIndex, axis);
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
   private drawSphereCore(
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -2075,11 +2088,12 @@ export class nrrd_tools {
   }
 
   private drawSphere(mouseX: number, mouseY: number, radius: number) {
-    let { ctx, canvas } = this.setCurrentLayer();
     // clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.drawingSphereCanvas.width = this.drawingCanvasLayerMaster.width;
+    this.drawingSphereCanvas.height = this.drawingCanvasLayerMaster.height;
+    const canvas = this.drawingSphereCanvas;
+    const ctx = this.drawingSphereCtx;
     this.drawingLayerMasterCtx.clearRect(0, 0, canvas.width, canvas.height);
-
     this.drawSphereCore(ctx, mouseX, mouseY, radius);
     this.drawingLayerMasterCtx.drawImage(
       canvas,
@@ -2619,6 +2633,18 @@ export class nrrd_tools {
     );
   }
 
+  private storeSphereImages(index: number, axis: "x" | "y" | "z") {
+    this.setEmptyCanvasSize(axis);
+    this.drawImageOnEmptyImage(this.drawingSphereCanvas);
+    let imageData = this.emptyCtx.getImageData(
+      0,
+      0,
+      this.emptyCanvas.width,
+      this.emptyCanvas.height
+    );
+    this.storeImageToAxis(index, this.paintImages, imageData, axis);
+  }
+
   private storeAllImages(index: number, label: string) {
     // const image: HTMLImageElement = new Image();
 
@@ -2797,7 +2823,8 @@ export class nrrd_tools {
   private storeImageToAxis(
     index: number,
     paintedImages: paintImagesType,
-    imageData: ImageData
+    imageData: ImageData,
+    axis?: "x" | "y" | "z"
   ) {
     let temp: paintImageType = {
       index,
@@ -2805,7 +2832,7 @@ export class nrrd_tools {
     };
 
     let drawedImage: paintImageType;
-    switch (this.axis) {
+    switch (!!axis ? axis : this.axis) {
       case "x":
         drawedImage = this.filterDrawedImage("x", index, paintedImages);
         drawedImage
@@ -2979,8 +3006,8 @@ export class nrrd_tools {
   }
 
   // set the empty canvas width and height, to reduce duplicate codes
-  private setEmptyCanvasSize() {
-    switch (this.axis) {
+  private setEmptyCanvasSize(axis?: "x" | "y" | "z") {
+    switch (!!axis ? axis : this.axis) {
       case "x":
         this.emptyCanvas.width = this.nrrd_states.nrrd_z_pixel;
         this.emptyCanvas.height = this.nrrd_states.nrrd_y_pixel;
@@ -2992,6 +3019,22 @@ export class nrrd_tools {
       case "z":
         this.emptyCanvas.width = this.nrrd_states.nrrd_x_pixel;
         this.emptyCanvas.height = this.nrrd_states.nrrd_y_pixel;
+        break;
+    }
+  }
+  private setSphereCanvasSize(axis?: "x" | "y" | "z") {
+    switch (!!axis ? axis : this.axis) {
+      case "x":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_z_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_y_mm;
+        break;
+      case "y":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_x_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_z_mm;
+        break;
+      case "z":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_x_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_y_mm;
         break;
     }
   }
@@ -3227,6 +3270,7 @@ export class nrrd_tools {
             this.drawingPrameters.handleZoomWheel
           );
           this.configDragMode();
+
           // clear canvas
           this.clearPaint();
           this.clearStoreImages();

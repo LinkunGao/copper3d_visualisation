@@ -1798,3 +1798,10 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 
 - clean code
 - when user disable sphere, clear all sphere on canvas.
+
+## Release v1.15.14
+
+- set use sphere b mode to default
+- update sphere mode
+  - now it has itself canvas.
+  - now it donot need the transifer function.
