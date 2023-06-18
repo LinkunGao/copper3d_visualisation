@@ -1805,3 +1805,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 - update sphere mode
   - now it has itself canvas.
   - now it donot need the transifer function.
+
+## Release v1.15.15
+
+- fixed bug: when using sphere function to draw with mouse wheel, the sphere origin will change bug.

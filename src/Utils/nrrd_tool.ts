@@ -1637,6 +1637,17 @@ export class nrrd_tools {
           let mouseX = e.offsetX;
           let mouseY = e.offsetY;
 
+          //  record mouseX,Y, and enable crosshair function
+          this.nrrd_states.sphereOrigin[this.axis] = [
+            mouseX,
+            mouseY,
+            this.nrrd_states.currentIndex,
+          ];
+          this.setUpSphereOrigins(mouseX, mouseY);
+          this.nrrd_states.cursorPageX = mouseX;
+          this.nrrd_states.cursorPageY = mouseY;
+          this.enableCrosshair();
+
           // draw circle setup width/height for sphere canvas
           this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
           this.drawingCanvas.addEventListener(
@@ -1818,19 +1829,8 @@ export class nrrd_tools {
           !this.nrrd_states.enableCursorChoose
         ) {
           // let { ctx, canvas } = this.setCurrentLayer();
-          let mouseX = e.offsetX;
-          let mouseY = e.offsetY;
-
-          this.nrrd_states.sphereOrigin[this.axis] = [
-            mouseX,
-            mouseY,
-            this.nrrd_states.currentIndex,
-          ];
-          /************ */
-          this.setUpSphereOrigins(mouseX, mouseY);
-          this.nrrd_states.cursorPageX = mouseX;
-          this.nrrd_states.cursorPageY = mouseY;
-          this.enableCrosshair();
+          // let mouseX = e.offsetX;
+          // let mouseY = e.offsetY;
 
           // plan B
           // findout all index in the sphere radius range in Axial view
@@ -2197,9 +2197,14 @@ export class nrrd_tools {
         1,
         Math.min(this.nrrd_states.sphereRadius, 50)
       );
+      console.log(
+        this.nrrd_states.sphereOrigin[this.axis][0],
+        this.nrrd_states.sphereOrigin[this.axis][1]
+      );
+
       // get mouse position
-      const mouseX = e.offsetX;
-      const mouseY = e.offsetY;
+      const mouseX = this.nrrd_states.sphereOrigin[this.axis][0];
+      const mouseY = this.nrrd_states.sphereOrigin[this.axis][1];
       this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
     };
     return sphereEvent;
