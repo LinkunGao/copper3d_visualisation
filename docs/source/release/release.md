@@ -1809,3 +1809,16 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ## Release v1.15.15
 
 - fixed bug: when using sphere function to draw with mouse wheel, the sphere origin will change bug.
+
+## Release v1.15.16
+
+- clean code
+- add a MeshNodeTool in copper3d.
+  - to convert old app nodes to easily using kdtree.
+- in untils
+  - calclulate Euclidean distance n dimensions
+    - calcDistance(x0: number[], x1: number[])
+  - Cubic-Hermite basis function.
+    - H3(x: number)
+  - Cubic-Lagrange basis function.
+    - L3(x:number)

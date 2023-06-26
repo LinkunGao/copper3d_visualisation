@@ -260,6 +260,23 @@ interface IOptVTKLoader {
   opacity?: number;
 }
 
+interface INodes {
+  [key: string]: number[];
+}
+
+// interface IElement{
+//   "basis":string[];
+//   "nodes":string[];
+// }
+interface IElements {
+  [key: string]: { basis: string[]; nodes: string[] };
+}
+
+interface IMeshNodes {
+  nodes: INodes;
+  elements: IElements;
+}
+
 export type {
   SceneMapType,
   ICopperRenderOpt,
@@ -293,4 +310,5 @@ export type {
   storeExportPaintImageType,
   IOptVTKLoader,
   ICopperSceneOpts,
+  IMeshNodes,
 };

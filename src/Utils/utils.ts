@@ -127,51 +127,119 @@ export function switchEraserSize(size: number, urls?: string[]) {
   return url;
 }
 
-export function createFpsCap(loop: Function, fps = 60) {
-  let targetFps = 0,
-    fpsInterval = 0;
-  let lastTime = 0,
-    lastOverTime = 0,
-    prevOverTime = 0,
-    deltaTime = 0;
+/**
+ * Cubic-Lagrange basis function
+ * @param x
+ * @returns
+ */
+export function L3(x: number) {
+  let L1 = 1 - x;
+  let L2 = x;
+  let sc = 9 / 2;
+  return [
+    0.5 * L1 * (3 * L1 - 1) * (3 * L1 - 2),
+    sc * L1 * L2 * (3 * L1 - 1),
+    sc * L1 * L2 * (3 * L2 - 1),
+    0.5 * L2 * (3 * L2 - 1) * (3 * L2 - 2),
+  ];
+}
 
-  function updateFps(value: number) {
-    targetFps = value;
-    fpsInterval = 1000 / targetFps;
-  }
+/**
+ * Cubic-Hermite basis function.
+ * @param x
+ * @returns
+ */
 
-  updateFps(fps);
+export function H3(x: number) {
+  let x2 = x * x;
+  return [
+    1 - 3 * x2 + 2 * x * x2,
+    x * (x - 1) * (x - 1),
+    x2 * (3 - 2 * x),
+    x2 * (x - 1),
+  ];
+}
 
-  return {
-    // the targeted frame rate
-    get fps() {
-      return targetFps;
-    },
-    set fps(value) {
-      updateFps(value);
-    },
+/**
+ * To calculate the weights for each element of Xi using the cubic Lagrange basis functions.
+ * @param Xi
+ * @returns
+ */
 
-    // the frame-capped loop function
-    loop: function (_scope: any, time: number) {
-      if (!!time) {
-        console.log(time, lastTime);
-        console.log(deltaTime);
-
-        deltaTime = time - lastTime;
-        console.log(deltaTime);
-
-        if (deltaTime < fpsInterval) {
-          return;
-        }
-
-        prevOverTime = lastOverTime;
-        lastOverTime = deltaTime % fpsInterval;
-        lastTime = time - lastOverTime;
-
-        deltaTime -= prevOverTime;
+export function getWightsL3L3L3(Xi: number[]) {
+  let W0, W1, W2;
+  W0 = L3(Xi[0]);
+  W1 = L3(Xi[1]);
+  W2 = L3(Xi[2]);
+  let w = [];
+  for (let k2 in W2) {
+    for (let k1 in W1) {
+      for (let k0 in W0) {
+        w.push(W0[k0] * W1[k1] * W2[k2]);
       }
+    }
+  }
+  return w;
+}
 
-      return loop(_scope, deltaTime);
-    },
-  };
+export function getWightsH3H3H3(Xi: number[][]) {
+  let mixIdx = [
+    [0, 0],
+    [1, 0],
+    [0, 1],
+    [1, 1],
+    [2, 0],
+    [3, 0],
+    [2, 1],
+    [3, 1],
+    [0, 2],
+    [1, 2],
+    [0, 3],
+    [1, 3],
+    [2, 2],
+    [3, 2],
+    [2, 3],
+    [3, 3],
+  ];
+
+  let weights = [];
+  let W0, W1;
+  for (let idx in Xi) {
+    W0 = H3(Xi[idx][0]);
+    W1 = H3(Xi[idx][1]);
+    let w = [];
+    for (let k in mixIdx) {
+      w.push(W0[mixIdx[k][0]] * W1[mixIdx[k][1]]);
+    }
+    weights.push(w);
+  }
+  return weights;
+}
+
+/**
+ * Euclidean distance n dimensions
+ * @param x0
+ * @param x1
+ * @returns
+ */
+export function calcDistance(x0: number[], x1: number[]) {
+  let dx2 = 0;
+  for (let i = 0; i < x0.length; i++) {
+    let dx = x0[i] - x1[i];
+    dx2 += dx * dx;
+  }
+  return Math.sqrt(dx2);
+}
+
+export function perturbRandom(x: number[], dx: number) {
+  let xp = [];
+  for (let i = 0; i < x.length; i++) {
+    xp.push(x[i] + 2 * dx * (Math.random() - 0.5));
+    if (xp[i] < 0) {
+      xp[i] = 0;
+    } else if (xp[i] > 1) {
+      xp[i] = 1;
+    }
+  }
+  return xp;
 }

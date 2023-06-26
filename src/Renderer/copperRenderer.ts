@@ -1,6 +1,5 @@
 import baseRenderer from "./baseRenderer";
 import copperScene from "../Scene/copperScene";
-import { createFpsCap } from "../Utils/utils";
 import {
   preRenderCallbackFunctionType,
   SceneMapType,
@@ -63,11 +62,6 @@ export default class copperRenderer extends baseRenderer {
   onWindowResize() {}
 
   animate = (time?: number) => {
-    // if (this.start) {
-    //   this.fpsCap = createFpsCap(this.render, 10);
-    //   this.start = false;
-    // }
-
     switch (this.options?.fpsMode) {
       case "1":
         // fpsControl one: 30fps
