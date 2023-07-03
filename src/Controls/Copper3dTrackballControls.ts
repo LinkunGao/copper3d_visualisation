@@ -49,7 +49,11 @@ class Copper3dTrackballControls extends EventDispatcher {
 
   keys: ["KeyA" /*A*/, "KeyS" /*S*/, "KeyD" /*D*/];
 
-  mouseButtons: { LEFT: MOUSE.ROTATE; MIDDLE: MOUSE.DOLLY; RIGHT: MOUSE.PAN };
+  mouseButtons: {
+    LEFT: MOUSE.ROTATE | MOUSE.PAN | -1;
+    MIDDLE: MOUSE.DOLLY;
+    RIGHT: MOUSE.ROTATE | MOUSE.PAN | -1;
+  };
 
   target: Vector3;
 
@@ -507,16 +511,16 @@ class Copper3dTrackballControls extends EventDispatcher {
     function onMouseDown(event: PointerEvent) {
       if (_state === STATE.NONE) {
         switch (event.button) {
-          case scope.mouseButtons.LEFT:
-            _state = STATE.ROTATE;
+          case 0: // mouse left
+            _state = scope.mouseButtons.LEFT;
             break;
 
-          case scope.mouseButtons.MIDDLE:
-            _state = STATE.ZOOM;
+          case 1: // mouse wheel
+            _state = scope.mouseButtons.MIDDLE;
             break;
 
-          case scope.mouseButtons.RIGHT:
-            _state = STATE.PAN;
+          case 2: // mouse right
+            _state = scope.mouseButtons.RIGHT;
             break;
         }
       }
