@@ -1822,3 +1822,37 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
     - H3(x: number)
   - Cubic-Lagrange basis function.
     - L3(x:number)
+
+## Release v1.15.17
+
+- solved trackball controls issue:
+  - now the users can customize the mouse behaviours,
+    - type
+      ```ts
+      mouseButtons: {
+        LEFT: MOUSE.ROTATE | MOUSE.PAN | -1;
+        MIDDLE: MOUSE.DOLLY;
+        RIGHT: MOUSE.ROTATE | MOUSE.PAN | -1;
+      }
+      ```
+  - examples
+    ```ts
+    //default
+    controls.mouseButtons = {
+      LEFT: MOUSE.ROTATE,
+      MIDDLE: MOUSE.DOLLY,
+      RIGHT: MOUSE.PAN,
+    };
+    //cs 01
+    controls.mouseButtons = {
+      LEFT: MOUSE.PAN,
+      MIDDLE: MOUSE.DOLLY,
+      RIGHT: MOUSE.ROTATE,
+    };
+    // cs 02
+    controls.mouseButtons = {
+      LEFT: -1, // disable it
+      MIDDLE: MOUSE.DOLLY,
+      RIGHT: MOUSE.ROTATE,
+    };
+    ```
