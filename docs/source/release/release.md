@@ -1856,3 +1856,11 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
       RIGHT: MOUSE.ROTATE,
     };
     ```
+
+## Release v1.15.18
+
+- Add a new option (`logarithmicDepthBuffer`) in copperRender,
+
+  - This is in order to fix the model flickering issue in threejs.
+
+- update trackball controls mouseButtons middel button type, allow user to use it more flexible!
