@@ -20,7 +20,7 @@ import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import copperMScene from "../Scene/copperMScene";
 import copperScene from "../Scene/copperScene";
-import { throttle } from "./raycaster";
+import { throttle } from "./utils";
 import { switchEraserSize } from "./utils";
 import { saveFileAsJson } from "./download";
 import {
