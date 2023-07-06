@@ -31,16 +31,14 @@ export default class baseRenderer {
   constructor(container: HTMLDivElement, options?: ICopperRenderOpt) {
     this.container = container;
     this.options = options;
+
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: !!this.options?.alpha,
+      logarithmicDepthBuffer: !!this.options?.logarithmicDepthBuffer,
+    });
     if (this.options?.alpha) {
-      this.renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-      });
       this.setClearColor();
-    } else {
-      this.renderer = new THREE.WebGLRenderer({
-        antialias: true,
-      });
     }
 
     this.renderer.useLegacyLights = true;

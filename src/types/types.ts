@@ -12,6 +12,7 @@ interface ICopperRenderOpt {
   performanceGui?: boolean;
   lightGui?: boolean;
   alpha?: boolean;
+  logarithmicDepthBuffer?: boolean;
   controls?: "copper3d" | "trackball" | "orbit";
   cameraType?: "perspective" | "orthographic";
   fpsMode?: "0" | "1";
