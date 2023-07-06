@@ -1874,3 +1874,11 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
   ```ts
   copperScene.loadOBJ(url: string, callback?: (mesh: THREE.Group) => void, opts?:{color:string});
   ```
+
+# Release v1.15.20
+
+- export `throttle` function
+
+```ts
+throttle(callback: (event: MouseEvent) => void, wait: number): (event: MouseEvent) => void
+```
