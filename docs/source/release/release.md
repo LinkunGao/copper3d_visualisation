@@ -1864,3 +1864,13 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
   - This is in order to fix the model flickering issue in threejs.
 
 - update trackball controls mouseButtons middel button type, allow user to use it more flexible!
+
+## Release v1.15.19
+
+- update objloader
+
+  - allow user to add their customise color.
+
+  ```ts
+  copperScene.loadOBJ(url: string, callback?: (mesh: THREE.Group) => void, opts?:{color:string});
+  ```
