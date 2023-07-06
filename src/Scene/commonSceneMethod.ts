@@ -347,15 +347,15 @@ export default class commonScene {
     copperNrrdTexture3dLoader(url, this.scene, this.container, callback);
   }
 
-  loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
+  loadOBJ(url: string, callback?: (mesh: THREE.Group) => void, opts?:{color:string}) {
     objLoader.load(
       url,
       (obj) => {
         obj.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
-            (child as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+            (child as THREE.Mesh).material = new THREE.MeshPhongMaterial({
               side: THREE.DoubleSide,
-              color: 0xfff000,
+              color: !!opts ? opts?.color:"#228b22",
             });
           }
         });

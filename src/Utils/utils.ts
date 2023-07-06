@@ -127,6 +127,17 @@ export function switchEraserSize(size: number, urls?: string[]) {
   return url;
 }
 
+export function throttle(callback: (event: MouseEvent) => void, wait: number) {
+  let start: number = 0;
+  return function (event: MouseEvent) {
+    const current: number = Date.now();
+    if (current - start > wait) {
+      callback.call(null, event);
+      start = current;
+    }
+  };
+}
+
 /**
  * Cubic-Lagrange basis function
  * @param x

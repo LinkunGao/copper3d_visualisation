@@ -9,7 +9,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { objLoader } from "../Loader/copperOBJLoader";
-import { isPickedModel, throttle } from "../Utils/raycaster";
+import { isPickedModel } from "../Utils/raycaster";
+import { throttle } from "../Utils/utils";
 import {
   mouseMovePositionType,
   positionType,

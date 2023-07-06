@@ -12,7 +12,7 @@ import {
   convertScreenPosto3DPos,
 } from "./Utils/add3DLabel";
 import { addBoxHelper, optsType } from "./Loader/copperNrrdLoader";
-import { fullScreenListenner, loading } from "./Utils/utils";
+import { fullScreenListenner, loading, throttle } from "./Utils/utils";
 import copperRendererOnDemond from "./Renderer/copperRendererOnDemond";
 import copperSceneOnDemond from "./Scene/copperSceneOnDemond";
 import copperMSceneRenderer from "./Renderer/copperMSceneRenderer";
@@ -42,10 +42,10 @@ import {
 
 import "./css/style.css";
 
-export const REVISION = "v1.15.18";
+export const REVISION = "v1.15.20";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v1.15.18",
+  "%cCopper3D Visualisation %cBeta:v1.15.20",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
@@ -71,6 +71,7 @@ export {
   Copper3dTrackballControls,
   createTexture2D_NRRD,
   MeshNodeTool,
+  throttle,
 };
 
 export type {

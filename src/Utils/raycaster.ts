@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { mouseMovePositionType } from "../types/types";
+import { throttle } from "./utils";
 
 let raycaster = new THREE.Raycaster();
 let intersects: THREE.Intersection[];
@@ -59,17 +60,6 @@ export function pickModelDefault(
     throttle(onDocumentMouseMove, 80),
     false
   );
-}
-
-export function throttle(callback: (event: MouseEvent) => void, wait: number) {
-  let start: number = 0;
-  return function (event: MouseEvent) {
-    const current: number = Date.now();
-    if (current - start > wait) {
-      callback.call(null, event);
-      start = current;
-    }
-  };
 }
 
 function baseRaycaster(
