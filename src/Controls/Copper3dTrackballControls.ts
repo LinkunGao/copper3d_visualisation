@@ -51,7 +51,7 @@ class Copper3dTrackballControls extends EventDispatcher {
 
   mouseButtons: {
     LEFT: MOUSE.ROTATE | MOUSE.PAN | -1;
-    MIDDLE: MOUSE.DOLLY;
+    MIDDLE: MOUSE.DOLLY | MOUSE.ROTATE | MOUSE.PAN | -1;
     RIGHT: MOUSE.ROTATE | MOUSE.PAN | -1;
   };
 
