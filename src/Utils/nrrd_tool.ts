@@ -21,7 +21,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import copperMScene from "../Scene/copperMScene";
 import copperScene from "../Scene/copperScene";
 import { throttle } from "./utils";
-import { switchEraserSize } from "./utils";
+import { switchEraserSize, switchPencilIcon } from "./utils";
 import { saveFileAsJson } from "./download";
 import {
   restructData,
@@ -103,6 +103,7 @@ export class nrrd_tools {
   private initState: boolean = true;
   private preTimer: any;
   private eraserUrls: string[] = [];
+  private pencilUrls: string[] = [];
 
   private nrrd_states = {
     originWidth: 0,
@@ -158,10 +159,7 @@ export class nrrd_tools {
       height: number,
       clearAllFlag: boolean
     ) => {},
-    // defaultPaintCursor:
-    //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
-    defaultPaintCursor:
-      "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto",
+    defaultPaintCursor: switchPencilIcon("dot"),
     drawStartPos: new THREE.Vector2(1, 1),
   };
 
@@ -466,6 +464,14 @@ export class nrrd_tools {
 
   setEraserUrls(urls: string[]) {
     this.eraserUrls = urls;
+  }
+  setPencilIconUrls(urls: string[]) {
+    this.pencilUrls = urls;
+    this.nrrd_states.defaultPaintCursor = switchPencilIcon(
+      "dot",
+      this.pencilUrls
+    );
+    this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
   }
   getCurrentImageDimension() {
     return this.nrrd_states.dimensions;
@@ -1241,6 +1247,7 @@ export class nrrd_tools {
         );
       this.dragPrameters.y = ev.offsetY / this.dragPrameters.h;
     }, this.dragPrameters.sensivity * 200);
+
     this.dragPrameters.handleOnDragMouseUp = (ev: MouseEvent) => {
       // after drag, add the wheel event
       this.drawingCanvas.addEventListener(
@@ -3182,54 +3189,10 @@ export class nrrd_tools {
       this.removeGuiFolderChilden(modeFolder);
 
     modeFolder.open();
-    const actionsFolder = modeFolder.addFolder("Default Actions");
-
-    actionsFolder
-      .add(this.gui_states, "label", ["label1", "label2", "label3"])
-      .onChange((val) => {
-        if (val === "label1") {
-          this.gui_states.fillColor = "#00ff00";
-          this.gui_states.brushColor = "#00ff00";
-        } else if (val === "label2") {
-          this.gui_states.fillColor = "#ff0000";
-          this.gui_states.brushColor = "#ff0000";
-        } else if (val === "label3") {
-          this.gui_states.fillColor = "#0000ff";
-          this.gui_states.brushColor = "#0000ff";
-        }
-      });
-
-    actionsFolder
-      .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
-      .name("cursor icons")
-      .onChange((value) => {
-        if (value === "crosshair") {
-          this.nrrd_states.defaultPaintCursor = "crosshair";
-        }
-        if (value === "pencil") {
-          this.nrrd_states.defaultPaintCursor =
-            "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto";
-        }
-        if (value === "dot") {
-          this.nrrd_states.defaultPaintCursor =
-            "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto";
-        }
-        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
-      });
-    actionsFolder
-      .add(this.gui_states, "mainAreaSize")
-      .name("zoom")
-      .min(1)
-      .max(8)
-      .onFinishChange((factor) => {
-        this.resetPaintArea();
-        this.nrrd_states.sizeFoctor = factor;
-        this.resizePaintArea(factor);
-      });
-    actionsFolder.add(this.gui_states, "resetZoom");
+    const actionsFolder = modeFolder.addFolder("DefaultActions");
     actionsFolder
       .add(this.gui_states, "globalAlpha")
-      .name("opacity")
+      .name("Opacity")
       .min(0.1)
       .max(1)
       .step(0.01);
@@ -3283,6 +3246,7 @@ export class nrrd_tools {
       });
     actionsFolder
       .add(this.gui_states, "brushAndEraserSize")
+      .name("BrushAndEraserSize")
       .min(5)
       .max(50)
       .step(1)
@@ -3314,9 +3278,10 @@ export class nrrd_tools {
         this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
       }
     });
-    actionsFolder.add(this.gui_states, "clear");
-    actionsFolder.add(this.gui_states, "clearAll");
-    actionsFolder.add(this.gui_states, "undo");
+    actionsFolder.add(this.gui_states, "clear").name("Clear");
+    actionsFolder.add(this.gui_states, "clearAll").name("ClearAll");
+    actionsFolder.add(this.gui_states, "undo").name("Undo");
+    actionsFolder.add(this.gui_states, "resetZoom").name("ResetZoom");
 
     actionsFolder
       .add(
@@ -3326,7 +3291,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Image contrast")
+      .name("ImageContrast")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "windowHigh");
@@ -3336,33 +3301,73 @@ export class nrrd_tools {
         this.nrrd_states.readyToUpdate = true;
       });
 
-    actionsFolder.add(this.gui_states, "exportMarks");
+    const advanceFolder = modeFolder.addFolder("AdvanceSettings");
 
-    const advanceFolder = modeFolder.addFolder("Advance settings");
+    advanceFolder
+      .add(this.gui_states, "label", ["label1", "label2", "label3"])
+      .name("Label")
+      .onChange((val) => {
+        if (val === "label1") {
+          this.gui_states.fillColor = "#00ff00";
+          this.gui_states.brushColor = "#00ff00";
+        } else if (val === "label2") {
+          this.gui_states.fillColor = "#ff0000";
+          this.gui_states.brushColor = "#ff0000";
+        } else if (val === "label3") {
+          this.gui_states.fillColor = "#0000ff";
+          this.gui_states.brushColor = "#0000ff";
+        }
+      });
+
+    advanceFolder
+      .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
+      .name("CursorIcons")
+      .onChange((value) => {
+        this.nrrd_states.defaultPaintCursor = switchPencilIcon(
+          value,
+          this.pencilUrls
+        );
+        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
+      });
+
+    advanceFolder
+      .add(this.gui_states, "mainAreaSize")
+      .name("Zoom")
+      .min(1)
+      .max(8)
+      .onFinishChange((factor) => {
+        this.resetPaintArea();
+        this.nrrd_states.sizeFoctor = factor;
+        this.resizePaintArea(factor);
+      });
 
     advanceFolder
       .add(this.gui_states, "dragSensitivity")
+      .name("DragSensitivity")
       .min(1)
       .max(this.nrrd_states.Max_sensitive)
       .step(1);
 
-    const segmentationFolder = advanceFolder.addFolder("Pencil settings");
+    const segmentationFolder = advanceFolder.addFolder("PencilSettings");
 
     segmentationFolder
       .add(this.gui_states, "lineWidth")
-      .name("outerLineWidth")
+      .name("OuterLineWidth")
       .min(1.7)
       .max(3)
       .step(0.01);
-    segmentationFolder.addColor(this.gui_states, "color");
-    segmentationFolder.addColor(this.gui_states, "fillColor");
-    const bushFolder = advanceFolder.addFolder("Brush settings");
-    bushFolder.addColor(this.gui_states, "brushColor");
+    segmentationFolder.addColor(this.gui_states, "color").name("Color");
+    segmentationFolder.addColor(this.gui_states, "fillColor").name("FillColor");
+    const bushFolder = advanceFolder.addFolder("BrushSettings");
+    bushFolder.addColor(this.gui_states, "brushColor").name("BrushColor");
     // modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
+    const maskFolder = advanceFolder.addFolder("MaskDownload");
+    maskFolder
+      .add(this.gui_states, "downloadCurrentMask")
+      .name("DownloadCurrentMask");
+    maskFolder.add(this.gui_states, "exportMarks").name("ExportMask");
 
-    advanceFolder.add(this.gui_states, "downloadCurrentMask");
-
-    const contrastFolder = advanceFolder.addFolder("contrast advance settings");
+    const contrastFolder = advanceFolder.addFolder("ContrastAdvanceSettings");
     contrastFolder
       .add(
         this.mainPreSlice.volume,
@@ -3371,7 +3376,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Lower Threshold")
+      .name("LowerThreshold")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "lowerThreshold");
@@ -3388,7 +3393,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Upper Threshold")
+      .name("UpperThreshold")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "upperThreshold");
@@ -3405,7 +3410,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Window Low")
+      .name("WindowLow")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "windowLow");
