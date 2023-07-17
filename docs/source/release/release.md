@@ -1882,3 +1882,33 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 ```ts
 throttle(callback: (event: MouseEvent) => void, wait: number): (event: MouseEvent) => void
 ```
+
+# Release v1.15.21
+
+- Optimise Nrrd_tools GUI function
+  - Changed their name
+  - Moves some of them positions
+- Add swicth local pencil icon function.
+
+  - you can put two local icon url in a array to the function,
+
+    - "dot": url[0]
+    - "pencil": url[1]
+
+    ```ts
+        setPencilIconUrls(urls: string[]) {
+          this.pencilUrls = urls;
+          this.nrrd_states.defaultPaintCursor = switchPencilIcon(
+            "dot",
+            this.pencilUrls
+          );
+          this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
+        }
+    ```
+
+    - example:
+
+    ```ts
+    const urls = ["icon0/url", "icon1/url"];
+    nrrdTools.setPencilIconUrls(urls);
+    ```
