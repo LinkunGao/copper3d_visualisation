@@ -68,6 +68,45 @@ export function loading() {
   return { loadingContainer, progress };
 }
 
+export function switchPencilIcon(icon: string, urls?: string[]) {
+  let url = "";
+  if (!!urls && urls.length > 0) {
+    switch (icon) {
+      case "crosshair":
+        url = "crosshair";
+        break;
+      case "pencil":
+        url = `url(${urls[1]}), auto`;
+        break;
+      case "dot":
+        url = `url(${urls[0]}), auto`;
+        break;
+      default:
+        url = `url(${urls[0]}), auto`;
+        break;
+    }
+  } else {
+    switch (icon) {
+      case "crosshair":
+        url = "crosshair";
+        break;
+      case "pencil":
+        url =
+          "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto";
+        break;
+      case "dot":
+        url =
+          "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto";
+        break;
+      default:
+        url =
+          "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto";
+        break;
+    }
+  }
+  return url;
+}
+
 export function switchEraserSize(size: number, urls?: string[]) {
   let url = "";
   if (!!urls && urls.length > 0) {
