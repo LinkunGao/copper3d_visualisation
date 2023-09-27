@@ -1,8 +1,6 @@
 html,
 body {
   margin: 0;
-  /*background-color: black;*/
-  /*z-index: -999;*/
 }
 
 .copper3D_canvas {
@@ -20,16 +18,7 @@ body {
   justify-content: center;
   align-items: center;
 }
-.split-bar {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 2px;
-  height: 100%;
-  background-color: #555;
-  cursor: col-resize;
-  z-index: 99;
-}
+
 .copper3D_scene_div {
   border: 1px solid grey;
   position: relative;
@@ -63,7 +52,6 @@ body {
   z-index: 1000;
 }
 
-/* copper3D_drawingCanvasContainer */
 .copper3D_display_area {
   position: relative;
   display: flex;
@@ -77,13 +65,12 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  /* background-color: rgba(10, 10, 10, 0.3); */
+
   max-width: 80vw;
   max-height: 80vh;
   overflow: hidden;
 }
 
-/* loading */
 .copper3D_flex-center {
   display: flex;
   justify-content: space-between;
@@ -92,8 +79,6 @@ body {
   flex-direction: column;
   height: 100px;
   position: absolute;
-  /* left: 45%;
-  top: 45%; */
 }
 .copper3D_three-balls-bounce {
   position: relative;
@@ -165,4 +150,3 @@ body {
     opacity: 0.4;
   }
 }
-/* loading end */
