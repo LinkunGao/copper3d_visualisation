@@ -76,7 +76,6 @@ interface loadingBarType {
 }
 
 // type nrrdModeType = "mode0" | "mode1";
-
 // kiwrious
 interface SensorDecodedValue_kiwrious {
   type: string;

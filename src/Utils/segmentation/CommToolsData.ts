@@ -61,6 +61,7 @@ export default class CommToolsData {
       height: number,
       clearAllFlag: boolean
     ) => {},
+    getSphere: (sphereOrigin: number[], sphereRadius: number) => {},
     drawStartPos: { x: 1, y: 1 },
   };
 

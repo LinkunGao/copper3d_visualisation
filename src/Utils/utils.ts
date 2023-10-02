@@ -79,10 +79,10 @@ export function switchPencilIcon(icon: string, urls?: string[]) {
         url = `url(${urls[1]}), auto`;
         break;
       case "dot":
-        url = `url(${urls[0]}), auto`;
+        url = `url(${urls[0]})12 12, auto`;
         break;
       default:
-        url = `url(${urls[0]}), auto`;
+        url = `url(${urls[0]})12 12, auto`;
         break;
     }
   } else {

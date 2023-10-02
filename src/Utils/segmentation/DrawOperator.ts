@@ -97,6 +97,7 @@ export default class DrawOperator extends CommToolsData {
   draw(opts?: IDrawOpts) {
     if (!!opts) {
       this.nrrd_states.getMask = opts?.getMaskData as any;
+      this.nrrd_states.getSphere = opts?.getSphereData as any;
     }
     this.paintOnCanvas();
   }
@@ -484,6 +485,12 @@ export default class DrawOperator extends CommToolsData {
               this.drawSphereOnEachViews(i, "z");
             }
           }
+
+          !!this.nrrd_states.getSphere &&
+            this.nrrd_states.getSphere(
+              this.nrrd_states.sphereOrigin.z,
+              this.nrrd_states.sphereRadius
+            );
 
           this.protectedData.canvases.drawingCanvas.removeEventListener(
             "wheel",
