@@ -42,10 +42,10 @@ import {
 
 import "./css/style.css";
 
-export const REVISION = "v1.15.22";
+export const REVISION = "v1.15.23";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v1.15.22",
+  "%cCopper3D Visualisation %cBeta:v1.15.23",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );

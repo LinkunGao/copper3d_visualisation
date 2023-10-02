@@ -1917,3 +1917,7 @@ throttle(callback: (event: MouseEvent) => void, wait: number): (event: MouseEven
 
 - add a getSphereData in nrrdTools draw function
   - for this function we can get the sphere raduis and the sphere origin in mm.
+
+# Release v1.15.23
+
+- fixed the cursor not center issue.
