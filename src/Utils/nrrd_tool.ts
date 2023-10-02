@@ -159,6 +159,10 @@ export class nrrd_tools {
       height: number,
       clearAllFlag: boolean
     ) => {},
+    getSphere:(
+      sphereOrigin:number[],
+      sphereRadius:number
+    )=>{},
     defaultPaintCursor: switchPencilIcon("dot"),
     drawStartPos: new THREE.Vector2(1, 1),
   };
@@ -1432,6 +1436,7 @@ export class nrrd_tools {
 
     if (!!opts) {
       this.nrrd_states.getMask = opts?.getMaskData as any;
+      this.nrrd_states.getSphere = opts?.getSphereData as any;
     }
 
     this.sceneIn = sceneIn;
@@ -1850,7 +1855,9 @@ export class nrrd_tools {
               this.drawSphereOnEachViews(i, "z");
             }
           }
-
+          
+          !!this.nrrd_states.getSphere && this.nrrd_states.getSphere(this.nrrd_states.sphereOrigin.z, this.nrrd_states.sphereRadius)
+          
           this.drawingCanvas.removeEventListener(
             "wheel",
             this.drawingPrameters.handleSphereWheel,
@@ -2203,10 +2210,6 @@ export class nrrd_tools {
       this.nrrd_states.sphereRadius = Math.max(
         1,
         Math.min(this.nrrd_states.sphereRadius, 50)
-      );
-      console.log(
-        this.nrrd_states.sphereOrigin[this.axis][0],
-        this.nrrd_states.sphereOrigin[this.axis][1]
       );
 
       // get mouse position

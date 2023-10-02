@@ -91,6 +91,10 @@ interface nrrdDrawImageOptType {
     height: number,
     clearAllFlag?: boolean
   ) => void;
+  getSphereData?:(
+    sphereOrigin:number[],
+    sphereRadius:number
+  )=>void
 }
 
 // kiwrious
