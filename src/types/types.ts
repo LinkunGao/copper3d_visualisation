@@ -77,22 +77,6 @@ interface loadingBarType {
 
 // type nrrdModeType = "mode0" | "mode1";
 
-interface nrrdDragImageOptType {
-  showNumber?: boolean;
-  getSliceNum?: (index: number, contrastNum: number) => void;
-}
-
-interface nrrdDrawImageOptType {
-  getMaskData?: (
-    mask: ImageData,
-    sliceId: number,
-    label: string,
-    width: number,
-    height: number,
-    clearAllFlag?: boolean
-  ) => void;
-}
-
 // kiwrious
 interface SensorDecodedValue_kiwrious {
   type: string;
@@ -159,23 +143,6 @@ interface positionType {
   z?: number;
 }
 
-// drawing on canvas
-interface paintImagesType {
-  x: Array<paintImageType>;
-  y: Array<paintImageType>;
-  z: Array<paintImageType>;
-}
-
-interface paintImageType {
-  index: number;
-  image: ImageData;
-}
-interface storedPaintImagesType {
-  label1: paintImagesType;
-  label2: paintImagesType;
-  label3: paintImagesType;
-}
-
 interface exportPaintImagesType {
   x: Array<exportPaintImageType>;
   y: Array<exportPaintImageType>;
@@ -212,16 +179,6 @@ interface vtkModels {
   urls: Array<string>;
   opts?: IOptVTKLoader;
 }
-interface undoLayerType {
-  label1: Array<HTMLImageElement>;
-  label2: Array<HTMLImageElement>;
-  label3: Array<HTMLImageElement>;
-}
-
-interface undoType {
-  sliceIndex: number;
-  layers: undoLayerType;
-}
 
 interface copperVolumeType {
   tags: any;
@@ -248,10 +205,6 @@ interface dicomLoaderOptsType {
     depthStep: number,
     copperVolume: copperVolumeType
   ) => number;
-}
-
-interface skipSlicesDictType {
-  [key: string]: any;
 }
 
 interface IOptVTKLoader {
@@ -287,8 +240,6 @@ export type {
   baseStateType,
   nrrdMeshesType,
   nrrdSliceType,
-  nrrdDragImageOptType,
-  nrrdDrawImageOptType,
   loadingBarType,
   SensorDecodedValue_kiwrious,
   SensorReadResult_kiwrious,
@@ -297,15 +248,10 @@ export type {
   kiwriousType,
   mouseMovePositionType,
   positionType,
-  paintImagesType,
-  paintImageType,
-  storedPaintImagesType,
   optionsGltfExporterType,
   vtkModels,
-  undoType,
   copperVolumeType,
   dicomLoaderOptsType,
-  skipSlicesDictType,
   exportPaintImagesType,
   exportPaintImageType,
   storeExportPaintImageType,

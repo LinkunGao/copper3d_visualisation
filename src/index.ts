@@ -22,11 +22,12 @@ import { createTexture2D_NRRD } from "./Utils/texture2d";
 
 import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
-import { nrrd_tools } from "./Utils/nrrd_tool";
+import { NrrdTools } from "./Utils/segmentation/NrrdTools";
 
 import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls";
 
 import { MeshNodeTool } from "./Utils/MeshNodeTool";
+import { removeGuiFolderChilden } from "./Utils/segmentation/coreTools/gui";
 
 import {
   nrrdMeshesType,
@@ -35,10 +36,11 @@ import {
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,
   loadingBarType,
-  paintImageType,
   exportPaintImageType,
   IOptVTKLoader,
 } from "./types/types";
+
+import { IPaintImage } from "./Utils/segmentation/coreTools/coreType";
 
 import "./css/style.css";
 
@@ -66,12 +68,13 @@ export {
   copperMScene,
   CameraViewPoint,
   kiwrious,
-  nrrd_tools,
+  NrrdTools,
   loading,
   Copper3dTrackballControls,
   createTexture2D_NRRD,
   MeshNodeTool,
   throttle,
+  removeGuiFolderChilden,
 };
 
 export type {
@@ -84,7 +87,7 @@ export type {
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,
   loadingBarType,
-  paintImageType,
+  IPaintImage,
   exportPaintImageType,
   IOptVTKLoader,
 };
