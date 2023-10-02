@@ -1912,3 +1912,8 @@ throttle(callback: (event: MouseEvent) => void, wait: number): (event: MouseEven
     const urls = ["icon0/url", "icon1/url"];
     nrrdTools.setPencilIconUrls(urls);
     ```
+
+# Release v1.15.22
+
+- add a getSphereData in nrrdTools draw function
+  - for this function we can get the sphere raduis and the sphere origin in mm.
