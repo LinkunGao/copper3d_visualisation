@@ -44,7 +44,7 @@ async function main() {
 
   if (project) {
     // Project may not have converted correctly
-    const outputDir = "dist";
+    const outputDir = "apidist";
 
     const jsonDir = path.join(outputDir, "documentation.json");
     // Rendered docs
@@ -118,20 +118,20 @@ function transformModuleName(name) {
 
 function getModulePath(name) {
   return path
-    .join("/dist/modules", `${transformModuleName(name)}`)
+    .join("/apidist/modules", `${transformModuleName(name)}`)
     .replace(/\\/g, "/");
 }
 
 function getClassPath(moduleName, className) {
   return path
-    .join("/dist/classes", `${transformModuleName(moduleName)}.${className}`)
+    .join("/apidist/classes", `${transformModuleName(moduleName)}.${className}`)
     .replace(/\\/g, "/");
 }
 
 function getInterfacePath(moduleName, interfaceName) {
   return path
     .join(
-      "/dist/interfaces",
+      "/apidist/interfaces",
       `${transformModuleName(moduleName)}.${interfaceName}`
     )
     .replace(/\\/g, "/");
@@ -139,14 +139,14 @@ function getInterfacePath(moduleName, interfaceName) {
 
 function getTypePath(moduleName, typeName) {
   return path
-    .join("/dist/types", `${transformModuleName(moduleName)}.${typeName}`)
+    .join("/apidist/types", `${transformModuleName(moduleName)}.${typeName}`)
     .replace(/\\/g, "/");
 }
 
 function getFunctionPath(moduleName, functionName) {
   return path
     .join(
-      "/dist/functions",
+      "/apidist/functions",
       `${transformModuleName(moduleName)}.${functionName}`
     )
     .replace(/\\/g, "/");
