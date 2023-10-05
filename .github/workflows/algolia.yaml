@@ -14,6 +14,7 @@ jobs:
         id: algolia_config
         run: |
           pwd
+          ls
           cd apidocs/
           echo "config=$(cat crawlerConfig.json | jq -r tostring)" >> $GITHUB_OUTPUT
       - name: Push indices to Algolia
