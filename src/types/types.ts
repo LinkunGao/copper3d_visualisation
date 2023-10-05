@@ -1,6 +1,6 @@
-import copperScene from "../Scene/copperScene";
-import baseScene from "../Scene/baseScene";
-import copperMScene from "../Scene/copperMScene";
+import { copperScene } from "../Scene/copperScene";
+import { baseScene } from "../Scene/baseScene";
+import { copperMScene } from "../Scene/copperMScene";
 import { GUI } from "dat.gui";
 
 interface SceneMapType {

@@ -6,7 +6,7 @@
   "scripts": {
     "docs": "npx typedoc --options ./typedoc.json",
     "dev": "node typedoc.js && vitepress dev .",
-    "build": "node typedoc.js && vitepress build .",
+    "docs:build": "node typedoc.js && vitepress build .",
     "serve": "node typedoc.js && vitepress serve ."
   },
   "keywords": [],
@@ -19,6 +19,7 @@
     "vue": "^3.3.4"
   },
   "dependencies": {
-    "three": "^0.156.1"
+    "three": "^0.156.1",
+    "vitepress-plugin-search": "^1.0.4-alpha.20"
   }
 }

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
 // import { NRRDLoader } from "copper3d_plugin_nrrd";
 
-import copperScene from "../Scene/copperScene";
+import { copperScene } from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
 import cm_gray from "../css/images/cm_gray.png";
 import cm_viridis from "../css/images/cm_viridis.png";

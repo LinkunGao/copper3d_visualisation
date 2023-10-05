@@ -13,7 +13,7 @@ async function main() {
   // TypeDoc's tsconfig.json/package.json/typedoc.json option readers
 
   const entries = [
-    rootPath("src/index.ts"),
+    // rootPath("src/index.ts"),
     rootPath("src/Renderer/baseRenderer.ts"),
     rootPath("src/Renderer/copperMSceneRenderer.ts"),
     rootPath("src/Renderer/copperRenderer.ts"),
@@ -32,6 +32,9 @@ async function main() {
     rootPath("src/Utils/segmentation/DragOperator.ts"),
     rootPath("src/Utils/segmentation/DrawToolCore.ts"),
     rootPath("src/Utils/segmentation/CommToolsData.ts"),
+    rootPath("src/Utils/utils.ts"),
+    rootPath("src/Loader/copperNrrdLoader.ts"),
+    rootPath("src/Utils/segmentation/coreTools/gui.ts"),
   ];
   const app = await TypeDoc.Application.bootstrapWithPlugins({
     entryPoints: entries,
