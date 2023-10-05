@@ -19,9 +19,6 @@
     "vue": "^3.3.4"
   },
   "dependencies": {
-    "@types/dat.gui": "^0.7.9",
-    "@types/three": "^0.152.0",
-    "copper3d_plugin_heart_k": "^1.0.14",
     "three": "^0.156.1",
     "vitepress-plugin-search": "^1.0.4-alpha.20"
   }
