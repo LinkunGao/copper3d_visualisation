@@ -18,6 +18,6 @@ jobs:
       - name: Push indices to Algolia
         uses: signcl/docsearch-scraper-action@master
         env:
-          APPLICATION_ID: ${{ secrets.COPPER3D_GITHUB_TOKEN }}
+          APPLICATION_ID: ${{ secrets.COPPER3D_ALGOLIA_APPLICATION_ID}}
           API_KEY: ${{ secrets.COPPER3D_ALGOLIA_API_KEY }}
           CONFIG: ${{ steps.algolia_config.outputs.config }}
