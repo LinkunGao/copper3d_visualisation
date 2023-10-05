@@ -41,13 +41,16 @@ jobs:
           cache: npm # or pnpm / yarn
       # - name: Setup Pages
       #   uses: actions/configure-pages@v3
-      - name: Change directory to apidocs
-        run: cd apidocs
+      # - name: Change directory to apidocs
+      #   run: cd apidocs/
       - name: Install dependencies
-        run: npm ci # or pnpm install / yarn install / bun install
+        run: |
+          cd apidocs/
+          npm ci # or pnpm install / yarn install / bun install
       - name: Build with VitePress
         run: |
-          npm run docs:build # or pnpm docs:build / yarn docs:build / bun run docs:build
+          cd apidocs/
+          npm run docs:build 
           touch apidocs/.vitepress/dist/.nojekyll
       - name: Upload artifact
         uses: actions/upload-artifact@v3
