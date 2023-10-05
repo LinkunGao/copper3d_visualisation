@@ -966,11 +966,6 @@ export default class DrawOperator extends CommToolsData {
         1,
         Math.min(this.nrrd_states.sphereRadius, 50)
       );
-      console.log(
-        this.nrrd_states.sphereOrigin[this.protectedData.axis][0],
-        this.nrrd_states.sphereOrigin[this.protectedData.axis][1]
-      );
-
       // get mouse position
       const mouseX = this.nrrd_states.sphereOrigin[this.protectedData.axis][0];
       const mouseY = this.nrrd_states.sphereOrigin[this.protectedData.axis][1];
