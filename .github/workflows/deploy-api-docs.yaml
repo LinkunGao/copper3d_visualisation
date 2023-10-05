@@ -54,6 +54,8 @@ jobs:
           cd apidocs/
           npm run docs:build 
           touch .vitepress/dist/.nojekyll
+          cp -r dist/ .vitepress/dist/
+
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
