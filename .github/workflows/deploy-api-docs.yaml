@@ -50,7 +50,7 @@ jobs:
           npm run docs:build # or pnpm docs:build / yarn docs:build / bun run docs:build
           touch apidocs/.vitepress/dist/.nojekyll
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           path: apidocs/.vitepress/dist
 
