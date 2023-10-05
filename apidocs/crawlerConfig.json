@@ -1,33 +1,38 @@
 {
   "index_name": "copper3d-visualisation",
-  "start_urls": ["/copper3d_visualisation"],
-  "rateLimit": 8,
-  "maxDepth": 10,
+  "start_urls": ["https://linkungao.github.io/copper3d_visualisation/"],
+  "sitemap_urls": [
+    "https://linkungao.github.io/copper3d_visualisation/sitemap.xml"
+  ],
+  "sitemap_alternate_links": true,
+  "stop_urls": ["/tests"],
   "selectors": {
     "lvl0": {
-      "selector": "",
-      "defaultValue": "Documentation"
+      "selector": "(//ul[contains(@class,'menu__list')]//a[contains(@class, 'menu__link menu__link--sublist menu__link--active')]/text() | //nav[contains(@class, 'navbar')]//a[contains(@class, 'navbar__link--active')]/text())[last()]",
+      "type": "xpath",
+      "global": true,
+      "default_value": "Documentation"
     },
     "lvl1": ".content h1",
     "lvl2": ".content h2",
     "lvl3": ".content h3",
     "lvl4": ".content h4",
     "lvl5": ".content h5",
-    "content": ".content p, .content li",
-    "lang": {
-      "selector": "/html/@lang",
-      "type": "xpath",
-      "global": true
-    }
+    "content": ".content p, .content li"
   },
-  "selectors_exclude": [
-    "aside",
-    ".page-footer",
-    ".next-and-prev-link",
-    ".table-of-contents"
-  ],
+  "strip_chars": " .,;:#",
   "custom_settings": {
-    "attributesForFaceting": ["lang", "tags"]
+    "separatorsToIndex": "_",
+    "attributesForFaceting": ["language", "version", "type", "docusaurus_tag"],
+    "attributesToRetrieve": [
+      "hierarchy",
+      "content",
+      "anchor",
+      "url",
+      "url_without_anchor",
+      "type"
+    ]
   },
-  "js_render": true
+  "conversation_id": ["833762294"],
+  "nb_hits": 46250
 }
