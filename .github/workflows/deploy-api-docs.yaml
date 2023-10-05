@@ -44,11 +44,11 @@ jobs:
       # - name: Change directory to apidocs
       #   run: cd apidocs/
       - name: Install copper3d dependencies
-        run: npm i
+        run: npm ci
       - name: Install api dependencies
         run: |
           cd apidocs/
-          npm i # or pnpm install / yarn install / bun install
+          npm ci # or pnpm install / yarn install / bun install
       - name: Build with VitePress
         run: |
           cd apidocs/
@@ -57,7 +57,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          path: apidocs/.vitepress/dist
+          name: production-files
+          path: ./apidocs/.vitepress/dist
 
   # Deployment job
 
