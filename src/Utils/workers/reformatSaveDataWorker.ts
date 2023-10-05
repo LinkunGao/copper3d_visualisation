@@ -1,4 +1,4 @@
-import { paintImageType } from "../../types/types";
+import { IPaintImage } from "../segmentation/coreTools/coreType";
 
 addEventListener("message", (event) => {
   const data = event.data;
@@ -63,7 +63,7 @@ function deepCopy(obj: any): unknown {
   throw new Error("Unable to copy obj! Its type isn't supported.");
 }
 
-function pruningData(originArr: paintImageType[]) {
+function pruningData(originArr: IPaintImage[]) {
   let pruningArray = [];
   for (let i = 0; i < originArr.length; i++) {
     pruningArray.push(originArr[i].image.data);
@@ -72,7 +72,7 @@ function pruningData(originArr: paintImageType[]) {
 }
 
 function restructData(
-  originArr: paintImageType[],
+  originArr: IPaintImage[],
   len: number,
   width: number,
   height: number

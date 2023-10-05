@@ -1,8 +1,8 @@
 // import * as kiwrious from "copper3d_plugin_heart_k";
 
-import copperRenderer from "./Renderer/copperRenderer";
+import { copperRenderer } from "./Renderer/copperRenderer";
 import { setHDRFilePath } from "./lib/environment/index";
-import copperScene from "./Scene/copperScene";
+import { copperScene } from "./Scene/copperScene";
 import { CameraViewPoint } from "./Controls/copperControls";
 import {
   addLabelToScene,
@@ -13,20 +13,21 @@ import {
 } from "./Utils/add3DLabel";
 import { addBoxHelper, optsType } from "./Loader/copperNrrdLoader";
 import { fullScreenListenner, loading, throttle } from "./Utils/utils";
-import copperRendererOnDemond from "./Renderer/copperRendererOnDemond";
-import copperSceneOnDemond from "./Scene/copperSceneOnDemond";
-import copperMSceneRenderer from "./Renderer/copperMSceneRenderer";
-import copperMScene from "./Scene/copperMScene";
+import { copperRendererOnDemond } from "./Renderer/copperRendererOnDemond";
+import { copperSceneOnDemond } from "./Scene/copperSceneOnDemond";
+import { copperMSceneRenderer } from "./Renderer/copperMSceneRenderer";
+import { copperMScene } from "./Scene/copperMScene";
 
 import { createTexture2D_NRRD } from "./Utils/texture2d";
 
 import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
-import { nrrd_tools } from "./Utils/nrrd_tool";
+import { NrrdTools } from "./Utils/segmentation/NrrdTools";
 
 import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls";
 
 import { MeshNodeTool } from "./Utils/MeshNodeTool";
+import { removeGuiFolderChilden } from "./Utils/segmentation/coreTools/gui";
 
 import {
   nrrdMeshesType,
@@ -35,10 +36,11 @@ import {
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,
   loadingBarType,
-  paintImageType,
   exportPaintImageType,
   IOptVTKLoader,
 } from "./types/types";
+
+import { IPaintImage } from "./Utils/segmentation/coreTools/coreType";
 
 import "./css/style.css";
 
@@ -66,12 +68,13 @@ export {
   copperMScene,
   CameraViewPoint,
   kiwrious,
-  nrrd_tools,
+  NrrdTools,
   loading,
   Copper3dTrackballControls,
   createTexture2D_NRRD,
   MeshNodeTool,
   throttle,
+  removeGuiFolderChilden,
 };
 
 export type {
@@ -84,7 +87,7 @@ export type {
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,
   loadingBarType,
-  paintImageType,
+  IPaintImage,
   exportPaintImageType,
   IOptVTKLoader,
 };

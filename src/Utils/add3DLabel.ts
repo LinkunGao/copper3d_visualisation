@@ -1,5 +1,5 @@
-import baseScene from "../Scene/baseScene";
-import copperMScene from "../Scene/copperMScene";
+import { baseScene } from "../Scene/baseScene";
+import { copperMScene } from "../Scene/copperMScene";
 import * as THREE from "three";
 
 function createFont(

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import baseScene from "../Scene/baseScene";
+import { baseScene } from "../Scene/baseScene";
 import { customMeshType } from "../lib/three-vignette";
 import { environments, environmentType } from "../lib/environment/index";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
@@ -11,7 +11,7 @@ import {
   modelVisualisationDataType,
 } from "../types/types";
 
-export default class baseRenderer {
+export class baseRenderer {
   container: HTMLDivElement;
   renderer: THREE.WebGLRenderer;
   gui: GUI | null;

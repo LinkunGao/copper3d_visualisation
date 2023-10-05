@@ -3,12 +3,12 @@ import { Controls, CameraViewPoint } from "../Controls/copperControls";
 import { createBackground, customMeshType } from "../lib/three-vignette";
 import { baseStateType, ICopperSceneOpts } from "../types/types";
 import { isIOS, traverseMaterials } from "../Utils/utils";
-import commonScene from "./commonSceneMethod";
+import { commonScene } from "./commonSceneMethod";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 
 const IS_IOS = isIOS();
 
-export default class baseScene extends commonScene {
+export class baseScene extends commonScene {
   renderer: THREE.WebGLRenderer;
   // scene: THREE.Scene;
   // camera: THREE.PerspectiveCamera;

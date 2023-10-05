@@ -1,5 +1,5 @@
-import baseRenderer from "./baseRenderer";
-import copperScene from "../Scene/copperScene";
+import { baseRenderer } from "./baseRenderer";
+import { copperScene } from "../Scene/copperScene";
 import {
   preRenderCallbackFunctionType,
   SceneMapType,
@@ -7,7 +7,7 @@ import {
 } from "../types/types";
 import * as THREE from "three";
 
-export default class copperRenderer extends baseRenderer {
+export class copperRenderer extends baseRenderer {
   private sceneMap: SceneMapType = {};
   private fps: number = 30;
   private renderClock: THREE.Clock = new THREE.Clock();
