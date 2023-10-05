@@ -1,10 +1,9 @@
 import * as THREE from "three";
-import baseRenderer from "./baseRenderer";
-import copperScene from "../Scene/copperScene";
+import { baseRenderer } from "./baseRenderer";
 import { ICopperRenderOpt, SceneMapType } from "../types/types";
-import copperSceneOnDemond from "../Scene/copperSceneOnDemond";
+import { copperSceneOnDemond } from "../Scene/copperSceneOnDemond";
 
-export default class copperRendererOnDemond extends baseRenderer {
+export class copperRendererOnDemond extends baseRenderer {
   private sceneMap: SceneMapType = {};
   constructor(container: HTMLDivElement, options?: ICopperRenderOpt) {
     super(container, options);

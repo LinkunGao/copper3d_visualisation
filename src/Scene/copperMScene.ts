@@ -22,11 +22,11 @@ import {
 } from "../Loader/copperNrrdLoader";
 import { isIOS } from "../Utils/utils";
 
-import commonScene from "./commonSceneMethod";
+import { commonScene } from "./commonSceneMethod";
 
 const IS_IOS = isIOS();
 
-export default class copperMScene extends commonScene {
+export class copperMScene extends commonScene {
   gui: GUI = new GUI({
     width: 260,
     autoPlace: false,

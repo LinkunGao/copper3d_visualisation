@@ -10,7 +10,7 @@ import {
 import { switchPencilIcon } from "../utils";
 import { enableDownload } from "./coreTools/divControlTools";
 
-export default class CommToolsData {
+export class CommToolsData {
   baseCanvasesSize: number = 1;
   nrrd_states: INrrdStates = {
     originWidth: 0,

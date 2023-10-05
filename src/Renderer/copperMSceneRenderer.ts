@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { environments, environmentType } from "../lib/environment/index";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
-import copperMScene from "../Scene/copperMScene";
+import { copperMScene } from "../Scene/copperMScene";
 import { positionType } from "../types/types";
 
-export default class copperMSceneRenderer {
+export class copperMSceneRenderer {
   numberOfScene: number;
   container: HTMLDivElement;
   elems: Array<HTMLDivElement>;

@@ -8,7 +8,7 @@ import {
   IPaintImages,
   IPaintImage,
 } from "./coreType";
-import DragOperator from "../DragOperator";
+import { DragOperator } from "../DragOperator";
 
 interface IConfigGUI {
   modeFolder: GUI;

@@ -23,7 +23,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { copperNrrdTexture3dLoader } from "../Loader/copperNrrdLoader";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 
-export default class commonScene {
+export class commonScene {
   container: HTMLDivElement;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
@@ -347,7 +347,11 @@ export default class commonScene {
     copperNrrdTexture3dLoader(url, this.scene, this.container, callback);
   }
 
-  loadOBJ(url: string, callback?: (mesh: THREE.Group) => void, opts?:{color:string}) {
+  loadOBJ(
+    url: string,
+    callback?: (mesh: THREE.Group) => void,
+    opts?: { color: string }
+  ) {
     objLoader.load(
       url,
       (obj) => {
@@ -355,7 +359,7 @@ export default class commonScene {
           if ((child as THREE.Mesh).isMesh) {
             (child as THREE.Mesh).material = new THREE.MeshPhongMaterial({
               side: THREE.DoubleSide,
-              color: !!opts ? opts?.color:"#228b22",
+              color: !!opts ? opts?.color : "#228b22",
             });
           }
         });

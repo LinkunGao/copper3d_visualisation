@@ -20,7 +20,7 @@ interface IDragEffectCanvases {
   [key: string]: HTMLCanvasElement;
 }
 
-export default class DragOperator {
+export class DragOperator {
   container: HTMLElement;
 
   private dragPrameters: IDragPrameters = {

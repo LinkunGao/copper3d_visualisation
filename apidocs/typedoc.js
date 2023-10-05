@@ -30,7 +30,7 @@ async function main() {
     rootPath("src/Utils/MeshNodeTool.ts"),
     rootPath("src/Utils/segmentation/NrrdTools.ts"),
     rootPath("src/Utils/segmentation/DragOperator.ts"),
-    rootPath("src/Utils/segmentation/DrawOperator.ts"),
+    rootPath("src/Utils/segmentation/DrawToolCore.ts"),
     rootPath("src/Utils/segmentation/CommToolsData.ts"),
   ];
   const app = await TypeDoc.Application.bootstrapWithPlugins({

@@ -1,10 +1,10 @@
 import * as THREE from "three";
-import baseScene from "./baseScene";
+import { baseScene } from "./baseScene";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
-export default class copperSceneOnDemond extends baseScene {
+export class copperSceneOnDemond extends baseScene {
   controls: OrbitControls;
   renderRequested: boolean | undefined = false;
   isResize: boolean = false;

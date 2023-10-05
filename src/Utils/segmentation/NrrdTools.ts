@@ -16,8 +16,8 @@ import {
   IMaskData,
   IDragOpts,
 } from "./coreTools/coreType";
-import DragOperator from "./DragOperator";
-import DrawToolCore from "./DrawToolCore";
+import { DragOperator } from "./DragOperator";
+import { DrawToolCore } from "./DrawToolCore";
 
 export class NrrdTools extends DrawToolCore {
   container: HTMLDivElement;

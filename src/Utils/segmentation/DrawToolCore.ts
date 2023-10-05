@@ -7,10 +7,10 @@ import {
   ICommXY,
   IUndoType,
 } from "./coreTools/coreType";
-import CommToolsData from "./CommToolsData";
+import { CommToolsData } from "./CommToolsData";
 import { switchEraserSize, switchPencilIcon } from "../utils";
 
-export default class DrawToolCore extends CommToolsData {
+export class DrawToolCore extends CommToolsData {
   container: HTMLElement;
   mainAreaContainer: HTMLDivElement;
   drawingPrameters: IDrawingEvents = {

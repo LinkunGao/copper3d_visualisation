@@ -8,12 +8,12 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { copperNrrdTexture3dLoader } from "../Loader/copperNrrdLoader";
 import { copperVtkLoader, copperMultipleVtk } from "../Loader/copperVtkLoader";
 import { createTexture2D_Zip } from "../Utils/texture2d";
-import baseScene from "./baseScene";
+import { baseScene } from "./baseScene";
 import { vtkModels } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { ICopperSceneOpts } from "../types/types";
 
-export default class copperScene extends baseScene {
+export class copperScene extends baseScene {
   clock: THREE.Clock = new THREE.Clock();
   controls: Copper3dTrackballControls | OrbitControls | TrackballControls;
   // isHalfed: boolean = false;

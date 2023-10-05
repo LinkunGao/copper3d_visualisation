@@ -1,8 +1,8 @@
 // import * as kiwrious from "copper3d_plugin_heart_k";
 
-import copperRenderer from "./Renderer/copperRenderer";
+import { copperRenderer } from "./Renderer/copperRenderer";
 import { setHDRFilePath } from "./lib/environment/index";
-import copperScene from "./Scene/copperScene";
+import { copperScene } from "./Scene/copperScene";
 import { CameraViewPoint } from "./Controls/copperControls";
 import {
   addLabelToScene,
@@ -13,10 +13,10 @@ import {
 } from "./Utils/add3DLabel";
 import { addBoxHelper, optsType } from "./Loader/copperNrrdLoader";
 import { fullScreenListenner, loading, throttle } from "./Utils/utils";
-import copperRendererOnDemond from "./Renderer/copperRendererOnDemond";
-import copperSceneOnDemond from "./Scene/copperSceneOnDemond";
-import copperMSceneRenderer from "./Renderer/copperMSceneRenderer";
-import copperMScene from "./Scene/copperMScene";
+import { copperRendererOnDemond } from "./Renderer/copperRendererOnDemond";
+import { copperSceneOnDemond } from "./Scene/copperSceneOnDemond";
+import { copperMSceneRenderer } from "./Renderer/copperMSceneRenderer";
+import { copperMScene } from "./Scene/copperMScene";
 
 import { createTexture2D_NRRD } from "./Utils/texture2d";
 
