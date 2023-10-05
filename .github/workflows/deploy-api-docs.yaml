@@ -43,7 +43,9 @@ jobs:
       #   uses: actions/configure-pages@v3
       # - name: Change directory to apidocs
       #   run: cd apidocs/
-      - name: Install dependencies
+      - name: Install copper3d dependencies
+        run: npm i
+      - name: Install api dependencies
         run: |
           cd apidocs/
           npm i # or pnpm install / yarn install / bun install
@@ -51,7 +53,7 @@ jobs:
         run: |
           cd apidocs/
           npm run docs:build 
-          touch apidocs/.vitepress/dist/.nojekyll
+          touch .vitepress/dist/.nojekyll
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
