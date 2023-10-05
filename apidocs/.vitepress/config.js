@@ -12,9 +12,9 @@ export default {
     search: {
       provider: "algolia",
       options: {
-        appId: "YE694K4W97",
-        apiKey: "af9f47502dc2e5852a7bbfa994bfc52c",
-        indexName: "copper3d",
+        appId: "T4ABFE0UY4",
+        apiKey: "10d8841459f0b508e1394464b203cb63",
+        indexName: "copper3d-visualisation",
         locales: {
           zh: {
             placeholder: "搜索文档",
