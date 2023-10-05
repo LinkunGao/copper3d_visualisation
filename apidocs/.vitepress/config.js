@@ -3,7 +3,7 @@ import apidocConfig from "../apidocConfig.json";
 
 export default {
   title: "Copper3d API",
-  base: "/copper3d_visualisation",
+  base: "/copper3d_visualisation/",
   themeConfig: {
     repo: "LinkunGao/copper3d_visualisation",
     sidebar: {
