@@ -1,4 +1,4 @@
-# copper3d_visualisation
+# copper3d
 
 [![NPM Package][npm]][npm-url]
 [![Read the Docs][readthedocs]][readthedocs-url]
@@ -93,7 +93,7 @@ function loadModel(url, name) {
 
 ---
 
-[npm]: https://img.shields.io/npm/v/copper3d_visualisation
+[npm]: https://img.shields.io/npm/v/copper3d
 [npm-url]: https://www.npmjs.com/package/copper3d
 [readthedocs]: https://img.shields.io/readthedocs/copper3d_visualisation
 [readthedocs-url]: https://copper3d-visualisation.readthedocs.io/en/latest/

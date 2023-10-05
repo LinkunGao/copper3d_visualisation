@@ -1875,7 +1875,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
   copperScene.loadOBJ(url: string, callback?: (mesh: THREE.Group) => void, opts?:{color:string});
   ```
 
-# Release v1.15.20
+## Release v1.15.20
 
 - export `throttle` function
 
@@ -1883,7 +1883,7 @@ sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
 throttle(callback: (event: MouseEvent) => void, wait: number): (event: MouseEvent) => void
 ```
 
-# Release v1.15.21
+## Release v1.15.21
 
 - Optimise Nrrd_tools GUI function
   - Changed their name
@@ -1913,11 +1913,11 @@ throttle(callback: (event: MouseEvent) => void, wait: number): (event: MouseEven
     nrrdTools.setPencilIconUrls(urls);
     ```
 
-# Release v1.15.22
+## Release v1.15.22
 
 - add a getSphereData in nrrdTools draw function
   - for this function we can get the sphere raduis and the sphere origin in mm.
 
-# Release v1.15.23
+## Release v1.15.23
 
 - fixed the cursor not center issue.
