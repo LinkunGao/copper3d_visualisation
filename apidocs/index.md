@@ -9,8 +9,8 @@ hero:
   actions:
     - theme: sponsor
       text: Copper3d ReadMe
-      link: /dist/README
+      link: /apidist/README
     - theme: brand
       text: Copper3d core API
-      link: /dist/modules
+      link: /apidist/modules
 ---

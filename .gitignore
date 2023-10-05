@@ -8,6 +8,8 @@ lerna-debug.log*
 
 /docs/build
 
+apidist
+
 .vscode/*
 !.vscode/extensions.json
 .idea

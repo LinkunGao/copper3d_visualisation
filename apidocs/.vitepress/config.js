@@ -7,7 +7,7 @@ export default {
   themeConfig: {
     repo: "LinkunGao/copper3d_visualisation",
     sidebar: {
-      "/dist/": apidocConfig,
+      "/apidist/": apidocConfig,
     },
     search: {
       provider: "algolia",
