@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd apidocs/
-          npm ci # or pnpm install / yarn install / bun install
+          npm i # or pnpm install / yarn install / bun install
       - name: Build with VitePress
         run: |
           cd apidocs/
