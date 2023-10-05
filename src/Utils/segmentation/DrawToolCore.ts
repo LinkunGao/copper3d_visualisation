@@ -10,9 +10,9 @@ import {
 import CommToolsData from "./CommToolsData";
 import { switchEraserSize, switchPencilIcon } from "../utils";
 
-export default class DrawOperator extends CommToolsData {
+export default class DrawToolCore extends CommToolsData {
   container: HTMLElement;
-  mainAreaContainer: HTMLDivElement = document.createElement("div");
+  mainAreaContainer: HTMLDivElement;
   drawingPrameters: IDrawingEvents = {
     handleOnDrawingMouseDown: (ev: MouseEvent) => {},
     handleOnDrawingMouseMove: (ev: MouseEvent) => {},
@@ -32,13 +32,15 @@ export default class DrawOperator extends CommToolsData {
   start: () => void = () => {};
 
   constructor(container: HTMLElement) {
-    super();
+    const mainAreaContainer = document.createElement("div");
+    super(container, mainAreaContainer);
     this.container = container;
+    this.mainAreaContainer = mainAreaContainer;
 
-    this.initDrawOperator();
+    this.initDrawToolCore();
   }
 
-  private initDrawOperator() {
+  private initDrawToolCore() {
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
       if (ev.key === "Shift" && !this.gui_states.sphere) {
         this.protectedData.Is_Shift_Pressed = true;
@@ -470,10 +472,6 @@ export default class DrawOperator extends CommToolsData {
           this.gui_states.sphere &&
           !this.nrrd_states.enableCursorChoose
         ) {
-          // let { ctx, canvas } = this.setCurrentLayer();
-          // let mouseX = e.offsetX;
-          // let mouseY = e.offsetY;
-
           // plan B
           // findout all index in the sphere radius range in Axial view
           if (this.nrrd_states.spherePlanB) {
@@ -824,9 +822,10 @@ export default class DrawOperator extends CommToolsData {
         moveDistance = 1;
       } else {
         this.resizePaintArea(moveDistance);
-        this.resetPaintArea(l, t);
+        this.resetPaintAreaUIPosition(l, t);
         this.setIsDrawFalse(1000);
       }
+
       this.nrrd_states.sizeFoctor = moveDistance;
     };
     return handleZoomWheelMove;
@@ -1054,6 +1053,9 @@ export default class DrawOperator extends CommToolsData {
     });
   }
 
+  /**
+   * Clear mask on current slice canvas
+   */
   clearPaint() {
     this.protectedData.Is_Draw = true;
     this.resetLayerCanvas();

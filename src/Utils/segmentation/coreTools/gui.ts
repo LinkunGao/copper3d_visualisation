@@ -1,9 +1,19 @@
 import { GUI } from "dat.gui";
 import { switchEraserSize, switchPencilIcon } from "../../utils";
-import { IDrawingEvents, IGUIStates, IProtected } from "./coreType";
+import {
+  IDrawingEvents,
+  IGUIStates,
+  IProtected,
+  INrrdStates,
+  IPaintImages,
+  IPaintImage,
+} from "./coreType";
+import DragOperator from "../DragOperator";
 
 interface IConfigGUI {
   modeFolder: GUI;
+  dragOperator: DragOperator;
+  nrrd_states: INrrdStates;
   gui_states: IGUIStates;
   drawingCanvas: HTMLCanvasElement;
   drawingPrameters: IDrawingEvents;
@@ -11,16 +21,28 @@ interface IConfigGUI {
   eraserUrls: string[];
   pencilUrls: string[];
   mainPreSlices: any;
-  canvasSizeFoctor: number;
   removeDragMode: () => void;
   configDragMode: () => void;
   clearPaint: () => void;
   clearStoreImages: () => void;
   updateSlicesContrast: (value: number, flag: string) => void;
-  resetPaintArea: () => void;
+  resetPaintAreaUIPosition: () => void;
   resizePaintArea: (factor: number) => void;
   repraintCurrentContrastSlice: () => void;
   setSyncsliceNum: () => void;
+  resetLayerCanvas: () => void;
+  redrawDisplayCanvas: () => void;
+  reloadMaskToLabel: (
+    paintImages: IPaintImages,
+    ctx: CanvasRenderingContext2D
+  ) => void;
+  flipDisplayImageByAxis: () => void;
+  filterDrawedImage: (
+    axis: "x" | "y" | "z",
+    sliceIndex: number,
+    paintedImages: IPaintImages
+  ) => IPaintImage;
+  setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
 }
 
 function setupGui(configs: IConfigGUI) {
@@ -178,8 +200,8 @@ function setupGui(configs: IConfigGUI) {
     .min(1)
     .max(8)
     .onFinishChange((factor) => {
-      configs.resetPaintArea();
-      configs.canvasSizeFoctor = factor;
+      configs.resetPaintAreaUIPosition();
+      configs.nrrd_states.sizeFoctor = factor;
       configs.resizePaintArea(factor);
     });
 

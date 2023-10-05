@@ -5,11 +5,13 @@ import {
   INrrdStates,
   ICursorPage,
   IPaintImages,
+  IConvertObjType,
 } from "./coreTools/coreType";
 import { switchPencilIcon } from "../utils";
 import { enableDownload } from "./coreTools/divControlTools";
 
 export default class CommToolsData {
+  baseCanvasesSize: number = 1;
   nrrd_states: INrrdStates = {
     originWidth: 0,
     originHeight: 0,
@@ -46,7 +48,7 @@ export default class CommToolsData {
     Mouse_Over_y: 0,
     Mouse_Over: false,
     stepClear: 1,
-    sizeFoctor: 1,
+    sizeFoctor: this.baseCanvasesSize,
     clearAllFlag: false,
     previousPanelL: -99999,
     previousPanelT: -99999,
@@ -87,7 +89,7 @@ export default class CommToolsData {
   };
 
   gui_states: IGUIStates = {
-    mainAreaSize: 1,
+    mainAreaSize: 3,
     dragSensitivity: 75,
     Eraser: false,
     globalAlpha: 0.7,
@@ -130,15 +132,18 @@ export default class CommToolsData {
       enableDownload(config);
     },
     resetZoom: () => {
-      this.nrrd_states.sizeFoctor = 1;
-      this.resizePaintArea(1);
-      this.resetPaintArea();
+      this.nrrd_states.sizeFoctor = this.baseCanvasesSize;
+      this.gui_states.mainAreaSize = this.baseCanvasesSize;
+      this.resizePaintArea(this.nrrd_states.sizeFoctor);
+      this.resetPaintAreaUIPosition();
     },
   };
   protectedData: IProtected;
-  constructor() {
+  constructor(container: HTMLElement, mainAreaContainer: HTMLElement) {
     const canvases = this.generateCanvases();
     this.protectedData = {
+      container,
+      mainAreaContainer,
       allSlicesArray: [],
       displaySlices: [],
       backUpDisplaySlices: [],
@@ -201,13 +206,125 @@ export default class CommToolsData {
     return canvasArr;
   }
 
-  clearPaint() {}
-  clearStoreImages() {}
-  undoLastPainting() {}
-  resizePaintArea(factor: number) {}
-  setIsDrawFalse(target: number) {}
-  updateOriginAndChangedWH() {}
-  flipDisplayImageByAxis() {}
+  /**
+   * Rewrite this {clearPaint} function under DrawToolCore
+   */
+  clearPaint() {
+    throw new Error(
+      "Child class must implement abstract clearPaint, currently you can find it in DrawToolCore."
+    );
+  }
+  /**
+   * Rewrite this {undoLastPainting} function under DrawToolCore
+   */
+  undoLastPainting() {
+    throw new Error(
+      "Child class must implement abstract undoLastPainting, currently you can find it in DrawToolCore."
+    );
+  }
+  /**
+   * Rewrite this {clearStoreImages} function under NrrdTools
+   */
+  clearStoreImages() {
+    throw new Error(
+      "Child class must implement abstract clearStoreImages, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {resizePaintArea} function under NrrdTools
+   */
+  resizePaintArea(factor: number) {
+    throw new Error(
+      "Child class must implement abstract resizePaintArea, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {setIsDrawFalse} function under NrrdTools
+   */
+  setIsDrawFalse(target: number) {
+    throw new Error(
+      "Child class must implement abstract setIsDrawFalse, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {updateOriginAndChangedWH} function under NrrdTools
+   */
+  updateOriginAndChangedWH() {
+    throw new Error(
+      "Child class must implement abstract updateOriginAndChangedWH, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {flipDisplayImageByAxis} function under NrrdTools
+   */
+  flipDisplayImageByAxis() {
+    throw new Error(
+      "Child class must implement abstract flipDisplayImageByAxis, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {resetPaintAreaUIPosition} function under NrrdTools
+   */
+  resetPaintAreaUIPosition(l?: number, t?: number) {
+    throw new Error(
+      "Child class must implement abstract resetPaintAreaUIPosition, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {resetPaintAreaUIPosition} function under NrrdTools
+   */
+  setEmptyCanvasSize(axis?: "x" | "y" | "z") {
+    throw new Error(
+      "Child class must implement abstract setEmptyCanvasSize, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {convertCursorPoint} function under NrrdTools
+   */
+  convertCursorPoint(
+    from: "x" | "y" | "z",
+    to: "x" | "y" | "z",
+    cursorNumX: number,
+    cursorNumY: number,
+    currentSliceIndex: number
+  ): IConvertObjType | undefined {
+    throw new Error(
+      "Child class must implement abstract convertCursorPoint, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {resetLayerCanvas} function under NrrdTools
+   */
+  resetLayerCanvas() {
+    throw new Error(
+      "Child class must implement abstract resetLayerCanvas, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {setSyncsliceNum} function under NrrdTools
+   */
+  setSyncsliceNum() {
+    throw new Error(
+      "Child class must implement abstract setSyncsliceNum, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Rewrite this {redrawDisplayCanvas} function under NrrdTools
+   */
+  redrawDisplayCanvas() {
+    throw new Error(
+      "Child class must implement abstract redrawDisplayCanvas, currently you can find it in NrrdTools."
+    );
+  }
+
+  /**
+   * Get a painted mask image (IPaintImage) based on current axis and input slice index.
+   *
+   * @param axis "x" | "y" | "z"
+   * @param sliceIndex number
+   * @param paintedImages IPaintImages, All painted mask images.
+   * @returns
+   */
   filterDrawedImage(
     axis: "x" | "y" | "z",
     sliceIndex: number,
@@ -217,26 +334,4 @@ export default class CommToolsData {
       return item.index === sliceIndex;
     })[0];
   }
-  resetPaintArea(l?: number, t?: number) {}
-  setEmptyCanvasSize(axis?: "x" | "y" | "z") {}
-  convertCursorPoint(
-    from: "x" | "y" | "z",
-    to: "x" | "y" | "z",
-    cursorNumX: number,
-    cursorNumY: number,
-    currentSliceIndex: number
-  ) {
-    if (from) {
-      return undefined;
-    }
-    return {
-      currentIndex: 0,
-      oldIndex: 0,
-      convertCursorNumX: 0,
-      convertCursorNumY: 0,
-    };
-  }
-  resetLayerCanvas() {}
-  setSyncsliceNum() {}
-  redrawDisplayCanvas() {}
 }

@@ -17,9 +17,9 @@ import {
   IDragOpts,
 } from "./coreTools/coreType";
 import DragOperator from "./DragOperator";
-import DrawOperator from "./DrawOperator";
+import DrawToolCore from "./DrawToolCore";
 
-export class NrrdTools extends DrawOperator {
+export class NrrdTools extends DrawToolCore {
   container: HTMLDivElement;
 
   // A base conatainer to append displayCanvas and drawingCanvas
@@ -58,6 +58,10 @@ export class NrrdTools extends DrawOperator {
     );
   }
 
+  /**
+   * core function for drag slices
+   * @param opts
+   */
   drag(opts?: IDragOpts) {
     this.dragOperator.drag(opts);
   }
@@ -70,31 +74,53 @@ export class NrrdTools extends DrawOperator {
   //   return this.drawOperator.start;
   // }
 
+  /**
+   * Set the Draw Display Canvas base size
+   * @param size number
+   */
+  setBaseDrawDisplayCanvasesSize(size: number) {
+    if (size > 8) {
+      this.baseCanvasesSize = 8;
+    } else if (size < 1 || typeof size !== "number") {
+      this.baseCanvasesSize = 1;
+    } else {
+      this.baseCanvasesSize = size;
+    }
+  }
+
+  /**
+   * Set up GUI for drawing panel
+   * @param gui GUI
+   */
   setupGUI(gui: GUI) {
-    /**
-     * GUI
-     */
     let modeFolder: GUI;
     modeFolder = gui.addFolder("Mode Parameters");
     const guiOptions = {
       modeFolder,
+      dragOperator: this.dragOperator,
       gui_states: this.gui_states,
+      nrrd_states: this.nrrd_states,
       drawingCanvas: this.protectedData.canvases.drawingCanvas,
       drawingPrameters: this.drawingPrameters,
       eraserUrls: this.eraserUrls,
       pencilUrls: this.pencilUrls,
       mainPreSlices: this.protectedData.mainPreSlices,
-      canvasSizeFoctor: this.nrrd_states.sizeFoctor,
       protectedData: this.protectedData,
       removeDragMode: this.dragOperator.removeDragMode,
       configDragMode: this.dragOperator.configDragMode,
       clearPaint: this.clearPaint,
       clearStoreImages: this.clearStoreImages,
       updateSlicesContrast: this.updateSlicesContrast,
-      resetPaintArea: this.resetPaintArea,
+      resetPaintAreaUIPosition: this.resetPaintAreaUIPosition,
       resizePaintArea: this.resizePaintArea,
       repraintCurrentContrastSlice: this.repraintCurrentContrastSlice,
       setSyncsliceNum: this.setSyncsliceNum,
+      resetLayerCanvas: this.resetLayerCanvas,
+      redrawDisplayCanvas: this.redrawDisplayCanvas,
+      reloadMaskToLabel: this.reloadMaskToLabel,
+      flipDisplayImageByAxis: this.flipDisplayImageByAxis,
+      filterDrawedImage: this.filterDrawedImage,
+      setEmptyCanvasSize: this.setEmptyCanvasSize,
     };
     setupGui(guiOptions);
   }
@@ -103,8 +129,10 @@ export class NrrdTools extends DrawOperator {
    * A initialise function for nrrd_tools
    */
   private init() {
-    this.mainAreaContainer.classList.add("copper3D_drawingCanvasContainer");
-    this.container.appendChild(this.mainAreaContainer);
+    this.protectedData.mainAreaContainer.classList.add(
+      "copper3D_drawingCanvasContainer"
+    );
+    this.container.appendChild(this.protectedData.mainAreaContainer);
     autoFocusDiv(this.container);
 
     this.setShowInMainArea();
@@ -356,6 +384,21 @@ export class NrrdTools extends DrawOperator {
     }
   }
 
+  /**
+   * We generate the MRI slice from threejs based on mm, but when we display it is based on pixel size/distance.
+   * So, the index munber on each axis (sagittal, axial, coronal) is the slice's depth in mm distance. And the width and height displayed on screen is the slice's width and height in pixel distance.
+   *
+   * When we switch into different axis' views, we need to convert current view's the depth to the pixel distance in other views width or height, and convert the current view's width or height from pixel distance to mm distance as other views' depth (slice index) in general.
+   *
+   * Then as for the crosshair (Cursor Inspector), we also need to convert the cursor point (x, y, z) to other views' (x, y, z).
+   *
+   * @param from "x" | "y" | "z", current view axis, "x: sagittle, y: coronal, z: axial".
+   * @param to "x" | "y" | "z", target view axis (where you want jump to), "x: sagittle, y: coronal, z: axial".
+   * @param cursorNumX number, cursor point x on current axis's slice. (pixel distance)
+   * @param cursorNumY number, cursor point y on current axis's slice. (pixel distance)
+   * @param currentSliceIndex number, current axis's slice's index/depth. (mm distance)
+   * @returns
+   */
   convertCursorPoint(
     from: "x" | "y" | "z",
     to: "x" | "y" | "z",
@@ -654,7 +697,8 @@ export class NrrdTools extends DrawOperator {
       this.protectedData.ctxes.emptyCtx.createImageData(1, 1);
     this.initState = true;
     this.protectedData.axis = "z";
-    this.nrrd_states.sizeFoctor = 1;
+    this.nrrd_states.sizeFoctor = this.baseCanvasesSize;
+    this.gui_states.mainAreaSize = this.baseCanvasesSize;
     this.resetLayerCanvas();
     this.protectedData.canvases.drawingCanvas.width =
       this.protectedData.canvases.drawingCanvas.width;
@@ -680,12 +724,12 @@ export class NrrdTools extends DrawOperator {
       this.nrrd_states.sizeFoctor = 1;
     }
     this.resizePaintArea(this.nrrd_states.sizeFoctor);
-    this.resetPaintArea();
+    this.resetPaintAreaUIPosition();
     this.setIsDrawFalse(1000);
   }
 
   getContainer() {
-    return this.mainAreaContainer;
+    return this.protectedData.mainAreaContainer;
   }
   getDrawingCanvas() {
     return this.protectedData.canvases.drawingCanvas;
@@ -721,6 +765,12 @@ export class NrrdTools extends DrawOperator {
     return this.nrrd_states.showContrast;
   }
 
+  /**
+   * Give a delay time to finish the last drawing before upcoming interrupt opreations.
+   * Give a delay time number (ms) to disable the draw function,
+   * After your interrupt opeartion, you should enable the draw fucntion.
+   * @param target number
+   */
   setIsDrawFalse(target: number) {
     this.preTimer = setTimeout(() => {
       this.protectedData.Is_Draw = false;
@@ -792,7 +842,7 @@ export class NrrdTools extends DrawOperator {
     this.repraintCurrentContrastSlice();
     // resize the draw/drawOutLayer/display canvas size
     this.resizePaintArea(this.nrrd_states.sizeFoctor);
-    this.resetPaintArea();
+    this.resetPaintAreaUIPosition();
   }
 
   private setMainPreSlice() {
@@ -821,6 +871,7 @@ export class NrrdTools extends DrawOperator {
 
       this.protectedData.canvases.originCanvas =
         this.protectedData.mainPreSlices.canvas;
+
       this.updateOriginAndChangedWH();
     }
   }
@@ -851,19 +902,28 @@ export class NrrdTools extends DrawOperator {
     }
   }
 
+  /**
+   * Update the original canvas size, allow set to threejs load one (pixel distance not the mm).
+   * Then update the changedWidth and changedHeight based on the sizeFoctor.
+   */
   updateOriginAndChangedWH() {
     this.nrrd_states.originWidth =
       this.protectedData.canvases.originCanvas.width;
     this.nrrd_states.originHeight =
       this.protectedData.canvases.originCanvas.height;
+
     this.nrrd_states.changedWidth =
-      this.nrrd_states.originWidth * Number(this.gui_states.mainAreaSize);
+      this.nrrd_states.originWidth * Number(this.nrrd_states.sizeFoctor);
     this.nrrd_states.changedHeight =
-      this.nrrd_states.originWidth * Number(this.gui_states.mainAreaSize);
-    this.resizePaintArea(1);
-    this.resetPaintArea();
+      this.nrrd_states.originWidth * Number(this.nrrd_states.sizeFoctor);
+    this.resizePaintArea(this.nrrd_states.sizeFoctor);
+    this.resetPaintAreaUIPosition();
   }
 
+  /**
+   * Keep all contrast slice index to same.
+   * Synchronize the slice indexes of all the contrasts so that they are consistent with the main slice's index.
+   */
   setSyncsliceNum() {
     this.protectedData.displaySlices.forEach((slice, index) => {
       if (index !== 0) {
@@ -873,7 +933,7 @@ export class NrrdTools extends DrawOperator {
   }
 
   appendLoadingbar(loadingbar: HTMLDivElement) {
-    this.mainAreaContainer.appendChild(loadingbar);
+    this.protectedData.mainAreaContainer.appendChild(loadingbar);
   }
 
   clearStoreImages() {
@@ -892,18 +952,27 @@ export class NrrdTools extends DrawOperator {
     this.initPaintImages(this.nrrd_states.dimensions);
   }
 
-  resetPaintArea(l?: number, t?: number) {
+  /**
+   * Reset the draw and display canvases layout after mouse pan.
+   * If no params in, then center the draw and display canvases.
+   * @param l number, Offset to the left
+   * @param t number, Offset to the top
+   */
+  resetPaintAreaUIPosition(l?: number, t?: number) {
     if (l && t) {
       this.protectedData.canvases.displayCanvas.style.left =
         this.protectedData.canvases.drawingCanvas.style.left = l + "px";
       this.protectedData.canvases.displayCanvas.style.top =
         this.protectedData.canvases.drawingCanvas.style.top = t + "px";
     } else {
-      this.mainAreaContainer.style.justifyContent = "center";
-      this.mainAreaContainer.style.alignItems = "center";
+      this.protectedData.mainAreaContainer.style.justifyContent = "center";
+      this.protectedData.mainAreaContainer.style.alignItems = "center";
     }
   }
 
+  /**
+   * Clear masks on drawingCanvas layers.
+   */
   resetLayerCanvas() {
     this.protectedData.canvases.drawingCanvasLayerMaster.width =
       this.protectedData.canvases.drawingCanvasLayerMaster.width;
@@ -939,6 +1008,10 @@ export class NrrdTools extends DrawOperator {
     }
   }
 
+  /**
+   * Resize the draw and display canvas size based on the input size factor number.
+   * @param factor number
+   */
   resizePaintArea(factor: number) {
     /**
      * clear canvas
@@ -981,6 +1054,7 @@ export class NrrdTools extends DrawOperator {
       this.nrrd_states.changedWidth;
     this.protectedData.canvases.drawingCanvasLayerThree.height =
       this.nrrd_states.changedHeight;
+
     this.redrawDisplayCanvas();
     this.reloadMaskToLabel(
       this.protectedData.maskData.paintImages,
@@ -1062,6 +1136,12 @@ export class NrrdTools extends DrawOperator {
     }
   }
 
+  /**
+   * flip the canvas to a correct position.
+   * This is because the slice canvas from threejs is not in a correct 2D postion.
+   * Thus, everytime when we redraw the display canvas, we need to flip to draw the origin canvas from threejs.
+   * Under different axis(sagittal, Axial, Coronal), the flip orientation is different.
+   */
   flipDisplayImageByAxis() {
     if (this.protectedData.axis === "x") {
       this.protectedData.ctxes.displayCtx?.scale(-1, -1);
@@ -1085,7 +1165,11 @@ export class NrrdTools extends DrawOperator {
     }
   }
 
-  // set the empty canvas width and height, to reduce duplicate codes
+  /**
+   * Set the empty canvas width and height based on the axis (pixel distance not the mm), to reduce duplicate codes.
+   *
+   * @param axis
+   */
   setEmptyCanvasSize(axis?: "x" | "y" | "z") {
     switch (!!axis ? axis : this.protectedData.axis) {
       case "x":
@@ -1111,6 +1195,10 @@ export class NrrdTools extends DrawOperator {
 
   /******************************** redraw display canvas  ***************************************/
 
+  /**
+   * Redraw current contrast image to display canvas.
+   * It is more related to change the contrast slice image's window width or center.
+   */
   redrawDisplayCanvas() {
     this.dragOperator.updateCurrentContrastSlice();
     this.protectedData.canvases.displayCanvas.width =

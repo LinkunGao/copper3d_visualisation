@@ -72,6 +72,8 @@ type IMaskData = {
 };
 
 interface IProtected {
+  container: HTMLElement;
+  mainAreaContainer: HTMLElement;
   allSlicesArray: Array<ICommXYZ>;
   displaySlices: Array<any>;
   backUpDisplaySlices: Array<any>;
