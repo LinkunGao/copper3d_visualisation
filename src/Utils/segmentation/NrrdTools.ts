@@ -30,6 +30,7 @@ export class NrrdTools extends DrawToolCore {
 
   private initState: boolean = true;
   private preTimer: any;
+  private guiParameterSettings: any;
 
   constructor(container: HTMLDivElement) {
     super(container);
@@ -88,6 +89,10 @@ export class NrrdTools extends DrawToolCore {
     }
   }
 
+  setDisplaySliceIndexPanel(panel: HTMLDivElement) {
+    this.dragOperator.setShowDragNumberDiv(panel);
+  }
+
   /**
    * Set up GUI for drawing panel
    * @param gui GUI
@@ -111,6 +116,7 @@ export class NrrdTools extends DrawToolCore {
       clearPaint: this.clearPaint,
       clearStoreImages: this.clearStoreImages,
       updateSlicesContrast: this.updateSlicesContrast,
+      setMainAreaSize: this.setMainAreaSize,
       resetPaintAreaUIPosition: this.resetPaintAreaUIPosition,
       resizePaintArea: this.resizePaintArea,
       repraintCurrentContrastSlice: this.repraintCurrentContrastSlice,
@@ -122,7 +128,14 @@ export class NrrdTools extends DrawToolCore {
       filterDrawedImage: this.filterDrawedImage,
       setEmptyCanvasSize: this.setEmptyCanvasSize,
     };
-    setupGui(guiOptions);
+    this.guiParameterSettings = setupGui(guiOptions);
+  }
+
+  getGuiSettings() {
+    return {
+      guiState: this.gui_states,
+      guiSetting: this.guiParameterSettings,
+    };
   }
 
   /**
@@ -716,7 +729,7 @@ export class NrrdTools extends DrawToolCore {
   }
 
   setMainAreaSize(factor: number) {
-    this.nrrd_states.sizeFoctor += factor;
+    this.nrrd_states.sizeFoctor = factor;
 
     if (this.nrrd_states.sizeFoctor >= 8) {
       this.nrrd_states.sizeFoctor = 8;
@@ -725,7 +738,7 @@ export class NrrdTools extends DrawToolCore {
     }
     this.resizePaintArea(this.nrrd_states.sizeFoctor);
     this.resetPaintAreaUIPosition();
-    this.setIsDrawFalse(1000);
+    // this.setIsDrawFalse(1000);
   }
 
   getContainer() {
@@ -965,6 +978,11 @@ export class NrrdTools extends DrawToolCore {
       this.protectedData.canvases.displayCanvas.style.top =
         this.protectedData.canvases.drawingCanvas.style.top = t + "px";
     } else {
+      this.protectedData.canvases.displayCanvas.style.left =
+        this.protectedData.canvases.drawingCanvas.style.left = "";
+      this.protectedData.canvases.displayCanvas.style.top =
+        this.protectedData.canvases.drawingCanvas.style.top = "";
+
       this.protectedData.mainAreaContainer.style.justifyContent = "center";
       this.protectedData.mainAreaContainer.style.alignItems = "center";
     }
@@ -1016,6 +1034,7 @@ export class NrrdTools extends DrawToolCore {
     /**
      * clear canvas
      */
+
     this.protectedData.canvases.originCanvas.width =
       this.protectedData.canvases.originCanvas.width;
     this.protectedData.canvases.displayCanvas.width =
