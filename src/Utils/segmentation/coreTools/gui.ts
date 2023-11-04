@@ -26,6 +26,7 @@ interface IConfigGUI {
   clearPaint: () => void;
   clearStoreImages: () => void;
   updateSlicesContrast: (value: number, flag: string) => void;
+  setMainAreaSize: (factor: number) => void;
   resetPaintAreaUIPosition: () => void;
   resizePaintArea: (factor: number) => void;
   repraintCurrentContrastSlice: () => void;
@@ -61,49 +62,13 @@ function setupGui(configs: IConfigGUI) {
     .add(configs.gui_states, "segmentation")
     .name("Pencil")
     .onChange(() => {
-      if (configs.gui_states.segmentation) {
-        // add canvas brush circle move event listeners
-        configs.drawingCanvas.removeEventListener(
-          "mouseover",
-          configs.drawingPrameters.handleOnDrawingBrushCricleMove
-        );
-        configs.drawingCanvas.removeEventListener(
-          "mouseout",
-          configs.drawingPrameters.handleOnDrawingBrushCricleMove
-        );
-      } else {
-        // add canvas brush circle move event listeners
-        configs.drawingCanvas.addEventListener(
-          "mouseover",
-          configs.drawingPrameters.handleOnDrawingBrushCricleMove
-        );
-        configs.drawingCanvas.addEventListener(
-          "mouseout",
-          configs.drawingPrameters.handleOnDrawingBrushCricleMove
-        );
-      }
+      updatePencilState();
     });
   actionsFolder
     .add(configs.gui_states, "sphere")
     .name("Sphere")
     .onChange(() => {
-      if (configs.gui_states.sphere) {
-        configs.drawingCanvas.removeEventListener(
-          "wheel",
-          configs.drawingPrameters.handleZoomWheel
-        );
-        configs.removeDragMode();
-      } else {
-        configs.drawingCanvas.addEventListener(
-          "wheel",
-          configs.drawingPrameters.handleZoomWheel
-        );
-        configs.configDragMode();
-
-        // clear canvas
-        configs.clearPaint();
-        configs.clearStoreImages();
-      }
+      updateGuiSphereState();
     });
   actionsFolder
     .add(configs.gui_states, "brushAndEraserSize")
@@ -112,33 +77,11 @@ function setupGui(configs: IConfigGUI) {
     .max(50)
     .step(1)
     .onChange(() => {
-      if (configs.gui_states.Eraser) {
-        configs.eraserUrls.length > 0
-          ? (configs.drawingCanvas.style.cursor = switchEraserSize(
-              configs.gui_states.brushAndEraserSize,
-              configs.eraserUrls
-            ))
-          : (configs.drawingCanvas.style.cursor = switchEraserSize(
-              configs.gui_states.brushAndEraserSize
-            ));
-      }
+      updateGuiBrushAndEraserSize();
     });
 
   actionsFolder.add(configs.gui_states, "Eraser").onChange((value) => {
-    configs.gui_states.Eraser = value;
-    if (configs.gui_states.Eraser) {
-      configs.eraserUrls.length > 0
-        ? (configs.drawingCanvas.style.cursor = switchEraserSize(
-            configs.gui_states.brushAndEraserSize,
-            configs.eraserUrls
-          ))
-        : (configs.drawingCanvas.style.cursor = switchEraserSize(
-            configs.gui_states.brushAndEraserSize
-          ));
-    } else {
-      configs.drawingCanvas.style.cursor =
-        configs.gui_states.defaultPaintCursor;
-    }
+    updateGuiEraserState();
   });
   actionsFolder.add(configs.gui_states, "clear").name("Clear");
   actionsFolder.add(configs.gui_states, "clearAll").name("ClearAll");
@@ -155,13 +98,10 @@ function setupGui(configs: IConfigGUI) {
     )
     .name("ImageContrast")
     .onChange((value: number) => {
-      configs.gui_states.readyToUpdate = false;
-      configs.updateSlicesContrast(value, "windowHigh");
+      updateGuiImageContrastOnChange(value);
     })
     .onFinishChange(() => {
-      repraintAllContrastSlices(configs.protectedData.displaySlices);
-
-      configs.gui_states.readyToUpdate = true;
+      updateGuiImageContrastOnFinished();
     });
 
   const advanceFolder = configs.modeFolder.addFolder("AdvanceSettings");
@@ -200,9 +140,10 @@ function setupGui(configs: IConfigGUI) {
     .min(1)
     .max(8)
     .onFinishChange((factor) => {
-      configs.resetPaintAreaUIPosition();
-      configs.nrrd_states.sizeFoctor = factor;
-      configs.resizePaintArea(factor);
+      configs.setMainAreaSize(factor);
+      // configs.resetPaintAreaUIPosition();
+      // configs.nrrd_states.sizeFoctor = factor;
+      // configs.resizePaintArea(factor);
     });
 
   advanceFolder
@@ -286,6 +227,180 @@ function setupGui(configs: IConfigGUI) {
       configs.gui_states.readyToUpdate = true;
     });
   actionsFolder.open();
+
+  const updateGuiBrushAndEraserSize = () => {
+    if (configs.gui_states.Eraser) {
+      configs.eraserUrls.length > 0
+        ? (configs.drawingCanvas.style.cursor = switchEraserSize(
+            configs.gui_states.brushAndEraserSize,
+            configs.eraserUrls
+          ))
+        : (configs.drawingCanvas.style.cursor = switchEraserSize(
+            configs.gui_states.brushAndEraserSize
+          ));
+    }
+  };
+
+  const updatePencilState = () => {
+    if (configs.gui_states.segmentation) {
+      // add canvas brush circle move event listeners
+      configs.drawingCanvas.removeEventListener(
+        "mouseover",
+        configs.drawingPrameters.handleOnDrawingBrushCricleMove
+      );
+      configs.drawingCanvas.removeEventListener(
+        "mouseout",
+        configs.drawingPrameters.handleOnDrawingBrushCricleMove
+      );
+    } else {
+      // add canvas brush circle move event listeners
+      configs.drawingCanvas.addEventListener(
+        "mouseover",
+        configs.drawingPrameters.handleOnDrawingBrushCricleMove
+      );
+      configs.drawingCanvas.addEventListener(
+        "mouseout",
+        configs.drawingPrameters.handleOnDrawingBrushCricleMove
+      );
+    }
+  };
+
+  const updateGuiEraserState = () => {
+    // configs.gui_states.Eraser = value;
+    if (configs.gui_states.Eraser) {
+      configs.eraserUrls.length > 0
+        ? (configs.drawingCanvas.style.cursor = switchEraserSize(
+            configs.gui_states.brushAndEraserSize,
+            configs.eraserUrls
+          ))
+        : (configs.drawingCanvas.style.cursor = switchEraserSize(
+            configs.gui_states.brushAndEraserSize
+          ));
+    } else {
+      configs.drawingCanvas.style.cursor =
+        configs.gui_states.defaultPaintCursor;
+    }
+  };
+
+  const updateGuiSphereState = () => {
+    if (configs.gui_states.sphere) {
+      configs.drawingCanvas.removeEventListener(
+        "wheel",
+        configs.drawingPrameters.handleZoomWheel
+      );
+      configs.removeDragMode();
+    } else {
+      configs.drawingCanvas.addEventListener(
+        "wheel",
+        configs.drawingPrameters.handleZoomWheel
+      );
+      configs.configDragMode();
+
+      // clear canvas
+      configs.clearPaint();
+      configs.clearStoreImages();
+    }
+  };
+
+  const updateGuiImageContrastOnChange = (value: number) => {
+    configs.gui_states.readyToUpdate = false;
+    configs.updateSlicesContrast(value, "windowHigh");
+  };
+  const updateGuiImageContrastOnFinished = () => {
+    repraintAllContrastSlices(configs.protectedData.displaySlices);
+    configs.gui_states.readyToUpdate = true;
+  };
+
+  return {
+    globalAlpha: {
+      name: "Opacity",
+      min: 0.1,
+      max: 1,
+      step: 0.01,
+    },
+    segmentation: {
+      name: "Pencil",
+      onChange: updatePencilState,
+    },
+    sphere: {
+      name: "Sphere",
+      onChange: updateGuiSphereState,
+    },
+    brushAndEraserSize: {
+      name: "BrushAndEraserSize",
+      min: 5,
+      max: 50,
+      step: 1,
+      onChange: updateGuiBrushAndEraserSize,
+    },
+    Eraser: {
+      name: "Eraser",
+      onChange: updateGuiEraserState,
+    },
+    clear: {
+      name: "Clear",
+    },
+    clearAll: {
+      name: "ClearAll",
+    },
+    undo: {
+      name: "Undo",
+    },
+    resetZoom: {
+      name: "ResetZoom",
+    },
+    windowHigh: {
+      name: "ImageContrast",
+      value: configs.mainPreSlices.volume,
+      min: configs.mainPreSlices.volume.min,
+      max: configs.mainPreSlices.volume.max,
+      step: 1,
+      onChange: updateGuiImageContrastOnChange,
+      onFinished: updateGuiImageContrastOnFinished,
+    },
+    advance: {
+      label: {
+        name: "Label",
+        value: ["label1", "label2", "label3"],
+      },
+      cursor: {
+        name: "CursorIcon",
+        value: ["crosshair", "pencil", "dot"],
+      },
+      mainAreaSize: {
+        name: "Zoom",
+        min: 1,
+        max: configs.gui_states.max_sensitive,
+        step: 1,
+        onFinished: null,
+      },
+      dragSensitivity: {
+        name: "DragSensitivity",
+        min: 1,
+        max: 8,
+        step: 1,
+      },
+      pencilSettings: {
+        lineWidth: {
+          name: "OuterLineWidth",
+          min: 1.7,
+          max: 3,
+          step: 0.01,
+        },
+        color: {
+          name: "Color",
+        },
+        fillColor: {
+          name: "FillColor",
+        },
+      },
+      BrushSettings: {
+        brushColor: {
+          name: "BrushColor",
+        },
+      },
+    },
+  };
 }
 
 function repraintAllContrastSlices(displaySlices: any[]) {

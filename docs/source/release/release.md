@@ -1921,3 +1921,11 @@ throttle(callback: (event: MouseEvent) => void, wait: number): (event: MouseEven
 ## Release v1.15.23
 
 - fixed the cursor not center issue.
+
+## Release v2.0.1
+
+Huge update:
+
+- apidocs
+- segmentation functions
+- bug fix
