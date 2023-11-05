@@ -41,7 +41,7 @@ export class baseRenderer {
       this.setClearColor();
     }
 
-    this.renderer.useLegacyLights = true;
+    // this.renderer.useLegacyLights = true;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.gui = null;
     this.stats = new Stats();
