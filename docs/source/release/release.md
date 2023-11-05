@@ -1929,3 +1929,7 @@ Huge update:
 - apidocs
 - segmentation functions
 - bug fix
+
+## Release v2.0.2
+
+Fixed cursor not switch issue when user click eraser and pencil buttons.

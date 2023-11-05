@@ -263,6 +263,7 @@ function setupGui(configs: IConfigGUI) {
         configs.drawingPrameters.handleOnDrawingBrushCricleMove
       );
     }
+    configs.drawingCanvas.style.cursor = configs.gui_states.defaultPaintCursor;
   };
 
   const updateGuiEraserState = () => {
