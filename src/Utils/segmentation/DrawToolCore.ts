@@ -791,13 +791,16 @@ export class DrawToolCore extends CommToolsData {
       const delta = e.detail ? e.detail > 0 : (e as any).wheelDelta < 0;
       this.protectedData.Is_Draw = true;
 
+      var rect = this.container.getBoundingClientRect();
+      
       const ratioL =
-        (e.clientX -
+        (e.clientX - rect.left -
           this.mainAreaContainer.offsetLeft -
           this.protectedData.canvases.drawingCanvas.offsetLeft) /
         this.protectedData.canvases.drawingCanvas.offsetWidth;
+
       const ratioT =
-        (e.clientY -
+        (e.clientY - rect.top - 
           this.mainAreaContainer.offsetTop -
           this.protectedData.canvases.drawingCanvas.offsetTop) /
         this.protectedData.canvases.drawingCanvas.offsetHeight;
@@ -808,10 +811,10 @@ export class DrawToolCore extends CommToolsData {
       const h =
         this.protectedData.canvases.drawingCanvas.offsetHeight * ratioDelta;
       const l = Math.round(
-        e.clientX - this.mainAreaContainer.offsetLeft - w * ratioL
+        e.clientX - this.mainAreaContainer.offsetLeft - w * ratioL - rect.left
       );
       const t = Math.round(
-        e.clientY - this.mainAreaContainer.offsetTop - h * ratioT
+        e.clientY - this.mainAreaContainer.offsetTop - h * ratioT - rect.top
       );
 
       moveDistance = w / this.nrrd_states.originWidth;
@@ -852,7 +855,7 @@ export class DrawToolCore extends CommToolsData {
     }
   }
 
-  private drawImageOnEmptyImage(canvas: HTMLCanvasElement) {
+  drawImageOnEmptyImage(canvas: HTMLCanvasElement) {
     this.protectedData.ctxes.emptyCtx.drawImage(
       canvas,
       0,
@@ -1037,7 +1040,7 @@ export class DrawToolCore extends CommToolsData {
 
   /****************************label div controls****************************************************/
 
-  private getRestLabel() {
+  getRestLabel() {
     const labels = this.nrrd_states.labels;
     const restLabel = labels.filter((item) => {
       return item !== this.gui_states.label;
@@ -1152,7 +1155,7 @@ export class DrawToolCore extends CommToolsData {
 
   /****************************Store images****************************************************/
 
-  private storeImageToAxis(
+  storeImageToAxis(
     index: number,
     paintedImages: IPaintImages,
     imageData: ImageData,
@@ -1367,7 +1370,7 @@ export class DrawToolCore extends CommToolsData {
     }
   }
 
-  private storeImageToLabel(
+  storeImageToLabel(
     index: number,
     canvas: HTMLCanvasElement,
     paintedImages: IPaintImages
@@ -1429,7 +1432,7 @@ export class DrawToolCore extends CommToolsData {
   }
 
   // slice array to 2d array
-  private sliceArrayH(arr: Uint8ClampedArray, row: number, col: number) {
+  sliceArrayH(arr: Uint8ClampedArray, row: number, col: number) {
     const arr2D = [];
     for (let i = 0; i < row; i++) {
       const start = i * col * 4;
@@ -1440,7 +1443,7 @@ export class DrawToolCore extends CommToolsData {
     return arr2D;
   }
 
-  private sliceArrayV(arr: Uint8ClampedArray, row: number, col: number) {
+  sliceArrayV(arr: Uint8ClampedArray, row: number, col: number) {
     const arr2D = [];
     const base = col * 4;
     for (let i = 0; i < col; i++) {
@@ -1467,7 +1470,7 @@ export class DrawToolCore extends CommToolsData {
    * @param convertIndex : Mapping current image's index to target slice image's width/height pixel start point
    */
 
-  private replaceVerticalColPixels(
+  replaceVerticalColPixels(
     paintImageArray: IPaintImage[],
     length: number,
     ratio: number,
@@ -1500,7 +1503,7 @@ export class DrawToolCore extends CommToolsData {
    * @param targetWidth : the target image width
    * @param convertIndex : Mapping current image's index to target slice image's width/height pixel start point
    */
-  private replaceHorizontalRowPixels(
+   replaceHorizontalRowPixels(
     paintImageArray: IPaintImage[],
     length: number,
     ratio: number,
@@ -1521,7 +1524,7 @@ export class DrawToolCore extends CommToolsData {
 
   /****************************** Utils for store image and itksnap core **************************************/
 
-  private checkSharedPlaceSlice(
+  checkSharedPlaceSlice(
     width: number,
     height: number,
     imageData: ImageData
@@ -1548,7 +1551,7 @@ export class DrawToolCore extends CommToolsData {
   }
 
   // replace Array
-  private replaceArray(
+ replaceArray(
     mainArr: number[] | Uint8ClampedArray,
     replaceArr: number[] | Uint8ClampedArray
   ) {
@@ -1561,7 +1564,7 @@ export class DrawToolCore extends CommToolsData {
     }
   }
 
-  private findSliceInSharedPlace() {
+findSliceInSharedPlace() {
     const sharedPlaceImages = [];
 
     const base = Math.floor(

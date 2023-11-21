@@ -44,6 +44,51 @@ interface IConfigGUI {
     paintedImages: IPaintImages
   ) => IPaintImage;
   setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
+  storeAllImages:(index: number, label: string)=>void;
+  drawImageOnEmptyImage:(canvas: HTMLCanvasElement)=>void;
+  checkSharedPlaceSlice:(
+    width: number,
+    height: number,
+    imageData: ImageData
+  )=>Uint8ClampedArray;
+  replaceArray:(mainArr: number[] | Uint8ClampedArray,
+    replaceArr: number[] | Uint8ClampedArray)=>void;
+  findSliceInSharedPlace:()=>ImageData[];
+  sliceArrayH:(arr: Uint8ClampedArray, row: number, col: number)=>Uint8ClampedArray[];
+  sliceArrayV:(arr: Uint8ClampedArray, row: number, col: number)=>number[][];
+  storeImageToAxis:(
+    index: number,
+    paintedImages: IPaintImages,
+    imageData: ImageData,
+    axis?: "x" | "y" | "z"
+  )=>void;
+  replaceVerticalColPixels:(paintImageArray: IPaintImage[],
+    length: number,
+    ratio: number,
+    markedArr: number[][] | Uint8ClampedArray[],
+    targetWidth: number,
+    convertIndex: number)=>void;
+  replaceHorizontalRowPixels:(
+    paintImageArray: IPaintImage[],
+    length: number,
+    ratio: number,
+    markedArr: number[][] | Uint8ClampedArray[],
+    targetWidth: number,
+    convertIndex: number
+  )=>void;
+  storeEachLayerImage:(index: number, label: string)=>void;
+  storeImageToLabel:(
+    index: number,
+    canvas: HTMLCanvasElement,
+    paintedImages: IPaintImages
+  )=>ImageData;
+  getRestLabel:()=>("label1" | "label2" | "label3")[];
+  setIsDrawFalse:(target: number)=>void;
+  initPaintImages:(dimensions: Array<number>)=>void;
+  createEmptyPaintImage:(
+    dimensions: Array<number>,
+    paintImages: IPaintImages
+  )=>void;
 }
 
 function setupGui(configs: IConfigGUI) {
