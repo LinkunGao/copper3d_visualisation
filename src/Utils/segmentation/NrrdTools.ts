@@ -127,6 +127,22 @@ export class NrrdTools extends DrawToolCore {
       flipDisplayImageByAxis: this.flipDisplayImageByAxis,
       filterDrawedImage: this.filterDrawedImage,
       setEmptyCanvasSize: this.setEmptyCanvasSize,
+      storeAllImages:this.storeAllImages,
+      drawImageOnEmptyImage:this.drawImageOnEmptyImage,
+      checkSharedPlaceSlice:this.checkSharedPlaceSlice,
+      replaceArray:this.replaceArray,
+      findSliceInSharedPlace:this.findSliceInSharedPlace,
+      sliceArrayH:this.sliceArrayH,
+      sliceArrayV:this.sliceArrayV,
+      storeImageToAxis:this.storeImageToAxis,
+      replaceVerticalColPixels:this.replaceVerticalColPixels,
+      replaceHorizontalRowPixels:this.replaceHorizontalRowPixels,
+      storeEachLayerImage:this.storeEachLayerImage,
+      storeImageToLabel:this.storeImageToLabel,
+      getRestLabel:this.getRestLabel,
+      setIsDrawFalse:this.setIsDrawFalse,
+      initPaintImages:this.initPaintImages,
+      createEmptyPaintImage:this.createEmptyPaintImage,
     };
     this.guiParameterSettings = setupGui(guiOptions);
   }
