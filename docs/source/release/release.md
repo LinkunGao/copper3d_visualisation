@@ -1933,3 +1933,17 @@ Huge update:
 ## Release v2.0.2
 
 Fixed cursor not switch issue when user click eraser and pencil buttons.
+
+## Release v2.0.5
+
+- fix sphere function bugs
+- solve the zoom function bugs
+
+## Release v2.0.6
+
+- fix Zoom affect sphere origin functions
+- update sphere origin and radius export
+  - sphere origin and radius exports are based on sizeFactor:1.
+- Fix sphere and crosshair function
+  - all based on sizeFactor:1
+  - after zoom, scale them.
