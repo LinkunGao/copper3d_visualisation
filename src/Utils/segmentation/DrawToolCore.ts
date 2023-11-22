@@ -914,13 +914,8 @@ export class DrawToolCore extends CommToolsData {
     const nextIndex = originIndex + decay;
     const ctx = this.protectedData.ctxes.drawingSphereCtx;
     const canvas = this.protectedData.canvases.drawingSphereCanvas;
-    // if (
-    //   preIndex < this.nrrd_states.minIndex ||
-    //   nextIndex > this.nrrd_states.maxIndex
-    // )
-    //   return;
+
     if (preIndex === nextIndex) {
-      this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius / this.nrrd_states.sizeFoctor);
       this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius / this.nrrd_states.sizeFoctor);
       this.storeSphereImages(preIndex, axis);
     } else {
