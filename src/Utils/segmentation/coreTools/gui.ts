@@ -330,16 +330,16 @@ function setupGui(configs: IConfigGUI) {
 
   const updateGuiSphereState = () => {
     if (configs.gui_states.sphere) {
-      configs.drawingCanvas.removeEventListener(
-        "wheel",
-        configs.drawingPrameters.handleZoomWheel
-      );
+      // configs.drawingCanvas.removeEventListener(
+      //   "wheel",
+      //   configs.drawingPrameters.handleZoomWheel
+      // );
       configs.removeDragMode();
     } else {
-      configs.drawingCanvas.addEventListener(
-        "wheel",
-        configs.drawingPrameters.handleZoomWheel
-      );
+      // configs.drawingCanvas.addEventListener(
+      //   "wheel",
+      //   configs.drawingPrameters.handleZoomWheel
+      // );
       configs.configDragMode();
 
       // clear canvas

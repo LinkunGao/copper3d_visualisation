@@ -414,119 +414,12 @@ export class NrrdTools extends DrawToolCore {
   }
 
   /**
-   * We generate the MRI slice from threejs based on mm, but when we display it is based on pixel size/distance.
-   * So, the index munber on each axis (sagittal, axial, coronal) is the slice's depth in mm distance. And the width and height displayed on screen is the slice's width and height in pixel distance.
-   *
-   * When we switch into different axis' views, we need to convert current view's the depth to the pixel distance in other views width or height, and convert the current view's width or height from pixel distance to mm distance as other views' depth (slice index) in general.
-   *
-   * Then as for the crosshair (Cursor Inspector), we also need to convert the cursor point (x, y, z) to other views' (x, y, z).
-   *
-   * @param from "x" | "y" | "z", current view axis, "x: sagittle, y: coronal, z: axial".
-   * @param to "x" | "y" | "z", target view axis (where you want jump to), "x: sagittle, y: coronal, z: axial".
-   * @param cursorNumX number, cursor point x on current axis's slice. (pixel distance)
-   * @param cursorNumY number, cursor point y on current axis's slice. (pixel distance)
-   * @param currentSliceIndex number, current axis's slice's index/depth. (mm distance)
-   * @returns
-   */
-  convertCursorPoint(
-    from: "x" | "y" | "z",
-    to: "x" | "y" | "z",
-    cursorNumX: number,
-    cursorNumY: number,
-    currentSliceIndex: number
-  ) {
-    const nrrd = this.nrrd_states;
-    const dimensions = nrrd.dimensions;
-    const ratios = nrrd.ratios;
-    const { nrrd_x_mm, nrrd_y_mm, nrrd_z_mm } = nrrd;
-
-    let currentIndex = 0;
-    let oldIndex = 0;
-    let convertCursorNumX = 0;
-    let convertCursorNumY = 0;
-
-    const convertIndex = {
-      x: {
-        y: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
-        z: (val: number) => Math.ceil((val / nrrd_z_mm) * dimensions[2]),
-      },
-      y: {
-        x: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
-        z: (val: number) => Math.ceil((val / nrrd_z_mm) * dimensions[2]),
-      },
-      z: {
-        x: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
-        y: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
-      },
-    };
-
-    const convertCursor = {
-      x: {
-        y: (sliceIndex: number) =>
-          Math.ceil((sliceIndex / dimensions[0]) * nrrd_x_mm),
-        z: (sliceIndex: number) =>
-          Math.ceil((sliceIndex / dimensions[0]) * nrrd_x_mm),
-      },
-      y: {
-        x: (sliceIndex: number) =>
-          Math.ceil((sliceIndex / dimensions[1]) * nrrd_y_mm),
-        z: (sliceIndex: number) =>
-          Math.ceil((sliceIndex / dimensions[1]) * nrrd_y_mm),
-      },
-      z: {
-        x: (sliceIndex: number) =>
-          Math.ceil((sliceIndex / dimensions[2]) * nrrd_z_mm),
-        y: (sliceIndex: number) =>
-          Math.ceil((sliceIndex / dimensions[2]) * nrrd_z_mm),
-      },
-    };
-
-    if (from === to) {
-      return;
-    }
-    if (from === "z" && to === "x") {
-      currentIndex = convertIndex[from][to](cursorNumX);
-      oldIndex = currentIndex * ratios[to];
-      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumY = cursorNumY;
-    } else if (from === "y" && to === "x") {
-      currentIndex = convertIndex[from][to](cursorNumX);
-      oldIndex = currentIndex * ratios.x;
-      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumX = cursorNumY;
-    } else if (from === "z" && to === "y") {
-      currentIndex = convertIndex[from][to](cursorNumY);
-      oldIndex = currentIndex * ratios[to];
-      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumX = cursorNumX;
-    } else if (from === "x" && to === "y") {
-      currentIndex = convertIndex[from][to](cursorNumY);
-      oldIndex = currentIndex * ratios[to];
-      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumY = cursorNumX;
-    } else if (from === "x" && to === "z") {
-      currentIndex = convertIndex[from][to](cursorNumX);
-      oldIndex = currentIndex * ratios[to];
-      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumY = cursorNumY;
-    } else if (from === "y" && to === "z") {
-      currentIndex = convertIndex[from][to](cursorNumY);
-      oldIndex = currentIndex * ratios.z;
-      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumX = cursorNumX;
-    } else {
-      return;
-    }
-
-    return { currentIndex, oldIndex, convertCursorNumX, convertCursorNumY };
-  }
-
-  /**
    * Switch all contrast slices' orientation
    * @param {string} aixs:"x" | "y" | "z"
    *  */
   setSliceOrientation(axisTo: "x" | "y" | "z") {
     let convetObj;
+    
     if (this.nrrd_states.enableCursorChoose || this.gui_states.sphere) {
       if (this.protectedData.axis === "z") {
         this.cursorPage.z.index = this.nrrd_states.currentIndex;
@@ -573,6 +466,7 @@ export class NrrdTools extends DrawToolCore {
         }
       } else if (axisTo === "x") {
         if (this.nrrd_states.isCursorSelect && !this.cursorPage.x.updated) {
+          
           if (this.protectedData.axis === "z") {
             // convert z to x
             convetObj = this.convertCursorPoint(
@@ -583,6 +477,7 @@ export class NrrdTools extends DrawToolCore {
               this.cursorPage.z.index
             );
           }
+          
           if (this.protectedData.axis === "y") {
             // convert y to x
             convetObj = this.convertCursorPoint(
@@ -639,6 +534,7 @@ export class NrrdTools extends DrawToolCore {
         this.nrrd_states.oldIndex = convetObj.oldIndex;
         this.nrrd_states.cursorPageX = convetObj.convertCursorNumX;
         this.nrrd_states.cursorPageY = convetObj.convertCursorNumY;
+        
         convetObj = undefined;
         switch (axisTo) {
           case "x":
@@ -668,8 +564,8 @@ export class NrrdTools extends DrawToolCore {
     // for sphere plan a
     if (this.gui_states.sphere && !this.nrrd_states.spherePlanB) {
       this.drawSphere(
-        this.nrrd_states.sphereOrigin[axisTo][0],
-        this.nrrd_states.sphereOrigin[axisTo][1],
+        this.nrrd_states.sphereOrigin[axisTo][0] * this.nrrd_states.sizeFoctor,
+        this.nrrd_states.sphereOrigin[axisTo][1] * this.nrrd_states.sizeFoctor,
         this.nrrd_states.sphereRadius
       );
     }

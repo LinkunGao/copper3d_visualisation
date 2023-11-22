@@ -273,10 +273,16 @@ export class DrawToolCore extends CommToolsData {
             e.offsetX / this.nrrd_states.sizeFoctor;
           this.nrrd_states.cursorPageY =
             e.offsetY / this.nrrd_states.sizeFoctor;
+
           this.enableCrosshair();
-        } else if (this.gui_states.sphere) {
-          let mouseX = e.offsetX;
-          let mouseY = e.offsetY;
+          
+        } else if (this.gui_states.sphere && !this.nrrd_states.enableCursorChoose) {
+          this.protectedData.canvases.drawingCanvas.removeEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel
+          );
+          let mouseX = e.offsetX / this.nrrd_states.sizeFoctor;
+          let mouseY = e.offsetY / this.nrrd_states.sizeFoctor;
 
           //  record mouseX,Y, and enable crosshair function
           this.nrrd_states.sphereOrigin[this.protectedData.axis] = [
@@ -290,7 +296,7 @@ export class DrawToolCore extends CommToolsData {
           this.enableCrosshair();
 
           // draw circle setup width/height for sphere canvas
-          this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
+          this.drawSphere(e.offsetX , e.offsetY, this.nrrd_states.sphereRadius);
           this.protectedData.canvases.drawingCanvas.addEventListener(
             "wheel",
             this.drawingPrameters.handleSphereWheel,
@@ -485,17 +491,28 @@ export class DrawToolCore extends CommToolsData {
           }
 
           !!this.nrrd_states.getSphere &&
-            this.nrrd_states.getSphere(
-              this.nrrd_states.sphereOrigin.z,
-              this.nrrd_states.sphereRadius
-            );
+          this.nrrd_states.getSphere(
+            this.nrrd_states.sphereOrigin.z,
+           this.nrrd_states.sphereRadius / this.nrrd_states.sizeFoctor
+          );
+
+          this.protectedData.canvases.drawingCanvas.addEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel
+          );
 
           this.protectedData.canvases.drawingCanvas.removeEventListener(
             "wheel",
             this.drawingPrameters.handleSphereWheel,
             true
           );
-        }
+        } else if(this.gui_states.sphere &&
+          this.nrrd_states.enableCursorChoose){
+            this.protectedData.canvases.drawingCanvas.addEventListener(
+              "wheel",
+              this.drawingPrameters.handleZoomWheel
+            );
+          }
       } else if (e.button === 2) {
         rightclicked = false;
         this.protectedData.canvases.drawingCanvas.style.cursor = "grab";
@@ -891,25 +908,22 @@ export class DrawToolCore extends CommToolsData {
 
     const mouseX = this.nrrd_states.sphereOrigin[axis][0];
     const mouseY = this.nrrd_states.sphereOrigin[axis][1];
+
     const originIndex = this.nrrd_states.sphereOrigin[axis][2];
     const preIndex = originIndex - decay;
     const nextIndex = originIndex + decay;
     const ctx = this.protectedData.ctxes.drawingSphereCtx;
     const canvas = this.protectedData.canvases.drawingSphereCanvas;
-    // if (
-    //   preIndex < this.nrrd_states.minIndex ||
-    //   nextIndex > this.nrrd_states.maxIndex
-    // )
-    //   return;
+
     if (preIndex === nextIndex) {
-      this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius);
+      this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius / this.nrrd_states.sizeFoctor);
       this.storeSphereImages(preIndex, axis);
     } else {
       this.drawSphereCore(
         ctx,
         mouseX,
         mouseY,
-        this.nrrd_states.sphereRadius - decay
+        (this.nrrd_states.sphereRadius - decay) / this.nrrd_states.sizeFoctor
       );
       this.drawImageOnEmptyImage(canvas);
       this.storeSphereImages(preIndex, axis);
@@ -925,7 +939,7 @@ export class DrawToolCore extends CommToolsData {
     radius: number
   ) {
     ctx.beginPath();
-    ctx.arc(x, y, radius * this.nrrd_states.sizeFoctor, 0, 2 * Math.PI);
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
     ctx.fillStyle = this.gui_states.fillColor;
     ctx.fill();
     ctx.closePath();
@@ -969,8 +983,8 @@ export class DrawToolCore extends CommToolsData {
         Math.min(this.nrrd_states.sphereRadius, 50)
       );
       // get mouse position
-      const mouseX = this.nrrd_states.sphereOrigin[this.protectedData.axis][0];
-      const mouseY = this.nrrd_states.sphereOrigin[this.protectedData.axis][1];
+      const mouseX = this.nrrd_states.sphereOrigin[this.protectedData.axis][0] * this.nrrd_states.sizeFoctor;
+      const mouseY = this.nrrd_states.sphereOrigin[this.protectedData.axis][1] * this.nrrd_states.sizeFoctor;
       this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
     };
     return sphereEvent;
@@ -1000,7 +1014,118 @@ export class DrawToolCore extends CommToolsData {
     );
   }
 
+   /**
+   * We generate the MRI slice from threejs based on mm, but when we display it is based on pixel size/distance.
+   * So, the index munber on each axis (sagittal, axial, coronal) is the slice's depth in mm distance. And the width and height displayed on screen is the slice's width and height in pixel distance.
+   *
+   * When we switch into different axis' views, we need to convert current view's the depth to the pixel distance in other views width or height, and convert the current view's width or height from pixel distance to mm distance as other views' depth (slice index) in general.
+   *
+   * Then as for the crosshair (Cursor Inspector), we also need to convert the cursor point (x, y, z) to other views' (x, y, z).
+   *
+   * @param from "x" | "y" | "z", current view axis, "x: sagittle, y: coronal, z: axial".
+   * @param to "x" | "y" | "z", target view axis (where you want jump to), "x: sagittle, y: coronal, z: axial".
+   * @param cursorNumX number, cursor point x on current axis's slice. (pixel distance)
+   * @param cursorNumY number, cursor point y on current axis's slice. (pixel distance)
+   * @param currentSliceIndex number, current axis's slice's index/depth. (mm distance)
+   * @returns
+   */
+   convertCursorPoint(
+    from: "x" | "y" | "z",
+    to: "x" | "y" | "z",
+    cursorNumX: number,
+    cursorNumY: number,
+    currentSliceIndex: number
+  ) {
+    
+    const nrrd = this.nrrd_states;
+    const dimensions = nrrd.dimensions;
+    const ratios = nrrd.ratios;
+    const { nrrd_x_mm, nrrd_y_mm, nrrd_z_mm } = nrrd;
+
+    let currentIndex = 0;
+    let oldIndex = 0;
+    let convertCursorNumX = 0;
+    let convertCursorNumY = 0;
+
+    const convertIndex = {
+      x: {
+        y: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
+        z: (val: number) => Math.ceil((val / nrrd_z_mm) * dimensions[2]),
+      },
+      y: {
+        x: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
+        z: (val: number) => Math.ceil((val / nrrd_z_mm) * dimensions[2]),
+      },
+      z: {
+        x: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
+        y: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
+      },
+    };
+    
+
+    const convertCursor = {
+      x: {
+        y: (sliceIndex: number) =>
+          Math.ceil((sliceIndex / dimensions[0]) * nrrd_x_mm),
+        z: (sliceIndex: number) =>
+          Math.ceil((sliceIndex / dimensions[0]) * nrrd_x_mm),
+      },
+      y: {
+        x: (sliceIndex: number) =>
+          Math.ceil((sliceIndex / dimensions[1]) * nrrd_y_mm),
+        z: (sliceIndex: number) =>
+          Math.ceil((sliceIndex / dimensions[1]) * nrrd_y_mm),
+      },
+      z: {
+        x: (sliceIndex: number) =>
+          Math.ceil((sliceIndex / dimensions[2]) * nrrd_z_mm),
+        y: (sliceIndex: number) =>
+          Math.ceil((sliceIndex / dimensions[2]) * nrrd_z_mm),
+      },
+    };
+
+    if (from === to) {
+      return;
+    }
+    if (from === "z" && to === "x") {
+      currentIndex = convertIndex[from][to](cursorNumX);
+      oldIndex = currentIndex * ratios[to];
+      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumY = cursorNumY;
+    } else if (from === "y" && to === "x") {
+      currentIndex = convertIndex[from][to](cursorNumX);
+      oldIndex = currentIndex * ratios.x;
+      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumX = cursorNumY;
+    } else if (from === "z" && to === "y") {
+      currentIndex = convertIndex[from][to](cursorNumY);
+      oldIndex = currentIndex * ratios[to];
+      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumX = cursorNumX;
+    } else if (from === "x" && to === "y") {
+      currentIndex = convertIndex[from][to](cursorNumY);
+      oldIndex = currentIndex * ratios[to];
+      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumY = cursorNumX;
+    } else if (from === "x" && to === "z") {
+      currentIndex = convertIndex[from][to](cursorNumX);
+      oldIndex = currentIndex * ratios[to];
+      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumY = cursorNumY;
+    } else if (from === "y" && to === "z") {
+      currentIndex = convertIndex[from][to](cursorNumY);
+      oldIndex = currentIndex * ratios.z;
+      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumX = cursorNumX;
+    } else {
+      return;
+    }
+
+    return { currentIndex, oldIndex, convertCursorNumX, convertCursorNumY };
+  }
+
   private setUpSphereOrigins(mouseX: number, mouseY: number) {
+    
     const convertCursor = (from: "x" | "y" | "z", to: "x" | "y" | "z") => {
       const convertObj = this.convertCursorPoint(
         from,
@@ -1009,6 +1134,7 @@ export class DrawToolCore extends CommToolsData {
         mouseY,
         this.nrrd_states.currentIndex
       ) as IConvertObjType;
+
       return {
         convertCursorNumX: convertObj?.convertCursorNumX,
         convertCursorNumY: convertObj?.convertCursorNumY,
@@ -1026,6 +1152,7 @@ export class DrawToolCore extends CommToolsData {
       axisTo1: "x" | "y" | "z";
       axisTo2: "x" | "y" | "z";
     };
+
     this.nrrd_states.sphereOrigin[axisTo1] = [
       convertCursor(this.protectedData.axis, axisTo1).convertCursorNumX,
       convertCursor(this.protectedData.axis, axisTo1).convertCursorNumY,
