@@ -23,7 +23,7 @@ author = 'LinkunGao'
 
 # The full version, including alpha/beta/rc tags
 
-release = 'v2.0.6'
+release = 'v2.0.7'
 
 
 

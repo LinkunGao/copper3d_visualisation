@@ -369,7 +369,7 @@ export class commonScene {
       (xhr: any) => {},
       // called when loading has errors
       (error: any) => {
-        console.log("An error happened");
+        console.log("An error happened: ", error);
       }
     );
   }

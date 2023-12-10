@@ -143,7 +143,7 @@ function setupGui(configs: IConfigGUI) {
     )
     .name("ImageContrast")
     .onChange((value: number) => {
-      updateGuiImageContrastOnChange(value);
+      updateGuiImageWindowHighOnChange(value);
     })
     .onFinishChange(() => {
       updateGuiImageContrastOnFinished();
@@ -264,8 +264,7 @@ function setupGui(configs: IConfigGUI) {
     )
     .name("WindowLow")
     .onChange((value) => {
-      configs.gui_states.readyToUpdate = false;
-      configs.updateSlicesContrast(value, "windowLow");
+      updateGuiImageWindowLowOnChange(value)
     })
     .onFinishChange(() => {
       repraintAllContrastSlices(configs.protectedData.displaySlices);
@@ -348,7 +347,12 @@ function setupGui(configs: IConfigGUI) {
     }
   };
 
-  const updateGuiImageContrastOnChange = (value: number) => {
+  const updateGuiImageWindowLowOnChange = (value:number)=>{
+    configs.gui_states.readyToUpdate = false;
+    configs.updateSlicesContrast(value, "windowLow");
+  }
+
+  const updateGuiImageWindowHighOnChange = (value: number) => {
     configs.gui_states.readyToUpdate = false;
     configs.updateSlicesContrast(value, "windowHigh");
   };
@@ -397,11 +401,20 @@ function setupGui(configs: IConfigGUI) {
     },
     windowHigh: {
       name: "ImageContrast",
-      value: configs.mainPreSlices.volume,
-      min: configs.mainPreSlices.volume.min,
-      max: configs.mainPreSlices.volume.max,
+      value: null,
+      min: 0,
+      max: 0,
       step: 1,
-      onChange: updateGuiImageContrastOnChange,
+      onChange: updateGuiImageWindowHighOnChange,
+      onFinished: updateGuiImageContrastOnFinished,
+    },
+    windowLow: {
+      name: "WindowLow",
+      value: null,
+      min: 0,
+      max: 0,
+      step: 1,
+      onChange: updateGuiImageWindowLowOnChange,
       onFinished: updateGuiImageContrastOnFinished,
     },
     advance: {

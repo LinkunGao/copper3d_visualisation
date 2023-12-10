@@ -15,6 +15,7 @@ import {
   ISkipSlicesDictType,
   IMaskData,
   IDragOpts,
+  IGuiParameterSettings
 } from "./coreTools/coreType";
 import { DragOperator } from "./DragOperator";
 import { DrawToolCore } from "./DrawToolCore";
@@ -30,7 +31,7 @@ export class NrrdTools extends DrawToolCore {
 
   private initState: boolean = true;
   private preTimer: any;
-  private guiParameterSettings: any;
+  private guiParameterSettings: IGuiParameterSettings|undefined;
 
   constructor(container: HTMLDivElement) {
     super(container);
@@ -94,6 +95,14 @@ export class NrrdTools extends DrawToolCore {
   }
 
   /**
+   * Enable the drag function for contrast images window center and window high.
+   * @param callback 
+   */
+  enableContrastDragEvents(callback:(step:number, towards:"horizental"|"vertical")=>void){
+    this.setupConrastEvents(callback)
+  }
+
+  /**
    * Set up GUI for drawing panel
    * @param gui GUI
    */
@@ -148,6 +157,13 @@ export class NrrdTools extends DrawToolCore {
   }
 
   getGuiSettings() {
+    if(!!this.guiParameterSettings){
+      // update image volume
+      this.guiParameterSettings.windowHigh.value = this.guiParameterSettings.windowLow.value = this.protectedData.mainPreSlices.volume;
+      this.guiParameterSettings.windowHigh.max = this.guiParameterSettings.windowLow.max = this.protectedData.mainPreSlices.volume.max;
+      this.guiParameterSettings.windowHigh.min = this.guiParameterSettings.windowLow.min = this.protectedData.mainPreSlices.volume.min;
+    }
+   
     return {
       guiState: this.gui_states,
       guiSetting: this.guiParameterSettings,

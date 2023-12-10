@@ -47,6 +47,19 @@ interface IDrawingEvents {
   handleSphereWheel: (e: WheelEvent) => void;
 }
 
+interface IContrastEvents {
+  move_x:number;
+  move_y:number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  handleOnContrastMouseDown: (ev: MouseEvent) => void;
+  handleOnContrastMouseMove: (ev: MouseEvent) => void;
+  handleOnContrastMouseUp: (ev: MouseEvent) => void;
+  handleOnContrastMouseLeave:(ev: MouseEvent) => void;
+}
+
 // drawing on canvas
 interface IPaintImages {
   x: Array<IPaintImage>;
@@ -81,6 +94,7 @@ interface IProtected {
   currentShowingSlice: any;
   mainPreSlices: any;
   Is_Shift_Pressed: boolean;
+  Is_Ctrl_Pressed:boolean;
   Is_Draw: boolean;
   axis: "x" | "y" | "z";
   maskData: IMaskData;
@@ -239,6 +253,106 @@ interface ICursorPage {
   };
 }
 
+interface IGuiParameterSettings {
+  globalAlpha: {
+    name: "Opacity",
+    min:  number,
+    max: number,
+    step: number,
+  },
+  segmentation: {
+    name: "Pencil",
+    onChange: ()=>void,
+  },
+  sphere: {
+    name: "Sphere",
+    onChange:  ()=>void,
+  },
+  brushAndEraserSize: {
+    name: "BrushAndEraserSize",
+    min: number,
+    max: number,
+    step: number,
+    onChange:  ()=>void,
+  },
+  Eraser: {
+    name: "Eraser",
+    onChange:  ()=>void,
+  },
+  clear: {
+    name: "Clear",
+  },
+  clearAll: {
+    name: "ClearAll",
+  },
+  undo: {
+    name: "Undo",
+  },
+  resetZoom: {
+    name: "ResetZoom",
+  },
+  windowHigh: {
+    name: "ImageContrast",
+    value: null,
+    min: number,
+    max: number,
+    step: number,
+    onChange:  (value: number)=>void,
+    onFinished:  ()=>void,
+  },
+  windowLow: {
+    name: "WindowLow",
+    value: null,
+    min: number,
+    max: number,
+    step: number,
+    onChange:  (value: number)=>void,
+    onFinished:  ()=>void,
+  },
+  advance: {
+    label: {
+      name: "Label",
+      value: ["label1", "label2", "label3"],
+    },
+    cursor: {
+      name: "CursorIcon",
+      value: ["crosshair", "pencil", "dot"],
+    },
+    mainAreaSize: {
+      name: "Zoom",
+      min: number,
+      max: number,
+      step: number,
+      onFinished: null,
+    },
+    dragSensitivity: {
+      name: "DragSensitivity",
+      min: number,
+      max: number,
+      step: number,
+    },
+    pencilSettings: {
+      lineWidth: {
+        name: "OuterLineWidth",
+        min: number,
+        max: number,
+        step: number,
+      },
+      color: {
+        name: "Color",
+      },
+      fillColor: {
+        name: "FillColor",
+      },
+    },
+    BrushSettings: {
+      brushColor: {
+        name: "BrushColor",
+      },
+    },
+  },
+};
+
 export {
   ICommXYZ,
   ICommXY,
@@ -246,6 +360,7 @@ export {
   IConvertObjType,
   IDragPrameters,
   IDrawingEvents,
+  IContrastEvents,
   IProtected,
   IGUIStates,
   IDragOpts,
@@ -258,4 +373,5 @@ export {
   IMaskData,
   IUndoType,
   ICursorPage,
+  IGuiParameterSettings
 };

@@ -151,6 +151,7 @@ export class CommToolsData {
       currentShowingSlice: undefined,
       mainPreSlices: undefined,
       Is_Shift_Pressed: false,
+      Is_Ctrl_Pressed:false,
       Is_Draw: false,
       axis: "z",
       maskData: {

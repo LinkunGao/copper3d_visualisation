@@ -1,6 +1,7 @@
 import {
   IConvertObjType,
   IDrawingEvents,
+  IContrastEvents,
   IDrawOpts,
   IPaintImage,
   IPaintImages,
@@ -8,7 +9,7 @@ import {
   IUndoType,
 } from "./coreTools/coreType";
 import { CommToolsData } from "./CommToolsData";
-import { switchEraserSize, switchPencilIcon } from "../utils";
+import { switchEraserSize, switchPencilIcon, throttle } from "../utils";
 
 export class DrawToolCore extends CommToolsData {
   container: HTMLElement;
@@ -23,6 +24,19 @@ export class DrawToolCore extends CommToolsData {
     handleZoomWheel: (e: WheelEvent) => {},
     handleSphereWheel: (e: WheelEvent) => {},
   };
+
+  contrastEventPrameters:IContrastEvents = {
+    move_x:0,
+    move_y:0,
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    handleOnContrastMouseDown: (ev: MouseEvent) => {},
+    handleOnContrastMouseMove: (ev: MouseEvent) => {},
+    handleOnContrastMouseUp: (ev: MouseEvent) => {},
+    handleOnContrastMouseLeave:(ev: MouseEvent) => {},
+  }
 
   eraserUrls: string[] = [];
   pencilUrls: string[] = [];
@@ -43,8 +57,22 @@ export class DrawToolCore extends CommToolsData {
   private initDrawToolCore() {
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
       if (ev.key === "Shift" && !this.gui_states.sphere) {
+        if(this.protectedData.Is_Ctrl_Pressed){
+          this.protectedData.Is_Shift_Pressed = false;
+          return;
+        }
         this.protectedData.Is_Shift_Pressed = true;
         this.nrrd_states.enableCursorChoose = false;
+      }
+      if (ev.key === 'Control' || ev.key === 'Meta') {
+        // Ctrl key pressed on either Windows or macOS
+        this.protectedData.Is_Shift_Pressed = false;
+        this.protectedData.Is_Ctrl_Pressed = !this.protectedData.Is_Ctrl_Pressed; 
+        if(this.protectedData.Is_Ctrl_Pressed){
+          this.configContrastDragMode();
+        }else{
+          this.removeContrastDragMode();
+        }
       }
       if (ev.key === "s") {
         this.protectedData.Is_Draw = false;
@@ -1739,7 +1767,103 @@ findSliceInSharedPlace() {
 
   /******************************** Utils gui related functions ***************************************/
 
+  /**
+   * Set up root container events fns for drag function
+   * @param callback 
+   */
+  setupConrastEvents(callback:(step:number, towards:"horizental"|"vertical")=>void){
+
+    this.contrastEventPrameters.w = this.container.offsetWidth;
+    this.contrastEventPrameters.h = this.container.offsetHeight;
+
+    this.contrastEventPrameters.handleOnContrastMouseDown = (ev: MouseEvent) => {
+      if(ev.button === 0){
+        this.contrastEventPrameters.x = ev.offsetX / this.contrastEventPrameters.x;
+        this.contrastEventPrameters.y = ev.offsetY / this.contrastEventPrameters.h;
+        this.container.addEventListener(
+          "pointermove",
+          this.contrastEventPrameters.handleOnContrastMouseMove)
+      }
+    }
+    this.contrastEventPrameters.handleOnContrastMouseUp = (ev: MouseEvent) => {
+      this.container.removeEventListener(
+        "pointermove",
+        this.contrastEventPrameters.handleOnContrastMouseMove)
+    }
+
+    this.contrastEventPrameters.handleOnContrastMouseMove = throttle((ev: MouseEvent) => {
+      if (this.contrastEventPrameters.y - ev.offsetY / this.contrastEventPrameters.h >= 0) {
+        this.contrastEventPrameters.move_y = -Math.ceil(
+          (this.contrastEventPrameters.y - ev.offsetY / this.contrastEventPrameters.h) * 10
+          );
+      } else {
+        this.contrastEventPrameters.move_y = -Math.floor(
+          (this.contrastEventPrameters.y - ev.offsetY / this.contrastEventPrameters.h) * 10
+        );
+      }
+      
+      if(this.contrastEventPrameters.move_y !==0 && Math.abs(this.contrastEventPrameters.move_y)===1){
+        callback(this.contrastEventPrameters.move_y, "vertical");
+      }
+      if (this.contrastEventPrameters.x - ev.offsetX / this.contrastEventPrameters.w >= 0) {
+        this.contrastEventPrameters.move_x = -Math.ceil(
+          (this.contrastEventPrameters.x - ev.offsetX / this.contrastEventPrameters.w) * 10
+          );
+      } else {
+        this.contrastEventPrameters.move_x = -Math.floor(
+          (this.contrastEventPrameters.x - ev.offsetX / this.contrastEventPrameters.w) * 10
+        );
+      }
+      if(this.contrastEventPrameters.move_x !==0 && Math.abs(this.contrastEventPrameters.move_x)===1){
+        callback(this.contrastEventPrameters.move_x, "horizental");
+      }
+      
+      this.contrastEventPrameters.x = ev.offsetX / this.contrastEventPrameters.w;
+      this.contrastEventPrameters.y = ev.offsetY / this.contrastEventPrameters.h;
+      
+    },100)
+  }
+
+  configContrastDragMode = () => {
+    this.container.style.cursor = "pointer";
+    this.container.addEventListener(
+      "pointerdown",
+      this.contrastEventPrameters.handleOnContrastMouseDown,
+      true
+    );
+    this.container.addEventListener(
+      "pointerup",
+      this.contrastEventPrameters.handleOnContrastMouseUp,
+      true
+    );
+  };
+
+  removeContrastDragMode = () => {
+    this.container.style.cursor = "";
+    this.container.removeEventListener(
+      "pointerdown",
+      this.contrastEventPrameters.handleOnContrastMouseDown,
+      true
+    );
+    this.container.removeEventListener(
+      "pointermove",
+      this.contrastEventPrameters.handleOnContrastMouseMove,
+      true);
+    this.container.removeEventListener(
+      "pointerup",
+      this.contrastEventPrameters.handleOnContrastMouseUp,
+      true
+    );
+    this.container.removeEventListener(
+      "pointerleave",
+      this.contrastEventPrameters.handleOnContrastMouseLeave,
+      true
+    );
+    this.setIsDrawFalse(1000);
+  };
+
   updateSlicesContrast(value: number, flag: string) {
+
     switch (flag) {
       case "lowerThreshold":
         this.protectedData.displaySlices.forEach((slice, index) => {
