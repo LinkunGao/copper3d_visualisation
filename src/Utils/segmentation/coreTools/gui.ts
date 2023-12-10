@@ -7,6 +7,7 @@ import {
   INrrdStates,
   IPaintImages,
   IPaintImage,
+  IGuiParameterSettings
 } from "./coreType";
 import { DragOperator } from "../DragOperator";
 
@@ -91,7 +92,7 @@ interface IConfigGUI {
   )=>void;
 }
 
-function setupGui(configs: IConfigGUI) {
+function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
   if (configs.modeFolder.__controllers.length > 0)
     removeGuiFolderChilden(configs.modeFolder);
 
