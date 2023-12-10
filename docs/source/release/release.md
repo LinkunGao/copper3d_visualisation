@@ -1947,3 +1947,12 @@ Fixed cursor not switch issue when user click eraser and pencil buttons.
 - Fix sphere and crosshair function
   - all based on sizeFactor:1
   - after zoom, scale them.
+
+## Release v2.0.7
+
+- add an enableContrastDragEvents(callback:(step:number, towards:"horizental"|"vertical")=>void) function in NrrdTools class.
+  - Allow user to use drag function to change the image contrast: windowHigh and windowCenter.
+  - Horizental: windowCenter, left to right increase, right to left decrease.
+  - Vertical: windowHigh, top to bottom increase, bottom to top decrease.
+- fixed guiparameter image volume not change bug.
+- more clear log error in copperScene loadObj function.
