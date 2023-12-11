@@ -1956,3 +1956,5 @@ Fixed cursor not switch issue when user click eraser and pencil buttons.
   - Vertical: windowHigh, top to bottom increase, bottom to top decrease.
 - fixed guiparameter image volume not change bug.
 - more clear log error in copperScene loadObj function.
+- fixed shift not work issue after press ctrl.
+- fixed ctrl+z affect ctrl function issue.

@@ -55,6 +55,7 @@ export class DrawToolCore extends CommToolsData {
   }
 
   private initDrawToolCore() {
+    let undoFlag = false;
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
       if (ev.key === "Shift" && !this.gui_states.sphere) {
         if(this.protectedData.Is_Ctrl_Pressed){
@@ -64,23 +65,37 @@ export class DrawToolCore extends CommToolsData {
         this.protectedData.Is_Shift_Pressed = true;
         this.nrrd_states.enableCursorChoose = false;
       }
-      if (ev.key === 'Control' || ev.key === 'Meta') {
-        // Ctrl key pressed on either Windows or macOS
-        this.protectedData.Is_Shift_Pressed = false;
-        this.protectedData.Is_Ctrl_Pressed = !this.protectedData.Is_Ctrl_Pressed; 
-        if(this.protectedData.Is_Ctrl_Pressed){
-          this.configContrastDragMode();
-        }else{
-          this.removeContrastDragMode();
-        }
-      }
+
       if (ev.key === "s") {
         this.protectedData.Is_Draw = false;
         this.nrrd_states.enableCursorChoose =
           !this.nrrd_states.enableCursorChoose;
       }
+      if ((ev.ctrlKey || ev.metaKey) && ev.code === "KeyZ") {
+        undoFlag = true;
+        this.undoLastPainting();
+      }
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
+      
+      if (ev.key === 'Control' || ev.key === 'Meta') {
+        if(undoFlag){
+          this.gui_states.readyToUpdate = true;
+          undoFlag = false;
+          return;
+        }
+        // Ctrl key pressed on either Windows or macOS
+        this.protectedData.Is_Shift_Pressed = false;
+        this.protectedData.Is_Ctrl_Pressed = !this.protectedData.Is_Ctrl_Pressed; 
+        
+        if(this.protectedData.Is_Ctrl_Pressed){
+          this.configContrastDragMode();
+        }else{
+          this.removeContrastDragMode();
+          this.gui_states.readyToUpdate = true;
+        }
+      }
+      
       if (ev.key === "Shift") {
         this.protectedData.Is_Shift_Pressed = false;
       }
@@ -612,6 +627,8 @@ export class DrawToolCore extends CommToolsData {
           this.protectedData.ctxes.drawingLayerThreeCtx.globalAlpha = 1;
         } else {
           if (this.protectedData.Is_Shift_Pressed) {
+            console.log("draw");
+            
             if (
               !this.gui_states.segmentation &&
               !this.gui_states.Eraser &&
@@ -674,12 +691,6 @@ export class DrawToolCore extends CommToolsData {
         this.redrawDisplayCanvas();
       }
     };
-
-    document.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ") {
-        this.undoLastPainting();
-      }
-    });
   }
 
   /*************************************May consider to move outside *******************************************/
