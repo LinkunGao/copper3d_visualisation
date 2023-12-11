@@ -169,15 +169,20 @@ export class DragOperator {
       if (ev.key === "Shift") {
         this.removeDragMode();
       }
+      
+    });
+    this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
+
       if (ev.key === 'Control' || ev.key === 'Meta') {
+        /**
+         * if ctrl pressed remove the drag mode
+         */
         if(this.protectedData.Is_Ctrl_Pressed){
           this.removeDragMode();
         }else{
           this.configDragMode();
         }
       }
-    });
-    this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
       if (ev.key === "Shift" && !this.gui_states.sphere) {
         if(this.protectedData.Is_Ctrl_Pressed){
           return
