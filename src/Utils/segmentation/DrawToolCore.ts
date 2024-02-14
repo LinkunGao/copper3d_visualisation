@@ -627,8 +627,6 @@ export class DrawToolCore extends CommToolsData {
           this.protectedData.ctxes.drawingLayerThreeCtx.globalAlpha = 1;
         } else {
           if (this.protectedData.Is_Shift_Pressed) {
-            console.log("draw");
-            
             if (
               !this.gui_states.segmentation &&
               !this.gui_states.Eraser &&
