@@ -344,6 +344,15 @@ export class NrrdTools extends DrawToolCore {
     return this.protectedData.maskData;
   }
 
+  // set calculate distance sphere position
+  set_calculate_distance_sphere(x:number, y:number, sliceIndex:number, cal_position:"tumour"|"skin"|"nipple"|"ribcage"){
+    this.nrrd_states.sphereRadius = 5;
+    this.draw_cal_sphere(x, y, sliceIndex, cal_position);
+    this.drawCalculatorSphereOnEachViews("x");
+    this.drawCalculatorSphereOnEachViews("y");
+    this.drawCalculatorSphereOnEachViews("z");
+  }
+
   private getSharedPlace(len: number, ratio: number): number[] {
     let old = -1;
     let same: number[] = [];
@@ -388,7 +397,7 @@ export class NrrdTools extends DrawToolCore {
     );
   }
 
-  private createEmptyPaintImage(
+  createEmptyPaintImage(
     dimensions: Array<number>,
     paintImages: IPaintImages
   ) {
@@ -645,6 +654,11 @@ export class NrrdTools extends DrawToolCore {
       this.protectedData.canvases.drawingCanvas.width;
     this.protectedData.canvases.displayCanvas.width =
       this.protectedData.canvases.displayCanvas.width;
+
+    this.nrrd_states.tumourSphereOrigin = null;
+    this.nrrd_states.ribSphereOrigin = null;
+    this.nrrd_states.skinSphereOrigin = null;
+    this.nrrd_states.nippleSphereOrigin = null;
   }
 
   setSliceMoving(step: number) {

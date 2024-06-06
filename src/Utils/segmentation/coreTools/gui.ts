@@ -116,6 +116,12 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     .onChange(() => {
       updateGuiSphereState();
     });
+    actionsFolder
+    .add(configs.gui_states, "calculator")
+    .name("Calculator")
+    .onChange(() => {
+      updateCalculatorState();
+    });
   actionsFolder
     .add(configs.gui_states, "brushAndEraserSize")
     .name("BrushAndEraserSize")
@@ -151,6 +157,13 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     });
 
   const advanceFolder = configs.modeFolder.addFolder("AdvanceSettings");
+
+  advanceFolder
+    .add(configs.gui_states, "cal_distance", ["tumour", "skin", "ribcage", "nipple"])
+    .name("Label")
+    .onChange((val) => {
+      updateCalDistance(val)
+    });
 
   advanceFolder
     .add(configs.gui_states, "label", ["label1", "label2", "label3"])
@@ -348,6 +361,44 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     }
   };
 
+  const updateCalculatorState = () =>{
+    if (configs.gui_states.calculator) {
+      // disable mouse to drag slices
+      configs.removeDragMode();
+    } else {
+      // enable mouse to drag slices
+      configs.configDragMode();
+      // clear canvas
+      configs.clearPaint();
+      configs.clearStoreImages();
+    }
+  }
+
+  const updateCalDistance = (val:"tumour"|"skin"|"ribcage"|"nipple") =>{
+    switch (val) {
+      case "tumour":
+        configs.gui_states.fillColor = configs.nrrd_states.tumourColor;
+        configs.gui_states.brushColor = configs.nrrd_states.tumourColor;
+        break;
+      case "skin":
+        configs.gui_states.fillColor = configs.nrrd_states.skinColor;
+        configs.gui_states.brushColor = configs.nrrd_states.skinColor;
+        break;
+      case "ribcage":
+        configs.gui_states.fillColor = configs.nrrd_states.ribcageColor;
+        configs.gui_states.brushColor = configs.nrrd_states.ribcageColor;
+        break;
+      case "nipple":
+        configs.gui_states.fillColor = configs.nrrd_states.nippleColor;
+        configs.gui_states.brushColor = configs.nrrd_states.nippleColor;
+        break;
+      default:
+        configs.gui_states.fillColor = configs.nrrd_states.tumourColor;
+        configs.gui_states.brushColor = configs.nrrd_states.tumourColor;
+        break;
+    }
+  }
+
   const updateGuiImageWindowLowOnChange = (value:number)=>{
     configs.gui_states.readyToUpdate = false;
     configs.updateSlicesContrast(value, "windowLow");
@@ -387,6 +438,14 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     Eraser: {
       name: "Eraser",
       onChange: updateGuiEraserState,
+    },
+    calculator:{
+      name:"Calculator",
+      onChange: updateCalculatorState,
+    },
+    cal_distance:{
+      name:"CalculatorDistance",
+      onChange: updateCalDistance
     },
     clear: {
       name: "Clear",

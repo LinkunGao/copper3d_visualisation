@@ -136,7 +136,9 @@ interface IGUIStates {
   brushAndEraserSize: number;
   cursor: string;
   label: string;
+  cal_distance:"tumour" | "skin" | "nipple" | "ribcage";
   sphere: boolean;
+  calculator:boolean;
   // subView: boolean;
   // subViewScale: number;
   readyToUpdate: boolean;
@@ -180,6 +182,14 @@ interface INrrdStates {
   cursorPageX: number;
   cursorPageY: number;
   sphereOrigin: ICommXYZ;
+  tumourSphereOrigin: ICommXYZ | null,
+  skinSphereOrigin: ICommXYZ | null,
+  ribSphereOrigin: ICommXYZ | null,
+  nippleSphereOrigin: ICommXYZ | null,
+  tumourColor:"#00ff00",
+  skinColor:"#FFEB3B",
+  ribcageColor:"#2196F3",
+  nippleColor:"#E91E63",
   spherePlanB: boolean;
   sphereRadius: number;
   Mouse_Over_x: number;
@@ -202,6 +212,7 @@ interface INrrdStates {
     clearAllFlag: boolean
   ) => void;
   getSphere: (sphereOrigin: number[], sphereRadius: number) => void;
+  getCalculateSpherePositions:(tumourSphereOrigin:ICommXYZ|null, skinSphereOrigin:ICommXYZ|null, ribSphereOrigin:ICommXYZ|null, nippleSphereOrigin:ICommXYZ|null,)=>void,
   drawStartPos: ICommXY;
 }
 
@@ -279,6 +290,14 @@ interface IGuiParameterSettings {
     name: "Eraser",
     onChange:  ()=>void,
   },
+  calculator:{
+    name:"Calculator",
+    onChange: ()=>void,
+  },
+  cal_distance:{
+    name:"CalculatorDistance",
+    onChange: (val:"tumour"|"skin"|"ribcage"|"nipple")=>void
+  }
   clear: {
     name: "Clear",
   },
