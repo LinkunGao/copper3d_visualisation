@@ -40,7 +40,7 @@ import {
   IOptVTKLoader,
 } from "./types/types";
 
-import { IPaintImage } from "./Utils/segmentation/coreTools/coreType";
+import { IPaintImage, ICommXYZ } from "./Utils/segmentation/coreTools/coreType";
 
 import "./css/style.css";
 
@@ -90,4 +90,5 @@ export type {
   IPaintImage,
   exportPaintImageType,
   IOptVTKLoader,
+  ICommXYZ
 };

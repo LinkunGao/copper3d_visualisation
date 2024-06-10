@@ -48,8 +48,8 @@ interface IDrawingEvents {
 }
 
 interface IContrastEvents {
-  move_x: number;
-  move_y: number;
+  move_x:number;
+  move_y:number;
   x: number;
   y: number;
   w: number;
@@ -57,7 +57,7 @@ interface IContrastEvents {
   handleOnContrastMouseDown: (ev: MouseEvent) => void;
   handleOnContrastMouseMove: (ev: MouseEvent) => void;
   handleOnContrastMouseUp: (ev: MouseEvent) => void;
-  handleOnContrastMouseLeave: (ev: MouseEvent) => void;
+  handleOnContrastMouseLeave:(ev: MouseEvent) => void;
 }
 
 // drawing on canvas
@@ -94,7 +94,7 @@ interface IProtected {
   currentShowingSlice: any;
   mainPreSlices: any;
   Is_Shift_Pressed: boolean;
-  Is_Ctrl_Pressed: boolean;
+  Is_Ctrl_Pressed:boolean;
   Is_Draw: boolean;
   axis: "x" | "y" | "z";
   maskData: IMaskData;
@@ -136,9 +136,9 @@ interface IGUIStates {
   brushAndEraserSize: number;
   cursor: string;
   label: string;
-  cal_distance: "tumour" | "skin" | "nipple" | "ribcage";
+  cal_distance:"tumour" | "skin" | "nipple" | "ribcage";
   sphere: boolean;
-  calculator: boolean;
+  calculator:boolean;
   // subView: boolean;
   // subViewScale: number;
   readyToUpdate: boolean;
@@ -182,14 +182,14 @@ interface INrrdStates {
   cursorPageX: number;
   cursorPageY: number;
   sphereOrigin: ICommXYZ;
-  tumourSphereOrigin: ICommXYZ | null;
-  skinSphereOrigin: ICommXYZ | null;
-  ribSphereOrigin: ICommXYZ | null;
-  nippleSphereOrigin: ICommXYZ | null;
-  tumourColor: "#00ff00";
-  skinColor: "#FFEB3B";
-  ribcageColor: "#2196F3";
-  nippleColor: "#E91E63";
+  tumourSphereOrigin: ICommXYZ | null,
+  skinSphereOrigin: ICommXYZ | null,
+  ribSphereOrigin: ICommXYZ | null,
+  nippleSphereOrigin: ICommXYZ | null,
+  tumourColor:"#00ff00",
+  skinColor:"#FFEB3B",
+  ribcageColor:"#2196F3",
+  nippleColor:"#E91E63",
   spherePlanB: boolean;
   sphereRadius: number;
   Mouse_Over_x: number;
@@ -212,12 +212,7 @@ interface INrrdStates {
     clearAllFlag: boolean
   ) => void;
   getSphere: (sphereOrigin: number[], sphereRadius: number) => void;
-  getCalculateSpherePositions: (
-    tumourSphereOrigin: ICommXYZ | null,
-    skinSphereOrigin: ICommXYZ | null,
-    ribSphereOrigin: ICommXYZ | null,
-    nippleSphereOrigin: ICommXYZ | null
-  ) => void;
+  getCalculateSpherePositions:(tumourSphereOrigin:ICommXYZ|null, skinSphereOrigin:ICommXYZ|null, ribSphereOrigin:ICommXYZ|null, nippleSphereOrigin:ICommXYZ|null, aixs:"x"|"y"|"z")=>void,
   drawStartPos: ICommXY;
 }
 
@@ -236,6 +231,7 @@ interface IDrawOpts {
     clearAllFlag?: boolean
   ) => void;
   getSphereData?: (sphereOrigin: number[], sphereRadius: number) => void;
+  getCalculateSpherePositionsData?:(tumourSphereOrigin:ICommXYZ|null, skinSphereOrigin:ICommXYZ|null, ribSphereOrigin:ICommXYZ|null, nippleSphereOrigin:ICommXYZ|null, aixs:"x"|"y"|"z")=>void;
 }
 type UndoLayerType = {
   label1: Array<HTMLImageElement>;
@@ -271,111 +267,111 @@ interface ICursorPage {
 
 interface IGuiParameterSettings {
   globalAlpha: {
-    name: "Opacity";
-    min: number;
-    max: number;
-    step: number;
-  };
+    name: "Opacity",
+    min:  number,
+    max: number,
+    step: number,
+  },
   segmentation: {
-    name: "Pencil";
-    onChange: () => void;
-  };
+    name: "Pencil",
+    onChange: ()=>void,
+  },
   sphere: {
-    name: "Sphere";
-    onChange: () => void;
-  };
+    name: "Sphere",
+    onChange:  ()=>void,
+  },
   brushAndEraserSize: {
-    name: "BrushAndEraserSize";
-    min: number;
-    max: number;
-    step: number;
-    onChange: () => void;
-  };
+    name: "BrushAndEraserSize",
+    min: number,
+    max: number,
+    step: number,
+    onChange:  ()=>void,
+  },
   Eraser: {
-    name: "Eraser";
-    onChange: () => void;
-  };
-  calculator: {
-    name: "Calculator";
-    onChange: () => void;
-  };
-  cal_distance: {
-    name: "CalculatorDistance";
-    onChange: (val: "tumour" | "skin" | "ribcage" | "nipple") => void;
-  };
+    name: "Eraser",
+    onChange:  ()=>void,
+  },
+  calculator:{
+    name:"Calculator",
+    onChange: ()=>void,
+  },
+  cal_distance:{
+    name:"CalculatorDistance",
+    onChange: (val:"tumour"|"skin"|"ribcage"|"nipple")=>void
+  }
   clear: {
-    name: "Clear";
-  };
+    name: "Clear",
+  },
   clearAll: {
-    name: "ClearAll";
-  };
+    name: "ClearAll",
+  },
   undo: {
-    name: "Undo";
-  };
+    name: "Undo",
+  },
   resetZoom: {
-    name: "ResetZoom";
-  };
+    name: "ResetZoom",
+  },
   windowHigh: {
-    name: "ImageContrast";
-    value: null;
-    min: number;
-    max: number;
-    step: number;
-    onChange: (value: number) => void;
-    onFinished: () => void;
-  };
+    name: "ImageContrast",
+    value: null,
+    min: number,
+    max: number,
+    step: number,
+    onChange:  (value: number)=>void,
+    onFinished:  ()=>void,
+  },
   windowLow: {
-    name: "WindowLow";
-    value: null;
-    min: number;
-    max: number;
-    step: number;
-    onChange: (value: number) => void;
-    onFinished: () => void;
-  };
+    name: "WindowLow",
+    value: null,
+    min: number,
+    max: number,
+    step: number,
+    onChange:  (value: number)=>void,
+    onFinished:  ()=>void,
+  },
   advance: {
     label: {
-      name: "Label";
-      value: ["label1", "label2", "label3"];
-    };
+      name: "Label",
+      value: ["label1", "label2", "label3"],
+    },
     cursor: {
-      name: "CursorIcon";
-      value: ["crosshair", "pencil", "dot"];
-    };
+      name: "CursorIcon",
+      value: ["crosshair", "pencil", "dot"],
+    },
     mainAreaSize: {
-      name: "Zoom";
-      min: number;
-      max: number;
-      step: number;
-      onFinished: null;
-    };
+      name: "Zoom",
+      min: number,
+      max: number,
+      step: number,
+      onFinished: null,
+    },
     dragSensitivity: {
-      name: "DragSensitivity";
-      min: number;
-      max: number;
-      step: number;
-    };
+      name: "DragSensitivity",
+      min: number,
+      max: number,
+      step: number,
+    },
     pencilSettings: {
       lineWidth: {
-        name: "OuterLineWidth";
-        min: number;
-        max: number;
-        step: number;
-      };
+        name: "OuterLineWidth",
+        min: number,
+        max: number,
+        step: number,
+      },
       color: {
-        name: "Color";
-      };
+        name: "Color",
+      },
       fillColor: {
-        name: "FillColor";
-      };
-    };
+        name: "FillColor",
+      },
+    },
     BrushSettings: {
       brushColor: {
-        name: "BrushColor";
-      };
-    };
-  };
-}
+        name: "BrushColor",
+      },
+    },
+  },
+};
 
 export {
   ICommXYZ,
@@ -397,5 +393,5 @@ export {
   IMaskData,
   IUndoType,
   ICursorPage,
-  IGuiParameterSettings,
+  IGuiParameterSettings
 };
