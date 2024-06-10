@@ -6,7 +6,7 @@ import {
   ICursorPage,
   IPaintImages,
   IConvertObjType,
-  ICommXYZ,
+  ICommXYZ
 } from "./coreTools/coreType";
 import { switchPencilIcon } from "../utils";
 import { enableDownload } from "./coreTools/divControlTools";
@@ -47,10 +47,10 @@ export class CommToolsData {
     skinSphereOrigin: null,
     ribSphereOrigin: null,
     nippleSphereOrigin: null,
-    tumourColor: "#00ff00",
-    skinColor: "#FFEB3B",
-    ribcageColor: "#2196F3",
-    nippleColor: "#E91E63",
+    tumourColor:"#00ff00",
+    skinColor:"#FFEB3B",
+    ribcageColor:"#2196F3",
+    nippleColor:"#E91E63",
 
     spherePlanB: true,
     sphereRadius: 10,
@@ -74,12 +74,7 @@ export class CommToolsData {
       clearAllFlag: boolean
     ) => {},
     getSphere: (sphereOrigin: number[], sphereRadius: number) => {},
-    getCalculateSpherePositions: (
-      tumourSphereOrigin: ICommXYZ | null,
-      skinSphereOrigin: ICommXYZ | null,
-      ribSphereOrigin: ICommXYZ | null,
-      nippleSphereOrigin: ICommXYZ | null
-    ) => {},
+    getCalculateSpherePositions:(tumourSphereOrigin:ICommXYZ|null, skinSphereOrigin:ICommXYZ|null, ribSphereOrigin:ICommXYZ|null, nippleSphereOrigin:ICommXYZ|null, aixs:"x"|"y"|"z")=>{},
     drawStartPos: { x: 1, y: 1 },
   };
 
@@ -102,7 +97,7 @@ export class CommToolsData {
       index: 0,
       updated: false,
     },
-  };
+  }; 
 
   gui_states: IGUIStates = {
     mainAreaSize: 3,
@@ -117,9 +112,9 @@ export class CommToolsData {
     brushAndEraserSize: 15,
     cursor: "dot",
     label: "label1",
-    cal_distance: "tumour",
+    cal_distance:"tumour",
     sphere: false,
-    calculator: false,
+    calculator:false,
     readyToUpdate: true,
     defaultPaintCursor: switchPencilIcon("dot"),
     max_sensitive: 100,
@@ -169,7 +164,7 @@ export class CommToolsData {
       currentShowingSlice: undefined,
       mainPreSlices: undefined,
       Is_Shift_Pressed: false,
-      Is_Ctrl_Pressed: false,
+      Is_Ctrl_Pressed:false,
       Is_Draw: false,
       axis: "z",
       maskData: {
@@ -252,7 +247,10 @@ export class CommToolsData {
   /**
    * Rewrite this {createEmptyPaintImage} function under NrrdTools
    */
-  createEmptyPaintImage(dimensions: Array<number>, paintImages: IPaintImages) {
+  createEmptyPaintImage(
+    dimensions: Array<number>,
+    paintImages: IPaintImages
+  ) {
     throw new Error(
       "Child class must implement abstract clearStoreImages, currently you can find it in NrrdTools."
     );

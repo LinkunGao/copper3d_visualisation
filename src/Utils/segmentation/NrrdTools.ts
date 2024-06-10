@@ -345,12 +345,19 @@ export class NrrdTools extends DrawToolCore {
   }
 
   // set calculate distance sphere position
-  set_calculate_distance_sphere(x:number, y:number, sliceIndex:number, cal_position:"tumour"|"skin"|"nipple"|"ribcage"){
+  setCalculateDistanceSphere(x:number, y:number, sliceIndex:number, cal_position:"tumour"|"skin"|"nipple"|"ribcage"){
     this.nrrd_states.sphereRadius = 5;
-    this.draw_cal_sphere(x, y, sliceIndex, cal_position);
-    this.drawCalculatorSphereOnEachViews("x");
-    this.drawCalculatorSphereOnEachViews("y");
-    this.drawCalculatorSphereOnEachViews("z");
+    
+    // move to tumour slice
+    const steps = sliceIndex - this.nrrd_states.currentIndex;
+    this.setSliceMoving(steps * this.protectedData.displaySlices.length)
+
+    // mock mouse down
+    // if user zoom the panel, we need to consider the size factor 
+    this.drawCalSphereDown(x*this.nrrd_states.sizeFoctor, y*this.nrrd_states.sizeFoctor, sliceIndex, cal_position);
+    // mock mouse up
+    this.drawCalSphereUp()
+
   }
 
   private getSharedPlace(len: number, ratio: number): number[] {
@@ -867,10 +874,13 @@ export class NrrdTools extends DrawToolCore {
     this.nrrd_states.originHeight =
       this.protectedData.canvases.originCanvas.height;
 
+    // In html the width and height is pixels,
+    // So the value must be int
+    // Therefore, we must use Math.floor rather than using Math.ceil
     this.nrrd_states.changedWidth =
-      this.nrrd_states.originWidth * Number(this.nrrd_states.sizeFoctor);
+      Math.floor(this.nrrd_states.originWidth * Number(this.nrrd_states.sizeFoctor));
     this.nrrd_states.changedHeight =
-      this.nrrd_states.originWidth * Number(this.nrrd_states.sizeFoctor);
+      Math.floor(this.nrrd_states.originWidth * Number(this.nrrd_states.sizeFoctor));
     this.resizePaintArea(this.nrrd_states.sizeFoctor);
     this.resetPaintAreaUIPosition();
   }
@@ -985,8 +995,8 @@ export class NrrdTools extends DrawToolCore {
       this.protectedData.canvases.drawingCanvas.width;
     this.resetLayerCanvas();
 
-    this.nrrd_states.changedWidth = this.nrrd_states.originWidth * factor;
-    this.nrrd_states.changedHeight = this.nrrd_states.originHeight * factor;
+    this.nrrd_states.changedWidth = Math.floor(this.nrrd_states.originWidth * factor);
+    this.nrrd_states.changedHeight = Math.floor(this.nrrd_states.originHeight * factor);
 
     /**
      * resize canvas

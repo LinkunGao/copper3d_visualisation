@@ -144,11 +144,13 @@ export class DrawToolCore extends CommToolsData {
     if (!!opts) {
       this.nrrd_states.getMask = opts?.getMaskData as any;
       this.nrrd_states.getSphere = opts?.getSphereData as any;
+      this.nrrd_states.getCalculateSpherePositions = opts?.getCalculateSpherePositionsData as any;
     }
     this.paintOnCanvas();
   }
 
-  draw_cal_sphere(x:number, y:number, sliceIndex:number, cal_position:"tumour"|"skin"|"nipple"|"ribcage"){
+  drawCalSphereDown(x:number, y:number, sliceIndex:number, cal_position:"tumour"|"skin"|"nipple"|"ribcage"){
+    this.nrrd_states.sphereRadius = 5
     this.protectedData.canvases.drawingCanvas.removeEventListener(
       "wheel",
       this.drawingPrameters.handleZoomWheel
@@ -160,7 +162,7 @@ export class DrawToolCore extends CommToolsData {
     this.nrrd_states.sphereOrigin[this.protectedData.axis] = [
       mouseX,
       mouseY,
-      this.nrrd_states.currentIndex,
+      sliceIndex,
     ];
     this.setUpSphereOrigins(mouseX, mouseY, sliceIndex);
 
@@ -178,7 +180,7 @@ export class DrawToolCore extends CommToolsData {
         this.nrrd_states.ribSphereOrigin = JSON.parse(JSON.stringify( this.nrrd_states.sphereOrigin));
         break;
     }
-    
+
     this.nrrd_states.cursorPageX = mouseX;
     this.nrrd_states.cursorPageY = mouseY;
     this.enableCrosshair();
@@ -186,14 +188,38 @@ export class DrawToolCore extends CommToolsData {
     // draw circle setup width/height for sphere canvas
     this.drawCalculatorSphere(this.nrrd_states.sphereRadius);
     this.protectedData.canvases.drawingCanvas.addEventListener(
-      "wheel",
-      this.drawingPrameters.handleSphereWheel,
-      true
-    );
-    this.protectedData.canvases.drawingCanvas.addEventListener(
       "pointerup",
       this.drawingPrameters.handleOnDrawingMouseUp
     ); 
+  }
+
+  drawCalSphereUp(){
+    // TODO send data to outside
+    // this.clearStoreImages();
+    this.clearSpherePrintStoreImages()
+    this.drawCalculatorSphereOnEachViews("x");
+    this.drawCalculatorSphereOnEachViews("y");
+    this.drawCalculatorSphereOnEachViews("z");
+
+    !!this.nrrd_states.getCalculateSpherePositions &&
+      this.nrrd_states.getCalculateSpherePositions(
+        this.nrrd_states.tumourSphereOrigin, 
+        this.nrrd_states.skinSphereOrigin, 
+        this.nrrd_states.ribSphereOrigin, 
+        this.nrrd_states.nippleSphereOrigin,
+        this.protectedData.axis
+      );
+
+    this.zoomActionAfterDrawSphere();
+    this.protectedData.canvases.drawingCanvas.removeEventListener("pointerup",
+    this.drawingPrameters.handleOnDrawingMouseUp);
+  }
+
+  private zoomActionAfterDrawSphere(){
+    this.protectedData.canvases.drawingCanvas.addEventListener(
+      "wheel",
+      this.drawingPrameters.handleZoomWheel
+    );
   }
 
   private clearSpherePrintStoreImages(){
@@ -377,15 +403,18 @@ export class DrawToolCore extends CommToolsData {
             e.offsetY / this.nrrd_states.sizeFoctor;
 
           this.enableCrosshair();
+          this.protectedData.canvases.drawingCanvas.addEventListener(
+            "pointerup",
+            this.drawingPrameters.handleOnDrawingMouseUp
+          ); 
           
         } else if (this.gui_states.sphere && !this.nrrd_states.enableCursorChoose) {
-          
-          this.nrrd_states.sphereRadius = 10
+
           sphere(e)
+
         } else if (this.gui_states.calculator && !this.nrrd_states.enableCursorChoose){
           
-          this.nrrd_states.sphereRadius = 5
-          this.draw_cal_sphere(e.offsetX, e.offsetY, this.nrrd_states.currentIndex, this.gui_states.cal_distance) 
+          this.drawCalSphereDown(e.offsetX, e.offsetY, this.nrrd_states.currentIndex, this.gui_states.cal_distance) 
         }
       } else if (e.button === 2) {
         rightclicked = true;
@@ -417,6 +446,9 @@ export class DrawToolCore extends CommToolsData {
     );
 
     const sphere = (e:MouseEvent)=>{
+      // set sphere size
+      this.nrrd_states.sphereRadius = 10
+
       this.protectedData.canvases.drawingCanvas.removeEventListener(
         "wheel",
         this.drawingPrameters.handleZoomWheel
@@ -435,9 +467,9 @@ export class DrawToolCore extends CommToolsData {
       this.nrrd_states.cursorPageX = mouseX;
       this.nrrd_states.cursorPageY = mouseY;
       this.enableCrosshair();
-
+      
       // draw circle setup width/height for sphere canvas
-      this.drawSphere(e.offsetX , e.offsetY, this.nrrd_states.sphereRadius);
+      this.drawSphere(mouseX , mouseY, this.nrrd_states.sphereRadius);
       this.protectedData.canvases.drawingCanvas.addEventListener(
         "wheel",
         this.drawingPrameters.handleSphereWheel,
@@ -611,60 +643,52 @@ export class DrawToolCore extends CommToolsData {
            this.nrrd_states.sphereRadius / this.nrrd_states.sizeFoctor
           );
 
-          this.protectedData.canvases.drawingCanvas.addEventListener(
-            "wheel",
-            this.drawingPrameters.handleZoomWheel
-          );
-
           this.protectedData.canvases.drawingCanvas.removeEventListener(
             "wheel",
             this.drawingPrameters.handleSphereWheel,
             true
           );
-        } else if(this.gui_states.sphere &&
+
+          this.protectedData.canvases.drawingCanvas.addEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel
+          );
+          this.protectedData.canvases.drawingCanvas.removeEventListener(
+            "pointerup",
+            this.drawingPrameters.handleOnDrawingMouseUp
+          ); 
+
+        } else if((this.gui_states.sphere || this.gui_states.calculator)&&
           this.nrrd_states.enableCursorChoose){
             this.protectedData.canvases.drawingCanvas.addEventListener(
               "wheel",
               this.drawingPrameters.handleZoomWheel
             );
+            this.protectedData.canvases.drawingCanvas.removeEventListener(
+              "pointerup",
+              this.drawingPrameters.handleOnDrawingMouseUp
+            ); 
           } else if(this.gui_states.calculator &&
             !this.nrrd_states.enableCursorChoose){
-            // TODO send data to outside
-            // this.clearStoreImages();
-            this.clearSpherePrintStoreImages()
-            this.drawCalculatorSphereOnEachViews("x");
-            this.drawCalculatorSphereOnEachViews("y");
-            this.drawCalculatorSphereOnEachViews("z");
-
-            !!this.nrrd_states.getCalculateSpherePositions &&
-              this.nrrd_states.getCalculateSpherePositions(
-                this.nrrd_states.tumourSphereOrigin, 
-                this.nrrd_states.skinSphereOrigin, 
-                this.nrrd_states.ribSphereOrigin, 
-                this.nrrd_states.nippleSphereOrigin
-              );
-
-            this.protectedData.canvases.drawingCanvas.addEventListener(
-              "wheel",
-              this.drawingPrameters.handleZoomWheel
-            );
-
-            this.protectedData.canvases.drawingCanvas.removeEventListener(
-              "wheel",
-              this.drawingPrameters.handleSphereWheel,
-              true
-            );
-            this.protectedData.canvases.drawingCanvas.removeEventListener("pointerup",
-            this.drawingPrameters.handleOnDrawingMouseUp)
-            
+              // When mouse up
+              this.drawCalSphereUp()
           }
+          
       } else if (e.button === 2) {
         rightclicked = false;
         this.protectedData.canvases.drawingCanvas.style.cursor = "grab";
+
+        setTimeout(()=>{
+          this.protectedData.canvases.drawingCanvas.style.cursor = this.gui_states.defaultPaintCursor;
+        }, 2000)
         this.protectedData.canvases.drawingCanvas.removeEventListener(
           "pointermove",
           this.drawingPrameters.handleOnPanMouseMove
         );
+
+        if(this.gui_states.sphere || this.gui_states.calculator){
+          this.zoomActionAfterDrawSphere();
+        }
       } else {
         return;
       }
@@ -772,12 +796,12 @@ export class DrawToolCore extends CommToolsData {
               ex,
               0,
               ex,
-              this.protectedData.canvases.drawingCanvas.height
+              this.nrrd_states.changedWidth
             );
             this.drawLine(
               0,
               ey,
-              this.protectedData.canvases.drawingCanvas.width,
+              this.nrrd_states.changedHeight,
               ey
             );
           }
@@ -975,16 +999,18 @@ export class DrawToolCore extends CommToolsData {
 
       moveDistance = w / this.nrrd_states.originWidth;
 
+
       if (moveDistance > 8) {
         moveDistance = 8;
+        this.resetPaintAreaUIPosition();
       } else if (moveDistance < 1) {
         moveDistance = 1;
+        this.resetPaintAreaUIPosition();
       } else {
-        this.resizePaintArea(moveDistance);
         this.resetPaintAreaUIPosition(l, t);
-        this.setIsDrawFalse(1000);
       }
-
+      this.resizePaintArea(moveDistance);
+      this.setIsDrawFalse(1000);
       this.nrrd_states.sizeFoctor = moveDistance;
     };
     return handleZoomWheelMove;
@@ -1072,7 +1098,7 @@ export class DrawToolCore extends CommToolsData {
 
     rePositionGroup.forEach((group)=>{
       group.forEach(p => {
-        this.drawSphereCore(ctx, (p as any).x, (p as any).y, this.nrrd_states.sphereRadius / this.nrrd_states.sizeFoctor, (p as any).color);
+        this.drawSphereCore(ctx, (p as any).x, (p as any).y, this.nrrd_states.sphereRadius, (p as any).color);
       });
       this.storeSphereImages((group[0] as any).z, axis);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1113,14 +1139,14 @@ export class DrawToolCore extends CommToolsData {
     const canvas = this.protectedData.canvases.drawingSphereCanvas;
 
     if (preIndex === nextIndex) {
-      this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius / this.nrrd_states.sizeFoctor,this.gui_states.fillColor);
+      this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius,this.gui_states.fillColor);
       this.storeSphereImages(preIndex, axis);
     } else {
       this.drawSphereCore(
         ctx,
         mouseX,
         mouseY,
-        (this.nrrd_states.sphereRadius - decay) / this.nrrd_states.sizeFoctor,this.gui_states.fillColor
+        (this.nrrd_states.sphereRadius - decay),this.gui_states.fillColor
       );
       this.drawImageOnEmptyImage(canvas);
       this.storeSphereImages(preIndex, axis);
@@ -1129,6 +1155,14 @@ export class DrawToolCore extends CommToolsData {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
+  /**
+   * 
+   * @param ctx draw sphere canvas ctx
+   * @param x width must be match the origin size, size factor 1, ignore the size factor
+   * @param y height must be match the origin size, size factor 1, ignore the size factor
+   * @param radius radius must be match the origin size, size factor 1, ignore the size factor
+   * @param color sphere color
+   */
   private drawSphereCore(
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -1191,38 +1225,26 @@ export class DrawToolCore extends CommToolsData {
   drawCalculatorSphere(radius: number) {
 
     // clear canvas
-    this.protectedData.canvases.drawingSphereCanvas.width =
-      this.protectedData.canvases.drawingCanvasLayerMaster.width;
-    this.protectedData.canvases.drawingSphereCanvas.height =
-      this.protectedData.canvases.drawingCanvasLayerMaster.height;
-    const canvas = this.protectedData.canvases.drawingSphereCanvas;
-    const ctx = this.protectedData.ctxes.drawingSphereCtx;
-    this.protectedData.ctxes.drawingLayerMasterCtx.clearRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    const [canvas, ctx] = this.clearSphereCanvas()
 
     if(!!this.nrrd_states.tumourSphereOrigin && this.nrrd_states.tumourSphereOrigin[this.protectedData.axis][2]===this.nrrd_states.currentIndex){
-      this.drawSphereCore(ctx, this.nrrd_states.tumourSphereOrigin[this.protectedData.axis][0], this.nrrd_states.tumourSphereOrigin[this.protectedData.axis][1], radius, this.nrrd_states.tumourColor);
+      this.drawSphereCore(ctx as CanvasRenderingContext2D, this.nrrd_states.tumourSphereOrigin[this.protectedData.axis][0], this.nrrd_states.tumourSphereOrigin[this.protectedData.axis][1], radius, this.nrrd_states.tumourColor);
     }
 
     if(!!this.nrrd_states.skinSphereOrigin && this.nrrd_states.skinSphereOrigin[this.protectedData.axis][2]===this.nrrd_states.currentIndex){
-      this.drawSphereCore(ctx, this.nrrd_states.skinSphereOrigin[this.protectedData.axis][0], this.nrrd_states.skinSphereOrigin[this.protectedData.axis][1], radius, this.nrrd_states.skinColor);
+      this.drawSphereCore(ctx as CanvasRenderingContext2D, this.nrrd_states.skinSphereOrigin[this.protectedData.axis][0], this.nrrd_states.skinSphereOrigin[this.protectedData.axis][1], radius, this.nrrd_states.skinColor);
     }
     
     if(!!this.nrrd_states.ribSphereOrigin && this.nrrd_states.ribSphereOrigin[this.protectedData.axis][2]===this.nrrd_states.currentIndex){
-      this.drawSphereCore(ctx, this.nrrd_states.ribSphereOrigin[this.protectedData.axis][0], this.nrrd_states.ribSphereOrigin[this.protectedData.axis][1], radius, this.nrrd_states.ribcageColor);
+      this.drawSphereCore(ctx as CanvasRenderingContext2D, this.nrrd_states.ribSphereOrigin[this.protectedData.axis][0], this.nrrd_states.ribSphereOrigin[this.protectedData.axis][1], radius, this.nrrd_states.ribcageColor);
     }
     
     if(!!this.nrrd_states.nippleSphereOrigin && this.nrrd_states.nippleSphereOrigin[this.protectedData.axis][2]===this.nrrd_states.currentIndex){
-      this.drawSphereCore(ctx, this.nrrd_states.nippleSphereOrigin[this.protectedData.axis][0], this.nrrd_states.nippleSphereOrigin[this.protectedData.axis][1], radius, this.nrrd_states.nippleColor);
+      this.drawSphereCore(ctx as CanvasRenderingContext2D, this.nrrd_states.nippleSphereOrigin[this.protectedData.axis][0], this.nrrd_states.nippleSphereOrigin[this.protectedData.axis][1], radius, this.nrrd_states.nippleColor);
     }
-    
 
     this.protectedData.ctxes.drawingLayerMasterCtx.drawImage(
-      canvas,
+      canvas as HTMLCanvasElement,
       0,
       0,
       this.nrrd_states.changedWidth,
@@ -1230,28 +1252,43 @@ export class DrawToolCore extends CommToolsData {
     );
   }
 
+
   drawSphere(mouseX: number, mouseY: number, radius: number) {
     // clear canvas
-    this.protectedData.canvases.drawingSphereCanvas.width =
-      this.protectedData.canvases.drawingCanvasLayerMaster.width;
-    this.protectedData.canvases.drawingSphereCanvas.height =
-      this.protectedData.canvases.drawingCanvasLayerMaster.height;
-    const canvas = this.protectedData.canvases.drawingSphereCanvas;
-    const ctx = this.protectedData.ctxes.drawingSphereCtx;
-    this.protectedData.ctxes.drawingLayerMasterCtx.clearRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-    this.drawSphereCore(ctx, mouseX, mouseY, radius,this.gui_states.fillColor);
+    const [canvas, ctx] = this.clearSphereCanvas()
+    this.drawSphereCore(ctx as CanvasRenderingContext2D, mouseX, mouseY, radius,this.gui_states.fillColor);
+
+    console.log("when drawing shpere on canvas");
+    
+    console.log("Line 1256 mastercanvasesize:", this.protectedData.canvases.drawingCanvasLayerMaster.width, this.protectedData.canvases.drawingCanvasLayerMaster.height);
+    console.log("current xy:", mouseX, mouseY);
+    console.log("current changed width:", this.nrrd_states.changedWidth, this.nrrd_states.changedHeight);
+    
+    
+    
     this.protectedData.ctxes.drawingLayerMasterCtx.drawImage(
-      canvas,
+      canvas as HTMLCanvasElement,
       0,
       0,
       this.nrrd_states.changedWidth,
       this.nrrd_states.changedHeight
     );
+  }
+
+  private clearSphereCanvas(){
+    // this.protectedData.canvases.drawingSphereCanvas.width =
+    //   this.protectedData.canvases.drawingCanvasLayerMaster.width;
+    // this.protectedData.canvases.drawingSphereCanvas.height =
+    //   this.protectedData.canvases.drawingCanvasLayerMaster.height;
+
+    // clear drawingCanvasLayerMaster
+    this.protectedData.canvases.drawingCanvasLayerMaster.width = this.protectedData.canvases.drawingCanvasLayerMaster.width;
+    // resize sphere canvas size to original size
+    this.protectedData.canvases.drawingSphereCanvas.width = this.protectedData.canvases.originCanvas.width;
+    this.protectedData.canvases.drawingSphereCanvas.height = this.protectedData.canvases.originCanvas.height;
+    const canvas = this.protectedData.canvases.drawingSphereCanvas;
+    const ctx = this.protectedData.ctxes.drawingSphereCtx;
+    return [canvas, ctx]
   }
 
    /**
