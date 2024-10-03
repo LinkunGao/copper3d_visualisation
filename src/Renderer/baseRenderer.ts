@@ -59,7 +59,7 @@ export class baseRenderer {
     }
 
     this.currentScene.sceneName = "default";
-    !!this.currentScene.vignette &&
+    (!!this.currentScene.vignette && !(!!this.options?.alpha)) &&
       this.updateEnvironment(this.currentScene.vignette);
     this.state = {
       playbackSpeed: 1.0,
