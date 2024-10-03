@@ -49,7 +49,9 @@ export class copperRenderer extends baseRenderer {
         alpha: alpha,
       });
       new_scene.sceneName = name;
-      this.updateEnvironment(new_scene.vignette);
+      if(!alpha){
+        this.updateEnvironment(new_scene.vignette);
+      }
       this.sceneMap[name] = new_scene;
       return new_scene;
     }
