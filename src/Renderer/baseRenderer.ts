@@ -93,6 +93,7 @@ export class baseRenderer {
     this.container.appendChild(this.renderer.domElement);
   }
   updateEnvironment(vignette?: customMeshType) {
+    if(!!this.options?.alpha) return;
     const environment = environments.filter(
       (entry) => entry.name === "Venice Sunset"
     )[0];
