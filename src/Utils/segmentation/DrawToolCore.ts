@@ -455,7 +455,7 @@ export class DrawToolCore extends CommToolsData {
       );
       let mouseX = e.offsetX / this.nrrd_states.sizeFoctor;
       let mouseY = e.offsetY / this.nrrd_states.sizeFoctor;
-
+      
       //  record mouseX,Y, and enable crosshair function
       this.nrrd_states.sphereOrigin[this.protectedData.axis] = [
         mouseX,
@@ -1215,8 +1215,8 @@ export class DrawToolCore extends CommToolsData {
         Math.min(this.nrrd_states.sphereRadius, 50)
       );
       // get mouse position
-      const mouseX = this.nrrd_states.sphereOrigin[this.protectedData.axis][0] * this.nrrd_states.sizeFoctor;
-      const mouseY = this.nrrd_states.sphereOrigin[this.protectedData.axis][1] * this.nrrd_states.sizeFoctor;
+      const mouseX = this.nrrd_states.sphereOrigin[this.protectedData.axis][0] ;
+      const mouseY = this.nrrd_states.sphereOrigin[this.protectedData.axis][1];
       this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
     };
     return sphereEvent;
@@ -1254,6 +1254,8 @@ export class DrawToolCore extends CommToolsData {
 
 
   drawSphere(mouseX: number, mouseY: number, radius: number) {
+    console.log(radius);
+    
     // clear canvas
     const [canvas, ctx] = this.clearSphereCanvas()
     this.drawSphereCore(ctx as CanvasRenderingContext2D, mouseX, mouseY, radius,this.gui_states.fillColor);
