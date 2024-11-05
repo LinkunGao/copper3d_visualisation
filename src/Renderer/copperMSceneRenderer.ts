@@ -39,7 +39,7 @@ export class copperMSceneRenderer {
   init() {
     // this.renderer.physicallyCorrectLights = true;
     // this.renderer.outputEncoding = THREE.sRGBEncoding;
-    this.renderer.useLegacyLights = true;
+    // this.renderer.useLegacyLights = true;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.pmremGenerator.compileEquirectangularShader();

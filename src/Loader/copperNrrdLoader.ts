@@ -435,9 +435,9 @@ export function getWholeSlices(
 export function addBoxHelper(
   scene: copperScene,
   volume: any,
-  boxCube?: THREE.Object3D<THREE.Event>
+  boxCube?: THREE.Object3D<THREE.Object3DEventMap>
 ) {
-  let obj: THREE.Object3D<THREE.Event>;
+  let obj: THREE.Object3D<THREE.Object3DEventMap>;
   boxCube ? (obj = boxCube) : (obj = cube);
 
   const boxHelper = new THREE.BoxHelper(obj);
