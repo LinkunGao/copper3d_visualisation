@@ -2,6 +2,7 @@ import { copperScene } from "../Scene/copperScene";
 import { baseScene } from "../Scene/baseScene";
 import { copperMScene } from "../Scene/copperMScene";
 import { GUI } from "dat.gui";
+import * as THREE from "three";
 
 interface SceneMapType {
   [key: string]: copperScene | baseScene | copperMScene;

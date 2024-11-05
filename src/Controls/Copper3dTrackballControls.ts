@@ -384,7 +384,7 @@ class Copper3dTrackballControls extends EventDispatcher {
         scope.object.lookAt(scope.target);
 
         if (lastPosition.distanceToSquared(scope.object.position) > EPS) {
-          scope.dispatchEvent(_changeEvent);
+          scope.dispatchEvent(_changeEvent as never);
 
           lastPosition.copy(scope.object.position);
         }
@@ -395,7 +395,7 @@ class Copper3dTrackballControls extends EventDispatcher {
           lastPosition.distanceToSquared(scope.object.position) > EPS ||
           lastZoom !== scope.object.zoom
         ) {
-          scope.dispatchEvent(_changeEvent);
+          scope.dispatchEvent(_changeEvent as never);
 
           lastPosition.copy(scope.object.position);
           lastZoom = scope.object.zoom;
@@ -420,7 +420,7 @@ class Copper3dTrackballControls extends EventDispatcher {
 
       scope.object.lookAt(scope.target);
 
-      scope.dispatchEvent(_changeEvent);
+      scope.dispatchEvent(_changeEvent as never);
 
       lastPosition.copy(scope.object.position);
       lastZoom = scope.object.zoom;
@@ -538,7 +538,7 @@ class Copper3dTrackballControls extends EventDispatcher {
         _panEnd.copy(_panStart);
       }
 
-      scope.dispatchEvent(_startEvent);
+      scope.dispatchEvent(_startEvent as never);
     }
 
     function onMouseMove(event: PointerEvent) {
@@ -557,7 +557,7 @@ class Copper3dTrackballControls extends EventDispatcher {
     function onMouseUp() {
       _state = STATE.NONE;
 
-      scope.dispatchEvent(_endEvent);
+      scope.dispatchEvent(_endEvent as never);
     }
 
     function onMouseWheel(event: WheelEvent) {
@@ -584,8 +584,8 @@ class Copper3dTrackballControls extends EventDispatcher {
           break;
       }
 
-      scope.dispatchEvent(_startEvent);
-      scope.dispatchEvent(_endEvent);
+      scope.dispatchEvent(_startEvent as never);
+      scope.dispatchEvent(_endEvent as never);
     }
 
     function onTouchStart(event: PointerEvent) {
@@ -626,7 +626,7 @@ class Copper3dTrackballControls extends EventDispatcher {
           break;
       }
 
-      scope.dispatchEvent(_startEvent);
+      scope.dispatchEvent(_startEvent as never);
     }
 
     function onTouchMove(event: PointerEvent) {
@@ -709,7 +709,7 @@ class Copper3dTrackballControls extends EventDispatcher {
           break;
       }
 
-      scope.dispatchEvent(_endEvent);
+      scope.dispatchEvent(_endEvent as never);
     }
 
     function contextmenu(event: MouseEvent) {
