@@ -1127,6 +1127,12 @@ export class NrrdTools extends DrawToolCore {
         0,
         -this.nrrd_states.changedHeight
       );
+    }else if (this.protectedData.axis === "y") {
+      this.protectedData.ctxes.displayCtx?.scale(1, -1);
+      this.protectedData.ctxes.displayCtx?.translate(
+        0,
+        -this.nrrd_states.changedHeight
+      );
     }
   }
 

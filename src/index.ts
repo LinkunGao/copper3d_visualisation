@@ -44,10 +44,10 @@ import { IPaintImage, ICommXYZ } from "./Utils/segmentation/coreTools/coreType";
 
 import "./css/style.css";
 
-export const REVISION = "v2.1.2";
+export const REVISION = "v2.1.3";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v2.1.2",
+  "%cCopper3D Visualisation %cBeta:v2.1.3",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );

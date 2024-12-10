@@ -1333,7 +1333,7 @@ export class DrawToolCore extends CommToolsData {
       },
       y: {
         x: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
-        z: (val: number) => Math.ceil((val / nrrd_z_mm) * dimensions[2]),
+        z: (val: number) => Math.ceil((1- val / nrrd_z_mm) * dimensions[2]),
       },
       z: {
         x: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
@@ -1359,7 +1359,7 @@ export class DrawToolCore extends CommToolsData {
         x: (sliceIndex: number) =>
           Math.ceil((sliceIndex / dimensions[2]) * nrrd_z_mm),
         y: (sliceIndex: number) =>
-          Math.ceil((sliceIndex / dimensions[2]) * nrrd_z_mm),
+          Math.ceil((1 - sliceIndex / dimensions[2]) * nrrd_z_mm),
       },
     };
 
@@ -1375,7 +1375,7 @@ export class DrawToolCore extends CommToolsData {
       currentIndex = convertIndex[from][to](cursorNumX);
       oldIndex = currentIndex * ratios.x;
       convertCursorNumY = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumX = cursorNumY;
+      convertCursorNumX = dimensions[2] * ratios.z - cursorNumY;
     } else if (from === "z" && to === "y") {
       currentIndex = convertIndex[from][to](cursorNumY);
       oldIndex = currentIndex * ratios[to];
@@ -1385,7 +1385,7 @@ export class DrawToolCore extends CommToolsData {
       currentIndex = convertIndex[from][to](cursorNumY);
       oldIndex = currentIndex * ratios[to];
       convertCursorNumX = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumY = cursorNumX;
+      convertCursorNumY = dimensions[2] * ratios.z - cursorNumX;
     } else if (from === "x" && to === "z") {
       currentIndex = convertIndex[from][to](cursorNumX);
       oldIndex = currentIndex * ratios[to];
