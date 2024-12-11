@@ -114,7 +114,7 @@ export class DragOperator {
       // before start drag event, remove wheel event.
       this.protectedData.canvases.drawingCanvas.removeEventListener(
         "wheel",
-        this.drawingPrameters.handleZoomWheel
+        this.drawingPrameters.handleMouseZoomSliceWheel
       );
       if (ev.button === 0) {
         this.dragPrameters.y = ev.offsetY / this.dragPrameters.h;
@@ -153,7 +153,7 @@ export class DragOperator {
       // after drag, add the wheel event
       this.protectedData.canvases.drawingCanvas.addEventListener(
         "wheel",
-        this.drawingPrameters.handleZoomWheel
+        this.drawingPrameters.handleMouseZoomSliceWheel
       );
       this.setSyncsliceNum();
       this.container.removeEventListener(
@@ -166,14 +166,18 @@ export class DragOperator {
     this.configDragMode();
 
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
-      if (ev.key === "Shift") {
+      
+      if (this.nrrd_states.configKeyBoard) return;
+
+      if (ev.key === this.nrrd_states.keyboardSettings.draw) {
         this.removeDragMode();
       }
-      
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
 
-      if (ev.key === 'Control' || ev.key === 'Meta') {
+      if (this.nrrd_states.configKeyBoard) return;
+
+      if ( this.nrrd_states.keyboardSettings.contrast.includes(ev.key)) {
         /**
          * if ctrl pressed remove the drag mode
          */
@@ -183,7 +187,7 @@ export class DragOperator {
           this.configDragMode();
         }
       }
-      if (ev.key === "Shift" && !this.gui_states.sphere) {
+      if (ev.key === this.nrrd_states.keyboardSettings.draw && !this.gui_states.sphere) {
         if(this.protectedData.Is_Ctrl_Pressed){
           return
         }

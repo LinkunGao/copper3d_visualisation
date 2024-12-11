@@ -1202,4 +1202,49 @@ export class NrrdTools extends DrawToolCore {
       this.protectedData.ctxes.displayCtx?.restore();
     }
   }
+
+
+  /**
+   * Config mouse slice wheel event.
+   */
+  configMouseSliceWheel(){
+    const handleMouseZoomSliceWheelMove = (e: WheelEvent) => {
+      if (this.protectedData.Is_Shift_Pressed) {
+        return;
+      }
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        this.setSliceMoving(-1);
+      } else if (e.deltaY > 0) {
+        this.setSliceMoving(1);
+      }
+    }
+    return handleMouseZoomSliceWheelMove;
+  }
+
+  /**
+   * Update mouse wheel event.
+   */
+  updateMouseWheelEvent(){
+
+    this.protectedData.canvases.drawingCanvas.removeEventListener(
+      "wheel",
+      this.drawingPrameters.handleMouseZoomSliceWheel
+    );
+    switch (this.nrrd_states.keyboardSettings.mouseWheel) {
+      case "Scroll:Zoom":
+        this.drawingPrameters.handleMouseZoomSliceWheel = this.configMouseZoomWheel();
+        break;
+      case "Scroll:Slice":
+        this.drawingPrameters.handleMouseZoomSliceWheel = this.configMouseSliceWheel();
+        break;
+      default:
+        this.drawingPrameters.handleMouseZoomSliceWheel = this.configMouseZoomWheel();
+        break;
+    }
+    this.protectedData.canvases.drawingCanvas.addEventListener(
+      "wheel",
+      this.drawingPrameters.handleMouseZoomSliceWheel
+    );
+  }
 }

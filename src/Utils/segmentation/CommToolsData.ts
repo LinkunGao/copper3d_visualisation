@@ -65,6 +65,15 @@ export class CommToolsData {
     switchSliceFlag: false,
     labels: ["label1", "label2", "label3"],
 
+    configKeyBoard: false,
+    keyboardSettings:{
+      draw: "Shift",
+      undo: "z",
+      contrast: ["Control", "Meta"],
+      crosshair: "s",
+      mouseWheel: "Scroll:Zoom",
+    },
+
     getMask: (
       mask: ImageData,
       sliceId: number,
