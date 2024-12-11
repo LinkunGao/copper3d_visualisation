@@ -43,7 +43,7 @@ interface IDrawingEvents {
   handleOnDrawingMouseUp: (ev: MouseEvent) => void;
   handleOnDrawingMouseLeave: (ev: MouseEvent) => void;
   handleOnDrawingBrushCricleMove: (ev: MouseEvent) => void;
-  handleZoomWheel: (e: WheelEvent) => void;
+  handleMouseZoomSliceWheel: (e: WheelEvent) => void;
   handleSphereWheel: (e: WheelEvent) => void;
 }
 
@@ -153,6 +153,14 @@ interface IGUIStates {
   // exportMarks: () => void;
 }
 
+interface IKeyBoardSettings {
+  draw: string;
+  undo: string;
+  contrast: string[];
+  crosshair: string;
+  mouseWheel: "Scroll:Zoom" | "Scroll:Slice";
+}
+
 interface INrrdStates {
   originWidth: number;
   originHeight: number;
@@ -202,6 +210,9 @@ interface INrrdStates {
   previousPanelT: number;
   switchSliceFlag: boolean;
   labels: ["label1", "label2", "label3"];
+
+  configKeyBoard: boolean;
+  keyboardSettings: IKeyBoardSettings;
 
   getMask: (
     mask: ImageData,

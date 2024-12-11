@@ -22,7 +22,7 @@ export class DrawToolCore extends CommToolsData {
     handleOnDrawingMouseUp: (ev: MouseEvent) => {},
     handleOnDrawingMouseLeave: (ev: MouseEvent) => {},
     handleOnDrawingBrushCricleMove: (ev: MouseEvent) => {},
-    handleZoomWheel: (e: WheelEvent) => {},
+    handleMouseZoomSliceWheel: (e: WheelEvent) => {},
     handleSphereWheel: (e: WheelEvent) => {},
   };
 
@@ -58,7 +58,10 @@ export class DrawToolCore extends CommToolsData {
   private initDrawToolCore() {
     let undoFlag = false;
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
-      if (ev.key === "Shift" && !this.gui_states.sphere && !this.gui_states.calculator) {
+
+      if (this.nrrd_states.configKeyBoard) return;
+
+      if (ev.key === this.nrrd_states.keyboardSettings.draw && !this.gui_states.sphere && !this.gui_states.calculator) {
         if(this.protectedData.Is_Ctrl_Pressed){
           this.protectedData.Is_Shift_Pressed = false;
           return;
@@ -67,19 +70,21 @@ export class DrawToolCore extends CommToolsData {
         this.nrrd_states.enableCursorChoose = false;
       }
 
-      if (ev.key === "s") {
+      if (ev.key === this.nrrd_states.keyboardSettings.crosshair) {
         this.protectedData.Is_Draw = false;
         this.nrrd_states.enableCursorChoose =
           !this.nrrd_states.enableCursorChoose;
       }
-      if ((ev.ctrlKey || ev.metaKey) && ev.code === "KeyZ") {
+      if ( (ev.ctrlKey || ev.metaKey) && ev.key === this.nrrd_states.keyboardSettings.undo) {
         undoFlag = true;
         this.undoLastPainting();
       }
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
       
-      if (ev.key === 'Control' || ev.key === 'Meta') {
+      if (this.nrrd_states.configKeyBoard) return;
+
+      if (this.nrrd_states.keyboardSettings.contrast.includes(ev.key)) {
         if(undoFlag){
           this.gui_states.readyToUpdate = true;
           undoFlag = false;
@@ -97,7 +102,7 @@ export class DrawToolCore extends CommToolsData {
         }
       }
       
-      if (ev.key === "Shift") {
+      if (ev.key === this.nrrd_states.keyboardSettings.draw) {
         this.protectedData.Is_Shift_Pressed = false;
       }
     });
@@ -153,7 +158,7 @@ export class DrawToolCore extends CommToolsData {
     this.nrrd_states.sphereRadius = 5
     this.protectedData.canvases.drawingCanvas.removeEventListener(
       "wheel",
-      this.drawingPrameters.handleZoomWheel
+      this.drawingPrameters.handleMouseZoomSliceWheel
     );
     let mouseX = x / this.nrrd_states.sizeFoctor;
     let mouseY = y / this.nrrd_states.sizeFoctor;
@@ -218,7 +223,7 @@ export class DrawToolCore extends CommToolsData {
   private zoomActionAfterDrawSphere(){
     this.protectedData.canvases.drawingCanvas.addEventListener(
       "wheel",
-      this.drawingPrameters.handleZoomWheel
+      this.drawingPrameters.handleMouseZoomSliceWheel
     );
   }
 
@@ -275,11 +280,15 @@ export class DrawToolCore extends CommToolsData {
       );
 
     // let a global variable to store the wheel move event
-    this.drawingPrameters.handleZoomWheel = this.configMouseZoomWheel();
+    if (this.nrrd_states.keyboardSettings.mouseWheel==="Scroll:Zoom"){
+      this.drawingPrameters.handleMouseZoomSliceWheel = this.configMouseZoomWheel();
+    }else{
+      this.drawingPrameters.handleMouseZoomSliceWheel = this.configMouseSliceWheel() as any;
+    }
     // init to add it
     this.protectedData.canvases.drawingCanvas.addEventListener(
       "wheel",
-      this.drawingPrameters.handleZoomWheel,
+      this.drawingPrameters.handleMouseZoomSliceWheel,
       {
         passive: false,
       }
@@ -359,7 +368,7 @@ export class DrawToolCore extends CommToolsData {
       // remove it when mouse click down
       this.protectedData.canvases.drawingCanvas.removeEventListener(
         "wheel",
-        this.drawingPrameters.handleZoomWheel
+        this.drawingPrameters.handleMouseZoomSliceWheel
       );
 
       if (e.button === 0) {
@@ -451,7 +460,7 @@ export class DrawToolCore extends CommToolsData {
 
       this.protectedData.canvases.drawingCanvas.removeEventListener(
         "wheel",
-        this.drawingPrameters.handleZoomWheel
+        this.drawingPrameters.handleMouseZoomSliceWheel
       );
       let mouseX = e.offsetX / this.nrrd_states.sizeFoctor;
       let mouseY = e.offsetY / this.nrrd_states.sizeFoctor;
@@ -615,7 +624,7 @@ export class DrawToolCore extends CommToolsData {
           // add wheel after pointer up
           this.protectedData.canvases.drawingCanvas.addEventListener(
             "wheel",
-            this.drawingPrameters.handleZoomWheel,
+            this.drawingPrameters.handleMouseZoomSliceWheel,
             {
               passive: false,
             }
@@ -651,7 +660,7 @@ export class DrawToolCore extends CommToolsData {
 
           this.protectedData.canvases.drawingCanvas.addEventListener(
             "wheel",
-            this.drawingPrameters.handleZoomWheel
+            this.drawingPrameters.handleMouseZoomSliceWheel
           );
           this.protectedData.canvases.drawingCanvas.removeEventListener(
             "pointerup",
@@ -662,7 +671,7 @@ export class DrawToolCore extends CommToolsData {
           this.nrrd_states.enableCursorChoose){
             this.protectedData.canvases.drawingCanvas.addEventListener(
               "wheel",
-              this.drawingPrameters.handleZoomWheel
+              this.drawingPrameters.handleMouseZoomSliceWheel
             );
             this.protectedData.canvases.drawingCanvas.removeEventListener(
               "pointerup",
@@ -960,9 +969,9 @@ export class DrawToolCore extends CommToolsData {
     return clearArc;
   }
   // drawing canvas mouse zoom wheel
-  private configMouseZoomWheel() {
+  configMouseZoomWheel() {
     let moveDistance = 1;
-    const handleZoomWheelMove = (e: WheelEvent) => {
+    const handleMouseZoomSliceWheelMove = (e: WheelEvent) => {
       if (this.protectedData.Is_Shift_Pressed) {
         return;
       }
@@ -1013,7 +1022,17 @@ export class DrawToolCore extends CommToolsData {
       this.setIsDrawFalse(1000);
       this.nrrd_states.sizeFoctor = moveDistance;
     };
-    return handleZoomWheelMove;
+    return handleMouseZoomSliceWheelMove;
+  }
+
+  configMouseSliceWheel() {
+    /**
+     * Interface for slice wheel
+     * Implement in the NrrdTools class
+     *  */ 
+    throw new Error(
+      "Child class must implement abstract redrawDisplayCanvas, currently you can find it in NrrdTools."
+    );
   }
 
   private enableCrosshair() {
