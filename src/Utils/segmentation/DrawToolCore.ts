@@ -170,7 +170,8 @@ export class DrawToolCore extends CommToolsData {
       sliceIndex,
     ];
     this.setUpSphereOrigins(mouseX, mouseY, sliceIndex);
-
+    // Note the sphere origin here is x, y, z
+    // x: pixel x, y: pixel y, z: slice index (mm)
     switch (cal_position) {
       case "tumour":
         this.nrrd_states.tumourSphereOrigin = JSON.parse(JSON.stringify( this.nrrd_states.sphereOrigin));
