@@ -40,14 +40,14 @@ import {
   IOptVTKLoader,
 } from "./types/types";
 
-import { IPaintImage, ICommXYZ } from "./Utils/segmentation/coreTools/coreType";
+import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates} from "./Utils/segmentation/coreTools/coreType";
 
 import "./css/style.css";
 
-export const REVISION = "v2.2.0";
+export const REVISION = "v2.2.1";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v2.2.0",
+  "%cCopper3D Visualisation %cBeta:v2.2.1",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
@@ -90,5 +90,8 @@ export type {
   IPaintImage,
   exportPaintImageType,
   IOptVTKLoader,
-  ICommXYZ
+  ICommXYZ,
+  IGUIStates, 
+  IGuiParameterSettings, 
+  INrrdStates
 };
