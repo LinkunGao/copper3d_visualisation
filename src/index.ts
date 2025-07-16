@@ -44,10 +44,10 @@ import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates} 
 
 import "./css/style.css";
 
-export const REVISION = "v2.2.1";
+export const REVISION = "v2.2.2";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v2.2.1",
+  "%cCopper3D Visualisation %cBeta:v2.2.2",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
