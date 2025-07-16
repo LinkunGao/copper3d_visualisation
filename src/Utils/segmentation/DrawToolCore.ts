@@ -457,7 +457,6 @@ export class DrawToolCore extends CommToolsData {
 
     const sphere = (e:MouseEvent)=>{
       // set sphere size
-      this.nrrd_states.sphereRadius = 10
 
       this.protectedData.canvases.drawingCanvas.removeEventListener(
         "wheel",
@@ -1285,7 +1284,6 @@ export class DrawToolCore extends CommToolsData {
     console.log("Line 1256 mastercanvasesize:", this.protectedData.canvases.drawingCanvasLayerMaster.width, this.protectedData.canvases.drawingCanvasLayerMaster.height);
     console.log("current xy:", mouseX, mouseY);
     console.log("current changed width:", this.nrrd_states.changedWidth, this.nrrd_states.changedHeight);
-    
     
     
     this.protectedData.ctxes.drawingLayerMasterCtx.drawImage(
