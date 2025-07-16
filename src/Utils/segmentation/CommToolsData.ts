@@ -53,7 +53,7 @@ export class CommToolsData {
     nippleColor:"#E91E63",
 
     spherePlanB: true,
-    sphereRadius: 10,
+    sphereRadius: 5,
     Mouse_Over_x: 0,
     Mouse_Over_y: 0,
     Mouse_Over: false,
