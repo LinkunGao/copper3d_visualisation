@@ -970,6 +970,8 @@ export class DrawToolCore extends CommToolsData {
   }
   // drawing canvas mouse zoom wheel
   configMouseZoomWheel() {
+    console.log("daaadaadsa");
+    
     let moveDistance = 1;
     const handleMouseZoomSliceWheelMove = (e: WheelEvent) => {
       if (this.protectedData.Is_Shift_Pressed) {
@@ -1007,18 +1009,19 @@ export class DrawToolCore extends CommToolsData {
       );
 
       moveDistance = w / this.nrrd_states.originWidth;
-
-
+      
       if (moveDistance > 8) {
         moveDistance = 8;
-        this.resetPaintAreaUIPosition();
+        // this.resetPaintAreaUIPosition();
       } else if (moveDistance < 1) {
         moveDistance = 1;
         this.resetPaintAreaUIPosition();
+        this.resizePaintArea(moveDistance);
       } else {
         this.resetPaintAreaUIPosition(l, t);
+        this.resizePaintArea(moveDistance);
       }
-      this.resizePaintArea(moveDistance);
+      
       this.setIsDrawFalse(1000);
       this.nrrd_states.sizeFoctor = moveDistance;
     };

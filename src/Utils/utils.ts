@@ -123,7 +123,9 @@ export function switchPencilIcon(icon: string, urls?: string[]) {
 
 export function switchEraserSize(size: number, urls?: string[]) {
   let url = "";
+
   if (!!urls && urls.length > 0) {
+
     if (size <= 3) {
       url = `url(${urls[0]}) 3 3, crosshair`;
     } else if (3 < size && size <= 8) {
