@@ -970,8 +970,7 @@ export class DrawToolCore extends CommToolsData {
   }
   // drawing canvas mouse zoom wheel
   configMouseZoomWheel() {
-    console.log("daaadaadsa");
-    
+
     let moveDistance = 1;
     const handleMouseZoomSliceWheelMove = (e: WheelEvent) => {
       if (this.protectedData.Is_Shift_Pressed) {
