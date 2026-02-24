@@ -96,6 +96,26 @@ export class copperScene extends baseScene {
       }
     );
   }
+  loadPureGLB(
+    url: string,
+    callback?: (mesh: THREE.Group) => void,
+    opts?: { color: string }
+  ) {
+    const loader = copperGltfLoader(this.renderer);
+    loader.load(
+      url,
+      (glb: GLTF) => {
+        const content = glb.scene
+        this.scene.add(content);
+        !!callback && callback(content);
+      }, // called when loading is in progresses
+      (xhr: any) => {},
+      // called when loading has errors
+      (error: any) => {
+        console.log("An error happened: ", error);
+      }
+    );
+  }
   // loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
   //   objLoader.load(
   //     url,

@@ -160,9 +160,9 @@ interface exportPaintImageType {
 }
 
 interface storeExportPaintImageType {
-  label1: exportPaintImageType[];
-  label2: exportPaintImageType[];
-  label3: exportPaintImageType[];
+  layer1: exportPaintImageType[];
+  layer2: exportPaintImageType[];
+  layer3: exportPaintImageType[];
 }
 
 interface optionsGltfExporterType {

@@ -1,0 +1,181 @@
+/**
+ * CrosshairTool - Crosshair positioning and cursor point conversion
+ *
+ * Extracted from DrawToolCore.ts:
+ * - enableCrosshair
+ * - convertCursorPoint
+ * - setUpSphereOrigins
+ */
+
+import { BaseTool } from "./BaseTool";
+import type { IConvertObjType, ICommXYZ } from "../coreTools/coreType";
+
+export class CrosshairTool extends BaseTool {
+
+  // ===== Crosshair Enable =====
+
+  enableCrosshair(): void {
+    this.ctx.nrrd_states.isCursorSelect = true;
+    switch (this.ctx.protectedData.axis) {
+      case "x":
+        this.ctx.cursorPage.x.updated = true;
+        this.ctx.cursorPage.y.updated = false;
+        this.ctx.cursorPage.z.updated = false;
+        break;
+      case "y":
+        this.ctx.cursorPage.x.updated = false;
+        this.ctx.cursorPage.y.updated = true;
+        this.ctx.cursorPage.z.updated = false;
+        break;
+      case "z":
+        this.ctx.cursorPage.x.updated = false;
+        this.ctx.cursorPage.y.updated = false;
+        this.ctx.cursorPage.z.updated = true;
+        break;
+    }
+  }
+
+  // ===== Cursor Point Conversion =====
+
+  /**
+   * Convert cursor point between axis views.
+   *
+   * MRI slices are generated from threejs based on mm, but displayed based on pixel distance.
+   * The index number on each axis is the slice's depth in mm distance.
+   * Width/height on screen is in pixel distance.
+   *
+   * When switching views, we convert depth to pixel distance and vice versa.
+   *
+   * @param from Current view axis
+   * @param to Target view axis
+   * @param cursorNumX Cursor X on current axis (pixel distance)
+   * @param cursorNumY Cursor Y on current axis (pixel distance)
+   * @param currentSliceIndex Current slice depth (mm distance)
+   */
+  convertCursorPoint(
+    from: "x" | "y" | "z",
+    to: "x" | "y" | "z",
+    cursorNumX: number,
+    cursorNumY: number,
+    currentSliceIndex: number
+  ): IConvertObjType | undefined {
+    const nrrd = this.ctx.nrrd_states;
+    const dimensions = nrrd.dimensions;
+    const ratios = nrrd.ratios;
+    const { nrrd_x_mm, nrrd_y_mm, nrrd_z_mm } = nrrd;
+
+    let currentIndex = 0;
+    let oldIndex = 0;
+    let convertCursorNumX = 0;
+    let convertCursorNumY = 0;
+
+    const convertIndex: Record<string, Record<string, (val: number) => number>> = {
+      x: {
+        y: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
+        z: (val: number) => Math.ceil((val / nrrd_z_mm) * dimensions[2]),
+      },
+      y: {
+        x: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
+        z: (val: number) => Math.ceil((1 - val / nrrd_z_mm) * dimensions[2]),
+      },
+      z: {
+        x: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
+        y: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
+      },
+    };
+
+    const convertCursor: Record<string, Record<string, (sliceIndex: number) => number>> = {
+      x: {
+        y: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[0]) * nrrd_x_mm),
+        z: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[0]) * nrrd_x_mm),
+      },
+      y: {
+        x: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[1]) * nrrd_y_mm),
+        z: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[1]) * nrrd_y_mm),
+      },
+      z: {
+        x: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[2]) * nrrd_z_mm),
+        y: (sliceIndex: number) => Math.ceil((1 - sliceIndex / dimensions[2]) * nrrd_z_mm),
+      },
+    };
+
+    if (from === to) {
+      return;
+    }
+
+    if (from === "z" && to === "x") {
+      currentIndex = convertIndex[from][to](cursorNumX);
+      oldIndex = currentIndex * ratios[to];
+      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumY = cursorNumY;
+    } else if (from === "y" && to === "x") {
+      currentIndex = convertIndex[from][to](cursorNumX);
+      oldIndex = currentIndex * ratios.x;
+      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumX = dimensions[2] * ratios.z - cursorNumY;
+    } else if (from === "z" && to === "y") {
+      currentIndex = convertIndex[from][to](cursorNumY);
+      oldIndex = currentIndex * ratios[to];
+      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumX = cursorNumX;
+    } else if (from === "x" && to === "y") {
+      currentIndex = convertIndex[from][to](cursorNumY);
+      oldIndex = currentIndex * ratios[to];
+      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumY = dimensions[2] * ratios.z - cursorNumX;
+    } else if (from === "x" && to === "z") {
+      currentIndex = convertIndex[from][to](cursorNumX);
+      oldIndex = currentIndex * ratios[to];
+      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumY = cursorNumY;
+    } else if (from === "y" && to === "z") {
+      currentIndex = convertIndex[from][to](cursorNumY);
+      oldIndex = currentIndex * ratios.z;
+      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumX = cursorNumX;
+    } else {
+      return;
+    }
+
+    return { currentIndex, oldIndex, convertCursorNumX, convertCursorNumY };
+  }
+
+  // ===== Sphere Origins Setup =====
+
+  setUpSphereOrigins(mouseX: number, mouseY: number, sliceIndex: number): void {
+    const convertCursor = (from: "x" | "y" | "z", to: "x" | "y" | "z") => {
+      const convertObj = this.convertCursorPoint(
+        from,
+        to,
+        mouseX,
+        mouseY,
+        sliceIndex
+      ) as IConvertObjType;
+
+      return {
+        convertCursorNumX: convertObj?.convertCursorNumX,
+        convertCursorNumY: convertObj?.convertCursorNumY,
+        currentIndex: convertObj?.currentIndex,
+      };
+    };
+
+    const axisConversions: Record<string, { axisTo1: "x" | "y" | "z"; axisTo2: "x" | "y" | "z" }> = {
+      x: { axisTo1: "y", axisTo2: "z" },
+      y: { axisTo1: "z", axisTo2: "x" },
+      z: { axisTo1: "x", axisTo2: "y" },
+    };
+
+    const { axisTo1, axisTo2 } = axisConversions[this.ctx.protectedData.axis];
+
+    this.ctx.nrrd_states.sphereOrigin[axisTo1] = [
+      convertCursor(this.ctx.protectedData.axis, axisTo1).convertCursorNumX,
+      convertCursor(this.ctx.protectedData.axis, axisTo1).convertCursorNumY,
+      convertCursor(this.ctx.protectedData.axis, axisTo1).currentIndex,
+    ];
+    this.ctx.nrrd_states.sphereOrigin[axisTo2] = [
+      convertCursor(this.ctx.protectedData.axis, axisTo2).convertCursorNumX,
+      convertCursor(this.ctx.protectedData.axis, axisTo2).convertCursorNumY,
+      convertCursor(this.ctx.protectedData.axis, axisTo2).currentIndex,
+    ];
+  }
+}

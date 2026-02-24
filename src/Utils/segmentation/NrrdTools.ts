@@ -11,37 +11,45 @@ import { autoFocusDiv } from "./coreTools/divControlTools";
 import {
   IPaintImage,
   IPaintImages,
-  IStoredPaintImages,
   ISkipSlicesDictType,
   IMaskData,
   IDragOpts,
-  IGuiParameterSettings
+  IGuiParameterSettings,
+  IKeyBoardSettings
 } from "./coreTools/coreType";
 import { DragOperator } from "./DragOperator";
 import { DrawToolCore } from "./DrawToolCore";
+import { MaskVolume, CHANNEL_HEX_COLORS, rgbaToHex, rgbaToCss } from "./core";
+import type { ChannelValue, RGBAColor, ChannelColorMap } from "./core";
 
+/**
+ * Core NRRD annotation tool for medical image segmentation.
+ *
+ * @example
+ * ```ts
+ * // Default 3 layers: layer1, layer2, layer3
+ * const tools = new NrrdTools(container);
+ *
+ * // Custom layers
+ * const tools = new NrrdTools(container, { layers: ["layer1", "layer2"] });
+ * ```
+ */
 export class NrrdTools extends DrawToolCore {
   container: HTMLDivElement;
 
   // A base conatainer to append displayCanvas and drawingCanvas
   dragOperator: DragOperator;
-  storedPaintImages: IStoredPaintImages | undefined;
-
   private paintedImage: IPaintImage | undefined;
 
   private initState: boolean = true;
   private preTimer: any;
-  private guiParameterSettings: IGuiParameterSettings|undefined;
+  private guiParameterSettings: IGuiParameterSettings | undefined;
+  private _sliceRAFId: number | null = null;
+  private _pendingSliceStep: number = 0;
 
-  constructor(container: HTMLDivElement) {
-    super(container);
+  constructor(container: HTMLDivElement, options?: { layers?: string[] }) {
+    super(container, options);
     this.container = container;
-
-    this.storedPaintImages = {
-      label1: this.protectedData.maskData.paintImagesLabel1,
-      label2: this.protectedData.maskData.paintImagesLabel2,
-      label3: this.protectedData.maskData.paintImagesLabel3,
-    };
 
     this.protectedData.previousDrawingImage =
       this.protectedData.ctxes.emptyCtx.createImageData(1, 1);
@@ -52,12 +60,18 @@ export class NrrdTools extends DrawToolCore {
       this.gui_states,
       this.protectedData,
       this.drawingPrameters,
-      this.setSyncsliceNum,
-      this.setIsDrawFalse,
-      this.flipDisplayImageByAxis,
-      this.setEmptyCanvasSize,
-      this.filterDrawedImage
+      this.setSyncsliceNum.bind(this),
+      this.setIsDrawFalse.bind(this),
+      this.flipDisplayImageByAxis.bind(this),
+      this.setEmptyCanvasSize.bind(this),
+      this.getOrCreateSliceBuffer.bind(this),
+      this.renderSliceToCanvas.bind(this),
     );
+
+    // Inject EventRouter into DragOperator for centralized event handling
+    if (this.eventRouter) {
+      this.dragOperator.setEventRouter(this.eventRouter);
+    }
   }
 
   /**
@@ -67,14 +81,6 @@ export class NrrdTools extends DrawToolCore {
   drag(opts?: IDragOpts) {
     this.dragOperator.drag(opts);
   }
-  // draw(opts?: IDrawOpts) {
-  //   this.drawOperator.draw(opts);
-  // }
-  // start() {
-  //   console.log(this.drawOperator.start);
-
-  //   return this.drawOperator.start;
-  // }
 
   /**
    * Set the Draw Display Canvas base size
@@ -98,7 +104,7 @@ export class NrrdTools extends DrawToolCore {
    * Enable the drag function for contrast images window center and window high.
    * @param callback 
    */
-  enableContrastDragEvents(callback:(step:number, towards:"horizental"|"vertical")=>void){
+  enableContrastDragEvents(callback: (step: number, towards: "horizental" | "vertical") => void) {
     this.setupConrastEvents(callback)
   }
 
@@ -132,42 +138,438 @@ export class NrrdTools extends DrawToolCore {
       setSyncsliceNum: this.setSyncsliceNum,
       resetLayerCanvas: this.resetLayerCanvas,
       redrawDisplayCanvas: this.redrawDisplayCanvas,
-      reloadMaskToLabel: this.reloadMaskToLabel,
       flipDisplayImageByAxis: this.flipDisplayImageByAxis,
       filterDrawedImage: this.filterDrawedImage,
       setEmptyCanvasSize: this.setEmptyCanvasSize,
-      storeAllImages:this.storeAllImages,
-      drawImageOnEmptyImage:this.drawImageOnEmptyImage,
-      checkSharedPlaceSlice:this.checkSharedPlaceSlice,
-      replaceArray:this.replaceArray,
-      findSliceInSharedPlace:this.findSliceInSharedPlace,
-      sliceArrayH:this.sliceArrayH,
-      sliceArrayV:this.sliceArrayV,
-      storeImageToAxis:this.storeImageToAxis,
-      replaceVerticalColPixels:this.replaceVerticalColPixels,
-      replaceHorizontalRowPixels:this.replaceHorizontalRowPixels,
-      storeEachLayerImage:this.storeEachLayerImage,
-      storeImageToLabel:this.storeImageToLabel,
-      getRestLabel:this.getRestLabel,
-      setIsDrawFalse:this.setIsDrawFalse,
-      initPaintImages:this.initPaintImages,
-      createEmptyPaintImage:this.createEmptyPaintImage,
+      storeAllImages: this.storeAllImages,
+      drawImageOnEmptyImage: this.drawImageOnEmptyImage,
+      storeEachLayerImage: this.storeEachLayerImage,
+      storeImageToLayer: this.storeImageToLayer,
+      getRestLayer: this.getRestLayer,
+      setIsDrawFalse: this.setIsDrawFalse,
+      getVolumeForLayer: this.getVolumeForLayer.bind(this),
     };
     this.guiParameterSettings = setupGui(guiOptions);
   }
 
   getGuiSettings() {
-    if(!!this.guiParameterSettings){
+    if (!!this.guiParameterSettings) {
       // update image volume
       this.guiParameterSettings.windowHigh.value = this.guiParameterSettings.windowLow.value = this.protectedData.mainPreSlices.volume;
       this.guiParameterSettings.windowHigh.max = this.guiParameterSettings.windowLow.max = this.protectedData.mainPreSlices.volume.max;
       this.guiParameterSettings.windowHigh.min = this.guiParameterSettings.windowLow.min = this.protectedData.mainPreSlices.volume.min;
     }
-   
+
     return {
       guiState: this.gui_states,
       guiSetting: this.guiParameterSettings,
     };
+  }
+
+  // ── Layer & Channel Management API ─────────────────────────────────────
+
+  /**
+   * Set the active layer and update fillColor/brushColor to match the active channel.
+   */
+  setActiveLayer(layerId: string): void {
+    this.gui_states.layer = layerId;
+    this.syncBrushColor();
+  }
+
+  /**
+   * Set the active channel (1-8) and update fillColor/brushColor.
+   */
+  setActiveChannel(channel: ChannelValue): void {
+    this.gui_states.activeChannel = channel;
+    this.syncBrushColor();
+  }
+
+  /**
+   * Sync brush/fill color from the active layer's volume color map.
+   * Falls back to global CHANNEL_HEX_COLORS if volume not available.
+   */
+  private syncBrushColor(): void {
+    const channel = this.gui_states.activeChannel || 1;
+    const layer = this.gui_states.layer;
+    const volume = this.protectedData.maskData.volumes[layer];
+    if (volume) {
+      const hex = rgbaToHex(volume.getChannelColor(channel));
+      this.gui_states.fillColor = hex;
+      this.gui_states.brushColor = hex;
+    } else {
+      const hex = CHANNEL_HEX_COLORS[channel] || '#00ff00';
+      this.gui_states.fillColor = hex;
+      this.gui_states.brushColor = hex;
+    }
+  }
+
+  /**
+   * Get the currently active layer id.
+   */
+  getActiveLayer(): string {
+    return this.gui_states.layer;
+  }
+
+  /**
+   * Get the currently active channel value.
+   */
+  getActiveChannel(): number {
+    return this.gui_states.activeChannel;
+  }
+
+  /**
+   * Set visibility of a layer and re-render.
+   */
+  setLayerVisible(layerId: string, visible: boolean): void {
+    this.gui_states.layerVisibility[layerId] = visible;
+    this.reloadMasksFromVolume();
+  }
+
+  /**
+   * Check if a layer is visible.
+   */
+  isLayerVisible(layerId: string): boolean {
+    return this.gui_states.layerVisibility[layerId] ?? true;
+  }
+
+  /**
+   * Set visibility of a specific channel within a layer and re-render.
+   */
+  setChannelVisible(layerId: string, channel: ChannelValue, visible: boolean): void {
+    if (this.gui_states.channelVisibility[layerId]) {
+      this.gui_states.channelVisibility[layerId][channel] = visible;
+    }
+    this.reloadMasksFromVolume();
+  }
+
+  /**
+   * Check if a specific channel within a layer is visible.
+   */
+  isChannelVisible(layerId: string, channel: ChannelValue): boolean {
+    return this.gui_states.channelVisibility[layerId]?.[channel] ?? true;
+  }
+
+  /**
+   * Get the full layer visibility map.
+   */
+  getLayerVisibility(): Record<string, boolean> {
+    return { ...this.gui_states.layerVisibility };
+  }
+
+  /**
+   * Get the full channel visibility map.
+   */
+  getChannelVisibility(): Record<string, Record<number, boolean>> {
+    const result: Record<string, Record<number, boolean>> = {};
+    for (const layerId of this.nrrd_states.layers) {
+      result[layerId] = { ...this.gui_states.channelVisibility[layerId] };
+    }
+    return result;
+  }
+
+  /**
+   * Check if a specific layer contains any non-zero mask data.
+   *
+   * This is useful for determining if a layer has actual annotations
+   * before saving or exporting to avoid processing empty layers.
+   *
+   * @param layerId - The layer to check ('layer1', 'layer2', or 'layer3')
+   * @returns True if the layer has any non-zero voxel data, false if empty
+   *
+   * @example
+   * ```ts
+   * if (nrrdTools.hasLayerData('layer1')) {
+   *   await useSaveMasks(caseId, 'layer1');
+   * }
+   * ```
+   */
+  hasLayerData(layerId: string): boolean {
+    const volume = this.protectedData.maskData.volumes[layerId];
+    if (!volume) {
+      return false;
+    }
+    return volume.hasData();
+  }
+
+  // ── Custom Channel Color API ────────────────────────────────────────────
+
+  /**
+   * Set a custom color for a specific channel in a specific layer.
+   * Only affects this layer; other layers remain unchanged.
+   *
+   * @param layerId  Layer to customize (e.g. 'layer1', 'layer2')
+   * @param channel  Channel label (1-8)
+   * @param color    RGBAColor object { r, g, b, a } (each 0-255)
+   *
+   * @example
+   * ```ts
+   * // Make channel 2 in layer2 orange
+   * nrrdTools.setChannelColor('layer2', 2, { r: 255, g: 128, b: 0, a: 255 });
+   * ```
+   */
+  setChannelColor(layerId: string, channel: number, color: RGBAColor): void {
+    const volume = this.protectedData.maskData.volumes[layerId];
+    if (!volume) {
+      console.warn(`setChannelColor: unknown layer "${layerId}"`);
+      return;
+    }
+    volume.setChannelColor(channel, color);
+    if (layerId === this.gui_states.layer && channel === this.gui_states.activeChannel) {
+      this.syncBrushColor();
+    }
+    this.reloadMasksFromVolume();
+    this.nrrd_states.onChannelColorChanged(layerId, channel, color);
+  }
+
+  /**
+   * Get the current color for a specific channel in a specific layer.
+   *
+   * @param layerId  Layer to query
+   * @param channel  Channel label (1-8)
+   * @returns RGBAColor object (copy, safe to mutate)
+   */
+  getChannelColor(layerId: string, channel: number): RGBAColor {
+    const volume = this.protectedData.maskData.volumes[layerId];
+    if (!volume) {
+      return { r: 0, g: 255, b: 0, a: 255 };
+    }
+    return volume.getChannelColor(channel);
+  }
+
+  /**
+   * Get a hex color string for a channel in a layer (e.g. '#ff8000').
+   */
+  getChannelHexColor(layerId: string, channel: number): string {
+    return rgbaToHex(this.getChannelColor(layerId, channel));
+  }
+
+  /**
+   * Get a CSS rgba() color string for a channel in a layer.
+   */
+  getChannelCssColor(layerId: string, channel: number): string {
+    return rgbaToCss(this.getChannelColor(layerId, channel));
+  }
+
+  /**
+   * Batch-set multiple channel colors for a single layer (single re-render).
+   *
+   * @param layerId  Layer to customize
+   * @param colorMap Partial map of channel -> RGBAColor
+   *
+   * @example
+   * ```ts
+   * nrrdTools.setChannelColors('layer2', {
+   *   2: { r: 255, g: 128, b: 0, a: 255 },
+   *   3: { r: 100, g: 200, b: 50, a: 255 },
+   * });
+   * ```
+   */
+  setChannelColors(layerId: string, colorMap: Partial<ChannelColorMap>): void {
+    const volume = this.protectedData.maskData.volumes[layerId];
+    if (!volume) {
+      console.warn(`setChannelColors: unknown layer "${layerId}"`);
+      return;
+    }
+    for (const [ch, color] of Object.entries(colorMap)) {
+      volume.setChannelColor(Number(ch), color as RGBAColor);
+    }
+    if (layerId === this.gui_states.layer) {
+      this.syncBrushColor();
+    }
+    this.reloadMasksFromVolume();
+  }
+
+  /**
+   * Set the same color for a specific channel across ALL layers (single re-render).
+   *
+   * @param channel  Channel label (1-8)
+   * @param color    RGBAColor object
+   */
+  setAllLayersChannelColor(channel: number, color: RGBAColor): void {
+    for (const layerId of this.nrrd_states.layers) {
+      const volume = this.protectedData.maskData.volumes[layerId];
+      if (volume) {
+        volume.setChannelColor(channel, color);
+      }
+    }
+    if (channel === this.gui_states.activeChannel) {
+      this.syncBrushColor();
+    }
+    this.reloadMasksFromVolume();
+  }
+
+  /**
+   * Reset channel colors to system defaults.
+   *
+   * @param layerId  Optional. If omitted, resets all layers.
+   * @param channel  Optional. If omitted, resets all channels in the layer(s).
+   *
+   * @example
+   * ```ts
+   * nrrdTools.resetChannelColors('layer2', 2);  // Reset only ch2 in layer2
+   * nrrdTools.resetChannelColors('layer2');       // Reset all channels in layer2
+   * nrrdTools.resetChannelColors();               // Reset all layers
+   * ```
+   */
+  resetChannelColors(layerId?: string, channel?: number): void {
+    const layers = layerId ? [layerId] : this.nrrd_states.layers;
+    for (const lid of layers) {
+      const volume = this.protectedData.maskData.volumes[lid];
+      if (volume) {
+        volume.resetChannelColors(channel);
+      }
+    }
+    this.syncBrushColor();
+    this.reloadMasksFromVolume();
+  }
+
+  // ── Keyboard & History API ──────────────────────────────────────────────
+
+  /**
+   * Programmatically trigger an undo operation.
+   *
+   * Equivalent to pressing Ctrl+Z. Reverts the most recent drawing stroke
+   * on the currently active layer and syncs the result to the backend via
+   * the `getMask` callback.
+   *
+   * @example
+   * ```ts
+   * undoBtn.addEventListener('click', () => nrrdTools.undo());
+   * ```
+   */
+  undo(): void {
+    this.undoLastPainting();
+  }
+
+  /**
+   * Programmatically trigger a redo operation.
+   *
+   * Equivalent to pressing Ctrl+Y. Re-applies the most recently undone
+   * drawing stroke on the currently active layer and syncs the result to
+   * the backend via the `getMask` callback.
+   *
+   * @example
+   * ```ts
+   * redoBtn.addEventListener('click', () => nrrdTools.redo());
+   * ```
+   */
+  redo(): void {
+    this.redoLastPainting();
+  }
+
+  /**
+   * Enter keyboard-configuration mode.
+   *
+   * While active, every keydown/keyup handler in DrawToolCore and DragOperator
+   * is suppressed so the user can press arbitrary keys in the settings dialog
+   * without accidentally triggering drawing, undo, or contrast shortcuts.
+   *
+   * Always pair with {@link exitKeyboardConfig} when the dialog closes.
+   *
+   * @example
+   * ```ts
+   * dialog.addEventListener('open', () => nrrdTools.enterKeyboardConfig());
+   * ```
+   */
+  enterKeyboardConfig(): void {
+    this._configKeyBoard = true;
+  }
+
+  /**
+   * Exit keyboard-configuration mode and resume normal shortcut handling.
+   *
+   * @example
+   * ```ts
+   * dialog.addEventListener('close', () => nrrdTools.exitKeyboardConfig());
+   * ```
+   */
+  exitKeyboardConfig(): void {
+    this._configKeyBoard = false;
+  }
+
+  /**
+   * Enable or disable the contrast window/level shortcut (Ctrl/Meta key).
+   *
+   * When disabled:
+   * - Holding Ctrl no longer enters contrast mode
+   * - If contrast mode is currently active it is immediately exited
+   * - All other Ctrl-based shortcuts (Ctrl+Z undo, Ctrl+Y redo) are
+   *   unaffected because they are checked in the keydown handler before
+   *   the contrast guard runs
+   *
+   * @param enabled - Pass `false` to disable, `true` to re-enable.
+   *
+   * @example
+   * ```ts
+   * // Disable contrast when sphere tool is active
+   * nrrdTools.setContrastShortcutEnabled(false);
+   *
+   * // Re-enable when returning to draw mode
+   * nrrdTools.setContrastShortcutEnabled(true);
+   * ```
+   */
+  setContrastShortcutEnabled(enabled: boolean): void {
+    this.eventRouter?.setContrastEnabled(enabled);
+  }
+
+  /**
+   * Returns whether the contrast shortcut is currently enabled.
+   */
+  isContrastShortcutEnabled(): boolean {
+    return this.eventRouter?.isContrastEnabled() ?? true;
+  }
+
+  /**
+   * Update keyboard shortcut bindings.
+   *
+   * Synchronises both the internal class field (read by every keydown handler)
+   * and the EventRouter's internal copy (used for modifier-key mode tracking)
+   * so the two never drift apart.  If `mouseWheel` is changed the wheel event
+   * listener is automatically re-bound via {@link updateMouseWheelEvent}.
+   *
+   * Only the fields you supply are updated; omitted fields keep their
+   * current values.
+   *
+   * @param settings - Partial keyboard settings to override.
+   *
+   * @example
+   * ```ts
+   * nrrdTools.setKeyboardSettings({
+   *   undo: 'z',
+   *   redo: 'y',
+   *   crosshair: 'c',
+   *   mouseWheel: 'Scroll:Slice',
+   * });
+   * ```
+   */
+  setKeyboardSettings(settings: Partial<IKeyBoardSettings>): void {
+    const mouseWheelChanged = settings.mouseWheel !== undefined
+      && settings.mouseWheel !== this._keyboardSettings.mouseWheel;
+
+    Object.assign(this._keyboardSettings, settings);
+    this.eventRouter?.setKeyboardSettings(settings);
+
+    if (mouseWheelChanged) {
+      this.updateMouseWheelEvent();
+    }
+  }
+
+  /**
+   * Get a snapshot of the current keyboard shortcut bindings.
+   *
+   * Returns a shallow copy so callers cannot accidentally mutate internal
+   * state. To update settings use {@link setKeyboardSettings} instead.
+   *
+   * @returns Current keyboard settings.
+   *
+   * @example
+   * ```ts
+   * const { undo, redo } = nrrdTools.getKeyboardSettings();
+   * console.log(`Undo: Ctrl+${undo}, Redo: Ctrl+${redo}`);
+   * ```
+   */
+  getKeyboardSettings(): IKeyBoardSettings {
+    return { ...this._keyboardSettings };
   }
 
   /**
@@ -212,6 +614,20 @@ export class NrrdTools extends DrawToolCore {
     this.nrrd_states.ratios.z = randomSlice.x.volume.spacing[2];
     this.nrrd_states.dimensions = randomSlice.x.volume.dimensions;
 
+    // Phase 2 Day 9: Re-initialize MaskVolume with real NRRD dimensions.
+    // This replaces the 1×1×1 placeholders from CommToolsData constructor
+    // and "turns on" all Day 7/8 volume read/write paths.
+    // Invalidate reusable buffer from previous dataset
+    this.invalidateSliceBuffer();
+    const [vw, vh, vd] = this.nrrd_states.dimensions;
+    this.protectedData.maskData.volumes = this.nrrd_states.layers.reduce(
+      (acc, id) => {
+        acc[id] = new MaskVolume(vw, vh, vd, 1);
+        return acc;
+      },
+      {} as Record<string, MaskVolume>
+    );
+
     this.nrrd_states.spaceOrigin = (
       randomSlice.x.volume.header.space_origin as number[]
     ).map((item) => {
@@ -224,28 +640,15 @@ export class NrrdTools extends DrawToolCore {
       item.z.contrastOrder = index;
     });
 
-    this.nrrd_states.sharedPlace.x = this.getSharedPlace(
-      this.nrrd_states.dimensions[0],
-      this.nrrd_states.ratios.x
-    );
-    this.nrrd_states.sharedPlace.y = this.getSharedPlace(
-      this.nrrd_states.dimensions[1],
-      this.nrrd_states.ratios.y
-    );
-    this.nrrd_states.sharedPlace.z = this.getSharedPlace(
-      this.nrrd_states.dimensions[2],
-      this.nrrd_states.ratios.z
-    );
-
-    // init paintImages array
-    this.initPaintImages(this.nrrd_states.dimensions);
+    // Phase 3: initPaintImages removed (MaskVolume initialized separately)
+    // this.initPaintImages(this.nrrd_states.dimensions);
 
     // init displayslices array, the axis default is "z"
     this.setDisplaySlicesBaseOnAxis();
     this.afterLoadSlice();
   }
 
-  private loadingMaskByLabel(
+  private loadingMaskByLayer(
     masks: exportPaintImageType[],
     index: number,
     imageData: ImageData
@@ -262,6 +665,7 @@ export class NrrdTools extends DrawToolCore {
     return imageDataLable;
   }
 
+  // need to remove
   setMasksData(
     masksData: storeExportPaintImageType,
     loadingBar?: loadingBarType
@@ -276,42 +680,42 @@ export class NrrdTools extends DrawToolCore {
 
       this.setEmptyCanvasSize();
 
-      const len = masksData["label1"].length;
+      const len = masksData["layer1"].length;
       for (let i = 0; i < len; i++) {
         let imageData = this.protectedData.ctxes.emptyCtx.createImageData(
           this.nrrd_states.nrrd_x_pixel,
           this.nrrd_states.nrrd_y_pixel
         );
-        let imageDataLabel1, imageDataLabel2, imageDataLabel3;
-        if (masksData["label1"][i].data.length > 0) {
+        let imageDataLayer1, imageDataLayer2, imageDataLayer3;
+        if (masksData["layer1"][i].data.length > 0) {
           this.setEmptyCanvasSize();
-          imageDataLabel1 = this.loadingMaskByLabel(
-            masksData["label1"],
+          imageDataLayer1 = this.loadingMaskByLayer(
+            masksData["layer1"],
             i,
             imageData
           );
-          this.protectedData.ctxes.emptyCtx.putImageData(imageDataLabel1, 0, 0);
-          this.storeEachLayerImage(i, "label1");
+          this.protectedData.ctxes.emptyCtx.putImageData(imageDataLayer1, 0, 0);
+          this.storeEachLayerImage(i, "layer1");
         }
-        if (masksData["label2"][i].data.length > 0) {
+        if (masksData["layer2"][i].data.length > 0) {
           this.setEmptyCanvasSize();
-          imageDataLabel2 = this.loadingMaskByLabel(
-            masksData["label2"],
+          imageDataLayer2 = this.loadingMaskByLayer(
+            masksData["layer2"],
             i,
             imageData
           );
-          this.protectedData.ctxes.emptyCtx.putImageData(imageDataLabel2, 0, 0);
-          this.storeEachLayerImage(i, "label2");
+          this.protectedData.ctxes.emptyCtx.putImageData(imageDataLayer2, 0, 0);
+          this.storeEachLayerImage(i, "layer2");
         }
-        if (masksData["label3"][i].data.length > 0) {
+        if (masksData["layer3"][i].data.length > 0) {
           this.setEmptyCanvasSize();
-          imageDataLabel3 = this.loadingMaskByLabel(
-            masksData["label3"],
+          imageDataLayer3 = this.loadingMaskByLayer(
+            masksData["layer3"],
             i,
             imageData
           );
-          this.protectedData.ctxes.emptyCtx.putImageData(imageDataLabel3, 0, 0);
-          this.storeEachLayerImage(i, "label3");
+          this.protectedData.ctxes.emptyCtx.putImageData(imageDataLayer3, 0, 0);
+          this.storeEachLayerImage(i, "layer3");
         }
         this.setEmptyCanvasSize();
         this.protectedData.ctxes.emptyCtx.putImageData(imageData, 0, 0);
@@ -320,6 +724,58 @@ export class NrrdTools extends DrawToolCore {
 
       this.nrrd_states.loadMaskJson = false;
       this.gui_states.resetZoom();
+      if (loadingBar) {
+        loadingBar.loadingContainer.style.display = "none";
+      }
+    }
+  }
+
+  /**
+   * Load raw voxel data into MaskVolume layers.
+   *
+   * Expects pre-extracted voxel bytes (e.g. from useNiftiVoxelData).
+   *
+   * @param layerVoxels Map of layer ID to raw voxel Uint8Array
+   *   Keys should be 'layer1', 'layer2', 'layer3'
+   * @param loadingBar Optional loading bar UI
+   */
+  setMasksFromNIfTI(
+    layerVoxels: Map<string, Uint8Array>,
+    loadingBar?: loadingBarType
+  ) {
+    if (!layerVoxels || layerVoxels.size === 0) return;
+
+    if (loadingBar) {
+      loadingBar.loadingContainer.style.display = "flex";
+      loadingBar.progress.innerText = "Loading mask layers from NIfTI...";
+    }
+
+    try {
+      for (const [layerId, rawData] of layerVoxels) {
+        const volume = this.protectedData.maskData.volumes[layerId];
+        if (!volume) {
+          console.warn(`setMasksFromNIfTI: unknown layer "${layerId}", skipping`);
+          continue;
+        }
+        const expectedLen = volume.getRawData().length;
+
+        // Ensure we copy exactly the right number of bytes
+        if (rawData.length >= expectedLen) {
+          volume.setRawData(rawData.slice(0, expectedLen));
+        } else {
+          const padded = new Uint8Array(expectedLen);
+          padded.set(rawData);
+          volume.setRawData(padded);
+        }
+      }
+
+      // Reload the current slice from MaskVolume to canvas
+      this.reloadMasksFromVolume();
+      this.gui_states.resetZoom();
+
+    } catch (error) {
+      console.error("Error loading NIfTI masks:", error);
+    } finally {
       if (loadingBar) {
         loadingBar.loadingContainer.style.display = "none";
       }
@@ -345,104 +801,19 @@ export class NrrdTools extends DrawToolCore {
   }
 
   // set calculate distance sphere position
-  setCalculateDistanceSphere(x:number, y:number, sliceIndex:number, cal_position:"tumour"|"skin"|"nipple"|"ribcage"){
+  setCalculateDistanceSphere(x: number, y: number, sliceIndex: number, cal_position: "tumour" | "skin" | "nipple" | "ribcage") {
     this.nrrd_states.sphereRadius = 5;
-    
+
     // move to tumour slice
     const steps = sliceIndex - this.nrrd_states.currentIndex;
     this.setSliceMoving(steps * this.protectedData.displaySlices.length)
 
     // mock mouse down
     // if user zoom the panel, we need to consider the size factor 
-    this.drawCalSphereDown(x*this.nrrd_states.sizeFoctor, y*this.nrrd_states.sizeFoctor, sliceIndex, cal_position);
+    this.drawCalSphereDown(x * this.nrrd_states.sizeFoctor, y * this.nrrd_states.sizeFoctor, sliceIndex, cal_position);
     // mock mouse up
     this.drawCalSphereUp()
 
-  }
-
-  private getSharedPlace(len: number, ratio: number): number[] {
-    let old = -1;
-    let same: number[] = [];
-    let temp = new Set<number>();
-    for (let i = 0; i < len; i++) {
-      const index = Math.floor(i * ratio);
-      if (index === old) {
-        temp.add(i - 1);
-        temp.add(i);
-      } else {
-        old = index;
-      }
-    }
-
-    temp.forEach((value) => {
-      same.push(value);
-    });
-    return same;
-  }
-
-  /**
-   * init all painted images for store images
-   * @param dimensions
-   */
-
-  private initPaintImages(dimensions: Array<number>) {
-    this.createEmptyPaintImage(
-      dimensions,
-      this.protectedData.maskData.paintImages
-    );
-    this.createEmptyPaintImage(
-      dimensions,
-      this.protectedData.maskData.paintImagesLabel1
-    );
-    this.createEmptyPaintImage(
-      dimensions,
-      this.protectedData.maskData.paintImagesLabel2
-    );
-    this.createEmptyPaintImage(
-      dimensions,
-      this.protectedData.maskData.paintImagesLabel3
-    );
-  }
-
-  createEmptyPaintImage(
-    dimensions: Array<number>,
-    paintImages: IPaintImages
-  ) {
-    for (let i = 0; i < dimensions[0]; i++) {
-      const markImage_x = this.protectedData.ctxes.emptyCtx.createImageData(
-        this.nrrd_states.nrrd_z_pixel,
-        this.nrrd_states.nrrd_y_pixel
-      );
-      const initMark_x: IPaintImage = {
-        index: i,
-        image: markImage_x,
-      };
-      paintImages.x.push(initMark_x);
-    }
-    // for y slices' marks
-    for (let i = 0; i < dimensions[1]; i++) {
-      const markImage_y = this.protectedData.ctxes.emptyCtx.createImageData(
-        this.nrrd_states.nrrd_x_pixel,
-        this.nrrd_states.nrrd_z_pixel
-      );
-      const initMark_y: IPaintImage = {
-        index: i,
-        image: markImage_y,
-      };
-      paintImages.y.push(initMark_y);
-    }
-    // for z slices' marks
-    for (let i = 0; i < dimensions[2]; i++) {
-      const markImage_z = this.protectedData.ctxes.emptyCtx.createImageData(
-        this.nrrd_states.nrrd_x_pixel,
-        this.nrrd_states.nrrd_y_pixel
-      );
-      const initMark_z: IPaintImage = {
-        index: i,
-        image: markImage_z,
-      };
-      paintImages.z.push(initMark_z);
-    }
   }
 
   /**
@@ -451,7 +822,6 @@ export class NrrdTools extends DrawToolCore {
    *  */
   setSliceOrientation(axisTo: "x" | "y" | "z") {
     let convetObj;
-    
     if (this.nrrd_states.enableCursorChoose || this.gui_states.sphere) {
       if (this.protectedData.axis === "z") {
         this.cursorPage.z.index = this.nrrd_states.currentIndex;
@@ -498,7 +868,7 @@ export class NrrdTools extends DrawToolCore {
         }
       } else if (axisTo === "x") {
         if (this.nrrd_states.isCursorSelect && !this.cursorPage.x.updated) {
-          
+
           if (this.protectedData.axis === "z") {
             // convert z to x
             convetObj = this.convertCursorPoint(
@@ -509,7 +879,7 @@ export class NrrdTools extends DrawToolCore {
               this.cursorPage.z.index
             );
           }
-          
+
           if (this.protectedData.axis === "y") {
             // convert y to x
             convetObj = this.convertCursorPoint(
@@ -566,7 +936,7 @@ export class NrrdTools extends DrawToolCore {
         this.nrrd_states.oldIndex = convetObj.oldIndex;
         this.nrrd_states.cursorPageX = convetObj.convertCursorNumX;
         this.nrrd_states.cursorPageY = convetObj.convertCursorNumY;
-        
+
         convetObj = undefined;
         switch (axisTo) {
           case "x":
@@ -625,19 +995,20 @@ export class NrrdTools extends DrawToolCore {
     // To effectively reduce the js memory garbage
     this.protectedData.allSlicesArray.length = 0;
     this.protectedData.displaySlices.length = 0;
-    this.undoArray.length = 0;
-    this.protectedData.maskData.paintImages.x.length = 0;
-    this.protectedData.maskData.paintImages.y.length = 0;
-    this.protectedData.maskData.paintImages.z.length = 0;
-    this.protectedData.maskData.paintImagesLabel1.x.length = 0;
-    this.protectedData.maskData.paintImagesLabel1.y.length = 0;
-    this.protectedData.maskData.paintImagesLabel1.z.length = 0;
-    this.protectedData.maskData.paintImagesLabel2.x.length = 0;
-    this.protectedData.maskData.paintImagesLabel2.y.length = 0;
-    this.protectedData.maskData.paintImagesLabel2.z.length = 0;
-    this.protectedData.maskData.paintImagesLabel3.x.length = 0;
-    this.protectedData.maskData.paintImagesLabel3.y.length = 0;
-    this.protectedData.maskData.paintImagesLabel3.z.length = 0;
+    // Phase 6: Clear all undo/redo stacks
+    this.undoManager.clearAll();
+
+    // Phase 3: Reset MaskVolume storage to 1×1×1 placeholders
+    this.protectedData.maskData.volumes = this.nrrd_states.layers.reduce(
+      (acc, id) => {
+        acc[id] = new MaskVolume(1, 1, 1, 1);
+        return acc;
+      },
+      {} as Record<string, MaskVolume>
+    );
+
+    // Invalidate reusable slice buffer
+    this.invalidateSliceBuffer();
 
     this.clearDictionary(this.protectedData.skipSlicesDic);
 
@@ -670,10 +1041,22 @@ export class NrrdTools extends DrawToolCore {
 
   setSliceMoving(step: number) {
     if (this.protectedData.mainPreSlices) {
-      this.protectedData.Is_Draw = true;
-      this.setSyncsliceNum();
-      this.dragOperator.updateIndex(step);
-      this.setIsDrawFalse(1000);
+      // Accumulate steps so no keydown events are lost
+      this._pendingSliceStep += step;
+
+      // RAF throttle: render at most once per frame, but apply ALL accumulated steps
+      if (this._sliceRAFId !== null) return;
+
+      this._sliceRAFId = requestAnimationFrame(() => {
+        this._sliceRAFId = null;
+        const totalStep = this._pendingSliceStep;
+        this._pendingSliceStep = 0;
+
+        this.protectedData.Is_Draw = true;
+        this.setSyncsliceNum();
+        this.dragOperator.updateIndex(totalStep);
+        this.setIsDrawFalse(1000);
+      });
     }
   }
 
@@ -797,14 +1180,16 @@ export class NrrdTools extends DrawToolCore {
     this.updateMaxIndex();
     // reset origin canvas and the nrrd_states origin Width/height
     // reset the current index
+    // (also calls resizePaintArea → reloads masks, resizes canvases)
     this.setOriginCanvasAndPre();
     // update the show number div on top area
     this.dragOperator.updateShowNumDiv(this.nrrd_states.contrastNum);
     // repaint all contrast images
     this.repraintCurrentContrastSlice();
-    // resize the draw/drawOutLayer/display canvas size
-    this.resizePaintArea(this.nrrd_states.sizeFoctor);
-    this.resetPaintAreaUIPosition();
+    // Refresh display after contrast repaint (no need for full resizePaintArea
+    // since canvases were already resized in setOriginCanvasAndPre above)
+    this.redrawDisplayCanvas();
+    this.compositeAllLayers();
   }
 
   private setMainPreSlice() {
@@ -845,12 +1230,8 @@ export class NrrdTools extends DrawToolCore {
     this.nrrd_states.oldIndex =
       this.protectedData.mainPreSlices.initIndex * this.nrrd_states.RSARatio;
     this.nrrd_states.currentIndex = this.protectedData.mainPreSlices.initIndex;
-    this.undoArray = [
-      {
-        sliceIndex: this.nrrd_states.currentIndex,
-        layers: { label1: [], label2: [], label3: [] },
-      },
-    ];
+    // Phase 6: Reset undo/redo stacks on new dataset load
+    this.undoManager.clearAll();
 
     // compute max index
     this.updateMaxIndex();
@@ -874,13 +1255,9 @@ export class NrrdTools extends DrawToolCore {
     this.nrrd_states.originHeight =
       this.protectedData.canvases.originCanvas.height;
 
-    // In html the width and height is pixels,
-    // So the value must be int
-    // Therefore, we must use Math.floor rather than using Math.ceil
-    this.nrrd_states.changedWidth =
-      Math.floor(this.nrrd_states.originWidth * Number(this.nrrd_states.sizeFoctor));
-    this.nrrd_states.changedHeight =
-      Math.floor(this.nrrd_states.originWidth * Number(this.nrrd_states.sizeFoctor));
+    // Let resizePaintArea be the sole setter of changedWidth/changedHeight.
+    // Setting them here would defeat the sizeChanged detection in resizePaintArea,
+    // causing canvas elements to keep stale dimensions after axis switches.
     this.resizePaintArea(this.nrrd_states.sizeFoctor);
     this.resetPaintAreaUIPosition();
   }
@@ -902,19 +1279,23 @@ export class NrrdTools extends DrawToolCore {
   }
 
   clearStoreImages() {
-    this.protectedData.maskData.paintImages.x.length = 0;
-    this.protectedData.maskData.paintImages.y.length = 0;
-    this.protectedData.maskData.paintImages.z.length = 0;
-    this.protectedData.maskData.paintImagesLabel1.x.length = 0;
-    this.protectedData.maskData.paintImagesLabel1.y.length = 0;
-    this.protectedData.maskData.paintImagesLabel1.z.length = 0;
-    this.protectedData.maskData.paintImagesLabel2.x.length = 0;
-    this.protectedData.maskData.paintImagesLabel2.y.length = 0;
-    this.protectedData.maskData.paintImagesLabel2.z.length = 0;
-    this.protectedData.maskData.paintImagesLabel3.x.length = 0;
-    this.protectedData.maskData.paintImagesLabel3.y.length = 0;
-    this.protectedData.maskData.paintImagesLabel3.z.length = 0;
-    this.initPaintImages(this.nrrd_states.dimensions);
+    // Phase 3 Task 3.1: Only clear the active layer's MaskVolume
+    if (this.nrrd_states.dimensions.length === 3) {
+      const [w, h, d] = this.nrrd_states.dimensions;
+      const activeLayer = this.gui_states.layer;
+
+      // Re-init only the active layer's MaskVolume
+      this.protectedData.maskData.volumes[activeLayer] = new MaskVolume(w, h, d, 1);
+
+      // Phase 6 Task 6.6: Clear undo/redo stack for this layer (volume too large to snapshot)
+      this.undoManager.clearLayer(activeLayer);
+
+      // Phase 3 Task 3.2: Notify external that this layer's volume was cleared
+      this.nrrd_states.onClearLayerVolume(activeLayer);
+    }
+
+    // Invalidate reusable slice buffer
+    this.invalidateSliceBuffer();
   }
 
   /**
@@ -946,12 +1327,9 @@ export class NrrdTools extends DrawToolCore {
   resetLayerCanvas() {
     this.protectedData.canvases.drawingCanvasLayerMaster.width =
       this.protectedData.canvases.drawingCanvasLayerMaster.width;
-    this.protectedData.canvases.drawingCanvasLayerOne.width =
-      this.protectedData.canvases.drawingCanvasLayerOne.width;
-    this.protectedData.canvases.drawingCanvasLayerTwo.width =
-      this.protectedData.canvases.drawingCanvasLayerTwo.width;
-    this.protectedData.canvases.drawingCanvasLayerThree.width =
-      this.protectedData.canvases.drawingCanvasLayerThree.width;
+    for (const [, target] of this.protectedData.layerTargets) {
+      target.canvas.width = target.canvas.width;
+    }
   }
 
   redrawMianPreOnDisplayCanvas() {
@@ -983,129 +1361,91 @@ export class NrrdTools extends DrawToolCore {
    * @param factor number
    */
   resizePaintArea(factor: number) {
-    /**
-     * clear canvas
-     */
+    const newWidth = Math.floor(this.nrrd_states.originWidth * factor);
+    const newHeight = Math.floor(this.nrrd_states.originHeight * factor);
+    const sizeChanged = newWidth !== this.nrrd_states.changedWidth ||
+      newHeight !== this.nrrd_states.changedHeight;
 
+    // Always clear display/drawing/origin canvases (needed for contrast updates)
     this.protectedData.canvases.originCanvas.width =
       this.protectedData.canvases.originCanvas.width;
     this.protectedData.canvases.displayCanvas.width =
       this.protectedData.canvases.displayCanvas.width;
     this.protectedData.canvases.drawingCanvas.width =
       this.protectedData.canvases.drawingCanvas.width;
-    this.resetLayerCanvas();
 
-    this.nrrd_states.changedWidth = Math.floor(this.nrrd_states.originWidth * factor);
-    this.nrrd_states.changedHeight = Math.floor(this.nrrd_states.originHeight * factor);
+    if (sizeChanged) {
+      // Only clear and resize layer canvases when size actually changes.
+      // Skipping this avoids the expensive reloadMasksFromVolume() call
+      // during contrast toggle (where size stays the same).
+      this.resetLayerCanvas();
 
-    /**
-     * resize canvas
-     */
-    this.protectedData.canvases.displayCanvas.width =
-      this.nrrd_states.changedWidth;
-    this.protectedData.canvases.displayCanvas.height =
-      this.nrrd_states.changedHeight;
-    this.protectedData.canvases.drawingCanvas.width =
-      this.nrrd_states.changedWidth;
-    this.protectedData.canvases.drawingCanvas.height =
-      this.nrrd_states.changedHeight;
-    this.protectedData.canvases.drawingCanvasLayerMaster.width =
-      this.nrrd_states.changedWidth;
-    this.protectedData.canvases.drawingCanvasLayerMaster.height =
-      this.nrrd_states.changedHeight;
-    this.protectedData.canvases.drawingCanvasLayerOne.width =
-      this.nrrd_states.changedWidth;
-    this.protectedData.canvases.drawingCanvasLayerOne.height =
-      this.nrrd_states.changedHeight;
-    this.protectedData.canvases.drawingCanvasLayerTwo.width =
-      this.nrrd_states.changedWidth;
-    this.protectedData.canvases.drawingCanvasLayerTwo.height =
-      this.nrrd_states.changedHeight;
-    this.protectedData.canvases.drawingCanvasLayerThree.width =
-      this.nrrd_states.changedWidth;
-    this.protectedData.canvases.drawingCanvasLayerThree.height =
-      this.nrrd_states.changedHeight;
+      this.nrrd_states.changedWidth = newWidth;
+      this.nrrd_states.changedHeight = newHeight;
+
+      this.protectedData.canvases.displayCanvas.width = newWidth;
+      this.protectedData.canvases.displayCanvas.height = newHeight;
+      this.protectedData.canvases.drawingCanvas.width = newWidth;
+      this.protectedData.canvases.drawingCanvas.height = newHeight;
+      this.protectedData.canvases.drawingCanvasLayerMaster.width = newWidth;
+      this.protectedData.canvases.drawingCanvasLayerMaster.height = newHeight;
+      for (const [, target] of this.protectedData.layerTargets) {
+        target.canvas.width = newWidth;
+        target.canvas.height = newHeight;
+      }
+    }
 
     this.redrawDisplayCanvas();
-    this.reloadMaskToLabel(
-      this.protectedData.maskData.paintImages,
-      this.protectedData.ctxes.drawingLayerMasterCtx
-    );
-    this.reloadMaskToLabel(
-      this.protectedData.maskData.paintImagesLabel1,
-      this.protectedData.ctxes.drawingLayerOneCtx
-    );
-    this.reloadMaskToLabel(
-      this.protectedData.maskData.paintImagesLabel2,
-      this.protectedData.ctxes.drawingLayerTwoCtx
-    );
-    // need to check here again: why use ctx two not three. now modify to three
-    // this.reloadMaskToLabel(this.protectedData.maskData.paintImagesLabel3, this.protectedData.ctxes.drawingLayerTwoCtx);
-    this.reloadMaskToLabel(
-      this.protectedData.maskData.paintImagesLabel3,
-      this.protectedData.ctxes.drawingLayerThreeCtx
-    );
+
+    if (sizeChanged) {
+      // Phase 3: Reload masks from MaskVolume only when canvas size changed
+      this.reloadMasksFromVolume();
+    } else {
+      // Size unchanged (e.g. contrast toggle): layer canvases still have
+      // valid data, just recomposite to master for the start() render loop.
+      this.compositeAllLayers();
+    }
   }
 
   /**
-   * Used to init the mask on each label and reload
-   * @param paintImages
-   * @param ctx
+   * Phase 3: Reload all mask layers from MaskVolume using buffer reuse
+   * Replaces the old reloadMaskToLayer approach
    */
-  private reloadMaskToLabel(
-    paintImages: IPaintImages,
-    ctx: CanvasRenderingContext2D
-  ) {
-    let paintedImage;
-    switch (this.protectedData.axis) {
-      case "x":
-        if (paintImages.x.length > 0) {
-          paintedImage = this.filterDrawedImage(
-            "x",
-            this.nrrd_states.currentIndex,
-            paintImages
-          );
-        } else {
-          paintedImage = undefined;
-        }
-        break;
-      case "y":
-        if (paintImages.y.length > 0) {
-          paintedImage = this.filterDrawedImage(
-            "y",
-            this.nrrd_states.currentIndex,
-            paintImages
-          );
-        } else {
-          paintedImage = undefined;
-        }
+  private reloadMasksFromVolume(): void {
+    const axis = this.protectedData.axis;
+    let sliceIndex = this.nrrd_states.currentIndex;
 
-        break;
-      case "z":
-        if (paintImages.z.length > 0) {
-          paintedImage = this.filterDrawedImage(
-            "z",
-            this.nrrd_states.currentIndex,
-            paintImages
-          );
-        } else {
-          paintedImage = undefined;
-        }
-        break;
+    // Clamp sliceIndex to valid range for current axis
+    // (currentIndex may not be updated yet when switching axes)
+    try {
+      const vol = this.getVolumeForLayer(this.nrrd_states.layers[0]);
+      const dims = vol.getDimensions();
+      const maxSlice = axis === "x" ? dims.width : axis === "y" ? dims.height : dims.depth;
+      if (sliceIndex >= maxSlice) sliceIndex = maxSlice - 1;
+      if (sliceIndex < 0) sliceIndex = 0;
+    } catch { /* volume not ready */ }
+
+    // Get a single reusable buffer shared across all layer renders
+    const buffer = this.getOrCreateSliceBuffer(axis);
+    if (!buffer) return;
+
+    const w = this.nrrd_states.changedWidth;
+    const h = this.nrrd_states.changedHeight;
+
+    // Clear and render each layer using the shared buffer
+    for (const layerId of this.nrrd_states.layers) {
+      const target = this.protectedData.layerTargets.get(layerId);
+      if (!target) continue;
+      target.ctx.clearRect(0, 0, w, h);
+      this.renderSliceToCanvas(layerId, axis, sliceIndex, buffer, target.ctx, w, h);
     }
-    if (paintedImage?.image) {
-      // redraw the stored data to empty point 1
-      this.setEmptyCanvasSize();
-      this.protectedData.ctxes.emptyCtx.putImageData(paintedImage.image, 0, 0);
-      ctx?.drawImage(
-        this.protectedData.canvases.emptyCanvas,
-        0,
-        0,
-        this.nrrd_states.changedWidth,
-        this.nrrd_states.changedHeight
-      );
-    }
+
+    // Composite all layers to master canvas
+    this.compositeAllLayers();
   }
+
+
+  // compositeAllLayers() is inherited from CommToolsData
 
   /**
    * flip the canvas to a correct position.
@@ -1127,7 +1467,7 @@ export class NrrdTools extends DrawToolCore {
         0,
         -this.nrrd_states.changedHeight
       );
-    }else if (this.protectedData.axis === "y") {
+    } else if (this.protectedData.axis === "y") {
       this.protectedData.ctxes.displayCtx?.scale(1, -1);
       this.protectedData.ctxes.displayCtx?.translate(
         0,
@@ -1207,7 +1547,7 @@ export class NrrdTools extends DrawToolCore {
   /**
    * Config mouse slice wheel event.
    */
-  configMouseSliceWheel(){
+  configMouseSliceWheel() {
     const handleMouseZoomSliceWheelMove = (e: WheelEvent) => {
       if (this.protectedData.Is_Shift_Pressed) {
         return;
@@ -1225,13 +1565,13 @@ export class NrrdTools extends DrawToolCore {
   /**
    * Update mouse wheel event.
    */
-  updateMouseWheelEvent(){
+  updateMouseWheelEvent() {
 
     this.protectedData.canvases.drawingCanvas.removeEventListener(
       "wheel",
       this.drawingPrameters.handleMouseZoomSliceWheel
     );
-    switch (this.nrrd_states.keyboardSettings.mouseWheel) {
+    switch (this._keyboardSettings.mouseWheel) {
       case "Scroll:Zoom":
         this.drawingPrameters.handleMouseZoomSliceWheel = this.configMouseZoomWheel();
         break;
