@@ -48,8 +48,8 @@ interface IDrawingEvents {
 }
 
 interface IContrastEvents {
-  move_x:number;
-  move_y:number;
+  move_x: number;
+  move_y: number;
   x: number;
   y: number;
   w: number;
@@ -57,7 +57,7 @@ interface IContrastEvents {
   handleOnContrastMouseDown: (ev: MouseEvent) => void;
   handleOnContrastMouseMove: (ev: MouseEvent) => void;
   handleOnContrastMouseUp: (ev: MouseEvent) => void;
-  handleOnContrastMouseLeave:(ev: MouseEvent) => void;
+  handleOnContrastMouseLeave: (ev: MouseEvent) => void;
 }
 
 // drawing on canvas
@@ -71,17 +71,38 @@ interface IPaintImage {
   index: number;
   image: ImageData;
 }
-interface IStoredPaintImages {
-  label1: IPaintImages;
-  label2: IPaintImages;
-  label3: IPaintImages;
+// ── New Volumetric Storage (Phase 2) ──────────────────────────────────────
+
+/**
+ * Import MaskVolume from core module
+ * (imported where needed, not here to avoid circular deps)
+ */
+type MaskVolume = any; // Placeholder — use real import in CommToolsData
+
+/**
+ * New mask data structure using MaskVolume for true 3D storage.
+ * Dynamic N-layer support: keyed by layer id (e.g. 'layer1', 'layer2', ...).
+ */
+type INewMaskData = Record<string, MaskVolume>;
+
+/**
+ * A paired canvas + 2D context for a single annotation layer.
+ * Stored atomically in IProtected.layerTargets to prevent canvas/ctx desync.
+ */
+interface ILayerRenderTarget {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
 }
+
+/**
+ * Mask data storage using volumetric MaskVolume (Phase 3)
+ *
+ * Phase 2 legacy ImageData storage has been removed.
+ * All mask data now stored in 3D volumes for memory efficiency.
+ */
 type IMaskData = {
-  paintImagesLabel1: IPaintImages;
-  paintImagesLabel2: IPaintImages;
-  paintImagesLabel3: IPaintImages;
-  // used to store display marks data with multiple labels
-  paintImages: IPaintImages;
+  // Volumetric storage (only storage mechanism)
+  volumes: INewMaskData;
 };
 
 interface IProtected {
@@ -94,21 +115,20 @@ interface IProtected {
   currentShowingSlice: any;
   mainPreSlices: any;
   Is_Shift_Pressed: boolean;
-  Is_Ctrl_Pressed:boolean;
+  Is_Ctrl_Pressed: boolean;
   Is_Draw: boolean;
   axis: "x" | "y" | "z";
   maskData: IMaskData;
   previousDrawingImage?: ImageData;
 
+  /** Dynamic per-layer canvas+ctx pairs. Replaces hardcoded LayerOne/Two/Three fields. */
+  layerTargets: Map<string, ILayerRenderTarget>;
   canvases: {
     originCanvas: HTMLCanvasElement | any;
     drawingCanvas: HTMLCanvasElement;
     displayCanvas: HTMLCanvasElement;
     drawingCanvasLayerMaster: HTMLCanvasElement;
-    drawingCanvasLayerOne: HTMLCanvasElement;
-    drawingCanvasLayerTwo: HTMLCanvasElement;
     drawingSphereCanvas: HTMLCanvasElement;
-    drawingCanvasLayerThree: HTMLCanvasElement;
     emptyCanvas: HTMLCanvasElement;
   };
   ctxes: {
@@ -117,9 +137,6 @@ interface IProtected {
     emptyCtx: CanvasRenderingContext2D;
     drawingSphereCtx: CanvasRenderingContext2D;
     drawingLayerMasterCtx: CanvasRenderingContext2D;
-    drawingLayerOneCtx: CanvasRenderingContext2D;
-    drawingLayerTwoCtx: CanvasRenderingContext2D;
-    drawingLayerThreeCtx: CanvasRenderingContext2D;
   };
 }
 
@@ -130,15 +147,15 @@ interface IGUIStates {
   globalAlpha: number;
   lineWidth: number;
   color: string;
-  segmentation: true;
+  pencil: boolean;
   fillColor: string;
   brushColor: string;
   brushAndEraserSize: number;
   cursor: string;
-  label: string;
-  cal_distance:"tumour" | "skin" | "nipple" | "ribcage";
+  layer: string;
+  cal_distance: "tumour" | "skin" | "nipple" | "ribcage";
   sphere: boolean;
-  calculator:boolean;
+  calculator: boolean;
   // subView: boolean;
   // subViewScale: number;
   readyToUpdate: boolean;
@@ -147,15 +164,24 @@ interface IGUIStates {
   clear: () => void;
   clearAll: () => void;
   undo: () => void;
+  redo: () => void;
   downloadCurrentMask: () => void;
   resetZoom: () => void;
   // resetView: () => void;
   // exportMarks: () => void;
+
+  /** Currently active channel (1-8). Channel 0 is transparent/erased. */
+  activeChannel: number;
+  /** Layer visibility state: { layer1: true, layer2: true, layer3: true } */
+  layerVisibility: Record<string, boolean>;
+  /** Per-layer channel visibility: { layer1: { 1: true, ..., 8: true }, ... } */
+  channelVisibility: Record<string, Record<number, boolean>>;
 }
 
 interface IKeyBoardSettings {
   draw: string;
   undo: string;
+  redo: string;
   contrast: string[];
   crosshair: string;
   mouseWheel: "Scroll:Zoom" | "Scroll:Slice";
@@ -182,7 +208,6 @@ interface INrrdStates {
   dimensions: number[];
   loadMaskJson: boolean;
   ratios: ICommXYZ;
-  sharedPlace: ICommXYZ;
   contrastNum: number;
   showContrast: boolean;
   enableCursorChoose: boolean;
@@ -194,10 +219,10 @@ interface INrrdStates {
   skinSphereOrigin: ICommXYZ | null,
   ribSphereOrigin: ICommXYZ | null,
   nippleSphereOrigin: ICommXYZ | null,
-  tumourColor:"#00ff00",
-  skinColor:"#FFEB3B",
-  ribcageColor:"#2196F3",
-  nippleColor:"#E91E63",
+  tumourColor: "#00ff00",
+  skinColor: "#FFEB3B",
+  ribcageColor: "#2196F3",
+  nippleColor: "#E91E63",
   spherePlanB: boolean;
   sphereRadius: number;
   Mouse_Over_x: number;
@@ -209,21 +234,22 @@ interface INrrdStates {
   previousPanelL: number;
   previousPanelT: number;
   switchSliceFlag: boolean;
-  labels: ["label1", "label2", "label3"];
-
-  configKeyBoard: boolean;
-  keyboardSettings: IKeyBoardSettings;
+  layers: string[];
 
   getMask: (
-    mask: ImageData,
-    sliceId: number,
-    label: string,
+    sliceData: Uint8Array,
+    layerId: string,
+    channelId: number,
+    sliceIndex: number,
+    axis: "x" | "y" | "z",
     width: number,
     height: number,
-    clearAllFlag: boolean
+    clearFlag: boolean
   ) => void;
+  onClearLayerVolume: (layerId: string) => void;
+  onChannelColorChanged: (layerId: string, channel: number, color: { r: number; g: number; b: number; a: number }) => void;
   getSphere: (sphereOrigin: number[], sphereRadius: number) => void;
-  getCalculateSpherePositions:(tumourSphereOrigin:ICommXYZ|null, skinSphereOrigin:ICommXYZ|null, ribSphereOrigin:ICommXYZ|null, nippleSphereOrigin:ICommXYZ|null, aixs:"x"|"y"|"z")=>void,
+  getCalculateSpherePositions: (tumourSphereOrigin: ICommXYZ | null, skinSphereOrigin: ICommXYZ | null, ribSphereOrigin: ICommXYZ | null, nippleSphereOrigin: ICommXYZ | null, aixs: "x" | "y" | "z") => void,
   drawStartPos: ICommXY;
 }
 
@@ -234,27 +260,19 @@ interface IDragOpts {
 
 interface IDrawOpts {
   getMaskData?: (
-    mask: ImageData,
-    sliceId: number,
-    label: string,
+    sliceData: Uint8Array,
+    layerId: string,
+    channelId: number,
+    sliceIndex: number,
+    axis: "x" | "y" | "z",
     width: number,
     height: number,
-    clearAllFlag?: boolean
+    clearFlag?: boolean
   ) => void;
+  onClearLayerVolume?: (layerId: string) => void;
   getSphereData?: (sphereOrigin: number[], sphereRadius: number) => void;
-  getCalculateSpherePositionsData?:(tumourSphereOrigin:ICommXYZ|null, skinSphereOrigin:ICommXYZ|null, ribSphereOrigin:ICommXYZ|null, nippleSphereOrigin:ICommXYZ|null, aixs:"x"|"y"|"z")=>void;
+  getCalculateSpherePositionsData?: (tumourSphereOrigin: ICommXYZ | null, skinSphereOrigin: ICommXYZ | null, ribSphereOrigin: ICommXYZ | null, nippleSphereOrigin: ICommXYZ | null, aixs: "x" | "y" | "z") => void;
 }
-type UndoLayerType = {
-  label1: Array<HTMLImageElement>;
-  label2: Array<HTMLImageElement>;
-  label3: Array<HTMLImageElement>;
-};
-
-interface IUndoType {
-  sliceIndex: number;
-  layers: UndoLayerType;
-}
-
 interface ICursorPage {
   x: {
     cursorPageX: number;
@@ -279,36 +297,36 @@ interface ICursorPage {
 interface IGuiParameterSettings {
   globalAlpha: {
     name: "Opacity",
-    min:  number,
+    min: number,
     max: number,
     step: number,
   },
-  segmentation: {
+  pencil: {
     name: "Pencil",
-    onChange: ()=>void,
+    onChange: () => void,
   },
   sphere: {
     name: "Sphere",
-    onChange:  ()=>void,
+    onChange: () => void,
   },
   brushAndEraserSize: {
     name: "BrushAndEraserSize",
     min: number,
     max: number,
     step: number,
-    onChange:  ()=>void,
+    onChange: () => void,
   },
   Eraser: {
     name: "Eraser",
-    onChange:  ()=>void,
+    onChange: () => void,
   },
-  calculator:{
-    name:"Calculator",
-    onChange: ()=>void,
+  calculator: {
+    name: "Calculator",
+    onChange: () => void,
   },
-  cal_distance:{
-    name:"CalculatorDistance",
-    onChange: (val:"tumour"|"skin"|"ribcage"|"nipple")=>void
+  cal_distance: {
+    name: "CalculatorDistance",
+    onChange: (val: "tumour" | "skin" | "ribcage" | "nipple") => void
   }
   clear: {
     name: "Clear",
@@ -319,6 +337,9 @@ interface IGuiParameterSettings {
   undo: {
     name: "Undo",
   },
+  redo: {
+    name: "Redo",
+  },
   resetZoom: {
     name: "ResetZoom",
   },
@@ -328,8 +349,8 @@ interface IGuiParameterSettings {
     min: number,
     max: number,
     step: number,
-    onChange:  (value: number)=>void,
-    onFinished:  ()=>void,
+    onChange: (value: number) => void,
+    onFinished: () => void,
   },
   windowLow: {
     name: "WindowLow",
@@ -337,13 +358,13 @@ interface IGuiParameterSettings {
     min: number,
     max: number,
     step: number,
-    onChange:  (value: number)=>void,
-    onFinished:  ()=>void,
+    onChange: (value: number) => void,
+    onFinished: () => void,
   },
   advance: {
-    label: {
-      name: "Label",
-      value: ["label1", "label2", "label3"],
+    layer: {
+      name: "Layer",
+      value: string[],
     },
     cursor: {
       name: "CursorIcon",
@@ -399,10 +420,11 @@ export {
   INrrdStates,
   IPaintImage,
   IPaintImages,
-  IStoredPaintImages,
   ISkipSlicesDictType,
   IMaskData,
-  IUndoType,
+  INewMaskData,
+  ILayerRenderTarget,
   ICursorPage,
-  IGuiParameterSettings
+  IGuiParameterSettings,
+  IKeyBoardSettings
 };

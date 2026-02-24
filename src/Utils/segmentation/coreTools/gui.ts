@@ -10,6 +10,7 @@ import {
   IGuiParameterSettings
 } from "./coreType";
 import { DragOperator } from "../DragOperator";
+import { CHANNEL_HEX_COLORS, rgbaToHex } from "../core";
 
 interface IConfigGUI {
   modeFolder: GUI;
@@ -21,6 +22,7 @@ interface IConfigGUI {
   protectedData: IProtected;
   eraserUrls: string[];
   pencilUrls: string[];
+  getVolumeForLayer: (layer: string) => any;
   mainPreSlices: any;
   removeDragMode: () => void;
   configDragMode: () => void;
@@ -34,65 +36,25 @@ interface IConfigGUI {
   setSyncsliceNum: () => void;
   resetLayerCanvas: () => void;
   redrawDisplayCanvas: () => void;
-  reloadMaskToLabel: (
-    paintImages: IPaintImages,
-    ctx: CanvasRenderingContext2D
-  ) => void;
   flipDisplayImageByAxis: () => void;
   filterDrawedImage: (
     axis: "x" | "y" | "z",
-    sliceIndex: number,
-    paintedImages: IPaintImages
-  ) => IPaintImage;
+    sliceIndex: number
+  ) => IPaintImage | undefined;
   setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
-  storeAllImages:(index: number, label: string)=>void;
-  drawImageOnEmptyImage:(canvas: HTMLCanvasElement)=>void;
-  checkSharedPlaceSlice:(
-    width: number,
-    height: number,
-    imageData: ImageData
-  )=>Uint8ClampedArray;
-  replaceArray:(mainArr: number[] | Uint8ClampedArray,
-    replaceArr: number[] | Uint8ClampedArray)=>void;
-  findSliceInSharedPlace:()=>ImageData[];
-  sliceArrayH:(arr: Uint8ClampedArray, row: number, col: number)=>Uint8ClampedArray[];
-  sliceArrayV:(arr: Uint8ClampedArray, row: number, col: number)=>number[][];
-  storeImageToAxis:(
-    index: number,
-    paintedImages: IPaintImages,
-    imageData: ImageData,
-    axis?: "x" | "y" | "z"
-  )=>void;
-  replaceVerticalColPixels:(paintImageArray: IPaintImage[],
-    length: number,
-    ratio: number,
-    markedArr: number[][] | Uint8ClampedArray[],
-    targetWidth: number,
-    convertIndex: number)=>void;
-  replaceHorizontalRowPixels:(
-    paintImageArray: IPaintImage[],
-    length: number,
-    ratio: number,
-    markedArr: number[][] | Uint8ClampedArray[],
-    targetWidth: number,
-    convertIndex: number
-  )=>void;
-  storeEachLayerImage:(index: number, label: string)=>void;
-  storeImageToLabel:(
+  storeAllImages: (index: number, layer: string) => void;
+  drawImageOnEmptyImage: (canvas: HTMLCanvasElement) => void;
+  storeEachLayerImage: (index: number, layer: string) => void;
+  storeImageToLayer: (
     index: number,
     canvas: HTMLCanvasElement,
     paintedImages: IPaintImages
-  )=>ImageData;
-  getRestLabel:()=>("label1" | "label2" | "label3")[];
-  setIsDrawFalse:(target: number)=>void;
-  initPaintImages:(dimensions: Array<number>)=>void;
-  createEmptyPaintImage:(
-    dimensions: Array<number>,
-    paintImages: IPaintImages
-  )=>void;
+  ) => ImageData;
+  getRestLayer: () => string[];
+  setIsDrawFalse: (target: number) => void;
 }
 
-function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
+function setupGui(configs: IConfigGUI): IGuiParameterSettings {
   if (configs.modeFolder.__controllers.length > 0)
     removeGuiFolderChilden(configs.modeFolder);
 
@@ -105,7 +67,7 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     .max(1)
     .step(0.01);
   actionsFolder
-    .add(configs.gui_states, "segmentation")
+    .add(configs.gui_states, "pencil")
     .name("Pencil")
     .onChange(() => {
       updatePencilState();
@@ -116,7 +78,7 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     .onChange(() => {
       updateGuiSphereState();
     });
-    actionsFolder
+  actionsFolder
     .add(configs.gui_states, "calculator")
     .name("Calculator")
     .onChange(() => {
@@ -138,6 +100,7 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
   actionsFolder.add(configs.gui_states, "clear").name("Clear");
   actionsFolder.add(configs.gui_states, "clearAll").name("ClearAll");
   actionsFolder.add(configs.gui_states, "undo").name("Undo");
+  actionsFolder.add(configs.gui_states, "redo").name("Redo");
   actionsFolder.add(configs.gui_states, "resetZoom").name("ResetZoom");
 
   actionsFolder
@@ -160,25 +123,23 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
 
   advanceFolder
     .add(configs.gui_states, "cal_distance", ["tumour", "skin", "ribcage", "nipple"])
-    .name("Label")
+    .name("Layer")
     .onChange((val) => {
       updateCalDistance(val)
     });
 
   advanceFolder
-    .add(configs.gui_states, "label", ["label1", "label2", "label3"])
-    .name("Label")
-    .onChange((val) => {
-      if (val === "label1") {
-        configs.gui_states.fillColor = "#00ff00";
-        configs.gui_states.brushColor = "#00ff00";
-      } else if (val === "label2") {
-        configs.gui_states.fillColor = "#ff0000";
-        configs.gui_states.brushColor = "#ff0000";
-      } else if (val === "label3") {
-        configs.gui_states.fillColor = "#0000ff";
-        configs.gui_states.brushColor = "#0000ff";
-      }
+    .add(configs.gui_states, "layer", ["layer1", "layer2", "layer3"])
+    .name("Layer")
+    .onChange((_val) => {
+      // Get color from the active layer's volume (respects custom per-layer colors)
+      const channel = configs.gui_states.activeChannel || 1;
+      const volume = configs.getVolumeForLayer(configs.gui_states.layer);
+      const hexColor = volume
+        ? rgbaToHex(volume.getChannelColor(channel))
+        : (CHANNEL_HEX_COLORS[channel] || '#00ff00');
+      configs.gui_states.fillColor = hexColor;
+      configs.gui_states.brushColor = hexColor;
     });
 
   advanceFolder
@@ -200,9 +161,6 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     .max(8)
     .onFinishChange((factor) => {
       configs.setMainAreaSize(factor);
-      // configs.resetPaintAreaUIPosition();
-      // configs.nrrd_states.sizeFoctor = factor;
-      // configs.resizePaintArea(factor);
     });
 
   advanceFolder
@@ -226,12 +184,10 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     .name("FillColor");
   const bushFolder = advanceFolder.addFolder("BrushSettings");
   bushFolder.addColor(configs.gui_states, "brushColor").name("BrushColor");
-  // modeFolder.add(stateMode, "EraserSize").min(1).max(50).step(1);
   const maskFolder = advanceFolder.addFolder("MaskDownload");
   maskFolder
     .add(configs.gui_states, "downloadCurrentMask")
     .name("DownloadCurrentMask");
-  // maskFolder.add(configs.gui_states, "exportMarks").name("ExportMask");
 
   const contrastFolder = advanceFolder.addFolder("ContrastAdvanceSettings");
   contrastFolder
@@ -290,17 +246,17 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     if (configs.gui_states.Eraser) {
       configs.eraserUrls.length > 0
         ? (configs.drawingCanvas.style.cursor = switchEraserSize(
-            configs.gui_states.brushAndEraserSize,
-            configs.eraserUrls
-          ))
+          configs.gui_states.brushAndEraserSize,
+          configs.eraserUrls
+        ))
         : (configs.drawingCanvas.style.cursor = switchEraserSize(
-            configs.gui_states.brushAndEraserSize
-          ));
+          configs.gui_states.brushAndEraserSize
+        ));
     }
   };
 
   const updatePencilState = () => {
-    if (configs.gui_states.segmentation) {
+    if (configs.gui_states.pencil) {
       // add canvas brush circle move event listeners
       configs.drawingCanvas.removeEventListener(
         "mouseover",
@@ -329,12 +285,12 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     if (configs.gui_states.Eraser) {
       configs.eraserUrls.length > 0
         ? (configs.drawingCanvas.style.cursor = switchEraserSize(
-            configs.gui_states.brushAndEraserSize,
-            configs.eraserUrls
-          ))
+          configs.gui_states.brushAndEraserSize,
+          configs.eraserUrls
+        ))
         : (configs.drawingCanvas.style.cursor = switchEraserSize(
-            configs.gui_states.brushAndEraserSize
-          ));
+          configs.gui_states.brushAndEraserSize
+        ));
     } else {
       configs.drawingCanvas.style.cursor =
         configs.gui_states.defaultPaintCursor;
@@ -361,7 +317,7 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     }
   };
 
-  const updateCalculatorState = () =>{
+  const updateCalculatorState = () => {
     if (configs.gui_states.calculator) {
       // disable mouse to drag slices
       configs.removeDragMode();
@@ -374,7 +330,7 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     }
   }
 
-  const updateCalDistance = (val:"tumour"|"skin"|"ribcage"|"nipple") =>{
+  const updateCalDistance = (val: "tumour" | "skin" | "ribcage" | "nipple") => {
     switch (val) {
       case "tumour":
         configs.gui_states.fillColor = configs.nrrd_states.tumourColor;
@@ -399,7 +355,7 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     }
   }
 
-  const updateGuiImageWindowLowOnChange = (value:number)=>{
+  const updateGuiImageWindowLowOnChange = (value: number) => {
     configs.gui_states.readyToUpdate = false;
     configs.updateSlicesContrast(value, "windowLow");
   }
@@ -420,7 +376,7 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
       max: 1,
       step: 0.01,
     },
-    segmentation: {
+    pencil: {
       name: "Pencil",
       onChange: updatePencilState,
     },
@@ -439,12 +395,12 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
       name: "Eraser",
       onChange: updateGuiEraserState,
     },
-    calculator:{
-      name:"Calculator",
+    calculator: {
+      name: "Calculator",
       onChange: updateCalculatorState,
     },
-    cal_distance:{
-      name:"CalculatorDistance",
+    cal_distance: {
+      name: "CalculatorDistance",
       onChange: updateCalDistance
     },
     clear: {
@@ -455,6 +411,9 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
     },
     undo: {
       name: "Undo",
+    },
+    redo: {
+      name: "Redo",
     },
     resetZoom: {
       name: "ResetZoom",
@@ -478,9 +437,9 @@ function setupGui(configs: IConfigGUI) :IGuiParameterSettings {
       onFinished: updateGuiImageContrastOnFinished,
     },
     advance: {
-      label: {
-        name: "Label",
-        value: ["label1", "label2", "label3"],
+      layer: {
+        name: "Layer",
+        value: ["layer1", "layer2", "layer3"],
       },
       cursor: {
         name: "CursorIcon",

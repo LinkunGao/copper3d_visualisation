@@ -23,6 +23,7 @@ import { createTexture2D_NRRD } from "./Utils/texture2d";
 import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
 import { NrrdTools } from "./Utils/segmentation/NrrdTools";
+// Phase 7: Segmentation Module - Unified exports
 
 import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls";
 
@@ -40,11 +41,13 @@ import {
   IOptVTKLoader,
 } from "./types/types";
 
-import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates} from "./Utils/segmentation/coreTools/coreType";
+import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates } from "./Utils/segmentation/coreTools/coreType";
+import { CHANNEL_COLORS, CHANNEL_HEX_COLORS, rgbaToHex, rgbaToCss } from "./Utils/segmentation/core/index";
+import type { LayerId, ChannelValue } from "./Utils/segmentation/core/index";
 
 import "./css/style.css";
 
-export const REVISION = "v2.2.3";
+export const REVISION = "v3.0.0-beta";
 
 console.log(
   `%cCopper3D Visualisation %cBeta:${REVISION}`,
@@ -75,6 +78,10 @@ export {
   MeshNodeTool,
   throttle,
   removeGuiFolderChilden,
+  CHANNEL_COLORS,
+  CHANNEL_HEX_COLORS,
+  rgbaToHex,
+  rgbaToCss,
 };
 
 export type {
@@ -91,7 +98,9 @@ export type {
   exportPaintImageType,
   IOptVTKLoader,
   ICommXYZ,
-  IGUIStates, 
-  IGuiParameterSettings, 
-  INrrdStates
+  IGUIStates,
+  IGuiParameterSettings,
+  INrrdStates,
+  LayerId,
+  ChannelValue,
 };
