@@ -4,13 +4,11 @@
  * Extracted from DrawToolCore.ts:
  * - storeAllImages / storeImageToAxis / storeImageToLayer / storeEachLayerImage
  *
- * Phase 2 Day 7: Updated to write/read MaskVolume alongside legacy IPaintImages.
- * Volume is the primary storage; IPaintImages kept for backward compatibility.
+ * Phase 3: MaskVolume is the sole storage backend. All IPaintImages params removed.
  */
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-import type { IPaintImage, IPaintImages } from "../coreTools/coreType";
 import { MaskVolume } from "../core";
 
 export interface ImageStoreCallbacks {
@@ -37,12 +35,11 @@ export class ImageStoreHelper extends BaseTool {
    */
   private getVolumeForLayer(layer: string): MaskVolume {
     const { volumes } = this.ctx.protectedData.maskData;
-    switch (layer) {
-      case "layer1": return volumes.layer1;
-      case "layer2": return volumes.layer2;
-      case "layer3": return volumes.layer3;
-      default: return volumes.layer1;
-    }
+    const vol = volumes[layer];
+    if (vol) return vol;
+    const firstLayerId = this.ctx.nrrd_states.layers[0];
+    console.warn(`ImageStoreHelper: unknown layer "${layer}", falling back to "${firstLayerId}"`);
+    return volumes[firstLayerId];
   }
 
   /**
@@ -64,13 +61,10 @@ export class ImageStoreHelper extends BaseTool {
   // ===== Store Image To Axis =====
 
   /**
-   * Phase 3: Simplified to be a no-op.
-   * MaskVolume storage happens in storeAllImages via setSliceFromImageData.
-   * This method kept for backward compatibility with existing call sites.
+   * Phase 3: No-op — MaskVolume storage happens in storeAllImages.
    */
   storeImageToAxis(
     _index: number,
-    _paintedImages: IPaintImages,
     _imageData: ImageData,
     _axis?: "x" | "y" | "z"
   ): void {
@@ -80,13 +74,12 @@ export class ImageStoreHelper extends BaseTool {
   /**
    * Retrieve the drawn image for a given axis and slice.
    *
-   * Phase 3: Reads exclusively from MaskVolume (no legacy fallback).
+   * Phase 3: Reads exclusively from MaskVolume.
    */
   filterDrawedImage(
     axis: "x" | "y" | "z",
-    sliceIndex: number,
-    _paintedImages: IPaintImages
-  ): IPaintImage | undefined {
+    sliceIndex: number
+  ): { index: number; image: ImageData } | undefined {
     try {
       const volume = this.getCurrentVolume();
       if (volume) {
@@ -210,13 +203,11 @@ export class ImageStoreHelper extends BaseTool {
   }
 
   /**
-   * Phase 3: Simplified - extracts ImageData from canvas but no longer stores to paintImages.
-   * Kept for backward compatibility with existing call sites.
+   * Extract ImageData from canvas (MaskVolume storage is handled in storeAllImages).
    */
   storeImageToLayer(
     _index: number,
-    canvas: HTMLCanvasElement,
-    _paintedImages: IPaintImages
+    canvas: HTMLCanvasElement
   ): ImageData {
     if (!this.ctx.nrrd_states.loadMaskJson) {
       this.callbacks.setEmptyCanvasSize();
@@ -233,15 +224,4 @@ export class ImageStoreHelper extends BaseTool {
   }
 
 
-  // ===== Helper Methods =====
-
-  private hasNonZeroPixels(imageData: ImageData): boolean {
-    const data = imageData.data;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i] !== 0 || data[i + 1] !== 0 || data[i + 2] !== 0 || data[i + 3] !== 0) {
-        return true;
-      }
-    }
-    return false;
-  }
 }

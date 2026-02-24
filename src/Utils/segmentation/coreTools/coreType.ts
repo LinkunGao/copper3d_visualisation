@@ -114,8 +114,6 @@ interface IProtected {
   skipSlicesDic: ISkipSlicesDictType;
   currentShowingSlice: any;
   mainPreSlices: any;
-  Is_Shift_Pressed: boolean;
-  Is_Ctrl_Pressed: boolean;
   Is_Draw: boolean;
   axis: "x" | "y" | "z";
   maskData: IMaskData;
@@ -210,7 +208,6 @@ interface INrrdStates {
   ratios: ICommXYZ;
   contrastNum: number;
   showContrast: boolean;
-  enableCursorChoose: boolean;
   isCursorSelect: boolean;
   cursorPageX: number;
   cursorPageY: number;

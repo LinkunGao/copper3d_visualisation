@@ -822,7 +822,7 @@ export class NrrdTools extends DrawToolCore {
    *  */
   setSliceOrientation(axisTo: "x" | "y" | "z") {
     let convetObj;
-    if (this.nrrd_states.enableCursorChoose || this.gui_states.sphere) {
+    if (this.eventRouter?.isCrosshairEnabled() || this.gui_states.sphere) {
       if (this.protectedData.axis === "z") {
         this.cursorPage.z.index = this.nrrd_states.currentIndex;
         this.cursorPage.z.cursorPageX = this.nrrd_states.cursorPageX;
@@ -1296,6 +1296,9 @@ export class NrrdTools extends DrawToolCore {
 
     // Invalidate reusable slice buffer
     this.invalidateSliceBuffer();
+
+    // Reload all layers to canvas (restores other layers' visuals)
+    this.reloadMasksFromVolume();
   }
 
   /**
@@ -1549,7 +1552,7 @@ export class NrrdTools extends DrawToolCore {
    */
   configMouseSliceWheel() {
     const handleMouseZoomSliceWheelMove = (e: WheelEvent) => {
-      if (this.protectedData.Is_Shift_Pressed) {
+      if (this.eventRouter?.isShiftHeld()) {
         return;
       }
       e.preventDefault();
