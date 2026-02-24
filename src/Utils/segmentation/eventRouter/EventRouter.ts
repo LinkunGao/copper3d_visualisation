@@ -232,10 +232,12 @@ export class EventRouter {
 
     /**
      * Toggle crosshair mode.
+     * Blocked when draw or contrast mode is active (mutual exclusion).
      */
     toggleCrosshair(): void {
         if (!DRAWING_TOOLS.has(this.guiTool)) return;
-        if (this.state.shiftHeld || this.state.ctrlHeld) return;
+        // Block crosshair activation during draw or contrast
+        if (this.state.shiftHeld || this.mode === 'draw' || this.mode === 'contrast') return;
 
         this.state.crosshairEnabled = !this.state.crosshairEnabled;
         this.setMode(this.state.crosshairEnabled ? 'crosshair' : 'idle');
@@ -376,13 +378,17 @@ export class EventRouter {
         // Update state based on modifier keys
         if (ev.key === this.keyboardSettings.draw) {
             this.state.shiftHeld = true;
-            if (DRAWING_TOOLS.has(this.guiTool) && !this.state.ctrlHeld) {
+            // Block draw mode when crosshair or contrast is active (mutual exclusion)
+            if (DRAWING_TOOLS.has(this.guiTool) && !this.state.ctrlHeld && !this.state.crosshairEnabled) {
                 this.setMode('draw');
             }
         }
 
         if (this.contrastEnabled && this.keyboardSettings.contrast.includes(ev.key)) {
-            this.state.ctrlHeld = true;
+            // Block contrast state when crosshair or draw is active (mutual exclusion)
+            if (!this.state.crosshairEnabled && this.mode !== 'draw') {
+                this.state.ctrlHeld = true;
+            }
         }
 
         // Route to external handler

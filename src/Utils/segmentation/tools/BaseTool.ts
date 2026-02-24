@@ -16,6 +16,7 @@ import type {
   IPaintImage,
   IPaintImages,
 } from "../coreTools/coreType";
+import type { EventRouter } from "../eventRouter/EventRouter";
 
 /**
  * Shared context injected into every legacy tool.
@@ -26,6 +27,8 @@ export interface ToolContext {
   gui_states: IGUIStates;
   protectedData: IProtected;
   cursorPage: ICursorPage;
+  /** EventRouter reference for mode/state queries. Set after initDrawToolCore(). */
+  eventRouter?: EventRouter;
 }
 
 export abstract class BaseTool {

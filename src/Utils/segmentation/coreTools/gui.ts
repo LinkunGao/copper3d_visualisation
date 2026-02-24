@@ -5,8 +5,6 @@ import {
   IGUIStates,
   IProtected,
   INrrdStates,
-  IPaintImages,
-  IPaintImage,
   IGuiParameterSettings
 } from "./coreType";
 import { DragOperator } from "../DragOperator";
@@ -40,15 +38,14 @@ interface IConfigGUI {
   filterDrawedImage: (
     axis: "x" | "y" | "z",
     sliceIndex: number
-  ) => IPaintImage | undefined;
+  ) => { index: number; image: ImageData } | undefined;
   setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
   storeAllImages: (index: number, layer: string) => void;
   drawImageOnEmptyImage: (canvas: HTMLCanvasElement) => void;
   storeEachLayerImage: (index: number, layer: string) => void;
   storeImageToLayer: (
     index: number,
-    canvas: HTMLCanvasElement,
-    paintedImages: IPaintImages
+    canvas: HTMLCanvasElement
   ) => ImageData;
   getRestLayer: () => string[];
   setIsDrawFalse: (target: number) => void;

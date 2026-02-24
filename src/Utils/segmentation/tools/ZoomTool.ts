@@ -37,7 +37,7 @@ export class ZoomTool extends BaseTool {
     let moveDistance = 1;
 
     return (e: WheelEvent) => {
-      if (this.ctx.protectedData.Is_Shift_Pressed) {
+      if (this.ctx.eventRouter?.isShiftHeld()) {
         return;
       }
       e.preventDefault();

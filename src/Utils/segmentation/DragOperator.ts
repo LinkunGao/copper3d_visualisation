@@ -133,13 +133,13 @@ export class DragOperator {
       const prev = prevMode as string;
       const next = newMode as string;
 
-      // When entering draw or contrast mode, remove drag mode
-      if (next === 'draw' || next === 'contrast') {
+      // When entering draw, contrast, or crosshair mode, remove drag mode
+      if (next === 'draw' || next === 'contrast' || next === 'crosshair') {
         this.removeDragMode();
       }
 
-      // When leaving draw or contrast mode (returning to idle), restore drag mode
-      if ((prev === 'draw' || prev === 'contrast') && next === 'idle') {
+      // When leaving draw, contrast, or crosshair mode (returning to idle), restore drag mode
+      if ((prev === 'draw' || prev === 'contrast' || prev === 'crosshair') && next === 'idle') {
         if (!this.gui_states.sphere) {
           this.configDragMode();
         }

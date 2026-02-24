@@ -11,7 +11,7 @@
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-import type { ICommXYZ, IPaintImages } from "../coreTools/coreType";
+import type { ICommXYZ } from "../coreTools/coreType";
 
 /**
  * Callbacks that DrawToolCore must provide for sphere operations.
@@ -21,13 +21,8 @@ export interface SphereCallbacks {
   drawImageOnEmptyImage: (canvas: HTMLCanvasElement) => void;
   storeImageToAxis: (
     index: number,
-    paintedImages: IPaintImages,
     imageData: ImageData,
     axis?: "x" | "y" | "z"
-  ) => void;
-  createEmptyPaintImage: (
-    dimensions: number[],
-    paintImages: IPaintImages
   ) => void;
 }
 
@@ -143,7 +138,6 @@ export class SphereTool extends BaseTool {
     );
     this.callbacks.storeImageToAxis(
       index,
-      { x: [], y: [], z: [] },
       imageData,
       axis
     );
