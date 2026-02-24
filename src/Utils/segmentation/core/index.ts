@@ -91,14 +91,6 @@ export {
 // ── Core volume ────────────────────────────────────────────────────────────
 export { MaskVolume } from './MaskVolume';
 
-// ── Migration utilities ────────────────────────────────────────────────────
-export type { IPaintImage, IPaintImages } from './MigrationUtils';
-
-export {
-  convertIPaintImagesToVolume,
-  convertVolumeToIPaintImages,
-} from './MigrationUtils';
-
 // ── Undo/Redo Manager ──────────────────────────────────────────────────────
 export type { MaskDelta } from './UndoManager';
 export { UndoManager } from './UndoManager';
