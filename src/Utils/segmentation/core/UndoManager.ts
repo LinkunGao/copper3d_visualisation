@@ -86,7 +86,7 @@ export class UndoManager {
     return (this.redoStacks.get(this.activeLayer)?.length ?? 0) > 0;
   }
 
-  /** Clear undo and redo stacks for a specific layer (called on clearStoreImages). */
+  /** Clear undo and redo stacks for a specific layer (called on clearActiveLayer). */
   clearLayer(layer: string): void {
     const undo = this.undoStacks.get(layer);
     const redo = this.redoStacks.get(layer);

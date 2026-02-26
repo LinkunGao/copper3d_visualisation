@@ -117,7 +117,6 @@ interface IProtected {
   Is_Draw: boolean;
   axis: "x" | "y" | "z";
   maskData: IMaskData;
-  previousDrawingImage?: ImageData;
 
   /** Dynamic per-layer canvas+ctx pairs. Replaces hardcoded LayerOne/Two/Three fields. */
   layerTargets: Map<string, ILayerRenderTarget>;
@@ -151,9 +150,8 @@ interface IGUIStates {
   brushAndEraserSize: number;
   cursor: string;
   layer: string;
-  cal_distance: "tumour" | "skin" | "nipple" | "ribcage";
+  activeSphereType: "tumour" | "skin" | "nipple" | "ribcage";
   sphere: boolean;
-  calculator: boolean;
   // subView: boolean;
   // subViewScale: number;
   readyToUpdate: boolean;
@@ -182,6 +180,7 @@ interface IKeyBoardSettings {
   redo: string;
   contrast: string[];
   crosshair: string;
+  sphere: string;
   mouseWheel: "Scroll:Zoom" | "Scroll:Slice";
 }
 
@@ -216,11 +215,14 @@ interface INrrdStates {
   skinSphereOrigin: ICommXYZ | null,
   ribSphereOrigin: ICommXYZ | null,
   nippleSphereOrigin: ICommXYZ | null,
-  tumourColor: "#00ff00",
-  skinColor: "#FFEB3B",
-  ribcageColor: "#2196F3",
-  nippleColor: "#E91E63",
-  spherePlanB: boolean;
+
+  /**
+   * Dedicated MaskVolume for SphereTool 3D sphere data.
+   * Separate from layer volumes to avoid polluting draw mask data.
+   * Created in setAllSlices(), cleared in reset().
+   * Type is `any` here to avoid circular deps (actual type: MaskVolume).
+   */
+  sphereMaskVolume: any;
   sphereRadius: number;
   Mouse_Over_x: number;
   Mouse_Over_y: number;
@@ -317,11 +319,7 @@ interface IGuiParameterSettings {
     name: "Eraser",
     onChange: () => void,
   },
-  calculator: {
-    name: "Calculator",
-    onChange: () => void,
-  },
-  cal_distance: {
+  activeSphereType: {
     name: "CalculatorDistance",
     onChange: (val: "tumour" | "skin" | "ribcage" | "nipple") => void
   }

@@ -93,14 +93,14 @@ export interface SliceRenderOptions {
  */
 export const MASK_CHANNEL_COLORS: Readonly<ChannelColorMap> = {
   0: { r: 0, g: 0, b: 0, a: 0 },     // Background (transparent)
-  1: { r: 0, g: 255, b: 0, a: 255 },   // Green  — Primary / Tumor
-  2: { r: 255, g: 0, b: 0, a: 255 },   // Red    — Secondary / Edema
-  3: { r: 0, g: 0, b: 255, a: 255 },   // Blue   — Tertiary / Necrosis
-  4: { r: 255, g: 255, b: 0, a: 255 },   // Yellow — Enhancement
-  5: { r: 255, g: 0, b: 255, a: 255 },   // Magenta — Vessel / Boundary
-  6: { r: 0, g: 255, b: 255, a: 255 },   // Cyan   — Additional
-  7: { r: 255, g: 128, b: 0, a: 255 },   // Orange — Auxiliary
-  8: { r: 128, g: 0, b: 255, a: 255 },   // Purple — Extended
+  1: { r: 16, g: 185, b: 129, a: 255 },  // Emerald / Soft Green — Primary / Tumor
+  2: { r: 244, g: 63, b: 94, a: 255 },   // Rose / Soft Red      — Secondary / Edema
+  3: { r: 59, g: 130, b: 246, a: 255 },  // Blue                 — Tertiary / Necrosis
+  4: { r: 251, g: 191, b: 36, a: 255 },  // Amber / Soft Yellow  — Enhancement
+  5: { r: 217, g: 70, b: 239, a: 255 },  // Fuchsia / Magenta    — Vessel / Boundary
+  6: { r: 6, g: 182, b: 212, a: 255 },   // Cyan / Teal          — Additional
+  7: { r: 249, g: 115, b: 22, a: 255 },  // Orange               — Auxiliary
+  8: { r: 139, g: 92, b: 246, a: 255 },  // Violet / Purple      — Extended
 };
 
 /**
@@ -108,14 +108,14 @@ export const MASK_CHANNEL_COLORS: Readonly<ChannelColorMap> = {
  */
 export const MASK_CHANNEL_CSS_COLORS: Readonly<Record<number, string>> = {
   0: 'rgba(0,0,0,0)',
-  1: 'rgba(0,255,0,1)',        // Green
-  2: 'rgba(255,0,0,1)',        // Red
-  3: 'rgba(0,0,255,1)',        // Blue
-  4: 'rgba(255,255,0,1)',      // Yellow
-  5: 'rgba(255,0,255,1)',      // Magenta
-  6: 'rgba(0,255,255,1)',      // Cyan
-  7: 'rgba(255,128,0,1)',      // Orange
-  8: 'rgba(128,0,255,1)',      // Purple
+  1: 'rgba(16,185,129,1)',       // Emerald
+  2: 'rgba(244,63,94,1)',        // Rose
+  3: 'rgba(59,130,246,1)',       // Blue
+  4: 'rgba(251,191,36,1)',       // Amber
+  5: 'rgba(217,70,239,1)',       // Fuchsia
+  6: 'rgba(6,182,212,1)',        // Cyan
+  7: 'rgba(249,115,22,1)',       // Orange
+  8: 'rgba(139,92,246,1)',       // Violet
 };
 
 // ── Layer & Channel Types ────────────────────────────────────────────────
@@ -141,14 +141,14 @@ export const CHANNEL_COLORS: Readonly<Record<number, string>> = MASK_CHANNEL_CSS
  */
 export const CHANNEL_HEX_COLORS: Readonly<Record<number, string>> = {
   0: '#000000',
-  1: '#00ff00',   // Green
-  2: '#ff0000',   // Red
-  3: '#0000ff',   // Blue
-  4: '#ffff00',   // Yellow
-  5: '#ff00ff',   // Magenta
-  6: '#00ffff',   // Cyan
-  7: '#ff8000',   // Orange
-  8: '#8000ff',   // Purple
+  1: '#10b981',   // Emerald
+  2: '#f43f5e',   // Rose
+  3: '#3b82f6',   // Blue
+  4: '#fbbf24',   // Amber
+  5: '#d946ef',   // Fuchsia
+  6: '#06b6d4',   // Cyan
+  7: '#f97316',   // Orange
+  8: '#8b5cf6',   // Violet
 };
 
 // ── Color Conversion Utilities ──────────────────────────────────────────

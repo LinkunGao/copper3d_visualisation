@@ -19,8 +19,8 @@ export { ZoomTool } from "./ZoomTool";
 export type { ZoomCallbacks } from "./ZoomTool";
 
 // Specialty Tools
-export { SphereTool } from "./SphereTool";
-export type { SphereCallbacks } from "./SphereTool";
+export { SphereTool, SPHERE_CHANNEL_MAP } from "./SphereTool";
+export type { SphereCallbacks, SphereType } from "./SphereTool";
 
 export { CrosshairTool } from "./CrosshairTool";
 

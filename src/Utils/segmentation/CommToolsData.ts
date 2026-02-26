@@ -13,6 +13,7 @@ import {
 import { MaskVolume } from "./core/index";
 import { switchPencilIcon } from "../utils";
 import { enableDownload } from "./coreTools/divControlTools";
+import { CHANNEL_HEX_COLORS } from "./core/types";
 
 export class CommToolsData {
   baseCanvasesSize: number = 1;
@@ -32,6 +33,7 @@ export class CommToolsData {
     redo: "y",
     contrast: ["Control", "Meta"],
     crosshair: "s",
+    sphere: "q",
     mouseWheel: "Scroll:Zoom",
   };
 
@@ -67,12 +69,8 @@ export class CommToolsData {
     skinSphereOrigin: null,
     ribSphereOrigin: null,
     nippleSphereOrigin: null,
-    tumourColor: "#00ff00",
-    skinColor: "#FFEB3B",
-    ribcageColor: "#2196F3",
-    nippleColor: "#E91E63",
 
-    spherePlanB: true,
+    sphereMaskVolume: null,
     sphereRadius: 5,
     Mouse_Over_x: 0,
     Mouse_Over_y: 0,
@@ -131,27 +129,26 @@ export class CommToolsData {
     lineWidth: 2,
     color: "#f50a33",
     pencil: true,
-    fillColor: "#00ff00",
-    brushColor: "#00ff00",
+    fillColor: CHANNEL_HEX_COLORS[1],
+    brushColor: CHANNEL_HEX_COLORS[1],
     brushAndEraserSize: 10,
     cursor: "dot",
     layer: "layer1",
-    cal_distance: "tumour",
+    activeSphereType: "tumour",
     sphere: false,
-    calculator: false,
     readyToUpdate: true,
     defaultPaintCursor: switchPencilIcon("dot"),
     max_sensitive: 100,
     // EraserSize: 25,
     clear: () => {
-      this.clearPaint();
+      this.clearActiveSlice();
     },
     clearAll: () => {
       const text = "Are you sure remove annotations on All slice?";
       if (confirm(text) === true) {
         this.nrrd_states.clearAllFlag = true;
-        this.clearPaint();
-        this.clearStoreImages();
+        this.clearActiveSlice();
+        this.clearActiveLayer();
       }
       this.nrrd_states.clearAllFlag = false;
     },
@@ -365,11 +362,11 @@ export class CommToolsData {
   }
 
   /**
-   * Rewrite this {clearPaint} function under DrawToolCore
+   * Rewrite this {clearActiveSlice} function under DrawToolCore
    */
-  clearPaint() {
+  clearActiveSlice() {
     throw new Error(
-      "Child class must implement abstract clearPaint, currently you can find it in DrawToolCore."
+      "Child class must implement abstract clearActiveSlice, currently you can find it in DrawToolCore."
     );
   }
   /**
@@ -389,11 +386,11 @@ export class CommToolsData {
     );
   }
   /**
-   * Rewrite this {clearStoreImages} function under NrrdTools
+   * Rewrite this {clearActiveLayer} function under NrrdTools
    */
-  clearStoreImages() {
+  clearActiveLayer() {
     throw new Error(
-      "Child class must implement abstract clearStoreImages, currently you can find it in NrrdTools."
+      "Child class must implement abstract clearActiveLayer, currently you can find it in NrrdTools."
     );
   }
   /**
@@ -464,6 +461,25 @@ export class CommToolsData {
   resetLayerCanvas() {
     throw new Error(
       "Child class must implement abstract resetLayerCanvas, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Enter sphere mode: clear all layer canvases (not MaskVolume),
+   * hide all mask data so sphere overlay is the only visible annotation.
+   * Rewrite this under NrrdTools.
+   */
+  enterSphereMode() {
+    throw new Error(
+      "Child class must implement abstract enterSphereMode, currently you can find it in NrrdTools."
+    );
+  }
+  /**
+   * Exit sphere mode: clear sphere canvas overlay, reload all layer
+   * MaskVolume data back onto canvases. Rewrite this under NrrdTools.
+   */
+  exitSphereMode() {
+    throw new Error(
+      "Child class must implement abstract exitSphereMode, currently you can find it in NrrdTools."
     );
   }
   /**
@@ -587,14 +603,24 @@ export class CommToolsData {
       volume.renderLabelSliceInto(sliceIndex, axis, buffer, channelVis, 1.0);
       this.setEmptyCanvasSize(axis);
       this.protectedData.ctxes.emptyCtx.putImageData(buffer, 0, 0);
-      // No flip: MaskVolume stores in source coordinates matching the Three.js
-      // slice convention.  Applying a display flip here would invert cross-axis
-      // slice indices (e.g. coronal 220 → 228 for a 448-slice volume).
       targetCtx.imageSmoothingEnabled = false;
+      // Coronal (axis='y') Z-flip: vertically flip the rendered mask to match
+      // the Z-flip applied during the write path (syncLayerSliceData).
+      // Same pattern as SphereTool.refreshSphereCanvas('y') scale(1,-1).
+      // Same-view: write_flip + read_flip = identity (correct).
+      // Cross-view (sagittal↔coronal): aligns Z-axis direction (fixes flip bug).
+      if (axis === 'y') {
+        targetCtx.save();
+        targetCtx.scale(1, -1);
+        targetCtx.translate(0, -scaledHeight);
+      }
       targetCtx.drawImage(
         this.protectedData.canvases.emptyCanvas,
         0, 0, scaledWidth, scaledHeight
       );
+      if (axis === 'y') {
+        targetCtx.restore();
+      }
     } catch (err) {
       // Slice out of bounds or volume not ready — skip silently
     }
