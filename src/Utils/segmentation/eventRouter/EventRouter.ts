@@ -32,6 +32,7 @@ const DEFAULT_KEYBOARD_SETTINGS: KeyboardSettings = {
     redo: 'y',
     contrast: ['Control', 'Meta'],
     crosshair: 'c',
+    sphere: 'q',
     mouseWheel: 'Scroll:Zoom'
 };
 
@@ -223,21 +224,24 @@ export class EventRouter {
     setGuiTool(tool: GuiTool): void {
         this.guiTool = tool;
 
-        // Reset to idle when switching tools
-        if (tool === 'sphere' || tool === 'calculator') {
-            this.state.crosshairEnabled = false;
-            this.setMode('idle');
+        // When entering sphere mode, keep crosshair if active, otherwise idle
+        if (tool === 'sphere') {
+            if (!this.state.crosshairEnabled) {
+                this.setMode('idle');
+            }
         }
     }
 
     /**
      * Toggle crosshair mode.
-     * Blocked when draw or contrast mode is active (mutual exclusion).
+     * Allowed in drawing tools AND sphere mode.
+     * Blocked when draw or contrast mode is active, or left button is held (mutual exclusion).
      */
     toggleCrosshair(): void {
-        if (!DRAWING_TOOLS.has(this.guiTool)) return;
-        // Block crosshair activation during draw or contrast
-        if (this.state.shiftHeld || this.mode === 'draw' || this.mode === 'contrast') return;
+        // Allow crosshair in drawing tools and sphere mode
+        if (!DRAWING_TOOLS.has(this.guiTool) && this.guiTool !== 'sphere') return;
+        // Block crosshair activation during draw, contrast, or while left button held
+        if (this.state.shiftHeld || this.state.leftButtonDown || this.mode === 'draw' || this.mode === 'contrast') return;
 
         this.state.crosshairEnabled = !this.state.crosshairEnabled;
         this.setMode(this.state.crosshairEnabled ? 'crosshair' : 'idle');
@@ -385,8 +389,9 @@ export class EventRouter {
         }
 
         if (this.contrastEnabled && this.keyboardSettings.contrast.includes(ev.key)) {
-            // Block contrast state when crosshair or draw is active (mutual exclusion)
-            if (!this.state.crosshairEnabled && this.mode !== 'draw') {
+            // Block contrast state when crosshair, draw, or sphere is active (mutual exclusion)
+            if (!this.state.crosshairEnabled && this.mode !== 'draw'
+                && this.guiTool !== 'sphere') {
                 this.state.ctrlHeld = true;
             }
         }

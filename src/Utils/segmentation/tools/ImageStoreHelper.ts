@@ -2,7 +2,7 @@
  * ImageStoreHelper - Cross-axis image storage
  *
  * Extracted from DrawToolCore.ts:
- * - storeAllImages / storeImageToAxis / storeImageToLayer / storeEachLayerImage
+ * - syncLayerSliceData
  *
  * Phase 3: MaskVolume is the sole storage backend. All IPaintImages params removed.
  */
@@ -43,13 +43,6 @@ export class ImageStoreHelper extends BaseTool {
   }
 
   /**
-   * Get MaskVolume for the currently active layer.
-   */
-  private getCurrentVolume(): MaskVolume {
-    return this.getVolumeForLayer(this.ctx.gui_states.layer);
-  }
-
-  /**
    * Get the canvas element for a specific layer.
    */
   private getCanvasForLayer(layer: string): HTMLCanvasElement {
@@ -58,61 +51,44 @@ export class ImageStoreHelper extends BaseTool {
     return this.ctx.protectedData.canvases.drawingCanvasLayerMaster;
   }
 
-  // ===== Store Image To Axis =====
+  // ===== ImageData Flip Helpers =====
 
   /**
-   * Phase 3: No-op — MaskVolume storage happens in storeAllImages.
-   */
-  storeImageToAxis(
-    _index: number,
-    _imageData: ImageData,
-    _axis?: "x" | "y" | "z"
-  ): void {
-    // No-op: MaskVolume is the primary storage, updated in storeAllImages
-  }
-
-  /**
-   * Retrieve the drawn image for a given axis and slice.
+   * Vertically flip an ImageData buffer in-place (swap rows top↔bottom).
    *
-   * Phase 3: Reads exclusively from MaskVolume.
+   * Used to compensate for the Z-axis direction reversal between sagittal
+   * and coronal views. On coronal, Z runs along the canvas j-axis (vertical),
+   * and the display flip (scale(1,-1)) reverses Z relative to sagittal's
+   * horizontal Z mapping. This row-swap aligns the Z ordering so that
+   * MaskVolume stores data in a consistent coordinate system.
    */
-  filterDrawedImage(
-    axis: "x" | "y" | "z",
-    sliceIndex: number
-  ): { index: number; image: ImageData } | undefined {
-    try {
-      const volume = this.getCurrentVolume();
-      if (volume) {
-        const dims = volume.getDimensions();
-        const [w, h] = axis === 'z' ? [dims.width, dims.height]
-          : axis === 'y' ? [dims.width, dims.depth]
-            // Sagittal: width = depth (Z), height = height (Y)
-            : [dims.depth, dims.height];
-        const imageData = new ImageData(w, h);
-        const channelVis = this.ctx.gui_states.channelVisibility[this.ctx.gui_states.layer];
-        volume.renderLabelSliceInto(sliceIndex, axis, imageData, channelVis);
-        return { index: sliceIndex, image: imageData };
-      }
-    } catch (err) {
-      console.warn(`filterDrawedImage: Failed to read slice ${sliceIndex} on ${axis}:`, err);
+  private flipImageDataVertically(imageData: ImageData): void {
+    const { width, height, data } = imageData;
+    const rowSize = width * 4; // RGBA = 4 bytes per pixel
+    const temp = new Uint8ClampedArray(rowSize);
+    for (let y = 0; y < Math.floor(height / 2); y++) {
+      const topOffset = y * rowSize;
+      const bottomOffset = (height - 1 - y) * rowSize;
+      // Swap top row and bottom row
+      temp.set(data.subarray(topOffset, topOffset + rowSize));
+      data.copyWithin(topOffset, bottomOffset, bottomOffset + rowSize);
+      data.set(temp, bottomOffset);
     }
-    return undefined;
   }
 
-  // ===== Store All Images (cross-axis sync) =====
+  // ===== Sync Layer Slice Data =====
 
   /**
-   * Store all layer images for the current slice (cross-axis sync).
-   *
-   * Phase 2: Also writes into the current layer's MaskVolume.
+   * Sync the current layer canvas to its MaskVolume slice and notify the parent
+   * via getMask. This is the primary write path after any draw/erase operation.
    */
-  storeAllImages(index: number, layer: string): void {
+  syncLayerSliceData(index: number, layer: string): void {
     const nrrd = this.ctx.nrrd_states;
 
     // Read from the individual layer canvas (NOT master) to preserve layer isolation
     const layerCanvas = this.getCanvasForLayer(layer);
 
-    if (!nrrd.loadMaskJson && !this.ctx.gui_states.sphere && !this.ctx.gui_states.calculator) {
+    if (!nrrd.loadMaskJson && !this.ctx.gui_states.sphere) {
       this.callbacks.setEmptyCanvasSize();
       this.callbacks.drawImageOnEmptyImage(layerCanvas);
     }
@@ -123,6 +99,15 @@ export class ImageStoreHelper extends BaseTool {
       this.ctx.protectedData.canvases.emptyCanvas.width,
       this.ctx.protectedData.canvases.emptyCanvas.height
     );
+
+    // Coronal (axis='y') Z-flip: the Z dimension runs vertically on coronal
+    // but horizontally on sagittal, with opposite screen directions.
+    // Flip ImageData vertically before writing to MaskVolume so that
+    // cross-view rendering (sagittal↔coronal) is consistent.
+    // Same pattern as SphereTool.canvasToVoxelCenter('y') Z-flip.
+    if (this.ctx.protectedData.axis === 'y') {
+      this.flipImageDataVertically(imageData);
+    }
 
     // Write label data into 1-channel MaskVolume with RGB→channel reverse lookup
     try {
@@ -144,7 +129,7 @@ export class ImageStoreHelper extends BaseTool {
       // Volume not ready — skip
     }
 
-    if (!nrrd.loadMaskJson && !this.ctx.gui_states.sphere && !this.ctx.gui_states.calculator) {
+    if (!nrrd.loadMaskJson && !this.ctx.gui_states.sphere) {
       // Extract raw slice data from MaskVolume and notify parent
       try {
         const volume = this.getVolumeForLayer(layer);
@@ -170,58 +155,6 @@ export class ImageStoreHelper extends BaseTool {
     }
   }
 
-
-  // ===== Store Per-Layer Images =====
-
-  /**
-   * Store a single layer's canvas data to its MaskVolume.
-   * Reads from the individual layer canvas (not master) and uses RGB→channel reverse lookup.
-   */
-  storeEachLayerImage(index: number, layer: string): void {
-    const layerCanvas = this.getCanvasForLayer(layer);
-    this.callbacks.setEmptyCanvasSize();
-    this.callbacks.drawImageOnEmptyImage(layerCanvas);
-    const imageData = this.ctx.protectedData.ctxes.emptyCtx.getImageData(
-      0, 0,
-      this.ctx.protectedData.canvases.emptyCanvas.width,
-      this.ctx.protectedData.canvases.emptyCanvas.height
-    );
-    try {
-      const volume = this.getVolumeForLayer(layer);
-      if (volume) {
-        const activeChannel = this.ctx.gui_states.activeChannel || 1;
-        // Phase 4 Fix: Pass channel visibility map to preserve hidden channels
-        const channelVis = this.ctx.gui_states.channelVisibility[layer];
-
-        volume.setSliceLabelsFromImageData(
-          index, imageData, this.ctx.protectedData.axis, activeChannel, channelVis
-        );
-      }
-    } catch {
-      // Volume not ready — skip
-    }
-  }
-
-  /**
-   * Extract ImageData from canvas (MaskVolume storage is handled in storeAllImages).
-   */
-  storeImageToLayer(
-    _index: number,
-    canvas: HTMLCanvasElement
-  ): ImageData {
-    if (!this.ctx.nrrd_states.loadMaskJson) {
-      this.callbacks.setEmptyCanvasSize();
-      this.callbacks.drawImageOnEmptyImage(canvas);
-    }
-    const imageData = this.ctx.protectedData.ctxes.emptyCtx.getImageData(
-      0,
-      0,
-      this.ctx.protectedData.canvases.emptyCanvas.width,
-      this.ctx.protectedData.canvases.emptyCanvas.height
-    );
-    // No longer stores to paintedImages - MaskVolume is primary storage
-    return imageData;
-  }
 
 
 }

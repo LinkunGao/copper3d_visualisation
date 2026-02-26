@@ -42,6 +42,7 @@ export class DragOperator {
     buffer: ImageData, targetCtx: CanvasRenderingContext2D,
     scaledWidth: number, scaledHeight: number,
   ) => void;
+  private refreshSphereOverlayCb: (() => void) | null = null;
 
   // EventRouter for centralized event handling
   private eventRouter: EventRouter | null = null;
@@ -109,6 +110,7 @@ export class DragOperator {
         getOrCreateSliceBuffer: (axis) => this.getOrCreateSliceBuffer(axis),
         renderSliceToCanvas: (layer, axis, sliceIndex, buffer, targetCtx, w, h) =>
           this.renderSliceToCanvas(layer, axis, sliceIndex, buffer, targetCtx, w, h),
+        refreshSphereOverlay: () => this.refreshSphereOverlayCb?.(),
       },
       this.showDragNumberDiv,
       dragEffectCanvases
@@ -118,6 +120,14 @@ export class DragOperator {
   setShowDragNumberDiv(sliceIndexContainer: HTMLDivElement) {
     this.showDragNumberDiv = sliceIndexContainer;
     this.dragSliceTool.setShowDragNumberDiv(sliceIndexContainer);
+  }
+
+  /**
+   * Set the sphere overlay refresh callback.
+   * Called by NrrdTools after DrawToolCore is initialized.
+   */
+  setRefreshSphereOverlay(cb: () => void): void {
+    this.refreshSphereOverlayCb = cb;
   }
 
   /**
@@ -139,6 +149,7 @@ export class DragOperator {
       }
 
       // When leaving draw, contrast, or crosshair mode (returning to idle), restore drag mode
+      // Do NOT restore if sphere mode is active
       if ((prev === 'draw' || prev === 'contrast' || prev === 'crosshair') && next === 'idle') {
         if (!this.gui_states.sphere) {
           this.configDragMode();

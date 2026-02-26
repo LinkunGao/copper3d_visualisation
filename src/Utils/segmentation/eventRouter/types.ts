@@ -13,7 +13,6 @@
  * - `contrast`: Ctrl held, left-drag adjusts window/level
  * - `crosshair`: Crosshair mode enabled (C key toggle)
  * - `sphere`: Sphere placement tool active
- * - `calculator`: Distance calculator tool active
  * - `pan`: Right-drag panning the canvas
  */
 export type InteractionMode =
@@ -23,13 +22,12 @@ export type InteractionMode =
     | 'contrast'
     | 'crosshair'
     | 'sphere'
-    | 'calculator'
     | 'pan';
 
 /**
  * GUI tool selection (set from UI buttons)
  */
-export type GuiTool = 'pencil' | 'brush' | 'eraser' | 'sphere' | 'calculator';
+export type GuiTool = 'pencil' | 'brush' | 'eraser' | 'sphere';
 
 /**
  * Keyboard event handler type
@@ -75,6 +73,7 @@ export interface KeyboardSettings {
     redo: string;           // Key for redo (default: 'y')
     contrast: string[];     // Keys for contrast mode (default: ['Control', 'Meta'])
     crosshair: string;      // Key to toggle crosshair (default: 'c')
+    sphere: string;          // Key to toggle sphere mode (default: 'q')
     mouseWheel: 'Scroll:Zoom' | 'Scroll:Slice';
 }
 

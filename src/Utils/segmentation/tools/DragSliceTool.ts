@@ -28,6 +28,8 @@ export interface DragSliceCallbacks {
     scaledWidth: number,
     scaledHeight: number,
   ) => void;
+  /** Refresh sphere overlay from sphereMaskVolume after slice change. */
+  refreshSphereOverlay?: () => void;
 }
 
 interface IDragEffectCanvases {
@@ -148,26 +150,35 @@ export class DragSliceTool extends BaseTool {
     this.ctx.protectedData.ctxes.displayCtx.restore();
 
     // Phase 3: Draw ALL layers from MaskVolume (multi-layer compositing)
+    // Skip layer mask rendering when sphere mode is active —
+    // layer masks should remain hidden until the user exits sphere mode.
     if (nrrd.switchSliceFlag) {
-      const axis = this.ctx.protectedData.axis;
-      const sliceIndex = nrrd.currentIndex;
+      if (!this.ctx.gui_states.sphere) {
+        const axis = this.ctx.protectedData.axis;
+        const sliceIndex = nrrd.currentIndex;
 
-      // Get a single reusable buffer — shared across all layer renders
-      const buffer = this.callbacks.getOrCreateSliceBuffer(axis);
-      if (buffer) {
-        const w = nrrd.changedWidth;
-        const h = nrrd.changedHeight;
+        // Get a single reusable buffer — shared across all layer renders
+        const buffer = this.callbacks.getOrCreateSliceBuffer(axis);
+        if (buffer) {
+          const w = nrrd.changedWidth;
+          const h = nrrd.changedHeight;
 
-        for (const layerId of this.ctx.nrrd_states.layers) {
-          const target = this.ctx.protectedData.layerTargets.get(layerId);
-          if (target) {
-            this.callbacks.renderSliceToCanvas(layerId, axis, sliceIndex, buffer, target.ctx, w, h);
+          for (const layerId of this.ctx.nrrd_states.layers) {
+            const target = this.ctx.protectedData.layerTargets.get(layerId);
+            if (target) {
+              this.callbacks.renderSliceToCanvas(layerId, axis, sliceIndex, buffer, target.ctx, w, h);
+            }
           }
         }
+
+        // Composite all layers to master canvas
+        this.compositeAllLayers();
       }
 
-      // Composite all layers to master canvas
-      this.compositeAllLayers();
+      // Refresh sphere overlay from volume for the new slice
+      if (this.ctx.gui_states.sphere) {
+        this.callbacks.refreshSphereOverlay?.();
+      }
 
       nrrd.switchSliceFlag = false;
     }

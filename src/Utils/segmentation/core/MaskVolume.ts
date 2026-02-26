@@ -549,8 +549,32 @@ export class MaskVolume {
           const g = pixels[px + 1];
           const b = pixels[px + 2];
           const key = (r << 16) | (g << 8) | b;
-          const matchedChannel = rgbToChannel.get(key);
-          volData[idx] = matchedChannel !== undefined ? matchedChannel : activeChannel;
+          let matchedChannel = rgbToChannel.get(key);
+
+          // If pixel does not exactly match any channel color (e.g. anti-aliased fringes)
+          if (matchedChannel === undefined) {
+            let minDist = Infinity;
+            let bestChannel = activeChannel;
+
+            // Find the nearest channel color (1-8) to handle Canvas anti-aliased edge pixels
+            for (let ch = 1; ch <= 8; ch++) {
+              const c = this.colorMap[ch] ?? MASK_CHANNEL_COLORS[ch];
+              if (!c) continue;
+
+              const dR = r - c.r;
+              const dG = g - c.g;
+              const dB = b - c.b;
+              const dist = dR * dR + dG * dG + dB * dB;
+
+              if (dist < minDist) {
+                minDist = dist;
+                bestChannel = ch;
+              }
+            }
+            matchedChannel = bestChannel;
+          }
+
+          volData[idx] = matchedChannel;
         }
 
         idx += iStride;
@@ -789,7 +813,7 @@ export class MaskVolume {
    *
    * @example
    * ```ts
-   * vol.clear();
+   * vol.reset();
    * vol.getVoxel(256, 256, 50); // 0
    * ```
    */

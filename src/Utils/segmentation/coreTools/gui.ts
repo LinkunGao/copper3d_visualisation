@@ -9,6 +9,8 @@ import {
 } from "./coreType";
 import { DragOperator } from "../DragOperator";
 import { CHANNEL_HEX_COLORS, rgbaToHex } from "../core";
+import { SPHERE_CHANNEL_MAP } from "../tools/SphereTool";
+import type { SphereType } from "../tools/SphereTool";
 
 interface IConfigGUI {
   modeFolder: GUI;
@@ -24,8 +26,8 @@ interface IConfigGUI {
   mainPreSlices: any;
   removeDragMode: () => void;
   configDragMode: () => void;
-  clearPaint: () => void;
-  clearStoreImages: () => void;
+  clearActiveSlice: () => void;
+  clearActiveLayer: () => void;
   updateSlicesContrast: (value: number, flag: string) => void;
   setMainAreaSize: (factor: number) => void;
   resetPaintAreaUIPosition: () => void;
@@ -35,18 +37,9 @@ interface IConfigGUI {
   resetLayerCanvas: () => void;
   redrawDisplayCanvas: () => void;
   flipDisplayImageByAxis: () => void;
-  filterDrawedImage: (
-    axis: "x" | "y" | "z",
-    sliceIndex: number
-  ) => { index: number; image: ImageData } | undefined;
   setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
-  storeAllImages: (index: number, layer: string) => void;
+  syncLayerSliceData: (index: number, layer: string) => void;
   drawImageOnEmptyImage: (canvas: HTMLCanvasElement) => void;
-  storeEachLayerImage: (index: number, layer: string) => void;
-  storeImageToLayer: (
-    index: number,
-    canvas: HTMLCanvasElement
-  ) => ImageData;
   getRestLayer: () => string[];
   setIsDrawFalse: (target: number) => void;
 }
@@ -74,12 +67,6 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
     .name("Sphere")
     .onChange(() => {
       updateGuiSphereState();
-    });
-  actionsFolder
-    .add(configs.gui_states, "calculator")
-    .name("Calculator")
-    .onChange(() => {
-      updateCalculatorState();
     });
   actionsFolder
     .add(configs.gui_states, "brushAndEraserSize")
@@ -119,7 +106,7 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
   const advanceFolder = configs.modeFolder.addFolder("AdvanceSettings");
 
   advanceFolder
-    .add(configs.gui_states, "cal_distance", ["tumour", "skin", "ribcage", "nipple"])
+    .add(configs.gui_states, "activeSphereType", ["tumour", "skin", "ribcage", "nipple"])
     .name("Layer")
     .onChange((val) => {
       updateCalDistance(val)
@@ -296,60 +283,24 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
 
   const updateGuiSphereState = () => {
     if (configs.gui_states.sphere) {
-      // configs.drawingCanvas.removeEventListener(
-      //   "wheel",
-      //   configs.drawingPrameters.handleZoomWheel
-      // );
-      configs.removeDragMode();
+      // Entering sphere mode — enterSphereMode handles:
+      // drag removal, guiTool update, canvas clearing
+      (configs as any).enterSphereMode?.();
     } else {
-      // configs.drawingCanvas.addEventListener(
-      //   "wheel",
-      //   configs.drawingPrameters.handleZoomWheel
-      // );
-      configs.configDragMode();
-
-      // clear canvas
-      configs.clearPaint();
-      configs.clearStoreImages();
+      // Exiting sphere mode — exitSphereMode handles:
+      // drag restore, guiTool reset, mask reload
+      (configs as any).exitSphereMode?.();
     }
   };
 
-  const updateCalculatorState = () => {
-    if (configs.gui_states.calculator) {
-      // disable mouse to drag slices
-      configs.removeDragMode();
-    } else {
-      // enable mouse to drag slices
-      configs.configDragMode();
-      // clear canvas
-      configs.clearPaint();
-      configs.clearStoreImages();
-    }
-  }
-
   const updateCalDistance = (val: "tumour" | "skin" | "ribcage" | "nipple") => {
-    switch (val) {
-      case "tumour":
-        configs.gui_states.fillColor = configs.nrrd_states.tumourColor;
-        configs.gui_states.brushColor = configs.nrrd_states.tumourColor;
-        break;
-      case "skin":
-        configs.gui_states.fillColor = configs.nrrd_states.skinColor;
-        configs.gui_states.brushColor = configs.nrrd_states.skinColor;
-        break;
-      case "ribcage":
-        configs.gui_states.fillColor = configs.nrrd_states.ribcageColor;
-        configs.gui_states.brushColor = configs.nrrd_states.ribcageColor;
-        break;
-      case "nipple":
-        configs.gui_states.fillColor = configs.nrrd_states.nippleColor;
-        configs.gui_states.brushColor = configs.nrrd_states.nippleColor;
-        break;
-      default:
-        configs.gui_states.fillColor = configs.nrrd_states.tumourColor;
-        configs.gui_states.brushColor = configs.nrrd_states.tumourColor;
-        break;
-    }
+    const { layer, channel } = SPHERE_CHANNEL_MAP[val as SphereType];
+    const volume = configs.getVolumeForLayer(layer);
+    const color = volume
+      ? rgbaToHex(volume.getChannelColor(channel))
+      : (CHANNEL_HEX_COLORS[channel] || '#00ff00');
+    configs.gui_states.fillColor = color;
+    configs.gui_states.brushColor = color;
   }
 
   const updateGuiImageWindowLowOnChange = (value: number) => {
@@ -392,11 +343,7 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
       name: "Eraser",
       onChange: updateGuiEraserState,
     },
-    calculator: {
-      name: "Calculator",
-      onChange: updateCalculatorState,
-    },
-    cal_distance: {
+    activeSphereType: {
       name: "CalculatorDistance",
       onChange: updateCalDistance
     },
