@@ -1,18 +1,16 @@
 import {
-  IDownloadImageConfig,
   IProtected,
-  IGUIStates,
-  INrrdStates,
   ICursorPage,
   IConvertObjType,
-  ICommXYZ,
   INewMaskData,
   ILayerRenderTarget,
-  IKeyBoardSettings
+  IKeyBoardSettings,
+  IAnnotationCallbacks
 } from "./coreTools/coreType";
+import { NrrdState } from "./coreTools/NrrdState";
+import { GuiState } from "./coreTools/GuiState";
 import { MaskVolume } from "./core/index";
 import { switchPencilIcon } from "../utils";
-import { enableDownload } from "./coreTools/divControlTools";
 import { CHANNEL_HEX_COLORS } from "./core/types";
 
 export class CommToolsData {
@@ -22,6 +20,15 @@ export class CommToolsData {
   private _reusableSliceBuffer: ImageData | null = null;
   private _reusableBufferWidth: number = 0;
   private _reusableBufferHeight: number = 0;
+
+  /** External annotation callbacks — set via draw() options */
+  protected annotationCallbacks: IAnnotationCallbacks = {
+    onMaskChanged: () => { },
+    onSphereChanged: () => { },
+    onCalculatorPositionsChanged: () => { },
+    onLayerVolumeCleared: () => { },
+    onChannelColorChanged: () => { },
+  };
 
   /** Whether the keyboard-config dialog is open (suppresses all shortcuts). */
   protected _configKeyBoard: boolean = false;
@@ -37,70 +44,9 @@ export class CommToolsData {
     mouseWheel: "Scroll:Zoom",
   };
 
-  nrrd_states: INrrdStates = {
-    originWidth: 0,
-    originHeight: 0,
-    nrrd_x_mm: 0,
-    nrrd_y_mm: 0,
-    nrrd_z_mm: 0,
-    nrrd_x_pixel: 0,
-    nrrd_y_pixel: 0,
-    nrrd_z_pixel: 0,
-    changedWidth: 0,
-    changedHeight: 0,
-    oldIndex: 0,
-    currentIndex: 0,
-    maxIndex: 0,
-    minIndex: 0,
-    RSARatio: 0,
-    voxelSpacing: [],
-    spaceOrigin: [],
-    dimensions: [],
-    loadMaskJson: false,
-    ratios: { x: 1, y: 1, z: 1 },
-    contrastNum: 0,
+  protected nrrd_states = new NrrdState(this.baseCanvasesSize);
 
-    showContrast: false,
-    isCursorSelect: false,
-    cursorPageX: 0,
-    cursorPageY: 0,
-    sphereOrigin: { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0] },
-    tumourSphereOrigin: null,
-    skinSphereOrigin: null,
-    ribSphereOrigin: null,
-    nippleSphereOrigin: null,
-
-    sphereMaskVolume: null,
-    sphereRadius: 5,
-    Mouse_Over_x: 0,
-    Mouse_Over_y: 0,
-    Mouse_Over: false,
-    stepClear: 1,
-    sizeFoctor: this.baseCanvasesSize,
-    clearAllFlag: false,
-    previousPanelL: -99999,
-    previousPanelT: -99999,
-    switchSliceFlag: false,
-    layers: ["layer1", "layer2", "layer3"],
-
-    getMask: (
-      sliceData: Uint8Array,
-      layerId: string,
-      channelId: number,
-      sliceIndex: number,
-      axis: "x" | "y" | "z",
-      width: number,
-      height: number,
-      clearFlag: boolean
-    ) => { },
-    onClearLayerVolume: (layerId: string) => { },
-    onChannelColorChanged: () => { },
-    getSphere: (sphereOrigin: number[], sphereRadius: number) => { },
-    getCalculateSpherePositions: (tumourSphereOrigin: ICommXYZ | null, skinSphereOrigin: ICommXYZ | null, ribSphereOrigin: ICommXYZ | null, nippleSphereOrigin: ICommXYZ | null, aixs: "x" | "y" | "z") => { },
-    drawStartPos: { x: 1, y: 1 },
-  };
-
-  cursorPage: ICursorPage = {
+  protected cursorPage: ICursorPage = {
     x: {
       cursorPageX: 0,
       cursorPageY: 0,
@@ -121,68 +67,12 @@ export class CommToolsData {
     },
   };
 
-  gui_states: IGUIStates = {
-    mainAreaSize: 3,
-    dragSensitivity: 75,
-    Eraser: false,
-    globalAlpha: 0.6,
-    lineWidth: 2,
-    color: "#f50a33",
-    pencil: true,
-    fillColor: CHANNEL_HEX_COLORS[1],
-    brushColor: CHANNEL_HEX_COLORS[1],
-    brushAndEraserSize: 10,
-    cursor: "dot",
-    layer: "layer1",
-    activeSphereType: "tumour",
-    sphere: false,
-    readyToUpdate: true,
+  protected gui_states = new GuiState({
     defaultPaintCursor: switchPencilIcon("dot"),
-    max_sensitive: 100,
-    // EraserSize: 25,
-    clear: () => {
-      this.clearActiveSlice();
-    },
-    clearAll: () => {
-      const text = "Are you sure remove annotations on All slice?";
-      if (confirm(text) === true) {
-        this.nrrd_states.clearAllFlag = true;
-        this.clearActiveSlice();
-        this.clearActiveLayer();
-      }
-      this.nrrd_states.clearAllFlag = false;
-    },
-    undo: () => {
-      this.undoLastPainting();
-    },
-    redo: () => {
-      this.redoLastPainting();
-    },
-    downloadCurrentMask: () => {
-      const config: IDownloadImageConfig = {
-        axis: this.protectedData.axis,
-        currentIndex: this.nrrd_states.currentIndex,
-        drawingCanvas: this.protectedData.canvases.drawingCanvas,
-        originWidth: this.nrrd_states.originWidth,
-        originHeight: this.nrrd_states.originHeight,
-      };
-      enableDownload(config);
-    },
-    resetZoom: () => {
-      this.nrrd_states.sizeFoctor = this.baseCanvasesSize;
-      this.gui_states.mainAreaSize = this.baseCanvasesSize;
-      this.resizePaintArea(this.nrrd_states.sizeFoctor);
-      this.resetPaintAreaUIPosition();
-    },
-    activeChannel: 1,
-    layerVisibility: { layer1: true, layer2: true, layer3: true },
-    channelVisibility: {
-      layer1: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true },
-      layer2: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true },
-      layer3: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true },
-    },
-  };
-  protectedData: IProtected;
+    defaultFillColor: CHANNEL_HEX_COLORS[1],
+    defaultBrushColor: CHANNEL_HEX_COLORS[1],
+  });
+  protected protectedData: IProtected;
   constructor(
     container: HTMLElement,
     mainAreaContainer: HTMLElement,
@@ -196,11 +86,11 @@ export class CommToolsData {
     }
 
     // Override the default states with the actual layer list
-    this.nrrd_states.layers = layers;
-    this.gui_states.layerVisibility = Object.fromEntries(
+    this.nrrd_states.image.layers = layers;
+    this.gui_states.layerChannel.layerVisibility = Object.fromEntries(
       layers.map((id) => [id, true])
     );
-    this.gui_states.channelVisibility = Object.fromEntries(
+    this.gui_states.layerChannel.channelVisibility = Object.fromEntries(
       layers.map((id) => [
         id,
         { 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true },
@@ -212,7 +102,7 @@ export class CommToolsData {
 
     // Get NRRD dimensions (will be set later when NRRD loads)
     // Default to 1x1x1 for now, will be re-initialized in NrrdTools when dimensions are known
-    const dims = this.nrrd_states.dimensions;
+    const dims = this.nrrd_states.image.dimensions;
     const [width, height, depth] = dims.length === 3 ? dims : [1, 1, 1];
 
     this.protectedData = {
@@ -304,7 +194,7 @@ export class CommToolsData {
     const { volumes } = this.protectedData.maskData;
     const vol = volumes[layer];
     if (vol) return vol;
-    const firstLayerId = this.nrrd_states.layers[0];
+    const firstLayerId = this.nrrd_states.image.layers[0];
     console.warn(`CommToolsData: unknown layer "${layer}", falling back to "${firstLayerId}"`);
     return volumes[firstLayerId];
   }
@@ -321,7 +211,7 @@ export class CommToolsData {
    * ```
    */
   getCurrentVolume(): MaskVolume {
-    return this.getVolumeForLayer(this.gui_states.layer);
+    return this.getVolumeForLayer(this.gui_states.layerChannel.layer);
   }
 
   /**
@@ -521,7 +411,7 @@ export class CommToolsData {
             // Sagittal: width = depth (Z), height = height (Y)
             : [dims.depth, dims.height];
         const imageData = new ImageData(w, h);
-        const channelVis = this.gui_states.channelVisibility[this.gui_states.layer];
+        const channelVis = this.gui_states.layerChannel.channelVisibility[this.gui_states.layerChannel.layer];
         volume.renderLabelSliceInto(sliceIndex, axis, imageData, channelVis);
         return { index: sliceIndex, image: imageData };
       }
@@ -543,7 +433,7 @@ export class CommToolsData {
    */
   getOrCreateSliceBuffer(axis: "x" | "y" | "z"): ImageData | null {
     try {
-      const vol = this.getVolumeForLayer(this.nrrd_states.layers[0]);
+      const vol = this.getVolumeForLayer(this.nrrd_states.image.layers[0]);
       const dims = vol.getDimensions();
       const [w, h] =
         axis === "z" ? [dims.width, dims.height] :
@@ -597,7 +487,7 @@ export class CommToolsData {
       if (!volume) return;
 
       // Get channel visibility for this layer
-      const channelVis = this.gui_states.channelVisibility[layer];
+      const channelVis = this.gui_states.layerChannel.channelVisibility[layer];
 
       // Render label slice at full alpha — globalAlpha applied during compositeAllLayers
       volume.renderLabelSliceInto(sliceIndex, axis, buffer, channelVis, 1.0);
@@ -676,15 +566,15 @@ export class CommToolsData {
    */
   compositeAllLayers(): void {
     const masterCtx = this.protectedData.ctxes.drawingLayerMasterCtx;
-    const width = this.nrrd_states.changedWidth;
-    const height = this.nrrd_states.changedHeight;
+    const width = this.nrrd_states.view.changedWidth;
+    const height = this.nrrd_states.view.changedHeight;
 
     masterCtx.clearRect(0, 0, width, height);
 
     // Master stores full-alpha composite; globalAlpha is applied once in
     // start() when drawing master to drawingCtx (single point of control).
-    for (const layerId of this.nrrd_states.layers) {
-      if (!this.gui_states.layerVisibility[layerId]) continue;
+    for (const layerId of this.nrrd_states.image.layers) {
+      if (!this.gui_states.layerChannel.layerVisibility[layerId]) continue;
       const target = this.protectedData.layerTargets.get(layerId);
       if (target) masterCtx.drawImage(target.canvas, 0, 0, width, height);
     }

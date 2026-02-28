@@ -37,7 +37,7 @@ export class ImageStoreHelper extends BaseTool {
     const { volumes } = this.ctx.protectedData.maskData;
     const vol = volumes[layer];
     if (vol) return vol;
-    const firstLayerId = this.ctx.nrrd_states.layers[0];
+    const firstLayerId = this.ctx.nrrd_states.image.layers[0];
     console.warn(`ImageStoreHelper: unknown layer "${layer}", falling back to "${firstLayerId}"`);
     return volumes[firstLayerId];
   }
@@ -88,7 +88,7 @@ export class ImageStoreHelper extends BaseTool {
     // Read from the individual layer canvas (NOT master) to preserve layer isolation
     const layerCanvas = this.getCanvasForLayer(layer);
 
-    if (!nrrd.loadMaskJson && !this.ctx.gui_states.sphere) {
+    if (!nrrd.flags.loadingMaskData && !this.ctx.gui_states.mode.sphere) {
       this.callbacks.setEmptyCanvasSize();
       this.callbacks.drawImageOnEmptyImage(layerCanvas);
     }
@@ -113,9 +113,9 @@ export class ImageStoreHelper extends BaseTool {
     try {
       const volume = this.getVolumeForLayer(layer);
       if (volume) {
-        const activeChannel = this.ctx.gui_states.activeChannel || 1;
+        const activeChannel = this.ctx.gui_states.layerChannel.activeChannel || 1;
         // Phase 4 Fix: Pass channel visibility map to preserve hidden channels
-        const channelVis = this.ctx.gui_states.channelVisibility[layer];
+        const channelVis = this.ctx.gui_states.layerChannel.channelVisibility[layer];
 
         volume.setSliceLabelsFromImageData(
           index,
@@ -129,16 +129,16 @@ export class ImageStoreHelper extends BaseTool {
       // Volume not ready — skip
     }
 
-    if (!nrrd.loadMaskJson && !this.ctx.gui_states.sphere) {
+    if (!nrrd.flags.loadingMaskData && !this.ctx.gui_states.mode.sphere) {
       // Extract raw slice data from MaskVolume and notify parent
       try {
         const volume = this.getVolumeForLayer(layer);
         if (volume) {
           const axis = this.ctx.protectedData.axis;
-          const sliceIndex = this.ctx.nrrd_states.currentIndex;
+          const sliceIndex = this.ctx.nrrd_states.view.currentSliceIndex;
           const { data: sliceData, width, height } = volume.getSliceUint8(sliceIndex, axis);
-          const activeChannel = this.ctx.gui_states.activeChannel || 1;
-          this.ctx.nrrd_states.getMask(
+          const activeChannel = this.ctx.gui_states.layerChannel.activeChannel || 1;
+          this.ctx.callbacks.onMaskChanged(
             sliceData,
             layer,
             activeChannel,
@@ -146,7 +146,7 @@ export class ImageStoreHelper extends BaseTool {
             axis,
             width,
             height,
-            this.ctx.nrrd_states.clearAllFlag
+            this.ctx.nrrd_states.flags.clearAllFlag
           );
         }
       } catch {

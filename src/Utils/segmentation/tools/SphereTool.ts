@@ -96,8 +96,8 @@ export const SPHERE_LABELS: Record<SphereType | 'default', number> = {
  * These are internal canvas manipulation callbacks, NOT external data callbacks.
  *
  * External data output uses:
- * - nrrd_states.getSphere(origin, radius) — sphere mode
- * - nrrd_states.getCalculateSpherePositions(...) — calculator mode
+ * - annotationCallbacks.onSphereChanged(origin, radius) — sphere mode
+ * - annotationCallbacks.onCalculatorPositionsChanged(...) — calculator mode
  */
 export interface SphereCallbacks {
   setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
@@ -176,16 +176,16 @@ export class SphereTool extends BaseTool {
     const nrrd = this.ctx.nrrd_states;
     switch (axis ?? this.ctx.protectedData.axis) {
       case "x":
-        this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.nrrd_z_mm;
-        this.ctx.protectedData.canvases.drawingSphereCanvas.height = nrrd.nrrd_y_mm;
+        this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.image.nrrd_z_mm;
+        this.ctx.protectedData.canvases.drawingSphereCanvas.height = nrrd.image.nrrd_y_mm;
         break;
       case "y":
-        this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.nrrd_x_mm;
-        this.ctx.protectedData.canvases.drawingSphereCanvas.height = nrrd.nrrd_z_mm;
+        this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.image.nrrd_x_mm;
+        this.ctx.protectedData.canvases.drawingSphereCanvas.height = nrrd.image.nrrd_z_mm;
         break;
       case "z":
-        this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.nrrd_x_mm;
-        this.ctx.protectedData.canvases.drawingSphereCanvas.height = nrrd.nrrd_y_mm;
+        this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.image.nrrd_x_mm;
+        this.ctx.protectedData.canvases.drawingSphereCanvas.height = nrrd.image.nrrd_y_mm;
         break;
     }
   }
@@ -239,7 +239,7 @@ export class SphereTool extends BaseTool {
    */
   drawSphere(mouseX: number, mouseY: number, radius: number): void {
     const [, ctx] = this.clearSphereCanvas();
-    const color = this.getColorForSphereType(this.ctx.gui_states.activeSphereType);
+    const color = this.getColorForSphereType(this.ctx.gui_states.mode.activeSphereType);
     drawSphereCore(ctx, mouseX, mouseY, radius, color);
   }
 
@@ -256,17 +256,17 @@ export class SphereTool extends BaseTool {
       e.preventDefault();
 
       if (e.deltaY < 0) {
-        this.ctx.nrrd_states.sphereRadius += 1;
+        this.ctx.nrrd_states.sphere.sphereRadius += 1;
       } else {
-        this.ctx.nrrd_states.sphereRadius -= 1;
+        this.ctx.nrrd_states.sphere.sphereRadius -= 1;
       }
-      this.ctx.nrrd_states.sphereRadius = Math.max(
+      this.ctx.nrrd_states.sphere.sphereRadius = Math.max(
         1,
-        Math.min(this.ctx.nrrd_states.sphereRadius, 50)
+        Math.min(this.ctx.nrrd_states.sphere.sphereRadius, 50)
       );
-      const mouseX = this.ctx.nrrd_states.sphereOrigin[this.ctx.protectedData.axis][0];
-      const mouseY = this.ctx.nrrd_states.sphereOrigin[this.ctx.protectedData.axis][1];
-      this.drawSphere(mouseX, mouseY, this.ctx.nrrd_states.sphereRadius);
+      const mouseX = this.ctx.nrrd_states.sphere.sphereOrigin[this.ctx.protectedData.axis][0];
+      const mouseY = this.ctx.nrrd_states.sphere.sphereOrigin[this.ctx.protectedData.axis][1];
+      this.drawSphere(mouseX, mouseY, this.ctx.nrrd_states.sphere.sphereRadius);
     };
   }
 
@@ -303,26 +303,26 @@ export class SphereTool extends BaseTool {
   drawSphereOnEachViews(decay: number, axis: "x" | "y" | "z"): void {
     this.setSphereCanvasSize(axis);
 
-    const mouseX = this.ctx.nrrd_states.sphereOrigin[axis][0];
-    const mouseY = this.ctx.nrrd_states.sphereOrigin[axis][1];
-    const originIndex = this.ctx.nrrd_states.sphereOrigin[axis][2];
+    const mouseX = this.ctx.nrrd_states.sphere.sphereOrigin[axis][0];
+    const mouseY = this.ctx.nrrd_states.sphere.sphereOrigin[axis][1];
+    const originIndex = this.ctx.nrrd_states.sphere.sphereOrigin[axis][2];
     const preIndex = originIndex - decay;
     const nextIndex = originIndex + decay;
     const ctx = this.ctx.protectedData.ctxes.drawingSphereCtx;
     const canvas = this.ctx.protectedData.canvases.drawingSphereCanvas;
 
     // Use the dynamic type color instead of the static fillColor
-    const color = this.getColorForSphereType(this.ctx.gui_states.activeSphereType);
+    const color = this.getColorForSphereType(this.ctx.gui_states.mode.activeSphereType);
 
     if (preIndex === nextIndex) {
-      this.drawSphereCore(ctx, mouseX, mouseY, this.ctx.nrrd_states.sphereRadius, color);
+      this.drawSphereCore(ctx, mouseX, mouseY, this.ctx.nrrd_states.sphere.sphereRadius, color);
       this.storeSphereImages(preIndex, axis);
     } else {
       this.drawSphereCore(
         ctx,
         mouseX,
         mouseY,
-        this.ctx.nrrd_states.sphereRadius - decay,
+        this.ctx.nrrd_states.sphere.sphereRadius - decay,
         color
       );
       this.callbacks.drawImageOnEmptyImage(canvas);
@@ -360,17 +360,17 @@ export class SphereTool extends BaseTool {
     const nrrd = this.ctx.nrrd_states;
 
     // Build position list with dynamic sphere type colors
-    const tumourPosition = nrrd.tumourSphereOrigin
-      ? Object.assign(this.getSpherePosition(nrrd.tumourSphereOrigin as ICommXYZ, axis), { color: this.getColorForSphereType('tumour') })
+    const tumourPosition = nrrd.sphere.tumourSphereOrigin
+      ? Object.assign(this.getSpherePosition(nrrd.sphere.tumourSphereOrigin as ICommXYZ, axis), { color: this.getColorForSphereType('tumour') })
       : null;
-    const skinPosition = nrrd.skinSphereOrigin
-      ? Object.assign(this.getSpherePosition(nrrd.skinSphereOrigin as ICommXYZ, axis), { color: this.getColorForSphereType('skin') })
+    const skinPosition = nrrd.sphere.skinSphereOrigin
+      ? Object.assign(this.getSpherePosition(nrrd.sphere.skinSphereOrigin as ICommXYZ, axis), { color: this.getColorForSphereType('skin') })
       : null;
-    const ribcagePosition = nrrd.ribSphereOrigin
-      ? Object.assign(this.getSpherePosition(nrrd.ribSphereOrigin as ICommXYZ, axis), { color: this.getColorForSphereType('ribcage') })
+    const ribcagePosition = nrrd.sphere.ribSphereOrigin
+      ? Object.assign(this.getSpherePosition(nrrd.sphere.ribSphereOrigin as ICommXYZ, axis), { color: this.getColorForSphereType('ribcage') })
       : null;
-    const nipplePosition = nrrd.nippleSphereOrigin
-      ? Object.assign(this.getSpherePosition(nrrd.nippleSphereOrigin as ICommXYZ, axis), { color: this.getColorForSphereType('nipple') })
+    const nipplePosition = nrrd.sphere.nippleSphereOrigin
+      ? Object.assign(this.getSpherePosition(nrrd.sphere.nippleSphereOrigin as ICommXYZ, axis), { color: this.getColorForSphereType('nipple') })
       : null;
 
     const positionGroup: any[] = [];
@@ -406,7 +406,7 @@ export class SphereTool extends BaseTool {
           ctx,
           (p as any).x,
           (p as any).y,
-          nrrd.sphereRadius,
+          nrrd.sphere.sphereRadius,
           (p as any).color
         );
       });
@@ -428,17 +428,17 @@ export class SphereTool extends BaseTool {
     const nrrd = this.ctx.nrrd_states;
     const axis = this.ctx.protectedData.axis;
 
-    if (nrrd.tumourSphereOrigin && nrrd.tumourSphereOrigin[axis][2] === nrrd.currentIndex) {
-      this.drawSphereCore(ctx, nrrd.tumourSphereOrigin[axis][0], nrrd.tumourSphereOrigin[axis][1], radius, this.getColorForSphereType('tumour'));
+    if (nrrd.sphere.tumourSphereOrigin && nrrd.sphere.tumourSphereOrigin[axis][2] === nrrd.view.currentSliceIndex) {
+      this.drawSphereCore(ctx, nrrd.sphere.tumourSphereOrigin[axis][0], nrrd.sphere.tumourSphereOrigin[axis][1], radius, this.getColorForSphereType('tumour'));
     }
-    if (nrrd.skinSphereOrigin && nrrd.skinSphereOrigin[axis][2] === nrrd.currentIndex) {
-      this.drawSphereCore(ctx, nrrd.skinSphereOrigin[axis][0], nrrd.skinSphereOrigin[axis][1], radius, this.getColorForSphereType('skin'));
+    if (nrrd.sphere.skinSphereOrigin && nrrd.sphere.skinSphereOrigin[axis][2] === nrrd.view.currentSliceIndex) {
+      this.drawSphereCore(ctx, nrrd.sphere.skinSphereOrigin[axis][0], nrrd.sphere.skinSphereOrigin[axis][1], radius, this.getColorForSphereType('skin'));
     }
-    if (nrrd.ribSphereOrigin && nrrd.ribSphereOrigin[axis][2] === nrrd.currentIndex) {
-      this.drawSphereCore(ctx, nrrd.ribSphereOrigin[axis][0], nrrd.ribSphereOrigin[axis][1], radius, this.getColorForSphereType('ribcage'));
+    if (nrrd.sphere.ribSphereOrigin && nrrd.sphere.ribSphereOrigin[axis][2] === nrrd.view.currentSliceIndex) {
+      this.drawSphereCore(ctx, nrrd.sphere.ribSphereOrigin[axis][0], nrrd.sphere.ribSphereOrigin[axis][1], radius, this.getColorForSphereType('ribcage'));
     }
-    if (nrrd.nippleSphereOrigin && nrrd.nippleSphereOrigin[axis][2] === nrrd.currentIndex) {
-      this.drawSphereCore(ctx, nrrd.nippleSphereOrigin[axis][0], nrrd.nippleSphereOrigin[axis][1], radius, this.getColorForSphereType('nipple'));
+    if (nrrd.sphere.nippleSphereOrigin && nrrd.sphere.nippleSphereOrigin[axis][2] === nrrd.view.currentSliceIndex) {
+      this.drawSphereCore(ctx, nrrd.sphere.nippleSphereOrigin[axis][0], nrrd.sphere.nippleSphereOrigin[axis][1], radius, this.getColorForSphereType('nipple'));
     }
     // NOTE: Does NOT composite to master canvas — the start() render loop
     // draws the sphere canvas directly to drawingCtx for proper layering.
@@ -474,21 +474,21 @@ export class SphereTool extends BaseTool {
     switch (axis) {
       case 'z':
         return {
-          x: canvasX * nrrd.nrrd_x_pixel / nrrd.nrrd_x_mm,
-          y: canvasY * nrrd.nrrd_y_pixel / nrrd.nrrd_y_mm,
+          x: canvasX * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm,
+          y: canvasY * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm,
           z: sliceIndex,
         };
       case 'y':
         return {
-          x: canvasX * nrrd.nrrd_x_pixel / nrrd.nrrd_x_mm,
+          x: canvasX * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm,
           y: sliceIndex,
-          z: (nrrd.nrrd_z_mm - canvasY) * nrrd.nrrd_z_pixel / nrrd.nrrd_z_mm,
+          z: (nrrd.image.nrrd_z_mm - canvasY) * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm,
         };
       case 'x':
         return {
           x: sliceIndex,
-          y: canvasY * nrrd.nrrd_y_pixel / nrrd.nrrd_y_mm,
-          z: canvasX * nrrd.nrrd_z_pixel / nrrd.nrrd_z_mm,
+          y: canvasY * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm,
+          z: canvasX * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm,
         };
     }
   }
@@ -504,21 +504,21 @@ export class SphereTool extends BaseTool {
    * @param label - Label value to write (1-4, default 1)
    */
   write3DSphereToVolume(label: number = SPHERE_LABELS.default): void {
-    const vol = this.ctx.nrrd_states.sphereMaskVolume;
+    const vol = this.ctx.nrrd_states.sphere.sphereMaskVolume;
     if (!vol) return;
 
     const nrrd = this.ctx.nrrd_states;
     const axis = this.ctx.protectedData.axis;
     const dims = vol.getDimensions();
 
-    const origin = nrrd.sphereOrigin[axis];
+    const origin = nrrd.sphere.sphereOrigin[axis];
     const center = this.canvasToVoxelCenter(origin[0], origin[1], origin[2], axis);
-    const radius = nrrd.sphereRadius;
+    const radius = nrrd.sphere.sphereRadius;
 
     // Convert mm radius to voxels in each direction
-    const rx = radius * nrrd.nrrd_x_pixel / nrrd.nrrd_x_mm;
-    const ry = radius * nrrd.nrrd_y_pixel / nrrd.nrrd_y_mm;
-    const rz = radius * nrrd.nrrd_z_pixel / nrrd.nrrd_z_mm;
+    const rx = radius * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm;
+    const ry = radius * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm;
+    const rz = radius * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm;
 
     // Bounding box clamped to volume
     const minX = Math.max(0, Math.floor(center.x - rx));
@@ -550,28 +550,28 @@ export class SphereTool extends BaseTool {
    */
   writeCalculatorSphereToVolume(type: SphereType): void {
     const nrrd = this.ctx.nrrd_states;
-    const vol = nrrd.sphereMaskVolume;
+    const vol = nrrd.sphere.sphereMaskVolume;
     if (!vol) return;
 
     let origin: ICommXYZ | null = null;
     switch (type) {
-      case 'tumour': origin = nrrd.tumourSphereOrigin as ICommXYZ; break;
-      case 'skin': origin = nrrd.skinSphereOrigin as ICommXYZ; break;
-      case 'nipple': origin = nrrd.nippleSphereOrigin as ICommXYZ; break;
-      case 'ribcage': origin = nrrd.ribSphereOrigin as ICommXYZ; break;
+      case 'tumour': origin = nrrd.sphere.tumourSphereOrigin as ICommXYZ; break;
+      case 'skin': origin = nrrd.sphere.skinSphereOrigin as ICommXYZ; break;
+      case 'nipple': origin = nrrd.sphere.nippleSphereOrigin as ICommXYZ; break;
+      case 'ribcage': origin = nrrd.sphere.ribSphereOrigin as ICommXYZ; break;
     }
     if (!origin) return;
 
     const dims = vol.getDimensions();
-    const radius = nrrd.sphereRadius;
+    const radius = nrrd.sphere.sphereRadius;
 
     // Use z-axis representation for consistent voxel mapping
-    const cx = origin.z[0] * nrrd.nrrd_x_pixel / nrrd.nrrd_x_mm;
-    const cy = origin.z[1] * nrrd.nrrd_y_pixel / nrrd.nrrd_y_mm;
+    const cx = origin.z[0] * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm;
+    const cy = origin.z[1] * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm;
     const cz = origin.z[2];
-    const rx = radius * nrrd.nrrd_x_pixel / nrrd.nrrd_x_mm;
-    const ry = radius * nrrd.nrrd_y_pixel / nrrd.nrrd_y_mm;
-    const rz = radius * nrrd.nrrd_z_pixel / nrrd.nrrd_z_mm;
+    const rx = radius * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm;
+    const ry = radius * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm;
+    const rz = radius * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm;
 
     const label = SPHERE_LABELS[type];
     const minX = Math.max(0, Math.floor(cx - rx));
@@ -601,14 +601,14 @@ export class SphereTool extends BaseTool {
    */
   writeAllCalculatorSpheresToVolume(): void {
     const nrrd = this.ctx.nrrd_states;
-    const vol = nrrd.sphereMaskVolume;
+    const vol = nrrd.sphere.sphereMaskVolume;
     if (!vol) return;
 
     vol.clear();
-    if (nrrd.tumourSphereOrigin) this.writeCalculatorSphereToVolume('tumour');
-    if (nrrd.skinSphereOrigin) this.writeCalculatorSphereToVolume('skin');
-    if (nrrd.nippleSphereOrigin) this.writeCalculatorSphereToVolume('nipple');
-    if (nrrd.ribSphereOrigin) this.writeCalculatorSphereToVolume('ribcage');
+    if (nrrd.sphere.tumourSphereOrigin) this.writeCalculatorSphereToVolume('tumour');
+    if (nrrd.sphere.skinSphereOrigin) this.writeCalculatorSphereToVolume('skin');
+    if (nrrd.sphere.nippleSphereOrigin) this.writeCalculatorSphereToVolume('nipple');
+    if (nrrd.sphere.ribSphereOrigin) this.writeCalculatorSphereToVolume('ribcage');
   }
 
   // ===== Sphere Overlay Rendering from Volume =====
@@ -621,7 +621,7 @@ export class SphereTool extends BaseTool {
    * layer masks (emptyCanvas → sphere canvas at display scale).
    */
   refreshSphereCanvas(): void {
-    const vol = this.ctx.nrrd_states.sphereMaskVolume;
+    const vol = this.ctx.nrrd_states.sphere.sphereMaskVolume;
     const sphereCtx = this.ctx.protectedData.ctxes.drawingSphereCtx;
     const sphereCanvas = this.ctx.protectedData.canvases.drawingSphereCanvas;
     const nrrd = this.ctx.nrrd_states;
@@ -632,7 +632,7 @@ export class SphereTool extends BaseTool {
 
     if (!vol) return;
 
-    const sliceIndex = nrrd.currentIndex;
+    const sliceIndex = nrrd.view.currentSliceIndex;
 
     try {
       const dims = vol.getDimensions();

@@ -1,21 +1,21 @@
 /**
  * BaseTool - Abstract base for extracted DrawToolCore tools
  *
- * Provides shared access to the legacy state objects (nrrd_states,
- * gui_states, protectedData) via a ToolContext interface.
+ * Provides shared access to state objects via a ToolContext interface.
  *
  * NOTE: This is for the OLD DrawToolCore system.
  * The new SegmentationManager system has its own tools in manager/tools/.
  */
 
 import type {
-  INrrdStates,
-  IGUIStates,
   IProtected,
   ICursorPage,
   IPaintImage,
   IPaintImages,
+  IAnnotationCallbacks,
 } from "../coreTools/coreType";
+import type { NrrdState } from "../coreTools/NrrdState";
+import type { GuiState } from "../coreTools/GuiState";
 import type { EventRouter } from "../eventRouter/EventRouter";
 
 /**
@@ -23,10 +23,12 @@ import type { EventRouter } from "../eventRouter/EventRouter";
  * References are shared (not copied), so tools see the same state.
  */
 export interface ToolContext {
-  nrrd_states: INrrdStates;
-  gui_states: IGUIStates;
+  nrrd_states: NrrdState;
+  gui_states: GuiState;
   protectedData: IProtected;
   cursorPage: ICursorPage;
+  /** External annotation callbacks (Phase 2) */
+  callbacks: IAnnotationCallbacks;
   /** EventRouter reference for mode/state queries. Set after initDrawToolCore(). */
   eventRouter?: EventRouter;
 }

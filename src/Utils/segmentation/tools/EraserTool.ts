@@ -18,9 +18,9 @@ export class EraserTool extends BaseTool {
    */
   createClearArc(): (x: number, y: number, radius: number) => void {
     const clearArc = (x: number, y: number, radius: number) => {
-      const activeChannel = this.ctx.gui_states.activeChannel || 1;
+      const activeChannel = this.ctx.gui_states.layerChannel.activeChannel || 1;
       // Get color from current layer's volume (respects custom per-layer colors)
-      const layer = this.ctx.gui_states.layer;
+      const layer = this.ctx.gui_states.layerChannel.layer;
       const volume = this.ctx.protectedData.maskData.volumes[layer];
       const channelColor = volume
         ? volume.getChannelColor(activeChannel)
@@ -35,11 +35,11 @@ export class EraserTool extends BaseTool {
       const x0 = Math.max(0, Math.floor(x - radius));
       const y0 = Math.max(0, Math.floor(y - radius));
       const x1 = Math.min(
-        this.ctx.nrrd_states.changedWidth,
+        this.ctx.nrrd_states.view.changedWidth,
         Math.ceil(x + radius)
       );
       const y1 = Math.min(
-        this.ctx.nrrd_states.changedHeight,
+        this.ctx.nrrd_states.view.changedHeight,
         Math.ceil(y + radius)
       );
       const w = x1 - x0;
@@ -88,12 +88,12 @@ export class EraserTool extends BaseTool {
       // Recomposite master from all layer canvases (full alpha;
       // globalAlpha applied in start() render loop).
       const masterCtx = this.ctx.protectedData.ctxes.drawingLayerMasterCtx;
-      const fullW = this.ctx.nrrd_states.changedWidth;
-      const fullH = this.ctx.nrrd_states.changedHeight;
+      const fullW = this.ctx.nrrd_states.view.changedWidth;
+      const fullH = this.ctx.nrrd_states.view.changedHeight;
       masterCtx.clearRect(0, 0, fullW, fullH);
 
-      for (const layerId of this.ctx.nrrd_states.layers) {
-        if (!this.ctx.gui_states.layerVisibility[layerId]) continue;
+      for (const layerId of this.ctx.nrrd_states.image.layers) {
+        if (!this.ctx.gui_states.layerChannel.layerVisibility[layerId]) continue;
         const lt = this.ctx.protectedData.layerTargets.get(layerId);
         if (lt) masterCtx.drawImage(lt.canvas, 0, 0, fullW, fullH);
       }

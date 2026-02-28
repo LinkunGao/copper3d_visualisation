@@ -4,9 +4,9 @@ import {
   IDragPrameters,
   IDrawingEvents,
   IProtected,
-  IGUIStates,
-  INrrdStates,
 } from "./coreTools/coreType";
+import { NrrdState } from "./coreTools/NrrdState";
+import { GuiState } from "./coreTools/GuiState";
 import { createShowSliceNumberDiv } from "./coreTools/divControlTools";
 import type { EventRouter } from "./eventRouter";
 import { DragSliceTool } from "./tools/DragSliceTool";
@@ -27,8 +27,8 @@ export class DragOperator {
   private drawingPrameters: IDrawingEvents;
   private sensitiveArray: number[] = [];
   private showDragNumberDiv: HTMLDivElement;
-  private nrrd_states: INrrdStates;
-  private gui_states: IGUIStates;
+  private nrrd_states: NrrdState;
+  private gui_states: GuiState;
   private protectedData: IProtected;
   private dragSliceTool!: DragSliceTool;
 
@@ -49,8 +49,8 @@ export class DragOperator {
 
   constructor(
     container: HTMLElement,
-    nrrd_sates: INrrdStates,
-    gui_states: IGUIStates,
+    nrrd_sates: NrrdState,
+    gui_states: GuiState,
     protectedData: IProtected,
     drawingPrameters: IDrawingEvents,
 
@@ -82,7 +82,7 @@ export class DragOperator {
     this.init();
   }
   private init() {
-    for (let i = 0; i < this.gui_states.max_sensitive; i++) {
+    for (let i = 0; i < this.gui_states.viewConfig.max_sensitive; i++) {
       this.sensitiveArray.push((i + 1) / 20);
     }
 
@@ -151,7 +151,7 @@ export class DragOperator {
       // When leaving draw, contrast, or crosshair mode (returning to idle), restore drag mode
       // Do NOT restore if sphere mode is active
       if ((prev === 'draw' || prev === 'contrast' || prev === 'crosshair') && next === 'idle') {
-        if (!this.gui_states.sphere) {
+        if (!this.gui_states.mode.sphere) {
           this.configDragMode();
         }
       }
@@ -181,7 +181,7 @@ export class DragOperator {
           false
         );
         this.dragPrameters.sensivity =
-          this.sensitiveArray[this.gui_states.dragSensitivity - 1];
+          this.sensitiveArray[this.gui_states.viewConfig.dragSensitivity - 1];
       }
     };
     this.dragPrameters.handleOnDragMouseMove = throttle((ev: MouseEvent) => {
@@ -200,8 +200,8 @@ export class DragOperator {
       this.updateIndex(this.dragPrameters.move);
       opts?.getSliceNum &&
         opts.getSliceNum(
-          this.nrrd_states.currentIndex,
-          this.nrrd_states.contrastNum
+          this.nrrd_states.view.currentSliceIndex,
+          this.nrrd_states.view.contrastNum
         );
       this.dragPrameters.y = ev.offsetY / this.dragPrameters.h;
     }, this.dragPrameters.sensivity * 200);

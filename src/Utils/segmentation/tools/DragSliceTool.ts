@@ -65,19 +65,20 @@ export class DragSliceTool extends BaseTool {
   updateIndex(move: number): void {
     let sliceModifyNum = 0;
     let contrastModifyNum = 0;
-    const nrrd = this.ctx.nrrd_states;
+    const view = this.ctx.nrrd_states.view;
+    const image = this.ctx.nrrd_states.image;
 
-    if (nrrd.showContrast) {
+    if (view.showContrast) {
       contrastModifyNum = move % this.ctx.protectedData.displaySlices.length;
-      nrrd.contrastNum += contrastModifyNum;
+      view.contrastNum += contrastModifyNum;
       if (move > 0) {
-        if (nrrd.currentIndex <= nrrd.maxIndex) {
+        if (view.currentSliceIndex <= view.maxIndex) {
           sliceModifyNum = Math.floor(
             move / this.ctx.protectedData.displaySlices.length
           );
-          if (nrrd.contrastNum > this.ctx.protectedData.displaySlices.length - 1) {
+          if (view.contrastNum > this.ctx.protectedData.displaySlices.length - 1) {
             sliceModifyNum += 1;
-            nrrd.contrastNum -= this.ctx.protectedData.displaySlices.length;
+            view.contrastNum -= this.ctx.protectedData.displaySlices.length;
           }
         } else {
           sliceModifyNum = 0;
@@ -86,8 +87,8 @@ export class DragSliceTool extends BaseTool {
         sliceModifyNum = Math.ceil(
           move / this.ctx.protectedData.displaySlices.length
         );
-        if (nrrd.contrastNum < 0) {
-          nrrd.contrastNum += this.ctx.protectedData.displaySlices.length;
+        if (view.contrastNum < 0) {
+          view.contrastNum += this.ctx.protectedData.displaySlices.length;
           sliceModifyNum -= 1;
         }
       }
@@ -95,47 +96,47 @@ export class DragSliceTool extends BaseTool {
       sliceModifyNum = move;
     }
 
-    let newIndex = nrrd.currentIndex + sliceModifyNum;
+    let newIndex = view.currentSliceIndex + sliceModifyNum;
 
-    if (newIndex != nrrd.currentIndex || nrrd.showContrast) {
-      if (newIndex > nrrd.maxIndex) {
-        newIndex = nrrd.maxIndex;
-        nrrd.contrastNum = this.ctx.protectedData.displaySlices.length - 1;
-      } else if (newIndex < nrrd.minIndex) {
-        newIndex = nrrd.minIndex;
-        nrrd.contrastNum = 0;
+    if (newIndex != view.currentSliceIndex || view.showContrast) {
+      if (newIndex > view.maxIndex) {
+        newIndex = view.maxIndex;
+        view.contrastNum = this.ctx.protectedData.displaySlices.length - 1;
+      } else if (newIndex < view.minIndex) {
+        newIndex = view.minIndex;
+        view.contrastNum = 0;
       } else {
-        this.ctx.protectedData.mainPreSlices.index = newIndex * nrrd.RSARatio;
+        this.ctx.protectedData.mainPreSlices.index = newIndex * image.RSARatio;
         this.callbacks.setSyncsliceNum();
 
         let isSameIndex = true;
-        if (newIndex != nrrd.currentIndex) {
-          nrrd.switchSliceFlag = true;
+        if (newIndex != view.currentSliceIndex) {
+          view.switchSliceFlag = true;
           isSameIndex = false;
         }
 
         this.cleanCanvases(isSameIndex);
 
-        if (nrrd.changedWidth === 0) {
-          nrrd.changedWidth = nrrd.originWidth;
-          nrrd.changedHeight = nrrd.originHeight;
+        if (view.changedWidth === 0) {
+          view.changedWidth = image.originWidth;
+          view.changedHeight = image.originHeight;
         }
 
         const needToUpdateSlice = this.updateCurrentContrastSlice();
         needToUpdateSlice.repaint.call(needToUpdateSlice);
-        nrrd.currentIndex = newIndex;
+        view.currentSliceIndex = newIndex;
         this.drawDragSlice(needToUpdateSlice.canvas);
       }
 
-      nrrd.oldIndex = newIndex * nrrd.RSARatio;
-      this.updateShowNumDiv(nrrd.contrastNum);
+      view.preSliceIndex = newIndex * image.RSARatio;
+      this.updateShowNumDiv(view.contrastNum);
     }
   }
 
   // ===== Draw Drag Slice =====
 
   private drawDragSlice(canvas: any): void {
-    const nrrd = this.ctx.nrrd_states;
+    const view = this.ctx.nrrd_states.view;
 
     // Draw base image (CT/MRI scan)
     this.ctx.protectedData.ctxes.displayCtx.save();
@@ -144,26 +145,26 @@ export class DragSliceTool extends BaseTool {
       canvas,
       0,
       0,
-      nrrd.changedWidth,
-      nrrd.changedHeight
+      view.changedWidth,
+      view.changedHeight
     );
     this.ctx.protectedData.ctxes.displayCtx.restore();
 
     // Phase 3: Draw ALL layers from MaskVolume (multi-layer compositing)
     // Skip layer mask rendering when sphere mode is active —
     // layer masks should remain hidden until the user exits sphere mode.
-    if (nrrd.switchSliceFlag) {
-      if (!this.ctx.gui_states.sphere) {
+    if (view.switchSliceFlag) {
+      if (!this.ctx.gui_states.mode.sphere) {
         const axis = this.ctx.protectedData.axis;
-        const sliceIndex = nrrd.currentIndex;
+        const sliceIndex = view.currentSliceIndex;
 
         // Get a single reusable buffer — shared across all layer renders
         const buffer = this.callbacks.getOrCreateSliceBuffer(axis);
         if (buffer) {
-          const w = nrrd.changedWidth;
-          const h = nrrd.changedHeight;
+          const w = view.changedWidth;
+          const h = view.changedHeight;
 
-          for (const layerId of this.ctx.nrrd_states.layers) {
+          for (const layerId of this.ctx.nrrd_states.image.layers) {
             const target = this.ctx.protectedData.layerTargets.get(layerId);
             if (target) {
               this.callbacks.renderSliceToCanvas(layerId, axis, sliceIndex, buffer, target.ctx, w, h);
@@ -176,11 +177,11 @@ export class DragSliceTool extends BaseTool {
       }
 
       // Refresh sphere overlay from volume for the new slice
-      if (this.ctx.gui_states.sphere) {
+      if (this.ctx.gui_states.mode.sphere) {
         this.callbacks.refreshSphereOverlay?.();
       }
 
-      nrrd.switchSliceFlag = false;
+      view.switchSliceFlag = false;
     }
   }
 
@@ -189,14 +190,14 @@ export class DragSliceTool extends BaseTool {
    */
   private compositeAllLayers(): void {
     const masterCtx = this.ctx.protectedData.ctxes.drawingLayerMasterCtx;
-    const width = this.ctx.nrrd_states.changedWidth;
-    const height = this.ctx.nrrd_states.changedHeight;
+    const width = this.ctx.nrrd_states.view.changedWidth;
+    const height = this.ctx.nrrd_states.view.changedHeight;
 
     masterCtx.clearRect(0, 0, width, height);
 
     // Master stores full-alpha composite; globalAlpha applied in start() render loop.
-    for (const layerId of this.ctx.nrrd_states.layers) {
-      if (!this.ctx.gui_states.layerVisibility[layerId]) continue;
+    for (const layerId of this.ctx.nrrd_states.image.layers) {
+      if (!this.ctx.gui_states.layerChannel.layerVisibility[layerId]) continue;
       const target = this.ctx.protectedData.layerTargets.get(layerId);
       if (target) masterCtx.drawImage(target.canvas, 0, 0, width, height);
     }
@@ -225,23 +226,23 @@ export class DragSliceTool extends BaseTool {
 
   updateShowNumDiv(contrastNum: number): void {
     if (this.ctx.protectedData.mainPreSlices) {
-      const nrrd = this.ctx.nrrd_states;
-      if (nrrd.currentIndex > nrrd.maxIndex) {
-        nrrd.currentIndex = nrrd.maxIndex;
+      const view = this.ctx.nrrd_states.view;
+      if (view.currentSliceIndex > view.maxIndex) {
+        view.currentSliceIndex = view.maxIndex;
       }
-      if (nrrd.showContrast) {
+      if (view.showContrast) {
         this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
           this.ctx.protectedData.displaySlices.length - 1
-        } SliceNum: ${nrrd.currentIndex}/${nrrd.maxIndex}`;
+        } SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
       } else {
-        this.showDragNumberDiv.innerHTML = `SliceNum: ${nrrd.currentIndex}/${nrrd.maxIndex}`;
+        this.showDragNumberDiv.innerHTML = `SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
       }
     }
   }
 
   updateCurrentContrastSlice(): any {
     this.ctx.protectedData.currentShowingSlice =
-      this.ctx.protectedData.displaySlices[this.ctx.nrrd_states.contrastNum];
+      this.ctx.protectedData.displaySlices[this.ctx.nrrd_states.view.contrastNum];
     return this.ctx.protectedData.currentShowingSlice;
   }
 }
