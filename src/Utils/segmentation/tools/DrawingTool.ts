@@ -83,10 +83,10 @@ export class DrawingTool extends BaseTool {
     this.leftClicked = true;
     this.drawingLines = [];
     this.isPainting = true;
-    this.ctx.protectedData.Is_Draw = true;
+    this.ctx.protectedData.isDrawing = true;
 
     // Set cursor based on mode
-    if (this.ctx.gui_states.mode.Eraser) {
+    if (this.ctx.gui_states.mode.eraser) {
       const urls = this.callbacks.getEraserUrls();
       this.ctx.protectedData.canvases.drawingCanvas.style.cursor =
         urls.length > 0
@@ -110,9 +110,9 @@ export class DrawingTool extends BaseTool {
    * Handles eraser clearing or brush/pencil stroke accumulation.
    */
   onPointerMove(e: MouseEvent): void {
-    this.ctx.protectedData.Is_Draw = true;
+    this.ctx.protectedData.isDrawing = true;
     if (this.isPainting) {
-      if (this.ctx.gui_states.mode.Eraser) {
+      if (this.ctx.gui_states.mode.eraser) {
         this.ctx.nrrd_states.flags.stepClear = 1;
         this.clearArcFn?.(e.offsetX, e.offsetY, this.ctx.gui_states.drawing.brushAndEraserSize);
       } else {
@@ -132,7 +132,7 @@ export class DrawingTool extends BaseTool {
 
     ctx.closePath();
 
-    if (!this.ctx.gui_states.mode.Eraser) {
+    if (!this.ctx.gui_states.mode.eraser) {
       if (this.ctx.gui_states.mode.pencil) {
         // Clear only the current layer canvas (NOT master)
         canvas.width = canvas.width;

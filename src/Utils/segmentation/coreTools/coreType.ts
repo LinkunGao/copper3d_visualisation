@@ -134,7 +134,7 @@ interface IProtected {
   skipSlicesDic: ISkipSlicesDictType;
   currentShowingSlice: any;
   mainPreSlices: any;
-  Is_Draw: boolean;
+  isDrawing: boolean;
   axis: "x" | "y" | "z";
   maskData: IMaskData;
 
@@ -162,7 +162,7 @@ interface IProtected {
 /** Tool mode flags — which tool is currently active */
 interface IToolModeState {
   pencil: boolean;
-  Eraser: boolean;
+  eraser: boolean;
   sphere: boolean;
   activeSphereType: "tumour" | "skin" | "nipple" | "ribcage";
 }
@@ -239,7 +239,7 @@ interface IViewState {
   maxIndex: number;
   minIndex: number;
   contrastNum: number;
-  sizeFoctor: number;
+  sizeFactor: number;
   showContrast: boolean;
   switchSliceFlag: boolean;
   previousPanelL: number;
@@ -248,9 +248,9 @@ interface IViewState {
 
 /** Interaction state — mouse/cursor tracking */
 interface IInteractionState {
-  Mouse_Over_x: number;
-  Mouse_Over_y: number;
-  Mouse_Over: boolean;
+  mouseOverX: number;
+  mouseOverY: number;
+  mouseOver: boolean;
   cursorPageX: number;
   cursorPageY: number;
   isCursorSelect: boolean;
@@ -342,7 +342,7 @@ interface IGuiParameterSettings {
     step: number,
     onChange: () => void,
   },
-  Eraser: {
+  eraser: {
     name: "Eraser",
     onChange: () => void,
   },

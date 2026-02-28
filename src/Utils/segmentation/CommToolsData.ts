@@ -114,7 +114,7 @@ export class CommToolsData {
       skipSlicesDic: {},
       currentShowingSlice: undefined,
       mainPreSlices: undefined,
-      Is_Draw: false,
+      isDrawing: false,
       axis: "z",
       maskData: {
         // Volumetric storage (Phase 3 — only storage mechanism)

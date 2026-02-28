@@ -82,7 +82,7 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
       updateGuiBrushAndEraserSize();
     });
 
-  actionsFolder.add(configs.gui_states.mode, "Eraser").onChange((value) => {
+  actionsFolder.add(configs.gui_states.mode, "eraser").onChange((value) => {
     updateGuiEraserState();
   });
   // Phase 2: Actions are no longer on gui_states — use a local actions object for dat.gui
@@ -248,7 +248,7 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
   actionsFolder.open();
 
   const updateGuiBrushAndEraserSize = () => {
-    if (configs.gui_states.mode.Eraser) {
+    if (configs.gui_states.mode.eraser) {
       configs.eraserUrls.length > 0
         ? (configs.drawingCanvas.style.cursor = switchEraserSize(
           configs.gui_states.drawing.brushAndEraserSize,
@@ -286,8 +286,8 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
   };
 
   const updateGuiEraserState = () => {
-    // configs.gui_states.mode.Eraser = value;
-    if (configs.gui_states.mode.Eraser) {
+    // configs.gui_states.mode.eraser = value;
+    if (configs.gui_states.mode.eraser) {
       configs.eraserUrls.length > 0
         ? (configs.drawingCanvas.style.cursor = switchEraserSize(
           configs.gui_states.drawing.brushAndEraserSize,
@@ -360,7 +360,7 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
       step: 1,
       onChange: updateGuiBrushAndEraserSize,
     },
-    Eraser: {
+    eraser: {
       name: "Eraser",
       onChange: updateGuiEraserState,
     },

@@ -32,7 +32,7 @@ export class GuiState {
 
     this.mode = {
       pencil: true,
-      Eraser: false,
+      eraser: false,
       sphere: false,
       activeSphereType: "tumour",
     };

@@ -52,7 +52,7 @@ export class NrrdState {
       maxIndex: 0,
       minIndex: 0,
       contrastNum: 0,
-      sizeFoctor: baseCanvasesSize,
+      sizeFactor: baseCanvasesSize,
       showContrast: false,
       switchSliceFlag: false,
       previousPanelL: -99999,
@@ -60,9 +60,9 @@ export class NrrdState {
     };
 
     this.interaction = {
-      Mouse_Over_x: 0,
-      Mouse_Over_y: 0,
-      Mouse_Over: false,
+      mouseOverX: 0,
+      mouseOverY: 0,
+      mouseOver: false,
       cursorPageX: 0,
       cursorPageY: 0,
       isCursorSelect: false,
@@ -90,7 +90,7 @@ export class NrrdState {
 
   /** Set zoom factor with clamping [1, 8] */
   setZoomFactor(factor: number): void {
-    this.view.sizeFoctor = Math.max(1, Math.min(8, factor));
+    this.view.sizeFactor = Math.max(1, Math.min(8, factor));
   }
 
   /** Reset all sphere state to defaults */

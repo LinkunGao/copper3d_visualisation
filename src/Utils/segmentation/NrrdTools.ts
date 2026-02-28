@@ -176,7 +176,7 @@ export class NrrdTools extends DrawToolCore {
     // Store closure callbacks for programmatic access (Phase 1 Task 1.2)
     this.guiCallbacks = {
       updatePencilState: this.guiParameterSettings.pencil.onChange,
-      updateEraserState: this.guiParameterSettings.Eraser.onChange,
+      updateEraserState: this.guiParameterSettings.eraser.onChange,
       updateBrushAndEraserSize: this.guiParameterSettings.brushAndEraserSize.onChange,
       updateSphereState: this.guiParameterSettings.sphere.onChange,
       updateCalDistance: this.guiParameterSettings.activeSphereType.onChange,
@@ -263,7 +263,7 @@ export class NrrdTools extends DrawToolCore {
 
     // Reset all mode flags
     this.gui_states.mode.pencil = false;
-    this.gui_states.mode.Eraser = false;
+    this.gui_states.mode.eraser = false;
     this.gui_states.mode.sphere = false;
     this._calculatorActive = false;
 
@@ -278,7 +278,7 @@ export class NrrdTools extends DrawToolCore {
         this.guiCallbacks.updatePencilState();
         break;
       case "eraser":
-        this.gui_states.mode.Eraser = true;
+        this.gui_states.mode.eraser = true;
         this.guiCallbacks.updateEraserState();
         break;
       case "sphere":
@@ -310,7 +310,7 @@ export class NrrdTools extends DrawToolCore {
   getMode(): ToolMode {
     if (this._calculatorActive) return "calculator";
     if (this.gui_states.mode.sphere) return "sphere";
-    if (this.gui_states.mode.Eraser) return "eraser";
+    if (this.gui_states.mode.eraser) return "eraser";
     if (this.gui_states.mode.pencil) return "pencil";
     return "brush";
   }
@@ -476,9 +476,9 @@ export class NrrdTools extends DrawToolCore {
         break;
       }
       case "resetZoom":
-        this.nrrd_states.view.sizeFoctor = this.baseCanvasesSize;
+        this.nrrd_states.view.sizeFactor = this.baseCanvasesSize;
         this.gui_states.viewConfig.mainAreaSize = this.baseCanvasesSize;
-        this.resizePaintArea(this.nrrd_states.view.sizeFoctor);
+        this.resizePaintArea(this.nrrd_states.view.sizeFactor);
         this.resetPaintAreaUIPosition();
         break;
       case "downloadCurrentMask": {
@@ -1111,7 +1111,7 @@ export class NrrdTools extends DrawToolCore {
 
     // mock mouse down
     // if user zoom the panel, we need to consider the size factor 
-    this.drawCalSphereDown(x * this.nrrd_states.view.sizeFoctor, y * this.nrrd_states.view.sizeFoctor, sliceIndex, cal_position);
+    this.drawCalSphereDown(x * this.nrrd_states.view.sizeFactor, y * this.nrrd_states.view.sizeFactor, sliceIndex, cal_position);
     // mock mouse up
     this.drawCalSphereUp()
 
@@ -1326,7 +1326,7 @@ export class NrrdTools extends DrawToolCore {
     this.protectedData.currentShowingSlice = undefined;
     this.initState = true;
     this.protectedData.axis = "z";
-    this.nrrd_states.view.sizeFoctor = this.baseCanvasesSize;
+    this.nrrd_states.view.sizeFactor = this.baseCanvasesSize;
     this.gui_states.viewConfig.mainAreaSize = this.baseCanvasesSize;
     this.resetLayerCanvas();
     this.protectedData.canvases.drawingCanvas.width =
@@ -1353,7 +1353,7 @@ export class NrrdTools extends DrawToolCore {
         const totalStep = this._pendingSliceStep;
         this._pendingSliceStep = 0;
 
-        this.protectedData.Is_Draw = true;
+        this.protectedData.isDrawing = true;
         this.setSyncsliceNum();
         this.dragOperator.updateIndex(totalStep);
         this.setIsDrawFalse(1000);
@@ -1362,14 +1362,14 @@ export class NrrdTools extends DrawToolCore {
   }
 
   setMainAreaSize(factor: number) {
-    this.nrrd_states.view.sizeFoctor = factor;
+    this.nrrd_states.view.sizeFactor = factor;
 
-    if (this.nrrd_states.view.sizeFoctor >= 8) {
-      this.nrrd_states.view.sizeFoctor = 8;
-    } else if (this.nrrd_states.view.sizeFoctor <= 1) {
-      this.nrrd_states.view.sizeFoctor = 1;
+    if (this.nrrd_states.view.sizeFactor >= 8) {
+      this.nrrd_states.view.sizeFactor = 8;
+    } else if (this.nrrd_states.view.sizeFactor <= 1) {
+      this.nrrd_states.view.sizeFactor = 1;
     }
-    this.resizePaintArea(this.nrrd_states.view.sizeFoctor);
+    this.resizePaintArea(this.nrrd_states.view.sizeFactor);
     this.resetPaintAreaUIPosition();
     // this.setIsDrawFalse(1000);
   }
@@ -1419,7 +1419,7 @@ export class NrrdTools extends DrawToolCore {
    */
   setIsDrawFalse(target: number) {
     this.preTimer = setTimeout(() => {
-      this.protectedData.Is_Draw = false;
+      this.protectedData.isDrawing = false;
       if (this.preTimer) {
         window.clearTimeout(this.preTimer);
         this.preTimer = undefined;
@@ -1551,7 +1551,7 @@ export class NrrdTools extends DrawToolCore {
 
   /**
    * Update the original canvas size, allow set to threejs load one (pixel distance not the mm).
-   * Then update the changedWidth and changedHeight based on the sizeFoctor.
+   * Then update the changedWidth and changedHeight based on the sizeFactor.
    */
   updateOriginAndChangedWH() {
     this.nrrd_states.image.originWidth =
@@ -1562,7 +1562,7 @@ export class NrrdTools extends DrawToolCore {
     // Let resizePaintArea be the sole setter of changedWidth/changedHeight.
     // Setting them here would defeat the sizeChanged detection in resizePaintArea,
     // causing canvas elements to keep stale dimensions after axis switches.
-    this.resizePaintArea(this.nrrd_states.view.sizeFoctor);
+    this.resizePaintArea(this.nrrd_states.view.sizeFactor);
     this.resetPaintAreaUIPosition();
   }
 
@@ -1727,7 +1727,7 @@ export class NrrdTools extends DrawToolCore {
         this.nrrd_states.view.changedWidth,
         this.nrrd_states.view.changedHeight
       );
-      this.resizePaintArea(this.nrrd_states.view.sizeFoctor);
+      this.resizePaintArea(this.nrrd_states.view.sizeFactor);
     }
   }
 
