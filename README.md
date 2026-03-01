@@ -97,6 +97,13 @@ function loadModel(url, name) {
 
 `NrrdTools` is the core annotation engine of Copper3D. It manages multi-layer mask volumes, a layered canvas pipeline, drawing tools, undo/redo history, channel color customization, and keyboard shortcuts — all on top of a Three.js medical image viewer.
 
+> **Internal Architecture**: `NrrdTools` is a **Facade** class (1300 lines, 13 sections) that delegates to three extracted modules:
+> - **`LayerChannelManager`** — layer/channel/sphere-type management and channel color customization
+> - **`SliceRenderPipeline`** — slice setup, canvas rendering, mask reload, canvas flip
+> - **`DataLoader`** — NRRD slice loading, legacy mask loading, NIfTI voxel loading
+>
+> All modules communicate via `ToolContext` (shared state) and `*Callbacks` interfaces (host method callbacks). The public API documented below is unchanged.
+
 ---
 
 ### Table of Contents

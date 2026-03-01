@@ -697,11 +697,6 @@ export class DrawToolCore extends CommToolsData {
   drawCalculatorSphereOnEachViews(axis: "x" | "y" | "z") {
     this.sphereTool.drawCalculatorSphereOnEachViews(axis);
   }
-
-  private drawSphereOnEachViews(decay: number, axis: "x" | "y" | "z") {
-    this.sphereTool.drawSphereOnEachViews(decay, axis);
-  }
-
   private configMouseSphereWheel() {
     return this.sphereTool.configMouseSphereWheel();
   }

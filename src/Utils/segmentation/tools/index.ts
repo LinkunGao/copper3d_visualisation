@@ -40,3 +40,15 @@ export type { ImageStoreCallbacks } from "./ImageStoreHelper";
 // Drag Slice Navigation
 export { DragSliceTool } from "./DragSliceTool";
 export type { DragSliceCallbacks } from "./DragSliceTool";
+
+// Layer & Channel Management
+export { LayerChannelManager } from "./LayerChannelManager";
+export type { LayerChannelCallbacks } from "./LayerChannelManager";
+
+// Slice Render Pipeline
+export { SliceRenderPipeline } from "./SliceRenderPipeline";
+export type { SliceRenderCallbacks } from "./SliceRenderPipeline";
+
+// Data Loading
+export { DataLoader } from "./DataLoader";
+export type { DataLoaderCallbacks } from "./DataLoader";
