@@ -43,7 +43,7 @@ export class ZoomTool extends BaseTool {
       e.preventDefault();
 
       const delta = e.detail ? e.detail > 0 : (e as any).wheelDelta < 0;
-      this.ctx.protectedData.Is_Draw = true;
+      this.ctx.protectedData.isDrawing = true;
 
       const rect = this.container.getBoundingClientRect();
 
@@ -74,7 +74,7 @@ export class ZoomTool extends BaseTool {
         e.clientY - this.mainAreaContainer.offsetTop - h * ratioT - rect.top
       );
 
-      moveDistance = w / this.ctx.nrrd_states.originWidth;
+      moveDistance = w / this.ctx.nrrd_states.image.originWidth;
 
       if (moveDistance > 8) {
         moveDistance = 8;
@@ -88,7 +88,7 @@ export class ZoomTool extends BaseTool {
       }
 
       this.callbacks.setIsDrawFalse(1000);
-      this.ctx.nrrd_states.sizeFoctor = moveDistance;
+      this.ctx.nrrd_states.view.sizeFactor = moveDistance;
     };
   }
 }

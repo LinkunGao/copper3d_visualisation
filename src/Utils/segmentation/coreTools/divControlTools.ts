@@ -39,7 +39,7 @@ function enableDownload(config: IDownloadImageConfig) {
   let downloadImage: HTMLAnchorElement | null = document.createElement("a");
   downloadImage.href = "";
   downloadImage.target = "_blank";
-  downloadImage.download = `slice_${config.axis}_#${config.currentIndex}`;
+  downloadImage.download = `slice_${config.axis}_#${config.currentSliceIndex}`;
   const downloadCtx = downloadCanvas.getContext(
     "2d"
   ) as CanvasRenderingContext2D;
