@@ -4,7 +4,7 @@ import {
   IDragPrameters,
   IDrawingEvents,
   IProtected,
-} from "./coreTools/coreType";
+} from "./core/types";
 import { NrrdState } from "./coreTools/NrrdState";
 import { GuiState } from "./coreTools/GuiState";
 import { createShowSliceNumberDiv } from "./coreTools/divControlTools";

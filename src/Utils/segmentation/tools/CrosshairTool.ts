@@ -8,7 +8,7 @@
  */
 
 import { BaseTool } from "./BaseTool";
-import type { IConvertObjType, ICommXYZ } from "../coreTools/coreType";
+import type { IConvertObjType, ICommXYZ } from "../core/types";
 
 export class CrosshairTool extends BaseTool {
 

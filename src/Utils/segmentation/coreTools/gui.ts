@@ -4,7 +4,7 @@ import {
   IDrawingEvents,
   IProtected,
   IGuiParameterSettings
-} from "./coreType";
+} from "../core/types";
 import type { GuiState } from "./GuiState";
 import { NrrdState } from "./NrrdState";
 import { DragOperator } from "../DragOperator";

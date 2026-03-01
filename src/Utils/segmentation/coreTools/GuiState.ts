@@ -13,7 +13,7 @@ import type {
   IDrawingConfig,
   IViewConfig,
   ILayerChannelState,
-} from "./coreType";
+} from "../core/types";
 
 export class GuiState {
   readonly mode: IToolModeState;

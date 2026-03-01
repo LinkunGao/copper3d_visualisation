@@ -11,7 +11,7 @@
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-import type { ILayerRenderTarget } from "../coreTools/coreType";
+import type { ILayerRenderTarget } from "../core/types";
 
 export interface DragSliceCallbacks {
   setSyncsliceNum: () => void;
@@ -231,9 +231,8 @@ export class DragSliceTool extends BaseTool {
         view.currentSliceIndex = view.maxIndex;
       }
       if (view.showContrast) {
-        this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
-          this.ctx.protectedData.displaySlices.length - 1
-        } SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
+        this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${this.ctx.protectedData.displaySlices.length - 1
+          } SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
       } else {
         this.showDragNumberDiv.innerHTML = `SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
       }

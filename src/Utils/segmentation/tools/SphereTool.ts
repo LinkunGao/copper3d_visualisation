@@ -48,7 +48,7 @@
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-import type { ICommXYZ } from "../coreTools/coreType";
+import type { ICommXYZ } from "../core/types";
 import { CHANNEL_HEX_COLORS } from "../core";
 
 // ===== Sphere Type & Channel Mapping =====
@@ -524,7 +524,7 @@ export class SphereTool extends BaseTool {
     this.ctx.callbacks.onSphereChanged(
       this.ctx.nrrd_states.sphere.sphereOrigin.z,
       this.ctx.nrrd_states.sphere.sphereRadius /
-        this.ctx.nrrd_states.view.sizeFactor
+      this.ctx.nrrd_states.view.sizeFactor
     );
 
     this.ctx.callbacks.onCalculatorPositionsChanged(

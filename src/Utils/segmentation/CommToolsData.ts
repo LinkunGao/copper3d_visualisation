@@ -6,7 +6,7 @@ import {
   ILayerRenderTarget,
   IKeyBoardSettings,
   IAnnotationCallbacks
-} from "./coreTools/coreType";
+} from "./core/types";
 import { NrrdState } from "./coreTools/NrrdState";
 import { GuiState } from "./coreTools/GuiState";
 import { MaskVolume } from "./core/index";

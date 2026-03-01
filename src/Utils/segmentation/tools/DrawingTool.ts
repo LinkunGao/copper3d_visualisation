@@ -10,7 +10,7 @@ import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import { switchEraserSize } from "../../utils";
 import type { MaskDelta } from "../core";
-import type { ICommXY } from "../coreTools/coreType";
+import type { ICommXY } from "../core/types";
 
 /**
  * Callbacks DrawingTool needs from its host (DrawToolCore).

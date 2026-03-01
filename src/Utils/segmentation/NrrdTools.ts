@@ -16,7 +16,7 @@ import {
   ToolMode,
   IGuiMeta,
   IDownloadImageConfig,
-} from "./coreTools/coreType";
+} from "./core/types";
 import { DragOperator } from "./DragOperator";
 import { DrawToolCore } from "./DrawToolCore";
 import { MaskVolume } from "./core";
@@ -1053,10 +1053,10 @@ export class NrrdTools extends DrawToolCore {
     // 2. store a deep copy of the origin for the specific sphere type
     const originCopy = JSON.parse(JSON.stringify(this.nrrd_states.sphere.sphereOrigin));
     switch (cal_position) {
-      case "tumour":  this.nrrd_states.sphere.tumourSphereOrigin  = originCopy; break;
-      case "skin":    this.nrrd_states.sphere.skinSphereOrigin    = originCopy; break;
-      case "nipple":  this.nrrd_states.sphere.nippleSphereOrigin  = originCopy; break;
-      case "ribcage": this.nrrd_states.sphere.ribSphereOrigin     = originCopy; break;
+      case "tumour": this.nrrd_states.sphere.tumourSphereOrigin = originCopy; break;
+      case "skin": this.nrrd_states.sphere.skinSphereOrigin = originCopy; break;
+      case "nipple": this.nrrd_states.sphere.nippleSphereOrigin = originCopy; break;
+      case "ribcage": this.nrrd_states.sphere.ribSphereOrigin = originCopy; break;
     }
 
     // 3. draw sphere preview on canvas

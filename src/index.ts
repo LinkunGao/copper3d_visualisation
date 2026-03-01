@@ -41,10 +41,10 @@ import {
   IOptVTKLoader,
 } from "./types/types";
 
-import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates, IGuiMeta } from "./Utils/segmentation/coreTools/coreType";
+import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates, IGuiMeta } from "./Utils/segmentation/core/types";
 import { NrrdState } from "./Utils/segmentation/coreTools/NrrdState";
 import { GuiState } from "./Utils/segmentation/coreTools/GuiState";
-import type { ToolMode, IAnnotationCallbacks } from "./Utils/segmentation/coreTools/coreType";
+import type { ToolMode, IAnnotationCallbacks } from "./Utils/segmentation/core/types";
 import { CHANNEL_COLORS, CHANNEL_HEX_COLORS, rgbaToHex, rgbaToCss } from "./Utils/segmentation/core/index";
 import type { LayerId, ChannelValue } from "./Utils/segmentation/core/index";
 

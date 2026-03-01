@@ -4,7 +4,7 @@ import {
   IContrastEvents,
   IDrawOpts,
   ICommXYZ,
-} from "./coreTools/coreType";
+} from "./core/types";
 import { CommToolsData } from "./CommToolsData";
 import { switchPencilIcon, throttle } from "../utils";
 import { EventRouter, InteractionMode } from "./eventRouter";
