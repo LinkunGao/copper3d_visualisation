@@ -90,19 +90,22 @@ function loadModel(url, name) {
   upVector: Array<number> = [0.0, 1.0, 0.0];
 }
 ```
-
 ## NrrdTools Usage Guide
 
 > Copper3D `NrrdTools` — Medical Image Segmentation Annotation Engine
 
 `NrrdTools` is the core annotation engine of Copper3D. It manages multi-layer mask volumes, a layered canvas pipeline, drawing tools, undo/redo history, channel color customization, and keyboard shortcuts — all on top of a Three.js medical image viewer.
 
-> **Internal Architecture**: `NrrdTools` is a **Facade** class (1300 lines, 13 sections) that delegates to three extracted modules:
+> **Internal Architecture**: `NrrdTools` is a **Facade** class that uses **composition** (no inheritance). It composes:
+> - **`CanvasState`** — pure state container (nrrd_states, gui_states, protectedData, cursorPage, annotationCallbacks, keyboardSettings)
+> - **`DrawToolCore`** — tool orchestration, event routing (composes `CanvasState` + `RenderingUtils`)
+> - **`RenderingUtils`** — rendering / slice-buffer helpers (compositeAllLayers, renderSliceToCanvas, etc.)
 > - **`LayerChannelManager`** — layer/channel/sphere-type management and channel color customization
 > - **`SliceRenderPipeline`** — slice setup, canvas rendering, mask reload, canvas flip
 > - **`DataLoader`** — NRRD slice loading, legacy mask loading, NIfTI voxel loading
 >
-> All modules communicate via `ToolContext` (shared state) and `*Callbacks` interfaces (host method callbacks). The public API documented below is unchanged.
+> The old 3-level inheritance chain (`NrrdTools → DrawToolCore → CommToolsData`) has been fully replaced. `CommToolsData` has been deleted.
+> All modules communicate via `ToolContext` (shared state) and `Pick<ToolHost, ...>` type aliases (host method dependencies). The public API documented below is unchanged.
 
 ---
 
@@ -419,7 +422,8 @@ Sphere mode activated (gui_states.mode.sphere = true, keyboard shortcut: 'q'):
   │   ├─ convert origin to all 3 axes (setUpSphereOrigins)
   │   ├─ enable crosshair at click position
   │   └─ draw calculator sphere preview
-  │   Then DrawToolCore binds sphere wheel + pointerup events
+  │   Then DrawToolCore sets activeWheelMode = 'sphere'
+  │   (EventRouter's permanent wheel handler dispatches to sphereWheel)
   │
   ├─ Scroll wheel (while holding) → adjust radius [1, 50]
   │
@@ -428,7 +432,7 @@ Sphere mode activated (gui_states.mode.sphere = true, keyboard shortcut: 'q'):
       ├─ refresh sphere canvas overlay
       ├─ fire onSphereChanged callback
       └─ fire onCalculatorPositionsChanged callback
-      Then DrawToolCore restores zoom/slice wheel
+      Then DrawToolCore sets activeWheelMode = 'zoom'
 ```
 
 ##### SphereMaskVolume
