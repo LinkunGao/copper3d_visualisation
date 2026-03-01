@@ -13,28 +13,33 @@ async function main() {
   // TypeDoc's tsconfig.json/package.json/typedoc.json option readers
 
   const entries = [
-    // rootPath("src/index.ts"),
+    // Renderer
     rootPath("src/Renderer/baseRenderer.ts"),
     rootPath("src/Renderer/copperMSceneRenderer.ts"),
     rootPath("src/Renderer/copperRenderer.ts"),
-    rootPath("src/Renderer/copperRenderer.ts"),
-    rootPath("src/Renderer/copperRenderer.ts"),
-    rootPath("src/Renderer/copperRenderer.ts"),
+    rootPath("src/Renderer/copperRendererOnDemond.ts"),
+    // Scene
     rootPath("src/Scene/baseScene.ts"),
     rootPath("src/Scene/commonSceneMethod.ts"),
     rootPath("src/Scene/copperMScene.ts"),
     rootPath("src/Scene/copperScene.ts"),
     rootPath("src/Scene/copperSceneOnDemond.ts"),
+    // Controls
     rootPath("src/Controls/copperControls.ts"),
     rootPath("src/Controls/Copper3dTrackballControls.ts"),
-    rootPath("src/Utils/MeshNodeTool.ts"),
-    rootPath("src/Utils/segmentation/NrrdTools.ts"),
-    rootPath("src/Utils/segmentation/DragOperator.ts"),
-    rootPath("src/Utils/segmentation/DrawToolCore.ts"),
-    rootPath("src/Utils/segmentation/CommToolsData.ts"),
-    rootPath("src/Utils/utils.ts"),
+    // Loader
     rootPath("src/Loader/copperNrrdLoader.ts"),
-    rootPath("src/Utils/segmentation/coreTools/gui.ts"),
+    // Utils
+    rootPath("src/Utils/MeshNodeTool.ts"),
+    rootPath("src/Utils/utils.ts"),
+    // Segmentation — public facade
+    rootPath("src/Utils/segmentation/NrrdTools.ts"),
+    // Segmentation — core storage & state
+    rootPath("src/Utils/segmentation/core/MaskVolume.ts"),
+    rootPath("src/Utils/segmentation/coreTools/GuiState.ts"),
+    rootPath("src/Utils/segmentation/coreTools/NrrdState.ts"),
+    // Segmentation — key tools
+    rootPath("src/Utils/segmentation/tools/SphereTool.ts"),
   ];
   const app = await TypeDoc.Application.bootstrapWithPlugins({
     entryPoints: entries,
