@@ -177,6 +177,74 @@ export class DrawingTool extends BaseTool {
     return true;
   }
 
+  // ── Brush hover tracking & preview ──────────────────────────
+
+  /**
+   * Create a self-managing mouseover/mouseout/mousemove handler
+   * that tracks brush hover position for the preview circle.
+   *
+   * The returned function should be registered on drawingCanvas for
+   * "mouseover" and "mouseout" events.  It adds/removes a "mousemove"
+   * listener on itself to keep mouseOverX/Y up-to-date while the
+   * cursor is inside the canvas.
+   */
+  createBrushTrackingHandler(): (e: MouseEvent) => void {
+    const handler = (e: MouseEvent) => {
+      e.preventDefault();
+      this.ctx.nrrd_states.interaction.mouseOverX = e.offsetX;
+      this.ctx.nrrd_states.interaction.mouseOverY = e.offsetY;
+      if (this.ctx.nrrd_states.interaction.mouseOverX === undefined) {
+        this.ctx.nrrd_states.interaction.mouseOverX = e.clientX;
+        this.ctx.nrrd_states.interaction.mouseOverY = e.clientY;
+      }
+      if (e.type === "mouseout") {
+        this.ctx.nrrd_states.interaction.mouseOver = false;
+        this.ctx.protectedData.canvases.drawingCanvas.removeEventListener(
+          "mousemove",
+          handler
+        );
+      } else if (e.type === "mouseover") {
+        this.ctx.nrrd_states.interaction.mouseOver = true;
+        this.ctx.protectedData.canvases.drawingCanvas.addEventListener(
+          "mousemove",
+          handler
+        );
+      }
+    };
+    return handler;
+  }
+
+  /**
+   * Render brush circle preview on the drawing context.
+   * Called from the start() render loop when in draw mode and not
+   * actively painting.  Skipped in pencil/eraser mode.
+   */
+  renderBrushPreview(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number
+  ): void {
+    if (
+      this.ctx.gui_states.mode.pencil ||
+      this.ctx.gui_states.mode.eraser ||
+      !this.ctx.nrrd_states.interaction.mouseOver
+    ) {
+      return;
+    }
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = this.ctx.gui_states.drawing.brushColor;
+    ctx.beginPath();
+    ctx.arc(
+      this.ctx.nrrd_states.interaction.mouseOverX,
+      this.ctx.nrrd_states.interaction.mouseOverY,
+      this.ctx.gui_states.drawing.brushAndEraserSize / 2 + 1,
+      0,
+      Math.PI * 2
+    );
+    ctx.strokeStyle = this.ctx.gui_states.drawing.brushColor;
+    ctx.stroke();
+  }
+
   // ── Private helpers ────────────────────────────────────────
 
   /** Capture pre-draw slice snapshot for undo */

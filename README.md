@@ -407,12 +407,21 @@ Sphere mode activated (gui_states.mode.sphere = true, keyboard shortcut: 'q'):
   ├─ Shift key DISABLED (no draw mode)
   ├─ Crosshair toggle allowed (S key)
   │
-  ├─ Left-click DOWN → record origin for current activeSphereType type,
-  │                     show preview, bind sphere wheel
+  ├─ Left-click DOWN → SphereTool.onSphereClick(e)
+  │   ├─ record origin for current activeSphereType
+  │   ├─ convert origin to all 3 axes (setUpSphereOrigins)
+  │   ├─ enable crosshair at click position
+  │   └─ draw calculator sphere preview
+  │   Then DrawToolCore binds sphere wheel + pointerup events
+  │
   ├─ Scroll wheel (while holding) → adjust radius [1, 50]
-  └─ Left-click UP → write all placed spheres to volume,
-                      fire getSphere + getCalculateSpherePositions callbacks,
-                      restore zoom/slice wheel
+  │
+  └─ Left-click UP → SphereTool.onSpherePointerUp()
+      ├─ write all placed spheres to sphereMaskVolume
+      ├─ refresh sphere canvas overlay
+      ├─ fire onSphereChanged callback
+      └─ fire onCalculatorPositionsChanged callback
+      Then DrawToolCore restores zoom/slice wheel
 ```
 
 ##### SphereMaskVolume

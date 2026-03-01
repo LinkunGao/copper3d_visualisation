@@ -96,6 +96,8 @@ export class DrawToolCore extends CommToolsData {
     this.sphereTool = new SphereTool(toolCtx, {
       setEmptyCanvasSize: (axis?) => this.setEmptyCanvasSize(axis),
       drawImageOnEmptyImage: (canvas) => this.drawImageOnEmptyImage(canvas),
+      enableCrosshair: () => this.enableCrosshair(),
+      setUpSphereOrigins: (x, y, s) => this.setUpSphereOrigins(x, y, s),
     });
 
     this.crosshairTool = new CrosshairTool(toolCtx);
@@ -295,10 +297,6 @@ export class DrawToolCore extends CommToolsData {
     );
   }
 
-  private clearSpherePrintStoreImages() {
-    this.sphereTool.clearSpherePrintStoreImages();
-  }
-
   private paintOnCanvas() {
     // Initialize tools for this paint cycle
     this.drawingTool.reset(this.useEraser());
@@ -348,29 +346,9 @@ export class DrawToolCore extends CommToolsData {
 
     // pan move — now handled by PanTool (listeners managed internally)
 
-    // brush circle move
-    this.drawingPrameters.handleOnDrawingBrushCricleMove = (e: MouseEvent) => {
-      e.preventDefault();
-      this.nrrd_states.interaction.mouseOverX = e.offsetX;
-      this.nrrd_states.interaction.mouseOverY = e.offsetY;
-      if (this.nrrd_states.interaction.mouseOverX === undefined) {
-        this.nrrd_states.interaction.mouseOverX = e.clientX;
-        this.nrrd_states.interaction.mouseOverY = e.clientY;
-      }
-      if (e.type === "mouseout") {
-        this.nrrd_states.interaction.mouseOver = false;
-        this.protectedData.canvases.drawingCanvas.removeEventListener(
-          "mousemove",
-          this.drawingPrameters.handleOnDrawingBrushCricleMove
-        );
-      } else if (e.type === "mouseover") {
-        this.nrrd_states.interaction.mouseOver = true;
-        this.protectedData.canvases.drawingCanvas.addEventListener(
-          "mousemove",
-          this.drawingPrameters.handleOnDrawingBrushCricleMove
-        );
-      }
-    };
+    // brush circle move — delegated to DrawingTool
+    this.drawingPrameters.handleOnDrawingBrushCricleMove =
+      this.drawingTool.createBrushTrackingHandler();
 
     // drawing move — delegated to DrawingTool
     this.drawingPrameters.handleOnDrawingMouseMove = (e: MouseEvent) => {
@@ -471,24 +449,10 @@ export class DrawToolCore extends CommToolsData {
           this.gui_states.mode.sphere &&
           !this.eventRouter?.isCrosshairEnabled()
         ) {
-          // Write all placed calculator spheres to volume
-          this.sphereTool.writeAllCalculatorSpheresToVolume();
-          // Render current slice from volume to sphere canvas
-          this.sphereTool.refreshSphereCanvas();
+          // Data operations delegated to SphereTool
+          this.sphereTool.onSpherePointerUp();
 
-          this.annotationCallbacks.onSphereChanged(
-            this.nrrd_states.sphere.sphereOrigin.z,
-            this.nrrd_states.sphere.sphereRadius / this.nrrd_states.view.sizeFactor
-          );
-
-          this.annotationCallbacks.onCalculatorPositionsChanged(
-            this.nrrd_states.sphere.tumourSphereOrigin,
-            this.nrrd_states.sphere.skinSphereOrigin,
-            this.nrrd_states.sphere.ribSphereOrigin,
-            this.nrrd_states.sphere.nippleSphereOrigin,
-            this.protectedData.axis
-          );
-
+          // Event cleanup stays here (orchestration)
           this.protectedData.canvases.drawingCanvas.removeEventListener(
             "wheel",
             this.drawingPrameters.handleSphereWheel,
@@ -574,57 +538,18 @@ export class DrawToolCore extends CommToolsData {
           // Use EventRouter mode for mutually exclusive crosshair vs draw rendering
           const currentMode = this.eventRouter?.getMode();
           if (currentMode === 'draw') {
-            // Draw mode: show brush circle preview
-            if (
-              !this.gui_states.mode.pencil &&
-              !this.gui_states.mode.eraser &&
-              this.nrrd_states.interaction.mouseOver
-            ) {
-              this.protectedData.ctxes.drawingCtx.clearRect(
-                0,
-                0,
-                this.nrrd_states.view.changedWidth,
-                this.nrrd_states.view.changedHeight
-              );
-              this.protectedData.ctxes.drawingCtx.fillStyle =
-                this.gui_states.drawing.brushColor;
-              this.protectedData.ctxes.drawingCtx.beginPath();
-              this.protectedData.ctxes.drawingCtx.arc(
-                this.nrrd_states.interaction.mouseOverX,
-                this.nrrd_states.interaction.mouseOverY,
-                this.gui_states.drawing.brushAndEraserSize / 2 + 1,
-                0,
-                Math.PI * 2
-              );
-              this.protectedData.ctxes.drawingCtx.strokeStyle =
-                this.gui_states.drawing.brushColor;
-              this.protectedData.ctxes.drawingCtx.stroke();
-            }
-          } else if (currentMode === 'crosshair' || this.eventRouter?.isCrosshairEnabled()) {
-            // Crosshair mode: show red cross lines (mutually exclusive with draw)
-            this.protectedData.ctxes.drawingCtx.clearRect(
-              0,
-              0,
+            // Draw mode: show brush circle preview — delegated to DrawingTool
+            this.drawingTool.renderBrushPreview(
+              this.protectedData.ctxes.drawingCtx,
               this.nrrd_states.view.changedWidth,
               this.nrrd_states.view.changedHeight
             );
-
-            const ex =
-              this.nrrd_states.interaction.cursorPageX * this.nrrd_states.view.sizeFactor;
-            const ey =
-              this.nrrd_states.interaction.cursorPageY * this.nrrd_states.view.sizeFactor;
-
-            this.drawLine(
-              ex,
-              0,
-              ex,
-              this.nrrd_states.view.changedWidth
-            );
-            this.drawLine(
-              0,
-              ey,
-              this.nrrd_states.view.changedHeight,
-              ey
+          } else if (currentMode === 'crosshair' || this.eventRouter?.isCrosshairEnabled()) {
+            // Crosshair mode: show cross lines — delegated to CrosshairTool
+            this.crosshairTool.renderCrosshair(
+              this.protectedData.ctxes.drawingCtx,
+              this.nrrd_states.view.changedWidth,
+              this.nrrd_states.view.changedHeight
             );
           }
         }
@@ -660,40 +585,11 @@ export class DrawToolCore extends CommToolsData {
       "wheel",
       this.drawingPrameters.handleMouseZoomSliceWheel
     );
-    let mouseX = e.offsetX / this.nrrd_states.view.sizeFactor;
-    let mouseY = e.offsetY / this.nrrd_states.view.sizeFactor;
 
-    //  record mouseX,Y, and enable crosshair function
-    this.nrrd_states.sphere.sphereOrigin[this.protectedData.axis] = [
-      mouseX,
-      mouseY,
-      this.nrrd_states.view.currentSliceIndex,
-    ];
-    this.setUpSphereOrigins(mouseX, mouseY, this.nrrd_states.view.currentSliceIndex);
+    // Data operations delegated to SphereTool
+    this.sphereTool.onSphereClick(e);
 
-    // Store origin for the active sphere type
-    const calPos = this.gui_states.mode.activeSphereType;
-    switch (calPos) {
-      case "tumour":
-        this.nrrd_states.sphere.tumourSphereOrigin = JSON.parse(JSON.stringify(this.nrrd_states.sphere.sphereOrigin));
-        break;
-      case "skin":
-        this.nrrd_states.sphere.skinSphereOrigin = JSON.parse(JSON.stringify(this.nrrd_states.sphere.sphereOrigin));
-        break;
-      case "nipple":
-        this.nrrd_states.sphere.nippleSphereOrigin = JSON.parse(JSON.stringify(this.nrrd_states.sphere.sphereOrigin));
-        break;
-      case "ribcage":
-        this.nrrd_states.sphere.ribSphereOrigin = JSON.parse(JSON.stringify(this.nrrd_states.sphere.sphereOrigin));
-        break;
-    }
-
-    this.nrrd_states.interaction.cursorPageX = mouseX;
-    this.nrrd_states.interaction.cursorPageY = mouseY;
-    this.enableCrosshair();
-
-    // draw circle setup width/height for sphere canvas
-    this.drawCalculatorSphere(this.nrrd_states.sphere.sphereRadius);
+    // Event binding stays here (orchestration)
     this.protectedData.canvases.drawingCanvas.addEventListener(
       "wheel",
       this.drawingPrameters.handleSphereWheel,
@@ -704,15 +600,6 @@ export class DrawToolCore extends CommToolsData {
       this.drawingPrameters.handleOnDrawingMouseUp
     );
   }
-
-  /*************************************May consider to move outside *******************************************/
-  private drawLine = (x1: number, y1: number, x2: number, y2: number) => {
-    this.protectedData.ctxes.drawingCtx.beginPath();
-    this.protectedData.ctxes.drawingCtx.moveTo(x1, y1);
-    this.protectedData.ctxes.drawingCtx.lineTo(x2, y2);
-    this.protectedData.ctxes.drawingCtx.strokeStyle = this.gui_states.drawing.color;
-    this.protectedData.ctxes.drawingCtx.stroke();
-  };
 
   private initAllCanvas() {
     /**
