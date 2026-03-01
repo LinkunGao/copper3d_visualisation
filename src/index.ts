@@ -50,7 +50,7 @@ import type { LayerId, ChannelValue } from "./Utils/segmentation/core/index";
 
 import "./css/style.css";
 
-export const REVISION = "v3.0.2-beta";
+export const REVISION = "v3.0.3-beta";
 
 console.log(
   `%cCopper3D Visualisation %cBeta:${REVISION}`,
