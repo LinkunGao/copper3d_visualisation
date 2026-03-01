@@ -43,13 +43,14 @@
  * - drawSphereOnEachViews / drawCalculatorSphereOnEachViews
  * - storeSphereImages / setSphereCanvasSize
  * - drawCalculatorSphere / configMouseSphereWheel
- * - getSpherePosition / clearSpherePrintStoreImages
+ * - getSpherePosition
  */
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-import type { ICommXYZ } from "../coreTools/coreType";
+import type { ICommXYZ } from "../core/types";
 import { CHANNEL_HEX_COLORS } from "../core";
+import type { SphereHostDeps } from "./ToolHost";
 
 // ===== Sphere Type & Channel Mapping =====
 
@@ -91,28 +92,15 @@ export const SPHERE_LABELS: Record<SphereType | 'default', number> = {
   skin: 4,
 };
 
-/**
- * Callbacks that DrawToolCore must provide for sphere operations.
- * These are internal canvas manipulation callbacks, NOT external data callbacks.
- *
- * External data output uses:
- * - annotationCallbacks.onSphereChanged(origin, radius) — sphere mode
- * - annotationCallbacks.onCalculatorPositionsChanged(...) — calculator mode
- */
-export interface SphereCallbacks {
-  setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
-  drawImageOnEmptyImage: (canvas: HTMLCanvasElement) => void;
-}
-
 export class SphereTool extends BaseTool {
-  private callbacks: SphereCallbacks;
+  private callbacks: SphereHostDeps;
 
-  constructor(ctx: ToolContext, callbacks: SphereCallbacks) {
+  constructor(ctx: ToolContext, callbacks: SphereHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }
 
-  setCallbacks(callbacks: SphereCallbacks): void {
+  setCallbacks(callbacks: SphereHostDeps): void {
     this.callbacks = callbacks;
   }
 
@@ -444,15 +432,92 @@ export class SphereTool extends BaseTool {
     // draws the sphere canvas directly to drawingCtx for proper layering.
   }
 
+  // ===== Sphere Click & PointerUp (extracted from DrawToolCore) =====
+
   /**
-   * Clear sphere overlay images.
+   * Handle left-click in sphere mode — record origin, draw preview.
    *
-   * No-op in current implementation — sphere data is rendered as overlay
-   * and stored in the dedicated sphereMaskVolume (not in layer volumes).
+   * Performs all data operations for sphere placement:
+   * 1. Record sphere origin for current axis
+   * 2. Convert origin to all three axes via setUpSphereOrigins
+   * 3. Store origin for the active sphere type
+   * 4. Enable crosshair at click position
+   * 5. Draw calculator sphere preview
+   *
+   * Event binding (wheel, pointerup) stays in DrawToolCore as orchestration.
    */
-  clearSpherePrintStoreImages(): void {
-    // No-op: sphere images are stored in sphereMaskVolume, not layer volumes.
-    // The sphereMaskVolume is cleared in NrrdTools.reset() when switching cases.
+  onSphereClick(e: MouseEvent): void {
+    const mouseX = e.offsetX / this.ctx.nrrd_states.view.sizeFactor;
+    const mouseY = e.offsetY / this.ctx.nrrd_states.view.sizeFactor;
+    const axis = this.ctx.protectedData.axis;
+
+    // Record sphere origin for current axis
+    this.ctx.nrrd_states.sphere.sphereOrigin[axis] = [
+      mouseX,
+      mouseY,
+      this.ctx.nrrd_states.view.currentSliceIndex,
+    ];
+    this.callbacks.setUpSphereOrigins(
+      mouseX,
+      mouseY,
+      this.ctx.nrrd_states.view.currentSliceIndex
+    );
+
+    // Store origin for the active sphere type
+    const originCopy = JSON.parse(
+      JSON.stringify(this.ctx.nrrd_states.sphere.sphereOrigin)
+    );
+    switch (this.ctx.gui_states.mode.activeSphereType) {
+      case "tumour":
+        this.ctx.nrrd_states.sphere.tumourSphereOrigin = originCopy;
+        break;
+      case "skin":
+        this.ctx.nrrd_states.sphere.skinSphereOrigin = originCopy;
+        break;
+      case "nipple":
+        this.ctx.nrrd_states.sphere.nippleSphereOrigin = originCopy;
+        break;
+      case "ribcage":
+        this.ctx.nrrd_states.sphere.ribSphereOrigin = originCopy;
+        break;
+    }
+
+    // Enable crosshair at click position
+    this.ctx.nrrd_states.interaction.cursorPageX = mouseX;
+    this.ctx.nrrd_states.interaction.cursorPageY = mouseY;
+    this.callbacks.enableCrosshair();
+
+    // Draw calculator sphere preview
+    this.drawCalculatorSphere(this.ctx.nrrd_states.sphere.sphereRadius);
+  }
+
+  /**
+   * Handle pointer-up in sphere mode — write to volume, fire callbacks.
+   *
+   * Performs:
+   * 1. Write all placed calculator spheres to sphereMaskVolume
+   * 2. Refresh sphere canvas overlay from volume
+   * 3. Fire onSphereChanged and onCalculatorPositionsChanged callbacks
+   *
+   * Event cleanup (wheel, pointerup listener removal) stays in DrawToolCore.
+   */
+  onSpherePointerUp(): void {
+    this.writeAllCalculatorSpheresToVolume();
+    this.refreshSphereCanvas();
+
+    this.ctx.callbacks.onSphereChanged(
+      this.ctx.nrrd_states.sphere.sphereOrigin.z,
+      this.ctx.nrrd_states.sphere.sphereRadius /
+      this.ctx.nrrd_states.view.sizeFactor
+    );
+
+    this.ctx.callbacks.onCalculatorPositionsChanged(
+      this.ctx.nrrd_states.sphere.tumourSphereOrigin,
+      this.ctx.nrrd_states.sphere.skinSphereOrigin,
+      this.ctx.nrrd_states.sphere.ribSphereOrigin,
+      this.ctx.nrrd_states.sphere.nippleSphereOrigin,
+      this.ctx.protectedData.axis
+    );
   }
 
   // ===== 3D Sphere Volume Write =====

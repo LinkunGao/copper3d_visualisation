@@ -9,24 +9,20 @@
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-import type { IContrastEvents } from "../coreTools/coreType";
+import type { IContrastEvents } from "../core/types";
 import { throttle } from "../../utils";
-
-export interface ContrastCallbacks {
-  setIsDrawFalse: (target: number) => void;
-  setSyncsliceNum: () => void;
-}
+import type { ContrastHostDeps } from "./ToolHost";
 
 export class ContrastTool extends BaseTool {
   private contrastEventPrameters: IContrastEvents;
   private container: HTMLElement;
-  private callbacks: ContrastCallbacks;
+  private callbacks: ContrastHostDeps;
 
   constructor(
     ctx: ToolContext,
     container: HTMLElement,
     contrastEventPrameters: IContrastEvents,
-    callbacks: ContrastCallbacks
+    callbacks: ContrastHostDeps
   ) {
     super(ctx);
     this.container = container;
@@ -64,19 +60,19 @@ export class ContrastTool extends BaseTool {
       (ev: MouseEvent) => {
         if (
           this.contrastEventPrameters.y -
-            ev.offsetY / this.contrastEventPrameters.h >=
+          ev.offsetY / this.contrastEventPrameters.h >=
           0
         ) {
           this.contrastEventPrameters.move_y = -Math.ceil(
             (this.contrastEventPrameters.y -
               ev.offsetY / this.contrastEventPrameters.h) *
-              10
+            10
           );
         } else {
           this.contrastEventPrameters.move_y = -Math.floor(
             (this.contrastEventPrameters.y -
               ev.offsetY / this.contrastEventPrameters.h) *
-              10
+            10
           );
         }
 
@@ -89,19 +85,19 @@ export class ContrastTool extends BaseTool {
 
         if (
           this.contrastEventPrameters.x -
-            ev.offsetX / this.contrastEventPrameters.w >=
+          ev.offsetX / this.contrastEventPrameters.w >=
           0
         ) {
           this.contrastEventPrameters.move_x = -Math.ceil(
             (this.contrastEventPrameters.x -
               ev.offsetX / this.contrastEventPrameters.w) *
-              10
+            10
           );
         } else {
           this.contrastEventPrameters.move_x = -Math.floor(
             (this.contrastEventPrameters.x -
               ev.offsetX / this.contrastEventPrameters.w) *
-              10
+            10
           );
         }
 

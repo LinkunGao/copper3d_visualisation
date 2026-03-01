@@ -8,7 +8,7 @@
  */
 
 import { BaseTool } from "./BaseTool";
-import type { IConvertObjType, ICommXYZ } from "../coreTools/coreType";
+import type { IConvertObjType, ICommXYZ } from "../core/types";
 
 export class CrosshairTool extends BaseTool {
 
@@ -138,6 +138,48 @@ export class CrosshairTool extends BaseTool {
     }
 
     return { currentNewSliceIndex, preSliceIndex, convertCursorNumX, convertCursorNumY };
+  }
+
+  // ===== Crosshair Rendering =====
+
+  /**
+   * Render crosshair lines on the drawing context.
+   * Called from the start() render loop when crosshair mode is active.
+   *
+   * @param ctx - The drawing canvas 2D context
+   * @param width - Canvas width (changedWidth)
+   * @param height - Canvas height (changedHeight)
+   */
+  renderCrosshair(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number
+  ): void {
+    ctx.clearRect(0, 0, width, height);
+
+    const ex =
+      this.ctx.nrrd_states.interaction.cursorPageX *
+      this.ctx.nrrd_states.view.sizeFactor;
+    const ey =
+      this.ctx.nrrd_states.interaction.cursorPageY *
+      this.ctx.nrrd_states.view.sizeFactor;
+
+    this.drawLine(ctx, ex, 0, ex, width);
+    this.drawLine(ctx, 0, ey, height, ey);
+  }
+
+  private drawLine(
+    ctx: CanvasRenderingContext2D,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+  ): void {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = this.ctx.gui_states.drawing.color;
+    ctx.stroke();
   }
 
   // ===== Sphere Origins Setup =====

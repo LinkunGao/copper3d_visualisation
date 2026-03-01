@@ -17,7 +17,7 @@ import type {
   IInteractionState,
   ISphereState,
   IInternalFlags,
-} from "./coreType";
+} from "../core/types";
 
 export class NrrdState {
   readonly image: IImageMetadata;

@@ -1,4 +1,4 @@
-import { IDownloadImageConfig } from "./coreType";
+import { IDownloadImageConfig } from "../core/types";
 
 /**
  * A div for show the slice and contrast numbers on

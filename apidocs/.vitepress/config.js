@@ -4,9 +4,61 @@ import apidocConfig from "../apidocConfig.json";
 export default {
   title: "Copper3d API",
   base: "/copper3d_visualisation/",
+  locales: {
+    root: {
+      label: 'English',
+      lang: 'en',
+    },
+    zh: {
+      label: '简体中文',
+      lang: 'zh',
+      link: '/zh/',
+      themeConfig: {
+        nav: [
+          { text: "指南", link: "/zh/guide/nrrd-tools" },
+          { text: "API", link: "/apidist/modules" },
+        ],
+        sidebar: {
+          "/zh/guide/": [
+            {
+              text: "使用指南",
+              items: [
+                { text: "NrrdTools 使用指南", link: "/zh/guide/nrrd-tools" },
+              ],
+            },
+            {
+              text: "架构",
+              items: [
+                { text: "分割模块", link: "/zh/guide/segmentation-module" },
+              ],
+            },
+          ],
+          "/apidist/": apidocConfig,
+        },
+      },
+    },
+  },
   themeConfig: {
     repo: "LinkunGao/copper3d_visualisation",
+    nav: [
+      { text: "Guide", link: "/guide/nrrd-tools" },
+      { text: "API", link: "/apidist/modules" },
+    ],
     sidebar: {
+      "/guide/": [
+        {
+          text: "Usage Guide",
+          items: [
+            { text: "NrrdTools Usage Guide", link: "/guide/nrrd-tools" },
+          ],
+        },
+        {
+          text: "Architecture",
+          items: [
+            { text: "Segmentation Module", link: "/guide/segmentation-module" },
+          ],
+        },
+      ],
       "/apidist/": apidocConfig,
     },
     search: {

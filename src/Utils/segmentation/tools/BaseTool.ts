@@ -13,7 +13,7 @@ import type {
   IPaintImage,
   IPaintImages,
   IAnnotationCallbacks,
-} from "../coreTools/coreType";
+} from "../core/types";
 import type { NrrdState } from "../coreTools/NrrdState";
 import type { GuiState } from "../coreTools/GuiState";
 import type { EventRouter } from "../eventRouter/EventRouter";

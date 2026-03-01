@@ -10,27 +10,8 @@ import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import { switchEraserSize } from "../../utils";
 import type { MaskDelta } from "../core";
-import type { ICommXY } from "../coreTools/coreType";
-
-/**
- * Callbacks DrawingTool needs from its host (DrawToolCore).
- */
-export interface DrawingCallbacks {
-  /** Get current layer's canvas and 2D context */
-  setCurrentLayer: () => { ctx: CanvasRenderingContext2D; canvas: HTMLCanvasElement };
-  /** Composite all layers to master canvas */
-  compositeAllLayers: () => void;
-  /** Sync layer slice data to MaskVolume */
-  syncLayerSliceData: (index: number, layer: string) => void;
-  /** Get stored image data for previous image redraw */
-  filterDrawedImage: (axis: "x" | "y" | "z", index: number) => { image: ImageData } | undefined;
-  /** Get MaskVolume for a layer (undo snapshots) */
-  getVolumeForLayer: (layer: string) => any;
-  /** Push delta to UndoManager */
-  pushUndoDelta: (delta: MaskDelta) => void;
-  /** Get eraser icon URLs */
-  getEraserUrls: () => string[];
-}
+import type { ICommXY } from "../core/types";
+import type { DrawingHostDeps } from "./ToolHost";
 
 export class DrawingTool extends BaseTool {
   /** Left mouse button currently held (draw mode) */
@@ -47,9 +28,9 @@ export class DrawingTool extends BaseTool {
   private preDrawAxis: "x" | "y" | "z" = "z";
   private preDrawSliceIndex: number = 0;
 
-  private callbacks: DrawingCallbacks;
+  private callbacks: DrawingHostDeps;
 
-  constructor(ctx: ToolContext, callbacks: DrawingCallbacks) {
+  constructor(ctx: ToolContext, callbacks: DrawingHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }
@@ -175,6 +156,74 @@ export class DrawingTool extends BaseTool {
     this.leftClicked = false;
     this.ctx.protectedData.ctxes.drawingLayerMasterCtx.closePath();
     return true;
+  }
+
+  // ── Brush hover tracking & preview ──────────────────────────
+
+  /**
+   * Create a self-managing mouseover/mouseout/mousemove handler
+   * that tracks brush hover position for the preview circle.
+   *
+   * The returned function should be registered on drawingCanvas for
+   * "mouseover" and "mouseout" events.  It adds/removes a "mousemove"
+   * listener on itself to keep mouseOverX/Y up-to-date while the
+   * cursor is inside the canvas.
+   */
+  createBrushTrackingHandler(): (e: MouseEvent) => void {
+    const handler = (e: MouseEvent) => {
+      e.preventDefault();
+      this.ctx.nrrd_states.interaction.mouseOverX = e.offsetX;
+      this.ctx.nrrd_states.interaction.mouseOverY = e.offsetY;
+      if (this.ctx.nrrd_states.interaction.mouseOverX === undefined) {
+        this.ctx.nrrd_states.interaction.mouseOverX = e.clientX;
+        this.ctx.nrrd_states.interaction.mouseOverY = e.clientY;
+      }
+      if (e.type === "mouseout") {
+        this.ctx.nrrd_states.interaction.mouseOver = false;
+        this.ctx.protectedData.canvases.drawingCanvas.removeEventListener(
+          "mousemove",
+          handler
+        );
+      } else if (e.type === "mouseover") {
+        this.ctx.nrrd_states.interaction.mouseOver = true;
+        this.ctx.protectedData.canvases.drawingCanvas.addEventListener(
+          "mousemove",
+          handler
+        );
+      }
+    };
+    return handler;
+  }
+
+  /**
+   * Render brush circle preview on the drawing context.
+   * Called from the start() render loop when in draw mode and not
+   * actively painting.  Skipped in pencil/eraser mode.
+   */
+  renderBrushPreview(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number
+  ): void {
+    if (
+      this.ctx.gui_states.mode.pencil ||
+      this.ctx.gui_states.mode.eraser ||
+      !this.ctx.nrrd_states.interaction.mouseOver
+    ) {
+      return;
+    }
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = this.ctx.gui_states.drawing.brushColor;
+    ctx.beginPath();
+    ctx.arc(
+      this.ctx.nrrd_states.interaction.mouseOverX,
+      this.ctx.nrrd_states.interaction.mouseOverY,
+      this.ctx.gui_states.drawing.brushAndEraserSize / 2 + 1,
+      0,
+      Math.PI * 2
+    );
+    ctx.strokeStyle = this.ctx.gui_states.drawing.brushColor;
+    ctx.stroke();
   }
 
   // ── Private helpers ────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { IPaintImage } from "../segmentation/coreTools/coreType";
+import { IPaintImage } from "../segmentation/core/types";
 
 addEventListener("message", (event) => {
   const data = event.data;

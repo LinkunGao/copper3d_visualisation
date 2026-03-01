@@ -4,7 +4,7 @@ import {
   IDragPrameters,
   IDrawingEvents,
   IProtected,
-} from "./coreTools/coreType";
+} from "./core/types";
 import { NrrdState } from "./coreTools/NrrdState";
 import { GuiState } from "./coreTools/GuiState";
 import { createShowSliceNumberDiv } from "./coreTools/divControlTools";
@@ -168,11 +168,7 @@ export class DragOperator {
     }
 
     this.dragPrameters.handleOnDragMouseDown = (ev: MouseEvent) => {
-      // before start drag event, remove wheel event.
-      this.protectedData.canvases.drawingCanvas.removeEventListener(
-        "wheel",
-        this.drawingPrameters.handleMouseZoomSliceWheel
-      );
+      // Wheel is now managed by EventRouter's wheel dispatcher (no manual remove needed)
       if (ev.button === 0) {
         this.dragPrameters.y = ev.offsetY / this.dragPrameters.h;
         this.container.addEventListener(
@@ -207,11 +203,7 @@ export class DragOperator {
     }, this.dragPrameters.sensivity * 200);
 
     this.dragPrameters.handleOnDragMouseUp = (ev: MouseEvent) => {
-      // after drag, add the wheel event
-      this.protectedData.canvases.drawingCanvas.addEventListener(
-        "wheel",
-        this.drawingPrameters.handleMouseZoomSliceWheel
-      );
+      // Wheel is now managed by EventRouter's wheel dispatcher (no manual add needed)
       this.setSyncsliceNum();
       this.container.removeEventListener(
         "pointermove",

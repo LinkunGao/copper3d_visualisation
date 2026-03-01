@@ -11,26 +11,8 @@
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-import type { ILayerRenderTarget } from "../coreTools/coreType";
-
-export interface DragSliceCallbacks {
-  setSyncsliceNum: () => void;
-  setIsDrawFalse: (target: number) => void;
-  flipDisplayImageByAxis: () => void;
-  setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
-  getOrCreateSliceBuffer: (axis: "x" | "y" | "z") => ImageData | null;
-  renderSliceToCanvas: (
-    layer: string,
-    axis: "x" | "y" | "z",
-    sliceIndex: number,
-    buffer: ImageData,
-    targetCtx: CanvasRenderingContext2D,
-    scaledWidth: number,
-    scaledHeight: number,
-  ) => void;
-  /** Refresh sphere overlay from sphereMaskVolume after slice change. */
-  refreshSphereOverlay?: () => void;
-}
+import type { ILayerRenderTarget } from "../core/types";
+import type { DragSliceHostDeps } from "./ToolHost";
 
 interface IDragEffectCanvases {
   drawingCanvasLayerMaster: HTMLCanvasElement;
@@ -40,13 +22,13 @@ interface IDragEffectCanvases {
 }
 
 export class DragSliceTool extends BaseTool {
-  private callbacks: DragSliceCallbacks;
+  private callbacks: DragSliceHostDeps;
   private showDragNumberDiv: HTMLDivElement;
   private dragEffectCanvases: IDragEffectCanvases;
 
   constructor(
     ctx: ToolContext,
-    callbacks: DragSliceCallbacks,
+    callbacks: DragSliceHostDeps,
     showDragNumberDiv: HTMLDivElement,
     dragEffectCanvases: IDragEffectCanvases
   ) {
@@ -231,9 +213,8 @@ export class DragSliceTool extends BaseTool {
         view.currentSliceIndex = view.maxIndex;
       }
       if (view.showContrast) {
-        this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
-          this.ctx.protectedData.displaySlices.length - 1
-        } SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
+        this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${this.ctx.protectedData.displaySlices.length - 1
+          } SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
       } else {
         this.showDragNumberDiv.innerHTML = `SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
       }

@@ -10,16 +10,12 @@
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import { MaskVolume } from "../core";
-
-export interface ImageStoreCallbacks {
-  setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
-  drawImageOnEmptyImage: (canvas: HTMLCanvasElement) => void;
-}
+import type { ImageStoreHostDeps } from "./ToolHost";
 
 export class ImageStoreHelper extends BaseTool {
-  private callbacks: ImageStoreCallbacks;
+  private callbacks: ImageStoreHostDeps;
 
-  constructor(ctx: ToolContext, callbacks: ImageStoreCallbacks) {
+  constructor(ctx: ToolContext, callbacks: ImageStoreHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }
