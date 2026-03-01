@@ -11,26 +11,7 @@ import type { ToolContext } from "./BaseTool";
 import { switchEraserSize } from "../../utils";
 import type { MaskDelta } from "../core";
 import type { ICommXY } from "../core/types";
-
-/**
- * Callbacks DrawingTool needs from its host (DrawToolCore).
- */
-export interface DrawingCallbacks {
-  /** Get current layer's canvas and 2D context */
-  setCurrentLayer: () => { ctx: CanvasRenderingContext2D; canvas: HTMLCanvasElement };
-  /** Composite all layers to master canvas */
-  compositeAllLayers: () => void;
-  /** Sync layer slice data to MaskVolume */
-  syncLayerSliceData: (index: number, layer: string) => void;
-  /** Get stored image data for previous image redraw */
-  filterDrawedImage: (axis: "x" | "y" | "z", index: number) => { image: ImageData } | undefined;
-  /** Get MaskVolume for a layer (undo snapshots) */
-  getVolumeForLayer: (layer: string) => any;
-  /** Push delta to UndoManager */
-  pushUndoDelta: (delta: MaskDelta) => void;
-  /** Get eraser icon URLs */
-  getEraserUrls: () => string[];
-}
+import type { DrawingHostDeps } from "./ToolHost";
 
 export class DrawingTool extends BaseTool {
   /** Left mouse button currently held (draw mode) */
@@ -47,9 +28,9 @@ export class DrawingTool extends BaseTool {
   private preDrawAxis: "x" | "y" | "z" = "z";
   private preDrawSliceIndex: number = 0;
 
-  private callbacks: DrawingCallbacks;
+  private callbacks: DrawingHostDeps;
 
-  constructor(ctx: ToolContext, callbacks: DrawingCallbacks) {
+  constructor(ctx: ToolContext, callbacks: DrawingHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }

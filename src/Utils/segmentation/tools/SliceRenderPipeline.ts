@@ -1,37 +1,7 @@
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import type { MaskVolume } from "../core";
-
-/**
- * Callbacks that SliceRenderPipeline needs from its host (NrrdTools).
- */
-export interface SliceRenderCallbacks {
-  // Rendering helpers (CommToolsData)
-  compositeAllLayers(): void;
-  getOrCreateSliceBuffer(axis: "x" | "y" | "z"): ImageData | null;
-  renderSliceToCanvas(
-    layer: string,
-    axis: "x" | "y" | "z",
-    sliceIndex: number,
-    buffer: ImageData,
-    targetCtx: CanvasRenderingContext2D,
-    scaledWidth: number,
-    scaledHeight: number,
-  ): void;
-  getVolumeForLayer(layer: string): MaskVolume;
-
-  // Sphere overlay (DrawToolCore)
-  refreshSphereOverlay(): void;
-
-  // NrrdTools orchestration
-  syncGuiParameterSettings(): void;
-  repraintCurrentContrastSlice(): void;
-  clearUndoHistory(): void;
-
-  // DragOperator
-  updateShowNumDiv(contrastNum: number): void;
-  updateCurrentContrastSlice(): void;
-}
+import type { SliceRenderHostDeps } from "./ToolHost";
 
 /**
  * Manages slice rendering pipeline: slice setup, canvas rendering, and view helpers.
@@ -40,10 +10,10 @@ export interface SliceRenderCallbacks {
  * Follows the same BaseTool + ToolContext + Callbacks pattern as other tools.
  */
 export class SliceRenderPipeline extends BaseTool {
-  private callbacks: SliceRenderCallbacks;
+  private callbacks: SliceRenderHostDeps;
   private initState: boolean = true;
 
-  constructor(ctx: ToolContext, callbacks: SliceRenderCallbacks) {
+  constructor(ctx: ToolContext, callbacks: SliceRenderHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }

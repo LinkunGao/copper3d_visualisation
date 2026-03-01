@@ -4,15 +4,7 @@ import { MaskVolume, CHANNEL_HEX_COLORS, rgbaToHex, rgbaToCss } from "../core";
 import type { ChannelValue, RGBAColor, ChannelColorMap } from "../core";
 import { SPHERE_CHANNEL_MAP } from "./SphereTool";
 import type { SphereType } from "./SphereTool";
-
-/**
- * Callbacks that LayerChannelManager needs from its host (NrrdTools).
- */
-export interface LayerChannelCallbacks {
-  reloadMasksFromVolume(): void;
-  getVolumeForLayer(layer: string): MaskVolume;
-  onChannelColorChanged(layerId: string, channel: number, color: RGBAColor): void;
-}
+import type { LayerChannelHostDeps } from "./ToolHost";
 
 /**
  * Manages layer/channel state: active selection, visibility, and channel colors.
@@ -21,9 +13,9 @@ export interface LayerChannelCallbacks {
  * Follows the same BaseTool + ToolContext + Callbacks pattern as other tools.
  */
 export class LayerChannelManager extends BaseTool {
-  private callbacks: LayerChannelCallbacks;
+  private callbacks: LayerChannelHostDeps;
 
-  constructor(ctx: ToolContext, callbacks: LayerChannelCallbacks) {
+  constructor(ctx: ToolContext, callbacks: LayerChannelHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }

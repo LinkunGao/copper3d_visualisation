@@ -7,14 +7,7 @@
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-
-/**
- * Callbacks PanTool needs from its host (DrawToolCore).
- */
-export interface PanCallbacks {
-  /** Re-enable zoom wheel after pan ends in sphere mode */
-  zoomActionAfterDrawSphere: () => void;
-}
+import type { PanHostDeps } from "./ToolHost";
 
 export class PanTool extends BaseTool {
   /** Right mouse button currently held */
@@ -24,7 +17,7 @@ export class PanTool extends BaseTool {
   /** Pan drag offset Y (clientY − canvas.offsetTop at drag start) */
   private panMoveInnerY = 0;
 
-  private callbacks: PanCallbacks;
+  private callbacks: PanHostDeps;
 
   /**
    * Bound handler reference for pointermove so we can add/remove it.
@@ -34,7 +27,7 @@ export class PanTool extends BaseTool {
     this.handlePointerMove(e);
   };
 
-  constructor(ctx: ToolContext, callbacks: PanCallbacks) {
+  constructor(ctx: ToolContext, callbacks: PanHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }

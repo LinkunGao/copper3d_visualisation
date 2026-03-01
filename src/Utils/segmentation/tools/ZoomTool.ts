@@ -7,23 +7,18 @@
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-
-export interface ZoomCallbacks {
-  resetPaintAreaUIPosition: (l?: number, t?: number) => void;
-  resizePaintArea: (moveDistance: number) => void;
-  setIsDrawFalse: (target: number) => void;
-}
+import type { ZoomHostDeps } from "./ToolHost";
 
 export class ZoomTool extends BaseTool {
   private container: HTMLElement;
   private mainAreaContainer: HTMLDivElement;
-  private callbacks: ZoomCallbacks;
+  private callbacks: ZoomHostDeps;
 
   constructor(
     ctx: ToolContext,
     container: HTMLElement,
     mainAreaContainer: HTMLDivElement,
-    callbacks: ZoomCallbacks
+    callbacks: ZoomHostDeps
   ) {
     super(ctx);
     this.container = container;

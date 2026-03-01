@@ -11,22 +11,18 @@ import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import type { IContrastEvents } from "../core/types";
 import { throttle } from "../../utils";
-
-export interface ContrastCallbacks {
-  setIsDrawFalse: (target: number) => void;
-  setSyncsliceNum: () => void;
-}
+import type { ContrastHostDeps } from "./ToolHost";
 
 export class ContrastTool extends BaseTool {
   private contrastEventPrameters: IContrastEvents;
   private container: HTMLElement;
-  private callbacks: ContrastCallbacks;
+  private callbacks: ContrastHostDeps;
 
   constructor(
     ctx: ToolContext,
     container: HTMLElement,
     contrastEventPrameters: IContrastEvents,
-    callbacks: ContrastCallbacks
+    callbacks: ContrastHostDeps
   ) {
     super(ctx);
     this.container = container;

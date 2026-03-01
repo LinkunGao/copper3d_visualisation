@@ -50,6 +50,7 @@ import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import type { ICommXYZ } from "../core/types";
 import { CHANNEL_HEX_COLORS } from "../core";
+import type { SphereHostDeps } from "./ToolHost";
 
 // ===== Sphere Type & Channel Mapping =====
 
@@ -91,32 +92,15 @@ export const SPHERE_LABELS: Record<SphereType | 'default', number> = {
   skin: 4,
 };
 
-/**
- * Callbacks that DrawToolCore must provide for sphere operations.
- * These are internal canvas manipulation callbacks, NOT external data callbacks.
- *
- * External data output uses:
- * - annotationCallbacks.onSphereChanged(origin, radius) — sphere mode
- * - annotationCallbacks.onCalculatorPositionsChanged(...) — calculator mode
- */
-export interface SphereCallbacks {
-  setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void;
-  drawImageOnEmptyImage: (canvas: HTMLCanvasElement) => void;
-  /** Enable crosshair display at the current cursor position */
-  enableCrosshair: () => void;
-  /** Convert sphere origin from current axis to the other two axes */
-  setUpSphereOrigins: (mouseX: number, mouseY: number, sliceIndex: number) => void;
-}
-
 export class SphereTool extends BaseTool {
-  private callbacks: SphereCallbacks;
+  private callbacks: SphereHostDeps;
 
-  constructor(ctx: ToolContext, callbacks: SphereCallbacks) {
+  constructor(ctx: ToolContext, callbacks: SphereHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }
 
-  setCallbacks(callbacks: SphereCallbacks): void {
+  setCallbacks(callbacks: SphereHostDeps): void {
     this.callbacks = callbacks;
   }
 

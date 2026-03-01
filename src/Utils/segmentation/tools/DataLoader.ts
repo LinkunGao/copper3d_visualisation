@@ -9,19 +9,7 @@ import type {
   storeExportPaintImageType,
   loadingBarType,
 } from "../../../types/types";
-
-/**
- * Callbacks that DataLoader needs from its host (NrrdTools).
- */
-export interface DataLoaderCallbacks {
-  invalidateSliceBuffer(): void;
-  setDisplaySlicesBaseOnAxis(): void;
-  afterLoadSlice(): void;
-  setEmptyCanvasSize(axis?: "x" | "y" | "z"): void;
-  syncLayerSliceData(index: number, mode: string): void;
-  reloadMasksFromVolume(): void;
-  resetZoom(): void;
-}
+import type { DataLoaderHostDeps } from "./ToolHost";
 
 /**
  * Handles data loading for NRRD slices and mask volumes.
@@ -30,9 +18,9 @@ export interface DataLoaderCallbacks {
  * Follows the same BaseTool + ToolContext + Callbacks pattern as other tools.
  */
 export class DataLoader extends BaseTool {
-  private callbacks: DataLoaderCallbacks;
+  private callbacks: DataLoaderHostDeps;
 
-  constructor(ctx: ToolContext, callbacks: DataLoaderCallbacks) {
+  constructor(ctx: ToolContext, callbacks: DataLoaderHostDeps) {
     super(ctx);
     this.callbacks = callbacks;
   }
