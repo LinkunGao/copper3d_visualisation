@@ -50,8 +50,8 @@ export class DrawToolCore extends CommToolsData {
   pencilUrls: string[] = [];
   undoManager: UndoManager = new UndoManager();
 
-  // Centralized event router
-  protected eventRouter: EventRouter | null = null;
+  // Centralized event router (initialized in initDrawToolCore, called from constructor)
+  protected eventRouter!: EventRouter;
 
   // Extracted tools
   protected sphereTool!: SphereTool;
@@ -65,6 +65,9 @@ export class DrawToolCore extends CommToolsData {
 
   /** Slice index recorded when paintOnCanvas() starts, guards stale-click */
   private paintSliceIndex = 0;
+
+  /** Wheel event dispatch mode — replaces manual wheel add/remove (Phase 2) */
+  private activeWheelMode: 'zoom' | 'sphere' | 'none' = 'zoom';
 
   // need to return to parent
   start: () => void = () => { };
@@ -191,13 +194,13 @@ export class DrawToolCore extends CommToolsData {
 
       // Handle crosshair toggle (allowed in drawing tools AND sphere mode)
       if (ev.key === this._keyboardSettings.crosshair) {
-        this.eventRouter?.toggleCrosshair();
+        this.eventRouter.toggleCrosshair();
       }
 
       // Handle draw mode (Shift key) - EventRouter already tracks this
       // EventRouter's handleKeyDown will enforce mutual exclusion
       if (ev.key === this._keyboardSettings.draw && !this.gui_states.mode.sphere) {
-        if (this.eventRouter?.isCtrlHeld()) {
+        if (this.eventRouter.isCtrlHeld()) {
           return; // Ctrl takes priority
         }
         // EventRouter will set mode to 'draw' via internal handler
@@ -206,7 +209,7 @@ export class DrawToolCore extends CommToolsData {
       // Handle sphere mode toggle
       if (ev.key === this._keyboardSettings.sphere) {
         // Block during draw mode or contrast mode
-        if (this.eventRouter?.isShiftHeld() || this.eventRouter?.isCtrlHeld()) {
+        if (this.eventRouter.isShiftHeld() || this.eventRouter.isCtrlHeld()) {
           return;
         }
         this.gui_states.mode.sphere = !this.gui_states.mode.sphere;
@@ -229,17 +232,52 @@ export class DrawToolCore extends CommToolsData {
           return;
         }
         // Skip mode toggle when contrast shortcut is disabled
-        if (!this.eventRouter?.isContrastEnabled()) return;
+        if (!this.eventRouter.isContrastEnabled()) return;
         // Block contrast toggle during crosshair, draw, or sphere (mutual exclusion)
-        if (this.eventRouter?.isCrosshairEnabled() || this.eventRouter?.getMode() === 'draw') return;
+        if (this.eventRouter.isCrosshairEnabled() || this.eventRouter.getMode() === 'draw') return;
         if (this.gui_states.mode.sphere) return;
         // Toggle contrast mode manually since it's on keyup
-        if (this.eventRouter?.getMode() !== 'contrast') {
-          this.eventRouter?.setMode('contrast');
+        if (this.eventRouter.getMode() !== 'contrast') {
+          this.eventRouter.setMode('contrast');
         } else {
-          this.eventRouter?.setMode('idle');
+          this.eventRouter.setMode('idle');
         }
       }
+    });
+
+    // Register pointer handlers with EventRouter (Phase 1: event lifecycle refactor)
+    // IMPORTANT: These handlers must guard against idle calls because EventRouter
+    // routes permanently (unlike the old add/remove pattern). Specifically:
+    // - drawingTool.onPointerMove unconditionally sets isDrawing=true (DrawingTool L108)
+    //   so it must ONLY be called during active drawing.
+    // - handleOnDrawingMouseUp calls setIsDrawFalse on every invocation, which would
+    //   cause crosshair/brush flickering if called during idle clicks.
+    this.eventRouter.setPointerMoveHandler((e: PointerEvent) => {
+      // Only forward pointermove during active drawing or pan — NOT during idle movement
+      if (this.drawingTool.isActive || this.panTool.isActive) {
+        this.drawingPrameters.handleOnDrawingMouseMove(e);
+      }
+    });
+    this.eventRouter.setPointerUpHandler((e: PointerEvent) => {
+      // Only forward pointerup when an interaction was started
+      if (this.drawingTool.isActive || this.drawingTool.painting
+        || this.panTool.isActive
+        || (this.gui_states.mode.sphere && this.eventRouter.getMode() !== 'crosshair')) {
+        this.drawingPrameters.handleOnDrawingMouseUp(e);
+      }
+    });
+    this.eventRouter.setPointerLeaveHandler((e: PointerEvent) => {
+      this.handlePointerLeave();
+    });
+
+    // Register wheel handler with EventRouter (Phase 2: wheel dispatcher)
+    this.eventRouter.setWheelHandler((e: WheelEvent) => {
+      if (this.activeWheelMode === 'zoom') {
+        this.drawingPrameters.handleMouseZoomSliceWheel(e);
+      } else if (this.activeWheelMode === 'sphere') {
+        this.drawingPrameters.handleSphereWheel(e);
+      }
+      // 'none' = drawing in progress, suppress wheel
     });
 
     // Bind all event listeners
@@ -291,10 +329,8 @@ export class DrawToolCore extends CommToolsData {
 
 
   private zoomActionAfterDrawSphere() {
-    this.protectedData.canvases.drawingCanvas.addEventListener(
-      "wheel",
-      this.drawingPrameters.handleMouseZoomSliceWheel
-    );
+    // Phase 2: replace manual addEventListener with mode flag
+    this.activeWheelMode = 'zoom';
   }
 
   private paintOnCanvas() {
@@ -319,28 +355,12 @@ export class DrawToolCore extends CommToolsData {
 
     this.protectedData.ctxes.displayCtx?.restore();
 
-    // let a global variable to store the wheel move event
-
-    // Remove existing listener before creating a new one to prevent leaks
-    this.protectedData.canvases.drawingCanvas.removeEventListener(
-      "wheel",
-      this.drawingPrameters.handleMouseZoomSliceWheel
-    );
-
+    // Configure wheel handler functions (EventRouter dispatches via activeWheelMode)
     if (this._keyboardSettings.mouseWheel === "Scroll:Zoom") {
       this.drawingPrameters.handleMouseZoomSliceWheel = this.configMouseZoomWheel();
     } else {
       this.drawingPrameters.handleMouseZoomSliceWheel = this.configMouseSliceWheel() as any;
     }
-    // Keep wheel as direct addEventListener due to dynamic add/remove patterns in handleOnDrawingMouseUp
-    // EventRouter routing would conflict with the dynamic wheel switching (zoom vs sphere wheel)
-    this.protectedData.canvases.drawingCanvas.addEventListener(
-      "wheel",
-      this.drawingPrameters.handleMouseZoomSliceWheel,
-      {
-        passive: false,
-      }
-    );
     // sphere Wheel
     this.drawingPrameters.handleSphereWheel = this.configMouseSphereWheel();
 
@@ -356,10 +376,6 @@ export class DrawToolCore extends CommToolsData {
     };
     this.drawingPrameters.handleOnDrawingMouseDown = (e: MouseEvent) => {
       if (this.drawingTool.isActive || this.panTool.isActive) {
-        this.protectedData.canvases.drawingCanvas.removeEventListener(
-          "pointerup",
-          this.drawingPrameters.handleOnDrawingMouseUp
-        );
         this.protectedData.ctxes.drawingLayerMasterCtx.closePath();
         return;
       }
@@ -368,118 +384,67 @@ export class DrawToolCore extends CommToolsData {
         this.paintSliceIndex = this.protectedData.mainPreSlices.index;
       }
 
-      // remove it when mouse click down
-      this.protectedData.canvases.drawingCanvas.removeEventListener(
-        "wheel",
-        this.drawingPrameters.handleMouseZoomSliceWheel
-      );
+      // Suppress wheel only when starting a draw operation (not for crosshair/sphere/idle clicks)
+      if (this.eventRouter.getMode() === 'draw') {
+        this.activeWheelMode = 'none';
+      }
 
       if (e.button === 0) {
-        if (this.eventRouter?.getMode() === 'draw') {
+        if (this.eventRouter.getMode() === 'draw') {
           this.drawingTool.onPointerDown(e);
-          this.protectedData.canvases.drawingCanvas.addEventListener(
-            "pointerup",
-            this.drawingPrameters.handleOnDrawingMouseUp
-          );
-          this.protectedData.canvases.drawingCanvas.addEventListener(
-            "pointermove",
-            this.drawingPrameters.handleOnDrawingMouseMove
-          );
-        } else if (this.eventRouter?.isCrosshairEnabled()) {
+          // pointerup and pointermove are permanently routed by EventRouter
+        } else if (this.eventRouter.isCrosshairEnabled()) {
           this.nrrd_states.interaction.cursorPageX =
             e.offsetX / this.nrrd_states.view.sizeFactor;
           this.nrrd_states.interaction.cursorPageY =
             e.offsetY / this.nrrd_states.view.sizeFactor;
 
           this.enableCrosshair();
-          this.protectedData.canvases.drawingCanvas.addEventListener(
-            "pointerup",
-            this.drawingPrameters.handleOnDrawingMouseUp
-          );
+          // pointerup is permanently routed by EventRouter
 
-        } else if (this.gui_states.mode.sphere && !this.eventRouter?.isCrosshairEnabled()) {
+        } else if (this.gui_states.mode.sphere && !this.eventRouter.isCrosshairEnabled()) {
 
           this.handleSphereClick(e)
         }
       } else if (e.button === 2) {
         this.panTool.onPointerDown(e);
-        this.protectedData.canvases.drawingCanvas.addEventListener(
-          "pointerup",
-          this.drawingPrameters.handleOnDrawingMouseUp
-        );
+        // pointerup is permanently routed by EventRouter
       } else {
         return;
       }
     };
     // Route pointerdown through EventRouter for centralized event management
-    // The handler is still the existing logic, just registered through EventRouter
-    if (this.eventRouter) {
-      this.eventRouter.setPointerDownHandler((e: PointerEvent) => {
-        this.drawingPrameters.handleOnDrawingMouseDown(e);
-      });
-    } else {
-      // Fallback for legacy mode without EventRouter
-      this.protectedData.canvases.drawingCanvas.addEventListener(
-        "pointerdown",
-        this.drawingPrameters.handleOnDrawingMouseDown,
-        true
-      );
-    }
+    this.eventRouter.setPointerDownHandler((e: PointerEvent) => {
+      this.drawingPrameters.handleOnDrawingMouseDown(e);
+    });
 
     this.drawingPrameters.handleOnDrawingMouseUp = (e: MouseEvent) => {
       if (e.button === 0) {
 
-        if (this.eventRouter?.getMode() === 'draw' || this.drawingTool.painting) {
+        if (this.eventRouter.getMode() === 'draw' || this.drawingTool.painting) {
           this.drawingTool.onPointerUp(e);
+          // pointermove is permanently routed by EventRouter, no need to remove
 
-          this.protectedData.canvases.drawingCanvas.removeEventListener(
-            "pointermove",
-            this.drawingPrameters.handleOnDrawingMouseMove
-          );
-
-          // add wheel after pointer up
-          this.protectedData.canvases.drawingCanvas.addEventListener(
-            "wheel",
-            this.drawingPrameters.handleMouseZoomSliceWheel,
-            {
-              passive: false,
-            }
-          );
+          // Restore wheel after drawing ends
+          this.activeWheelMode = 'zoom';
         } else if (
           this.gui_states.mode.sphere &&
-          !this.eventRouter?.isCrosshairEnabled()
+          !this.eventRouter.isCrosshairEnabled()
         ) {
           // Data operations delegated to SphereTool
           this.sphereTool.onSpherePointerUp();
 
-          // Event cleanup stays here (orchestration)
-          this.protectedData.canvases.drawingCanvas.removeEventListener(
-            "wheel",
-            this.drawingPrameters.handleSphereWheel,
-            true
-          );
-
-          this.protectedData.canvases.drawingCanvas.addEventListener(
-            "wheel",
-            this.drawingPrameters.handleMouseZoomSliceWheel
-          );
-          this.protectedData.canvases.drawingCanvas.removeEventListener(
-            "pointerup",
-            this.drawingPrameters.handleOnDrawingMouseUp
-          );
+          // Restore zoom wheel mode (was sphere during sphere interaction)
+          this.activeWheelMode = 'zoom';
+          // pointerup is permanently routed by EventRouter, no need to remove
 
           this.zoomActionAfterDrawSphere();
 
         } else if (this.gui_states.mode.sphere &&
-          this.eventRouter?.isCrosshairEnabled()) {
-          this.protectedData.canvases.drawingCanvas.addEventListener(
-            "wheel",
-            this.drawingPrameters.handleMouseZoomSliceWheel
-          );
-          this.protectedData.canvases.drawingCanvas.removeEventListener(
-            "pointerup",
-            this.drawingPrameters.handleOnDrawingMouseUp
-          );
+          this.eventRouter.isCrosshairEnabled()) {
+          // Restore zoom wheel mode after crosshair+sphere interaction
+          this.activeWheelMode = 'zoom';
+          // pointerup is permanently routed by EventRouter, no need to remove
         }
 
       } else if (e.button === 2) {
@@ -493,29 +458,6 @@ export class DrawToolCore extends CommToolsData {
       }
     };
 
-    this.protectedData.canvases.drawingCanvas.addEventListener(
-      "pointerleave",
-      () => {
-        const wasDrawing = this.drawingTool.onPointerLeave();
-        if (wasDrawing) {
-          this.protectedData.canvases.drawingCanvas.removeEventListener(
-            "pointermove",
-            this.drawingPrameters.handleOnDrawingMouseMove
-          );
-          this.protectedData.canvases.drawingCanvas.removeEventListener(
-            "wheel",
-            this.drawingPrameters.handleSphereWheel,
-            true
-          );
-        }
-        this.panTool.onPointerLeave();
-
-        this.setIsDrawFalse(100);
-        if (this.gui_states.mode.pencil) {
-          this.setIsDrawFalse(1000);
-        }
-      }
-    );
 
     this.start = () => {
       if (this.gui_states.viewConfig.readyToUpdate) {
@@ -536,7 +478,7 @@ export class DrawToolCore extends CommToolsData {
           }
         } else {
           // Use EventRouter mode for mutually exclusive crosshair vs draw rendering
-          const currentMode = this.eventRouter?.getMode();
+          const currentMode = this.eventRouter.getMode();
           if (currentMode === 'draw') {
             // Draw mode: show brush circle preview — delegated to DrawingTool
             this.drawingTool.renderBrushPreview(
@@ -544,7 +486,7 @@ export class DrawToolCore extends CommToolsData {
               this.nrrd_states.view.changedWidth,
               this.nrrd_states.view.changedHeight
             );
-          } else if (currentMode === 'crosshair' || this.eventRouter?.isCrosshairEnabled()) {
+          } else if (currentMode === 'crosshair' || this.eventRouter.isCrosshairEnabled()) {
             // Crosshair mode: show cross lines — delegated to CrosshairTool
             this.crosshairTool.renderCrosshair(
               this.protectedData.ctxes.drawingCtx,
@@ -579,26 +521,34 @@ export class DrawToolCore extends CommToolsData {
     };
   }
 
+  /**
+   * Extracted from paintOnCanvas() pointerleave handler.
+   * Called via EventRouter's permanent pointerleave routing.
+   * No manual removeEventListener needed — pointermove/wheel are permanently routed by EventRouter.
+   */
+  private handlePointerLeave() {
+    const wasDrawing = this.drawingTool.onPointerLeave();
+    if (wasDrawing) {
+      // Restore zoom wheel mode after drawing interrupted by pointer leave
+      this.activeWheelMode = 'zoom';
+    }
+    this.panTool.onPointerLeave();
+
+    this.setIsDrawFalse(100);
+    if (this.gui_states.mode.pencil) {
+      this.setIsDrawFalse(1000);
+    }
+  }
+
   /** Extracted from paintOnCanvas() — handles sphere placement on left-click */
   private handleSphereClick(e: MouseEvent) {
-    this.protectedData.canvases.drawingCanvas.removeEventListener(
-      "wheel",
-      this.drawingPrameters.handleMouseZoomSliceWheel
-    );
+    // Switch wheel to sphere mode (replaces manual remove zoom + add sphere wheel)
+    this.activeWheelMode = 'sphere';
 
     // Data operations delegated to SphereTool
     this.sphereTool.onSphereClick(e);
 
-    // Event binding stays here (orchestration)
-    this.protectedData.canvases.drawingCanvas.addEventListener(
-      "wheel",
-      this.drawingPrameters.handleSphereWheel,
-      true
-    );
-    this.protectedData.canvases.drawingCanvas.addEventListener(
-      "pointerup",
-      this.drawingPrameters.handleOnDrawingMouseUp
-    );
+    // pointerup is permanently routed by EventRouter, no need to add
   }
 
   private initAllCanvas() {
