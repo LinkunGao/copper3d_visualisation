@@ -442,6 +442,40 @@ nrrdTools.draw({
 });
 ```
 
+##### Programmatic Sphere Placement (Backend → Frontend)
+
+When the backend returns sphere coordinates (e.g., from AI detection), use `setCalculateDistanceSphere()` to place them without user interaction. This method replicates the full mouse-down → mouse-up flow internally:
+
+```typescript
+// Backend returns sphere data for a case
+interface BackendSphereData {
+  type: 'tumour' | 'skin' | 'nipple' | 'ribcage';
+  x: number;          // X in unscaled image space
+  y: number;          // Y in unscaled image space
+  sliceIndex: number;  // Target slice index
+}
+
+// Place each sphere programmatically
+function applySphereFromBackend(nrrdTools: Copper.NrrdTools, spheres: BackendSphereData[]) {
+  for (const s of spheres) {
+    nrrdTools.setCalculateDistanceSphere(s.x, s.y, s.sliceIndex, s.type);
+  }
+}
+
+// Example: place a tumour sphere at (120, 95) on slice 42
+nrrdTools.setCalculateDistanceSphere(120, 95, 42, 'tumour');
+```
+
+Internally, `setCalculateDistanceSphere` performs:
+1. Sets `sphereRadius = 5` and navigates to the target slice
+2. Records `sphereOrigin` on all 3 axes (via `crosshairTool.setUpSphereOrigins`)
+3. Deep-copies the origin into the type-specific field (e.g., `tumourSphereOrigin`)
+4. Draws the sphere preview on canvas (`drawCalculatorSphere`)
+5. Writes all placed spheres to `sphereMaskVolume` (`writeAllCalculatorSpheresToVolume`)
+6. Re-renders the sphere overlay (`refreshSphereCanvas`)
+
+> **Note**: Coordinates (`x`, `y`) are in **unscaled** image space. The method automatically applies `sizeFactor` scaling internally.
+
 #### 5.4 `enableContrastDragEvents()` — Windowing
 
 Enable Ctrl+drag to adjust window/level (brightness/contrast):
@@ -1254,7 +1288,7 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | | `getSliderMeta(key)` | Get slider min/max/step/value for UI config (`"globalAlpha"`, `"brushAndEraserSize"`, etc.) |
 | **Actions** | `executeAction(action)` | Run named action: `"undo"`, `"redo"`, `"clearActiveSliceMask"`, `"clearActiveLayerMask"`, `"resetZoom"`, `"downloadCurrentMask"` |
 | **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"` |
-| | `setCalculateDistanceSphere(x, y, slice, type)` | Programmatically place a distance-calculator sphere |
+| | `setCalculateDistanceSphere(x, y, slice, type)` | Programmatically place a calculator sphere (simulates full click flow: record origin → draw → write to volume) |
 | **History** | `undo()` | Undo last stroke |
 | | `redo()` | Redo last undone stroke |
 | **Keyboard** | `setKeyboardSettings(partial)` | Remap shortcuts |

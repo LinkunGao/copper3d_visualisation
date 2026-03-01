@@ -1101,20 +1101,53 @@ export class NrrdTools extends DrawToolCore {
     return this.protectedData.maskData;
   }
 
-  // set calculate distance sphere position
+  /**
+   * Programmatically place a calculator sphere at the given position.
+   *
+   * Replicates the full mouse-down → mouse-up flow (handleSphereClick + pointerup)
+   * so that backend-supplied sphere data is stored identically to a manual click.
+   *
+   * @param x - X coordinate in unscaled (original) image space
+   * @param y - Y coordinate in unscaled (original) image space
+   * @param sliceIndex - Target slice index (z-axis)
+   * @param cal_position - Sphere type to place
+   */
   setCalculateDistanceSphere(x: number, y: number, sliceIndex: number, cal_position: "tumour" | "skin" | "nipple" | "ribcage") {
     this.nrrd_states.sphere.sphereRadius = 5;
 
-    // move to tumour slice
+    // move to target slice
     const steps = sliceIndex - this.nrrd_states.view.currentSliceIndex;
-    this.setSliceMoving(steps * this.protectedData.displaySlices.length)
+    this.setSliceMoving(steps * this.protectedData.displaySlices.length);
 
-    // mock mouse down
-    // if user zoom the panel, we need to consider the size factor 
-    this.drawCalSphereDown(x * this.nrrd_states.view.sizeFactor, y * this.nrrd_states.view.sizeFactor, sliceIndex, cal_position);
-    // mock mouse up
-    this.drawCalSphereUp()
+    // --- simulate mouse-down (mirrors DrawToolCore.handleSphereClick) ---
+    // if user has zoomed the panel, we need to consider the size factor
+    const mouseX = x * this.nrrd_states.view.sizeFactor;
+    const mouseY = y * this.nrrd_states.view.sizeFactor;
 
+    // 1. record origin on current axis
+    this.nrrd_states.sphere.sphereOrigin[this.protectedData.axis] = [
+      mouseX, mouseY, sliceIndex,
+    ];
+    // compute origins for all 3 axes (crosshairTool is protected)
+    this.crosshairTool.setUpSphereOrigins(mouseX, mouseY, sliceIndex);
+
+    // 2. store a deep copy of the origin for the specific sphere type
+    const originCopy = JSON.parse(JSON.stringify(this.nrrd_states.sphere.sphereOrigin));
+    switch (cal_position) {
+      case "tumour":  this.nrrd_states.sphere.tumourSphereOrigin  = originCopy; break;
+      case "skin":    this.nrrd_states.sphere.skinSphereOrigin    = originCopy; break;
+      case "nipple":  this.nrrd_states.sphere.nippleSphereOrigin  = originCopy; break;
+      case "ribcage": this.nrrd_states.sphere.ribSphereOrigin     = originCopy; break;
+    }
+
+    // 3. draw sphere preview on canvas
+    this.drawCalculatorSphere(this.nrrd_states.sphere.sphereRadius);
+
+    // --- simulate mouse-up ---
+    // 4. write all placed calculator spheres into sphereMaskVolume
+    this.sphereTool.writeAllCalculatorSpheresToVolume();
+    // 5. re-render sphere overlay from volume
+    this.sphereTool.refreshSphereCanvas();
   }
 
   /**
