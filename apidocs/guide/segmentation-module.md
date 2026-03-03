@@ -151,7 +151,22 @@ Per-layer custom channel colors. Each layer's MaskVolume has an independent `col
 **Prerequisite**: The `nrrdTools` instance must be created and `setAllSlices()` must have been called (i.e., image is loaded and MaskVolume is initialized).
 
 ::: warning
-Colors must be set **after** image loading is complete (`setAllSlices()` called). If MaskVolume has not yet been created, calls will silently fail (`console.warn`).
+Colors must be set **after** image loading is complete (`setAllSlices()` called). If `protectedData.maskData.volumes[layerId]` does not yet exist, the method silently fails — it hits the internal guard, emits `console.warn`, and returns immediately with no visual effect and no thrown exception.
+
+**Common mistake**: calling `setChannelColor` inside `onFinishedCopperInit`. That callback fires when the Copper3D renderer is ready, but no NRRD images have been loaded yet — `volumes["layer1"]` is `undefined` at that point.
+
+```typescript
+// ❌ WRONG — too early, MaskVolume does not exist yet
+const onFinishedCopperInit = (data) => {
+  nrrdTools.value = data.nrrdTools;
+  nrrdTools.value.setChannelColor('layer1', 1, { r: 25, g: 0, b: 0, a: 255 }); // silent no-op
+};
+
+// ✅ CORRECT — call after images are loaded (setAllSlices() has already run)
+const handleAllImagesLoaded = (res) => {
+  nrrdTools.value.setChannelColor('layer1', 1, { r: 25, g: 0, b: 0, a: 255 }); // works
+};
+```
 :::
 
 ---

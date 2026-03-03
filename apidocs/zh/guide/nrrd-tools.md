@@ -366,6 +366,38 @@ if (nrrdTools.hasLayerData('layer2')) {
 
 每个图层都有完全独立的颜色映射表。
 
+### ⚠️ 时序要求 — 必须在 `setAllSlices()` 之后调用
+
+颜色 API 依赖 `protectedData.maskData.volumes` 中存在对应的 `MaskVolume` 实例。如果在 `setAllSlices()` 完成之前调用，方法会触发内部守卫检查，输出 `console.warn` 后直接 `return`，**静默失败，无任何视觉变化，也不会抛出异常**。
+
+```typescript
+// ❌ 错误：onFinishedCopperInit 仅表示 Copper3D 渲染器初始化完毕，
+//         此时尚未加载任何 NRRD 影像。
+//         protectedData.maskData.volumes["layer1"] 为 undefined，
+//         setChannelColor 触发 console.warn 后静默退出。
+const onFinishedCopperInit = (data) => {
+  nrrdTools.value = data.nrrdTools;
+  nrrdTools.value.setChannelColor('layer1', 1, { r: 25, g: 0, b: 0, a: 255 }); // ← 静默失败
+};
+
+// ✅ 正确：在图像加载完成后调用（setAllSlices() 已在此之前执行）
+const handleAllImagesLoaded = (res) => {
+  nrrdTools.value.setChannelColor('layer1', 1, { r: 25, g: 0, b: 0, a: 255 }); // ← 生效
+};
+```
+
+`LayerChannelManager.setChannelColor()` 内部守卫：
+
+```typescript
+const volume = this.protectedData.maskData.volumes[layerId];
+if (!volume) {
+  console.warn(`setChannelColor: unknown layer "${layerId}"`); // ← 静默警告
+  return;  // ← 退出，颜色从未被设置
+}
+```
+
+`MaskVolume` 实例（含正确的体素维度）仅在 `DataLoader.setAllSlices()` 内部创建。在此之前，`volumes` 映射表为空。
+
 ### 默认通道颜色表
 
 | 通道 | 颜色 | Hex 编码 |
