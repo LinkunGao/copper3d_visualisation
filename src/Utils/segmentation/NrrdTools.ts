@@ -390,6 +390,18 @@ export class NrrdTools {
 
   getSliderMeta(key: string): IGuiMeta | null {
     if (!this.guiParameterSettings) return null;
+
+    // Per-layer alpha: read directly from layerOpacity state
+    if (key === "layerAlpha") {
+      const activeLayer = this.state.gui_states.layerChannel.layer;
+      return {
+        min: 0.1,
+        max: 1,
+        step: 0.01,
+        value: this.state.gui_states.layerChannel.layerOpacity?.[activeLayer] ?? 1.0,
+      };
+    }
+
     const setting = (this.guiParameterSettings as any)[key];
     if (!setting) return null;
 
@@ -821,6 +833,11 @@ export class NrrdTools {
   setChannelColors(layerId: string, colorMap: Partial<ChannelColorMap>): void { this.layerChannelManager.setChannelColors(layerId, colorMap); }
   setAllLayersChannelColor(channel: number, color: RGBAColor): void { this.layerChannelManager.setAllLayersChannelColor(channel, color); }
   resetChannelColors(layerId?: string, channel?: number): void { this.layerChannelManager.resetChannelColors(layerId, channel); }
+
+  // Per-layer opacity
+  setLayerOpacity(layerId: string, opacity: number): void { this.layerChannelManager.setLayerOpacity(layerId, opacity); }
+  getLayerOpacity(layerId: string): number { return this.layerChannelManager.getLayerOpacity(layerId); }
+  getLayerOpacityMap(): Record<string, number> { return this.layerChannelManager.getLayerOpacityMap(); }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 8. Delegated — SliceRenderPipeline

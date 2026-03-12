@@ -127,6 +127,9 @@ protectedData.maskData.volumes = {
 | `getLayerVisibility` | `(): Record<string, boolean>` | 获取所有 Layer 可见性副本 |
 | `getChannelVisibility` | `(): Record<string, Record<number, boolean>>` | 获取所有 Channel 可见性副本 |
 | `hasLayerData` | `(layerId): boolean` | 检查 Layer 是否有非零数据 |
+| `setLayerOpacity` | `(layerId: string, opacity: number): void` | 设置 per-layer 透明度 (0.1–1.0)，触发 `reloadMasksFromVolume()` |
+| `getLayerOpacity` | `(layerId: string): number` | 获取指定 layer 的透明度（默认 1.0） |
+| `getLayerOpacityMap` | `(): Record<string, number>` | 获取所有 layer 的透明度值 |
 
 ### 2.2 Custom Channel Color API（Phase B）
 
@@ -299,7 +302,9 @@ interface RGBAColor {
 }
 ```
 
-Channel `a`（alpha）决定 mask 的不透明度基准值。通常设为 `255`，实际渲染时还会乘以 `gui_states.drawing.globalAlpha`（默认 0.6）。
+Channel `a`（alpha）决定 mask 的不透明度基准值。通常设为 `255`，实际渲染时还会乘以 `gui_states.drawing.globalAlpha`（默认 0.6）和 `gui_states.layerChannel.layerOpacity[layerId]`（默认 1.0）。
+
+> **Per-Layer Alpha（逐层透明度）**: 最终渲染透明度 = `globalAlpha × layerOpacity[layerId]`。全局 alpha 统一控制所有 layer，而 per-layer opacity 提供对每个 layer 的独立控制。
 
 ### 2.3 Keyboard & History
 
@@ -490,6 +495,7 @@ GuiState 将 20 个属性分组为 4 个语义子对象：
 | `activeChannel` | `number` | 当前活跃 Channel (1-8) |
 | `layerVisibility` | `Record<string, boolean>` | Layer 可见性 |
 | `channelVisibility` | `Record<string, Record<number, boolean>>` | Channel 可见性 |
+| `layerOpacity` | `Record<string, number>` | Per-layer 透明度 (0.1–1.0，默认 1.0) |
 
 ### 3.3 protectedData (IProtected)
 
@@ -695,8 +701,13 @@ reloadMasksFromVolume()
       ├─ masterCtx.clearRect(...)
       └─ FOR EACH layer:
           ├─ if !layerVisibility[layerId] → skip
-          └─ masterCtx.drawImage(layerCanvas)
+          ├─ masterCtx.save()
+          ├─ masterCtx.globalAlpha = layerOpacity[layerId]  ← per-layer alpha
+          ├─ masterCtx.drawImage(layerCanvas)
+          └─ masterCtx.restore()
 ```
+
+> **Per-Layer Alpha 渲染机制**: 每个 layer 的 canvas 在合成时通过 `masterCtx.globalAlpha` 应用其独立的 `layerOpacity` 值。现有的 `globalAlpha`（来自 `gui_states.drawing`）控制整体 mask 透明度，而 `layerOpacity` 提供逐层独立控制。最终透明度 = `globalAlpha × layerOpacity[layerId]`。
 
 ---
 

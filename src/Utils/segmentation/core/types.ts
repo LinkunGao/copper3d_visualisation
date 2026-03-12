@@ -353,6 +353,8 @@ export interface ILayerChannelState {
   layerVisibility: Record<string, boolean>;
   /** Per-layer channel visibility: { layer1: { 1: true, ..., 8: true }, ... } */
   channelVisibility: Record<string, Record<number, boolean>>;
+  /** Per-layer opacity: { layer1: 1.0, layer2: 0.6, ... }. Range [0.1, 1.0]. */
+  layerOpacity: Record<string, number>;
 }
 
 export interface IGUIStates extends IToolModeState, IDrawingConfig, IViewConfig, ILayerChannelState { }

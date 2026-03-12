@@ -360,6 +360,46 @@ if (nrrdTools.hasLayerData('layer2')) {
 }
 ```
 
+### 6.5 Per-Layer 透明度
+
+每个 layer 可以拥有独立的透明度值 (0.1–1.0)，与现有的全局透明度 (`setOpacity()`) 叠加。最终渲染透明度 = `globalAlpha × layerOpacity[layerId]`。
+
+```typescript
+// 将 layer2 的透明度设为 50%
+nrrdTools.setLayerOpacity('layer2', 0.5);
+
+// 读取某个 layer 的透明度
+const opacity = nrrdTools.getLayerOpacity('layer2'); // → 0.5
+
+// 读取所有 layer 的透明度
+const opacityMap = nrrdTools.getLayerOpacityMap();
+// → { layer1: 1.0, layer2: 0.5, layer3: 1.0, layer4: 1.0 }
+```
+
+> **渲染行为**: Per-layer 透明度在 `compositeAllLayers()` 合成时通过 `masterCtx.globalAlpha` 应用，不会修改体素数据。
+>
+> **默认值**: 所有 layer 初始透明度为 `1.0`（相对于 globalAlpha 完全不透明）。
+
+**淡化背景层的使用场景：**
+
+```typescript
+// 淡化 layer1 和 layer3，保持 layer2 完全可见
+nrrdTools.setLayerOpacity('layer1', 0.3);
+nrrdTools.setLayerOpacity('layer3', 0.3);
+nrrdTools.setLayerOpacity('layer2', 1.0);
+```
+
+**UI Slider 集成：**
+
+`getSliderMeta("layerAlpha")` 返回当前活跃 layer 的透明度 slider 元数据：
+
+```typescript
+const meta = nrrdTools.getSliderMeta('layerAlpha');
+// → { value: 0.5, min: 0.1, max: 1, step: 0.01 }
+```
+
+用于 `OperationCtl.vue` 的 "Layer Alpha" slider radio 选项。
+
 ---
 
 ## 7. 通道颜色自定义
@@ -802,6 +842,9 @@ function onChannelColorPicked(hex: string) {
 | | `isLayerVisible(id)` | 给询取是否仍正在屏表呈可视化现中 |
 | | `getLayerVisibility()` | 给取到整体一全套涵盖每样有跟所有的有关各家可见性的数据全字典信息 |
 | | `hasLayerData(id)` | 让鉴查这个被指定的某个层面中究竟是不是真的存了非归 0 数字数值的内容像素区块等 |
+| | `setLayerOpacity(id, opacity)` | 设置 per-layer 透明度 (0.1–1.0)，触发重渲染 |
+| | `getLayerOpacity(id)` | 获取指定 layer 的透明度 |
+| | `getLayerOpacityMap()` | 获取所有 layer 的透明度值 |
 | **球体** | `setActiveSphereType(type)` | 让激活切点变更使用的类型系统, 顺道同换掉相关的颜色设定 |
 | | `getActiveSphereType()` | 验证当下此刻使用到的到底是哪一种求体积对象系统类型 |
 | | `setCalculateDistanceSphere(x, y, slice, type)` | 以纯系统后方传点编码输入式自动完成放下求计算小球的过程指派动作 |
@@ -829,7 +872,7 @@ function onChannelColorPicked(hex: string) {
 | **对比度** | `setWindowHigh(value)` | 给予特去设上把最高视亮度向高标数值定义 |
 | | `setWindowLow(value)` | 给予专向底层向下那最为向至黑低值的那个定义设定底数区间值 |
 | | `finishWindowAdjustment()` | 当松开发下放结束在做了那些拉调节过后，令令去全局各切面帧一起整体全面执行更新刷上一最新次底图展现吧 |
-| | `getSliderMeta(key)` | 特给予前端专门界面拉推条提供给个它必须包含在最低，至上顶及进阶滑的数字全态底包包囊交由了 UI 那边去处理用 |
+| | `getSliderMeta(key)` | 特给予前端专门界面拉推条提供给个它必须包含在最低，至上顶及进阶滑的数字全态底包包囊交由了 UI 那边去处理用（支持 key: `"globalAlpha"`, `"layerAlpha"`, `"brushAndEraserSize"` 等） |
 | **动作操作** | `executeAction(action)` | 送指令执跑启动这套: 单次的撤退`"undo"` / 或一次追回`"redo"` / 清这当下一副全图`"clearActiveSliceMask"` / 扫去扫清那整一本满册所有的卷层包`"clearActiveLayerMask"` / 大视角回定复原`"resetZoom"` / 去直接给向外提取拉带载出去现今这个截页面遮版图图去留做别保存用 `"downloadCurrentMask"` |
 | **浏览导向** | `setSliceOrientation(axis)` | 让向直接转视角把当前被从这正平的视图里向给拨轮变作去转从别如头看过去切口样 `"x"` 或另向侧看 `"y"` 或者在切俯望底 `"z"`这各样的面向转去 |
 | **历史倒推** | `undo()` / `redo()` | 退一步倒先推走下撤销走上次这一笔一划，亦或直接叫返追着刚补弄错返回上才取消去的那补回来重做这步骤嘛 |

@@ -510,6 +510,46 @@ if (nrrdTools.hasLayerData('layer2')) {
 }
 ```
 
+#### 6.5 Per-Layer Opacity
+
+Each layer can have an independent opacity value (0.1–1.0), in addition to the existing global opacity (`setOpacity()`). The final rendering opacity is multiplicative: `globalAlpha × layerOpacity[layerId]`.
+
+```typescript
+// Set layer2's opacity to 50%
+nrrdTools.setLayerOpacity('layer2', 0.5);
+
+// Read a layer's opacity
+const opacity = nrrdTools.getLayerOpacity('layer2'); // → 0.5
+
+// Read all layer opacities
+const opacityMap = nrrdTools.getLayerOpacityMap();
+// → { layer1: 1.0, layer2: 0.5, layer3: 1.0, layer4: 1.0 }
+```
+
+> **Rendering Behavior**: Per-layer opacity is applied during `compositeAllLayers()` via `masterCtx.globalAlpha`. It does **not** modify the voxel data — it only affects display compositing.
+>
+> **Default**: All layers start with opacity `1.0` (fully opaque relative to globalAlpha).
+
+##### Scenario: Dimming background layers while annotating
+
+```typescript
+// Dim layer1 and layer3, keep layer2 fully visible
+nrrdTools.setLayerOpacity('layer1', 0.3);
+nrrdTools.setLayerOpacity('layer3', 0.3);
+nrrdTools.setLayerOpacity('layer2', 1.0);
+```
+
+##### UI Slider Integration
+
+The `getSliderMeta("layerAlpha")` method returns the slider metadata for the active layer’s opacity:
+
+```typescript
+const meta = nrrdTools.getSliderMeta('layerAlpha');
+// → { value: 0.5, min: 0.1, max: 1, step: 0.01 }
+```
+
+This is used by `OperationCtl.vue`’s "Layer Alpha" slider radio option.
+
 ---
 
 ### 7. Channel Color Customization
@@ -1220,6 +1260,9 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | | `isLayerVisible(id)` | Query layer visibility |
 | | `getLayerVisibility()` | All layer visibility map |
 | | `hasLayerData(id)` | Check if layer has non-zero voxels |
+| | `setLayerOpacity(id, opacity)` | Set per-layer opacity (0.1–1.0), triggers re-render |
+| | `getLayerOpacity(id)` | Get opacity for a specific layer |
+| | `getLayerOpacityMap()` | Get all per-layer opacity values |
 | **Sphere** | `setActiveSphereType(type)` | Set active sphere type (`'tumour'`/`'skin'`/`'nipple'`/`'ribcage'`), updates brush color |
 | | `getActiveSphereType()` | Read current sphere type |
 | **Channel** | `setActiveChannel(ch)` | Switch drawing target channel |
@@ -1246,7 +1289,7 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | **Contrast** | `setWindowHigh(value)` | Set window high (image contrast), call `finishWindowAdjustment()` after drag |
 | | `setWindowLow(value)` | Set window low (image center) |
 | | `finishWindowAdjustment()` | Repaint all contrast slices after drag ends |
-| | `getSliderMeta(key)` | Get slider min/max/step/value for UI config (`"globalAlpha"`, `"brushAndEraserSize"`, etc.) |
+| | `getSliderMeta(key)` | Get slider min/max/step/value for UI config (`"globalAlpha"`, `"layerAlpha"`, `"brushAndEraserSize"`, etc.) |
 | **Actions** | `executeAction(action)` | Run named action: `"undo"`, `"redo"`, `"clearActiveSliceMask"`, `"clearActiveLayerMask"`, `"resetZoom"`, `"downloadCurrentMask"` |
 | **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"` |
 | | `setCalculateDistanceSphere(x, y, slice, type)` | Programmatically place a calculator sphere (simulates full click flow: record origin → draw → write to volume) |
