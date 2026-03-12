@@ -108,6 +108,22 @@ export class LayerChannelManager extends BaseTool {
     return volume.hasData();
   }
 
+  /****************************Per-Layer Opacity****************************************************/
+
+  setLayerOpacity(layerId: string, opacity: number): void {
+    this.ctx.gui_states.layerChannel.layerOpacity[layerId] =
+      Math.max(0.1, Math.min(1, opacity));
+    this.callbacks.reloadMasksFromVolume();
+  }
+
+  getLayerOpacity(layerId: string): number {
+    return this.ctx.gui_states.layerChannel.layerOpacity[layerId] ?? 1.0;
+  }
+
+  getLayerOpacityMap(): Record<string, number> {
+    return { ...this.ctx.gui_states.layerChannel.layerOpacity };
+  }
+
   /****************************Channel Colors****************************************************/
 
   setChannelColor(layerId: string, channel: number, color: RGBAColor): void {

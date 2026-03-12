@@ -29,13 +29,13 @@ NrrdTools (Facade)
 >
 > **Callback interface unification (complete)**: The original 10 separate `*Callbacks` interfaces have been unified into a single `ToolHost` interface (`tools/ToolHost.ts`). Each Tool selects its required host method subset via `Pick<ToolHost, ...>`.
 
-- [CanvasState.ts](../../src/Utils/segmentation/CanvasState.ts) — Pure state container
-- [RenderingUtils.ts](../../src/Utils/segmentation/RenderingUtils.ts) — Rendering utilities
-- [DrawToolCore.ts](../../src/Utils/segmentation/DrawToolCore.ts) — Drawing core (composes CanvasState + RenderingUtils)
-- [NrrdTools.ts](../../src/Utils/segmentation/NrrdTools.ts) — Public API Facade (composes CanvasState + DrawToolCore)
-- [tools/LayerChannelManager.ts](../../src/Utils/segmentation/tools/LayerChannelManager.ts) — Layer/Channel management
-- [tools/SliceRenderPipeline.ts](../../src/Utils/segmentation/tools/SliceRenderPipeline.ts) — Slice rendering pipeline
-- [tools/DataLoader.ts](../../src/Utils/segmentation/tools/DataLoader.ts) — Data loading
+- [CanvasState.ts](Utils/segmentation/CanvasState.ts) — Pure state container
+- [RenderingUtils.ts](Utils/segmentation/RenderingUtils.ts) — Rendering utilities
+- [DrawToolCore.ts](Utils/segmentation/DrawToolCore.ts) — Drawing core (composes CanvasState + RenderingUtils)
+- [NrrdTools.ts](Utils/segmentation/NrrdTools.ts) — Public API Facade (composes CanvasState + DrawToolCore)
+- [tools/LayerChannelManager.ts](Utils/segmentation/tools/LayerChannelManager.ts) — Layer/Channel management
+- [tools/SliceRenderPipeline.ts](Utils/segmentation/tools/SliceRenderPipeline.ts) — Slice rendering pipeline
+- [tools/DataLoader.ts](Utils/segmentation/tools/DataLoader.ts) — Data loading
 
 ### 1.2 Canvas Layer Structure
 
@@ -127,6 +127,9 @@ protectedData.maskData.volumes = {
 | `getLayerVisibility` | `(): Record<string, boolean>` | Get a copy of all Layer visibility states |
 | `getChannelVisibility` | `(): Record<string, Record<number, boolean>>` | Get a copy of all Channel visibility states |
 | `hasLayerData` | `(layerId): boolean` | Check if a Layer has any non-zero data |
+| `setLayerOpacity` | `(layerId: string, opacity: number): void` | Set per-layer opacity (0.1–1.0), triggers `reloadMasksFromVolume()` |
+| `getLayerOpacity` | `(layerId: string): number` | Get opacity for a specific layer (defaults to 1.0) |
+| `getLayerOpacityMap` | `(): Record<string, number>` | Get all per-layer opacity values |
 
 ### 2.2 Custom Channel Color API
 
@@ -292,7 +295,9 @@ interface RGBAColor {
 }
 ```
 
-The `a` (alpha) field determines the base mask opacity. Usually set to `255`; actual rendering multiplies by `gui_states.drawing.globalAlpha` (default 0.6).
+The `a` (alpha) field determines the base mask opacity. Usually set to `255`; actual rendering multiplies by `gui_states.drawing.globalAlpha` (default 0.6) and `gui_states.layerChannel.layerOpacity[layerId]` (default 1.0).
+
+> **Per-Layer Alpha**: Final rendering opacity = `globalAlpha × layerOpacity[layerId]`. The global alpha controls all layers uniformly, while per-layer opacity allows independent control per layer.
 
 ### 2.3 Keyboard & History
 
@@ -493,6 +498,7 @@ GuiState groups 20 properties into 4 semantic sub-objects:
 | `activeChannel` | `number` | Currently active Channel (1–8) |
 | `layerVisibility` | `Record<string, boolean>` | Layer visibility map |
 | `channelVisibility` | `Record<string, Record<number, boolean>>` | Channel visibility map |
+| `layerOpacity` | `Record<string, number>` | Per-layer opacity map (0.1–1.0, default 1.0) |
 
 ### 3.3 protectedData (IProtected)
 
@@ -690,8 +696,13 @@ reloadMasksFromVolume()
       ├─ masterCtx.clearRect(...)
       └─ FOR EACH layer:
           ├─ if !layerVisibility[layerId] → skip
-          └─ masterCtx.drawImage(layerCanvas)
+          ├─ masterCtx.save()
+          ├─ masterCtx.globalAlpha = layerOpacity[layerId]  ← per-layer alpha
+          ├─ masterCtx.drawImage(layerCanvas)
+          └─ masterCtx.restore()
 ```
+
+> **Per-Layer Alpha in Rendering**: Each layer's canvas is composited with its individual `layerOpacity` value applied via `masterCtx.globalAlpha`. The existing `globalAlpha` (from `gui_states.drawing`) controls overall mask transparency, while `layerOpacity` provides independent per-layer control. Final alpha = `globalAlpha × layerOpacity[layerId]`.
 
 ---
 

@@ -213,7 +213,13 @@ export class RenderingUtils {
         for (const layerId of this.state.nrrd_states.image.layers) {
             if (!this.state.gui_states.layerChannel.layerVisibility[layerId]) continue;
             const target = this.state.protectedData.layerTargets.get(layerId);
-            if (target) masterCtx.drawImage(target.canvas, 0, 0, width, height);
+            if (target) {
+                const layerAlpha = this.state.gui_states.layerChannel.layerOpacity?.[layerId] ?? 1.0;
+                masterCtx.save();
+                masterCtx.globalAlpha = layerAlpha;
+                masterCtx.drawImage(target.canvas, 0, 0, width, height);
+                masterCtx.restore();
+            }
         }
     }
 }
