@@ -17,15 +17,17 @@ export class Controls {
       this.viewpoint.eyePosition[1],
       this.viewpoint.eyePosition[2]
     );
-    this.currentCamera.lookAt(
-      this.viewpoint.targetPosition[0],
-      this.viewpoint.targetPosition[1],
-      this.viewpoint.targetPosition[2]
-    );
+    // up must be set BEFORE lookAt — Three.js lookAt() uses the up vector
+    // to compute the view orientation matrix
     this.currentCamera.up.set(
       this.viewpoint.upVector[0],
       this.viewpoint.upVector[1],
       this.viewpoint.upVector[2]
+    );
+    this.currentCamera.lookAt(
+      this.viewpoint.targetPosition[0],
+      this.viewpoint.targetPosition[1],
+      this.viewpoint.targetPosition[2]
     );
     this.currentCamera.updateProjectionMatrix();
     this.updateDirectionalLight();

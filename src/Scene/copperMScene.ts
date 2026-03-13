@@ -341,6 +341,14 @@ export class copperMScene extends commonScene {
     if (this.subCopperControl) {
       this.subCopperControl.updateCameraViewPoint(viewpoint);
     }
+    // Sync TrackballControls target with the new viewpoint target position
+    if (this.controls && viewpointData.targetPosition) {
+      this.controls.target.set(
+        viewpointData.targetPosition[0],
+        viewpointData.targetPosition[1],
+        viewpointData.targetPosition[2]
+      );
+    }
   }
   updateCamera(viewpoint: CameraViewPoint) {
     this.cameraPositionFlag = true;
