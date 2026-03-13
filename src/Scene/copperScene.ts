@@ -330,19 +330,20 @@ export class copperScene extends baseScene {
     super.loadView(viewpointData);
     // Sync TrackballControls with the new viewpoint
     if (this.controls) {
+      const controls = this.controls as Copper3dTrackballControls;
       if (viewpointData.targetPosition) {
-        this.controls.target.set(
+        controls.target.set(
           viewpointData.targetPosition[0],
           viewpointData.targetPosition[1],
           viewpointData.targetPosition[2]
         );
         // Update target0 so controls.reset() returns to this view
-        this.controls.target0.copy(this.controls.target);
+        controls.target0.copy(controls.target);
       }
       // Save position0/up0 so controls.reset() returns to this view
-      this.controls.position0.copy(this.camera.position);
-      this.controls.up0.copy(this.camera.up);
-      this.controls.zoom0 = this.camera.zoom;
+      controls.position0.copy(this.camera.position);
+      controls.up0.copy(this.camera.up);
+      controls.zoom0 = this.camera.zoom;
     }
   }
 
