@@ -104,6 +104,7 @@ export class baseScene extends commonScene {
     viewpoint.targetPosition = viewpointData.targetPosition;
     viewpoint.upVector = viewpointData.upVector;
     this.copperControl.updateCameraViewPoint(viewpoint);
+    this.camera.updateProjectionMatrix();
   }
 
   getDefaultViewPoint() {
