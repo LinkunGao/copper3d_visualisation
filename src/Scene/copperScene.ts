@@ -99,18 +99,35 @@ export class copperScene extends baseScene {
   loadPureGLB(
     url: string,
     callback?: (mesh: THREE.Group) => void,
-    opts?: { color: string }
+    opts?: { color: string; enhanceMaterial?: boolean }
   ) {
     const loader = copperGltfLoader(this.renderer);
     loader.load(
       url,
       (glb: GLTF) => {
-        const content = glb.scene
+        const content = glb.scene;
+
+        // Enhance PBR materials for better visual quality
+        if (opts?.enhanceMaterial !== false) {
+          content.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh) {
+              const mesh = child as THREE.Mesh;
+              const mat = mesh.material as THREE.MeshStandardMaterial;
+              if (mat.isMeshStandardMaterial) {
+                mat.roughness = Math.min(mat.roughness, 0.35);
+                mat.metalness = Math.max(mat.metalness, 0.05);
+                mat.envMapIntensity = 1.2;
+                mat.side = THREE.DoubleSide;
+                mat.needsUpdate = true;
+              }
+            }
+          });
+        }
+
         this.scene.add(content);
         !!callback && callback(content);
-      }, // called when loading is in progresses
+      },
       (xhr: any) => {},
-      // called when loading has errors
       (error: any) => {
         console.log("An error happened: ", error);
       }
