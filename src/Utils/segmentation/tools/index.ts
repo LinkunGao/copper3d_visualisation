@@ -19,6 +19,7 @@ export type {
     ContrastHostDeps,
     ZoomHostDeps,
     SphereHostDeps,
+    SphereBrushHostDeps,
     DrawingHostDeps,
     DragSliceHostDeps,
     LayerChannelHostDeps,
@@ -39,6 +40,7 @@ export { ZoomTool } from "./ZoomTool";
 // Specialty Tools
 export { SphereTool, SPHERE_CHANNEL_MAP } from "./SphereTool";
 export type { SphereType } from "./SphereTool";
+export { SphereBrushTool } from "./SphereBrushTool";
 
 export { CrosshairTool } from "./CrosshairTool";
 

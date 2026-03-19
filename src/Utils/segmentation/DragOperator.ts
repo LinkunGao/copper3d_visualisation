@@ -151,7 +151,9 @@ export class DragOperator {
       // When leaving draw, contrast, or crosshair mode (returning to idle), restore drag mode
       // Do NOT restore if sphere mode is active
       if ((prev === 'draw' || prev === 'contrast' || prev === 'crosshair') && next === 'idle') {
-        if (!this.gui_states.mode.sphere) {
+        if (!this.gui_states.mode.sphere
+          && !this.gui_states.mode.sphereBrush
+          && !this.gui_states.mode.sphereEraser) {
           this.configDragMode();
         }
       }

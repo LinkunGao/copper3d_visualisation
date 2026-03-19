@@ -17,6 +17,7 @@ import { EraserTool } from "./tools/EraserTool";
 import { PanTool } from "./tools/PanTool";
 import { DrawingTool } from "./tools/DrawingTool";
 import { ImageStoreHelper } from "./tools/ImageStoreHelper";
+import { SphereBrushTool } from "./tools/SphereBrushTool";
 import type { ToolContext } from "./tools/BaseTool";
 import { UndoManager } from "./core";
 
@@ -47,6 +48,7 @@ export class DrawToolCore {
     handleOnDrawingBrushCricleMove: (ev: MouseEvent) => { },
     handleMouseZoomSliceWheel: (e: WheelEvent) => { },
     handleSphereWheel: (e: WheelEvent) => { },
+    handleSphereBrushWheel: (e: WheelEvent) => { },
   };
 
   contrastEventPrameters: IContrastEvents = {
@@ -78,12 +80,13 @@ export class DrawToolCore {
   protected panTool!: PanTool;
   protected drawingTool!: DrawingTool;
   protected imageStoreHelper!: ImageStoreHelper;
+  protected sphereBrushTool!: SphereBrushTool;
 
   /** Slice index recorded when paintOnCanvas() starts, guards stale-click */
   private paintSliceIndex = 0;
 
   /** Wheel event dispatch mode — replaces manual wheel add/remove (Phase 2) */
-  private activeWheelMode: 'zoom' | 'sphere' | 'none' = 'zoom';
+  private activeWheelMode: 'zoom' | 'sphere' | 'sphereBrush' | 'none' = 'zoom';
 
   // need to return to parent
   start: () => void = () => { };
@@ -157,6 +160,18 @@ export class DrawToolCore {
       pushUndoDelta: (delta) => this.undoManager.push(delta),
       getEraserUrls: () => this.eraserUrls,
     });
+
+    this.sphereBrushTool = new SphereBrushTool(toolCtx, {
+      getVolumeForLayer: (layer) => this.renderer.getVolumeForLayer(layer),
+      compositeAllLayers: () => this.renderer.compositeAllLayers(),
+      pushUndoGroup: (deltas) => this.undoManager.pushGroup(deltas),
+      renderSliceToCanvas: (layer, axis, sliceIndex, buffer, ctx, w, h) =>
+        this.renderer.renderSliceToCanvas(layer, axis, sliceIndex, buffer, ctx, w, h),
+      getOrCreateSliceBuffer: (axis) => this.renderer.getOrCreateSliceBuffer(axis),
+      setEmptyCanvasSize: (axis?) => this.setEmptyCanvasSize(axis),
+      reloadMasksFromVolume: () => this.reloadMasksFromVolume(),
+      getEraserUrls: () => this.eraserUrls,
+    });
   }
 
   private initDrawToolCore() {
@@ -208,13 +223,30 @@ export class DrawToolCore {
         this.redoLastPainting();
       }
 
+      // Handle mouse wheel mode toggle (Ctrl+1 = Scroll:Zoom, Ctrl+2 = Scroll:Slice)
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === '1') {
+        ev.preventDefault();
+        this.state.keyboardSettings.mouseWheel = 'Scroll:Zoom';
+        this.updateMouseWheelEvent();
+        return;
+      }
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === '2') {
+        ev.preventDefault();
+        this.state.keyboardSettings.mouseWheel = 'Scroll:Slice';
+        this.updateMouseWheelEvent();
+        return;
+      }
+
       // Handle crosshair toggle (allowed in drawing tools AND sphere mode)
       if (ev.key === this.state.keyboardSettings.crosshair) {
         this.eventRouter.toggleCrosshair();
       }
 
       // Handle draw mode (Shift key) - EventRouter already tracks this
-      if (ev.key === this.state.keyboardSettings.draw && !this.state.gui_states.mode.sphere) {
+      if (ev.key === this.state.keyboardSettings.draw
+        && !this.state.gui_states.mode.sphere
+        && !this.state.gui_states.mode.sphereBrush
+        && !this.state.gui_states.mode.sphereEraser) {
         if (this.eventRouter.isCtrlHeld()) {
           return; // Ctrl takes priority
         }
@@ -264,11 +296,16 @@ export class DrawToolCore {
       if (this.drawingTool.isActive || this.panTool.isActive) {
         this.drawingPrameters.handleOnDrawingMouseMove(e);
       }
+      // Drag-erase: route move to sphereBrushTool when sphereEraser is active
+      if (this.sphereBrushTool.isActive && this.state.gui_states.mode.sphereEraser) {
+        this.sphereBrushTool.onSphereEraserMove(e);
+      }
     });
     this.eventRouter.setPointerUpHandler((e: PointerEvent) => {
       if (this.drawingTool.isActive || this.drawingTool.painting
         || this.panTool.isActive
-        || (this.state.gui_states.mode.sphere && this.eventRouter.getMode() !== 'crosshair')) {
+        || (this.state.gui_states.mode.sphere && this.eventRouter.getMode() !== 'crosshair')
+        || this.sphereBrushTool.isActive) {
         this.drawingPrameters.handleOnDrawingMouseUp(e);
       }
     });
@@ -282,6 +319,8 @@ export class DrawToolCore {
         this.drawingPrameters.handleMouseZoomSliceWheel(e);
       } else if (this.activeWheelMode === 'sphere') {
         this.drawingPrameters.handleSphereWheel(e);
+      } else if (this.activeWheelMode === 'sphereBrush') {
+        this.drawingPrameters.handleSphereBrushWheel(e);
       }
     });
 
@@ -365,6 +404,8 @@ export class DrawToolCore {
     }
     // sphere Wheel
     this.drawingPrameters.handleSphereWheel = this.configMouseSphereWheel();
+    // sphere brush Wheel
+    this.drawingPrameters.handleSphereBrushWheel = this.sphereBrushTool.configSphereBrushWheel();
 
     // brush circle move — delegated to DrawingTool
     this.drawingPrameters.handleOnDrawingBrushCricleMove =
@@ -399,6 +440,14 @@ export class DrawToolCore {
             e.offsetY / this.state.nrrd_states.view.sizeFactor;
 
           this.enableCrosshair();
+        } else if (this.state.gui_states.mode.sphereBrush && !this.eventRouter.isCrosshairEnabled()) {
+          // SphereBrush: direct click (no Shift needed)
+          this.activeWheelMode = 'sphereBrush';
+          this.sphereBrushTool.onSphereBrushClick(e);
+        } else if (this.state.gui_states.mode.sphereEraser && !this.eventRouter.isCrosshairEnabled()) {
+          // SphereEraser: direct click (Shift handled at mode level)
+          this.activeWheelMode = 'sphereBrush';
+          this.sphereBrushTool.onSphereEraserClick(e);
         } else if (this.state.gui_states.mode.sphere && !this.eventRouter.isCrosshairEnabled()) {
           this.handleSphereClick(e)
         }
@@ -417,6 +466,14 @@ export class DrawToolCore {
       if (e.button === 0) {
         if (this.eventRouter.getMode() === 'draw' || this.drawingTool.painting) {
           this.drawingTool.onPointerUp(e);
+          this.activeWheelMode = 'zoom';
+        } else if (this.sphereBrushTool.isActive) {
+          // SphereBrush or SphereEraser pointer-up
+          if (this.state.gui_states.mode.sphereBrush) {
+            this.sphereBrushTool.onSphereBrushPointerUp();
+          } else if (this.state.gui_states.mode.sphereEraser) {
+            this.sphereBrushTool.onSphereEraserPointerUp();
+          }
           this.activeWheelMode = 'zoom';
         } else if (
           this.state.gui_states.mode.sphere &&
@@ -480,7 +537,9 @@ export class DrawToolCore {
           0
         );
 
-        if (this.state.gui_states.mode.sphere) {
+        if (this.state.gui_states.mode.sphere
+          || this.state.gui_states.mode.sphereBrush
+          || this.state.gui_states.mode.sphereEraser) {
           this.state.protectedData.ctxes.drawingCtx.drawImage(
             this.state.protectedData.canvases.drawingSphereCanvas,
             0,
@@ -724,29 +783,31 @@ export class DrawToolCore {
    * Undo the last drawing operation on the active layer.
    */
   undoLastPainting() {
-    const delta = this.undoManager.undo();
-    if (!delta) return;
-
-    try {
-      const vol = this.renderer.getVolumeForLayer(delta.layerId);
-      vol.setSliceUint8(delta.sliceIndex, delta.oldSlice, delta.axis);
-    } catch {
-      return;
-    }
+    const entry = this.undoManager.undo();
+    if (!entry) return;
 
     this.state.protectedData.isDrawing = true;
 
-    if (delta.axis === this.state.protectedData.axis && delta.sliceIndex === this.state.nrrd_states.view.currentSliceIndex) {
-      this.applyUndoRedoToCanvas(delta.layerId);
-    }
+    for (const delta of entry) {
+      try {
+        const vol = this.renderer.getVolumeForLayer(delta.layerId);
+        vol.setSliceUint8(delta.sliceIndex, delta.oldSlice, delta.axis);
+      } catch {
+        continue;
+      }
 
-    if (!this.state.nrrd_states.flags.loadingMaskData) {
-      const { data: sliceData, width, height } = this.renderer.getVolumeForLayer(delta.layerId)
-        .getSliceUint8(delta.sliceIndex, delta.axis);
-      this.state.annotationCallbacks.onMaskChanged(
-        sliceData, delta.layerId, this.state.gui_states.layerChannel.activeChannel || 1,
-        delta.sliceIndex, delta.axis, width, height, false
-      );
+      if (delta.axis === this.state.protectedData.axis && delta.sliceIndex === this.state.nrrd_states.view.currentSliceIndex) {
+        this.applyUndoRedoToCanvas(delta.layerId);
+      }
+
+      if (!this.state.nrrd_states.flags.loadingMaskData) {
+        const { data: sliceData, width, height } = this.renderer.getVolumeForLayer(delta.layerId)
+          .getSliceUint8(delta.sliceIndex, delta.axis);
+        this.state.annotationCallbacks.onMaskChanged(
+          sliceData, delta.layerId, this.state.gui_states.layerChannel.activeChannel || 1,
+          delta.sliceIndex, delta.axis, width, height, false
+        );
+      }
     }
 
     this.setIsDrawFalse(1000);
@@ -756,29 +817,31 @@ export class DrawToolCore {
    * Redo the last undone operation on the active layer.
    */
   redoLastPainting() {
-    const delta = this.undoManager.redo();
-    if (!delta) return;
-
-    try {
-      const vol = this.renderer.getVolumeForLayer(delta.layerId);
-      vol.setSliceUint8(delta.sliceIndex, delta.newSlice, delta.axis);
-    } catch {
-      return;
-    }
+    const entry = this.undoManager.redo();
+    if (!entry) return;
 
     this.state.protectedData.isDrawing = true;
 
-    if (delta.axis === this.state.protectedData.axis && delta.sliceIndex === this.state.nrrd_states.view.currentSliceIndex) {
-      this.applyUndoRedoToCanvas(delta.layerId);
-    }
+    for (const delta of entry) {
+      try {
+        const vol = this.renderer.getVolumeForLayer(delta.layerId);
+        vol.setSliceUint8(delta.sliceIndex, delta.newSlice, delta.axis);
+      } catch {
+        continue;
+      }
 
-    if (!this.state.nrrd_states.flags.loadingMaskData) {
-      const { data: sliceData, width, height } = this.renderer.getVolumeForLayer(delta.layerId)
-        .getSliceUint8(delta.sliceIndex, delta.axis);
-      this.state.annotationCallbacks.onMaskChanged(
-        sliceData, delta.layerId, this.state.gui_states.layerChannel.activeChannel || 1,
-        delta.sliceIndex, delta.axis, width, height, false
-      );
+      if (delta.axis === this.state.protectedData.axis && delta.sliceIndex === this.state.nrrd_states.view.currentSliceIndex) {
+        this.applyUndoRedoToCanvas(delta.layerId);
+      }
+
+      if (!this.state.nrrd_states.flags.loadingMaskData) {
+        const { data: sliceData, width, height } = this.renderer.getVolumeForLayer(delta.layerId)
+          .getSliceUint8(delta.sliceIndex, delta.axis);
+        this.state.annotationCallbacks.onMaskChanged(
+          sliceData, delta.layerId, this.state.gui_states.layerChannel.activeChannel || 1,
+          delta.sliceIndex, delta.axis, width, height, false
+        );
+      }
     }
 
     this.setIsDrawFalse(1000);
@@ -885,5 +948,13 @@ export class DrawToolCore {
   /** Override in NrrdTools */
   exitSphereMode(): void {
     throw new Error("exitSphereMode must be provided by NrrdTools");
+  }
+  /** Override in NrrdTools */
+  reloadMasksFromVolume(): void {
+    throw new Error("reloadMasksFromVolume must be provided by NrrdTools");
+  }
+  /** Override in NrrdTools */
+  updateMouseWheelEvent(): void {
+    throw new Error("updateMouseWheelEvent must be provided by NrrdTools");
   }
 }

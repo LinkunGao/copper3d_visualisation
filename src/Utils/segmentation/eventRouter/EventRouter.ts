@@ -383,6 +383,7 @@ export class EventRouter {
         if (ev.key === this.keyboardSettings.draw) {
             this.state.shiftHeld = true;
             // Block draw mode when crosshair or contrast is active (mutual exclusion)
+            // Also block when sphereBrush or sphereEraser is active
             if (DRAWING_TOOLS.has(this.guiTool) && !this.state.ctrlHeld && !this.state.crosshairEnabled) {
                 this.setMode('draw');
             }

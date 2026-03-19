@@ -34,6 +34,8 @@ export class GuiState {
       pencil: true,
       eraser: false,
       sphere: false,
+      sphereBrush: false,
+      sphereEraser: false,
       activeSphereType: "tumour",
     };
 
