@@ -285,7 +285,104 @@ nrrdTools.setCalculateDistanceSphere(120, 95, 42, 'tumour');
 其坐标 (`x`, `y`) 采用的是**未缩放**过的图像空间。本方法将在其内部自动进行 `sizeFactor` 缩放调整。
 :::
 
-### 5.4 `enableContrastDragEvents()` — 窗宽 / 窗位调整 (Window/Level)
+### 5.4 SphereBrush & SphereEraser — 3D 体积绘画与擦除
+
+SphereBrush 和 SphereEraser 是直接操作 3D 体积的工具，将球体写入/擦除到**当前活跃 layer 的共享 MaskVolume** 中，使用当前 active channel 的标签值。与 Sphere（标记器）工具使用独立的 `sphereMaskVolume` 不同，这两个工具直接修改 layer 数据，完全兼容 undo/redo 系统、NIfTI 导出和 GLTF 生成。
+
+#### 工具模式
+
+| 工具 | 模式值 | 说明 |
+|------|-------|------|
+| Sphere Brush | `"sphereBrush"` | 左键点击在活跃 layer 中绘制一个 3D 球体 |
+| Sphere Eraser | `"sphereEraser"` | 左键点击擦除一个 3D 球体（或拖动连续擦除）。只擦除当前 active channel。 |
+
+#### 激活 SphereBrush / SphereEraser
+
+```typescript
+// 切换到 Sphere Brush 模式
+nrrdTools.setMode('sphereBrush');
+
+// 切换到 Sphere Eraser 模式
+nrrdTools.setMode('sphereEraser');
+
+// 读取当前模式
+const mode = nrrdTools.getMode();
+// → 'sphereBrush' | 'sphereEraser' | 'pencil' | 'brush' | 'eraser' | 'sphere' | 'calculator'
+```
+
+#### 半径控制
+
+```typescript
+// 设置球形画笔/橡皮擦半径（限制在 [1, 50]）
+nrrdTools.setSphereBrushRadius(10);
+
+// 读取当前半径
+const radius = nrrdTools.getSphereBrushRadius(); // → 10
+```
+
+交互时，用户也可以在按住左键的同时通过滚轮调整半径。
+
+#### 交互流程
+
+```
+SphereBrush 模式 (gui_states.mode.sphereBrush = true):
+  ├─ Shift 键被禁用（不能进入 draw 模式）
+  ├─ 拖拽切片被禁用
+  ├─ Crosshair 切换可用 (S 键)
+  │
+  ├─ 左键按下 → 记录中心点，绘制预览圆
+  │   此时 activeWheelMode = 'sphereBrush'
+  │
+  ├─ 滚轮（按住时）→ 调整半径 [1, 50]
+  │
+  └─ 左键松开 → 将 3D 球体写入 MaskVolume
+      ├─ 推送 undo 组（所有受影响的 Z 切片）
+      ├─ 重渲染 layer canvas
+      ├─ 为所有受影响的切片触发 onMaskChanged
+      └─ activeWheelMode = 'zoom'
+
+SphereEraser 模式 (gui_states.mode.sphereEraser = true):
+  ├─ 与 SphereBrush 相同的约束
+  │
+  ├─ 左键按下 → 记录中心点，捕获 before 快照
+  │
+  ├─ 拖动（可选）→ 沿路径连续擦除
+  │   └─ 惰性捕获新触及的 Z 切片的 before 快照
+  │
+  ├─ 滚轮（按住时）→ 调整半径 [1, 50]
+  │
+  └─ 左键松开 → 完成擦除
+      ├─ 推送累积 undo 组（整个拖拽过程中所有受影响的 Z 切片）
+      ├─ 重渲染 layer canvas
+      ├─ 为所有受影响的切片触发 onMaskChanged
+      └─ activeWheelMode = 'zoom'
+```
+
+#### 与 Sphere（标记器）的关键区别
+
+| 特性 | Sphere（标记器） | SphereBrush / SphereEraser |
+|------|-----------------|---------------------------|
+| 存储目标 | `sphereMaskVolume`（独立覆盖层） | 活跃 layer 的 `MaskVolume`（共享） |
+| Channel 行为 | 固定按球体类型 | 使用 active channel |
+| NIfTI/GLTF 导出 | 不导出（仅覆盖层） | 完整导出为 3D 体积 |
+| Undo 支持 | 无 | 支持（分组多切片 undo） |
+| 拖动支持 | 无 | SphereEraser 支持拖动擦除 |
+
+#### 场景：使用 Sphere Eraser 审核 AI 结果
+
+```typescript
+// 加载 AI 分割结果
+nrrdTools.setMasksFromNIfTI(layerVoxels);
+
+// 切换到球形橡皮擦进行快速清理
+nrrdTools.setMode('sphereEraser');
+nrrdTools.setSphereBrushRadius(8);
+
+// 用户现在可以点击或拖动来擦除错误区域
+// 所有更改都可撤销，且会被正确导出
+```
+
+### 5.5 `enableContrastDragEvents()` — 窗宽 / 窗位调整 (Window/Level)
 
 ```typescript
 nrrdTools.enableContrastDragEvents((step: number, towards: 'horizental' | 'vertical') => {
@@ -559,6 +656,8 @@ window.addEventListener('keydown', (e) => {
 | 十字准星 (Crosshair) | `s` |
 | 球体模式 (Sphere) | `q` |
 | 鼠标滚轮 | 放大 / 缩小视觉区 |
+| 滚轮:缩放 快捷键 | `Ctrl+1` |
+| 滚轮:切片 快捷键 | `Ctrl+2` |
 
 ### 自定义配置
 
@@ -860,9 +959,11 @@ function onChannelColorPicked(hex: string) {
 | | `getChannelHexColor(id, ch)` | 直接转换将其那项直接改型产出并吐给做呈现能做出的具有 Hex 那十六位形式文字传带给你 |
 | | `getChannelCssColor(id, ch)` | 直接就将可以马上用来能放在 css 去引作带式表达项 `rgba()` 字串句子传递给交赋与去你处 |
 | | `resetChannelColors(id?, ch?)` | 直接一把扫灭并还原把那些原本预存定设有的色彩初模色卡项全都还原变回复至归宗本最初期底色里头去 |
-| **笔具模式** | `setMode(mode)` | 去切入转换其用使用拿握着的各小形功能模式如 : `"pencil(铅笔)"` / `"brush(笔刷)"` / `"eraser(橡皮擦)"` / `"sphere(立体球点)"` / `"calculator(立体仪算)"` |
-| | `getMode()` | 寻查得到现在此刻当头上到底真捏拿着在哪功能工具态下作业中呢 |
-| | `isCalculatorActive()` | 去特别检查判断看眼是不是在那处于仪算系统态内里面去启动用着呢 |
+| **笔具模式** | `setMode(mode)` | 切换工具模式: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
+| | `getMode()` | 获取当前工具模式 |
+| | `isCalculatorActive()` | 检查是否在 calculator 模式 |
+| **球形画笔** | `setSphereBrushRadius(radius)` | 设置球形画笔/橡皮擦半径 [1, 50] |
+| | `getSphereBrushRadius()` | 获取当前球形画笔/橡皮擦半径 |
 | **注绘操作** | `setOpacity(value)` | 给那个透明盖图层罩薄厚度下注定义设 [ 从0.1 透明最清至 1 完全厚填实实底 ] 之间的范数 |
 | | `getOpacity()` | 寻要探出当前的这盖覆实透明薄薄度现在正给多少数值内 |
 | | `setBrushSize(size)` | 为现在使用的涂画擦拭这些刷头物设定那 [最小5, 最大50 ]这域段面之大中小号体积 |
@@ -936,7 +1037,10 @@ interface IDragOpts {
   getSliceNum?: (sliceIndex: number, contrastIndex: number) => void;
 }
 
-// 所关及涉联系的针对到那键盘绑操作那些设定全部组装全配在这类型的全这组合那包类型的设定表
+// 工具模式类型（用于 setMode/getMode）
+type ToolMode = "pencil" | "brush" | "eraser" | "sphere" | "calculator" | "sphereBrush" | "sphereEraser";
+
+// 键盘快捷键设置
 interface IKeyBoardSettings {
   draw: string;
   undo: string;

@@ -440,6 +440,7 @@ NrrdState groups 44 properties into 5 semantic sub-objects:
 |-------|------|-------------|
 | `sphereOrigin` / `skinSphereOrigin` etc. | `ICommXYZ \| null` | Origin for each sphere type |
 | `sphereRadius` | `number` | Sphere radius |
+| `sphereBrushRadius` | `number` | SphereBrush/SphereEraser radius (1-50) |
 | `sphereMaskVolume` | `MaskVolume \| null` | Sphere volumetric data |
 
 #### nrrd_states.flags (IInternalFlags)
@@ -470,6 +471,8 @@ GuiState groups 20 properties into 4 semantic sub-objects:
 | `pencil` | `boolean` | Pencil tool active |
 | `eraser` | `boolean` | Eraser tool active |
 | `sphere` | `boolean` | Sphere tool active |
+| `sphereBrush` | `boolean` | Sphere Brush tool active |
+| `sphereEraser` | `boolean` | Sphere Eraser tool active |
 | `activeSphereType` | `"tumour" \| "skin" \| "nipple" \| "ribcage"` | Current sphere type |
 
 #### gui_states.drawing (IDrawingConfig)
@@ -797,6 +800,7 @@ abstract class BaseTool {
 | **EraserTool** | `tools/EraserTool.ts` | Eraser |
 | **PanTool** | `tools/PanTool.ts` | Right-click drag to pan the canvas |
 | **DrawingTool** | `tools/DrawingTool.ts` | Pencil/brush/eraser drawing; brush hover tracking; circle preview |
+| **SphereBrushTool** | `tools/SphereBrushTool.ts` | 3D sphere volume painting (sphereBrush) and erasing (sphereEraser); drag-to-erase; grouped multi-slice undo |
 | **ImageStoreHelper** | `tools/ImageStoreHelper.ts` | Canvas ↔ Volume sync |
 | **DragSliceTool** | `tools/DragSliceTool.ts` | Drag to scroll through slices |
 
@@ -866,7 +870,66 @@ Left mouse up → write all spheres to volume → fire getSphere + getCalculateS
 type PanHostDeps = Pick<ToolHost, 'zoomActionAfterDrawSphere'>;
 ```
 
-### 7.5 DrawingTool
+### 7.5 SphereBrushTool
+
+**File**: `tools/SphereBrushTool.ts` — 584 lines. Handles 3D sphere volume painting (SphereBrush mode) and 3D sphere volume erasing (SphereEraser mode), including drag-to-erase and grouped multi-slice undo.
+
+Unlike the SphereTool (which writes to a separate `sphereMaskVolume` overlay), SphereBrushTool writes directly to the active layer's shared `MaskVolume`, making its output fully compatible with NIfTI/GLTF export.
+
+#### SphereBrushHostDeps
+
+```ts
+type SphereBrushHostDeps = Pick<ToolHost,
+  'getVolumeForLayer' | 'compositeAllLayers' | 'pushUndoGroup'
+  | 'renderSliceToCanvas' | 'getOrCreateSliceBuffer' | 'setEmptyCanvasSize'
+  | 'reloadMasksFromVolume' | 'getEraserUrls'
+>;
+```
+
+#### Key Methods
+
+| Method | Description |
+|--------|-------------|
+| `onSphereBrushClick(e)` | Left-click: record center, draw preview, set active |
+| `onSphereBrushPointerUp()` | Release: write 3D sphere to volume, push undo group, fire onMaskChanged for all affected slices |
+| `onSphereEraserClick(e)` | Left-click: record center, capture before-snapshots for all affected Z-slices |
+| `onSphereEraserMove(e)` | Drag: continuously erase along path, lazily expand before-snapshots |
+| `onSphereEraserPointerUp()` | Release: finalize cumulative erase, push undo group, fire onMaskChanged for all affected slices |
+| `configSphereBrushWheel()` | Returns wheel handler that adjusts `sphereBrushRadius` ±1 [1, 50] |
+| `drawPreview(x, y, r, isEraser)` | Render sphere preview circle on sphereCanvas |
+| `clearPreview()` | Clear preview from sphereCanvas |
+
+#### 3D Geometry
+
+- **`canvasToVoxelCenter()`**: Converts canvas pixel coordinates to 3D voxel center `[cx, cy, cz]`
+- **`getVoxelRadii()`**: Computes per-axis voxel radii from mm radius and voxel spacing
+- **`computeBoundingBox()`**: Computes axis-aligned bounding box clamped to volume bounds
+- **Sphere equation**: `(dx/rx)² + (dy/ry)² + (dz/rz)² <= 1` (ellipsoid to handle anisotropic spacing)
+
+#### Undo Mechanism
+
+SphereBrush uses **grouped undo** (`pushUndoGroup(MaskDelta[])`) instead of single-delta undo:
+
+```
+SphereBrush:
+  mousedown → capture before-snapshot for all Z-slices in bounding box
+  mouseup   → capture after-snapshot, diff → push MaskDelta[] group
+
+SphereEraser (click-release):
+  mousedown → capture before-snapshots (dragBeforeSnapshots)
+  mouseup   → diff before vs current → push MaskDelta[] group
+
+SphereEraser (drag):
+  mousedown → init dragBeforeSnapshots for initial bounding box
+  mousemove → expandDragBeforeSnapshots for newly touched Z-slices
+  mouseup   → diff cumulative before vs current → push single MaskDelta[] group
+```
+
+#### Backend Sync
+
+`refreshDisplay()` fires `onMaskChanged` for **every** affected Z-slice (not just the current viewing slice), ensuring correct NIfTI and GLTF export of the full 3D sphere.
+
+### 7.6 DrawingTool
 
 **File**: `tools/DrawingTool.ts` — 284 lines. Handles pencil, brush, and eraser drawing logic including Undo snapshots.
 
@@ -929,6 +992,7 @@ EventRouter permanently binds all pointer/keyboard/wheel events to the drawingCa
 |------|---------|-----------------|
 | `'zoom'` | Default / restored after mouseUp | `handleMouseZoomSliceWheel` |
 | `'sphere'` | Set by `handleSphereClick` | `handleSphereWheel` |
+| `'sphereBrush'` | Set by sphereBrush/sphereEraser mouseDown | `handleSphereBrushWheel` (adjusts `sphereBrushRadius`) |
 | `'none'` | Set by mouseDown in draw mode | No-op (wheel suppressed) |
 
 ### 8.4 Default Keyboard Settings
@@ -943,6 +1007,10 @@ IKeyBoardSettings = {
   sphere: "q",
   mouseWheel: "Scroll:Zoom",   // or "Scroll:Slice"
 }
+
+// Additional global shortcuts (handled in DrawToolCore keydown, not configurable):
+// Ctrl+1 → switch to Scroll:Zoom
+// Ctrl+2 → switch to Scroll:Slice
 ```
 
 ---

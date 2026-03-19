@@ -404,7 +404,104 @@ Internally, `setCalculateDistanceSphere` performs:
 
 > **Note**: Coordinates (`x`, `y`) are in **unscaled** image space. The method automatically applies `sizeFactor` scaling internally.
 
-#### 5.4 `enableContrastDragEvents()` — Windowing
+#### 5.4 SphereBrush & SphereEraser — 3D Volume Painting & Erasing
+
+SphereBrush and SphereEraser are direct 3D volume tools that write/erase a sphere into the **active layer's shared MaskVolume** using the active channel label. Unlike the Sphere (Marker) tool which uses a separate `sphereMaskVolume`, these tools modify layer data directly and are fully compatible with the undo/redo system, NIfTI export, and GLTF generation.
+
+##### Tool Modes
+
+| Tool | Mode Value | Description |
+|------|-----------|-------------|
+| Sphere Brush | `"sphereBrush"` | Left-click to paint a 3D sphere into the active layer |
+| Sphere Eraser | `"sphereEraser"` | Left-click to erase a 3D sphere (or drag to erase continuously). Only erases the active channel. |
+
+##### Activating SphereBrush / SphereEraser
+
+```typescript
+// Switch to Sphere Brush mode
+nrrdTools.setMode('sphereBrush');
+
+// Switch to Sphere Eraser mode
+nrrdTools.setMode('sphereEraser');
+
+// Read current mode
+const mode = nrrdTools.getMode();
+// → 'sphereBrush' | 'sphereEraser' | 'pencil' | 'brush' | 'eraser' | 'sphere' | 'calculator'
+```
+
+##### Radius Control
+
+```typescript
+// Set sphere brush/eraser radius (clamped to [1, 50])
+nrrdTools.setSphereBrushRadius(10);
+
+// Read current radius
+const radius = nrrdTools.getSphereBrushRadius(); // → 10
+```
+
+During interaction, the user can also adjust radius via the scroll wheel while holding the left mouse button.
+
+##### Interaction Flow
+
+```
+SphereBrush mode (gui_states.mode.sphereBrush = true):
+  ├─ Shift key DISABLED (no draw mode)
+  ├─ Drag slice DISABLED
+  ├─ Crosshair toggle allowed (S key)
+  │
+  ├─ Left-click DOWN → record center, draw preview circle
+  │   Then activeWheelMode = 'sphereBrush'
+  │
+  ├─ Scroll wheel (while holding) → adjust radius [1, 50]
+  │
+  └─ Left-click UP → write 3D sphere to MaskVolume
+      ├─ push undo group (all affected Z-slices)
+      ├─ re-render layer canvas
+      ├─ fire onMaskChanged for ALL affected slices
+      └─ activeWheelMode = 'zoom'
+
+SphereEraser mode (gui_states.mode.sphereEraser = true):
+  ├─ Same constraints as SphereBrush
+  │
+  ├─ Left-click DOWN → record center, capture before-snapshots
+  │
+  ├─ Drag (optional) → continuously erase along path
+  │   └─ lazily captures before-snapshots for newly touched Z-slices
+  │
+  ├─ Scroll wheel (while holding) → adjust radius [1, 50]
+  │
+  └─ Left-click UP → finalize erase
+      ├─ push cumulative undo group (all affected Z-slices from entire drag)
+      ├─ re-render layer canvas
+      ├─ fire onMaskChanged for ALL affected slices
+      └─ activeWheelMode = 'zoom'
+```
+
+##### Key Differences from Sphere (Marker)
+
+| Feature | Sphere (Marker) | SphereBrush / SphereEraser |
+|---------|----------------|---------------------------|
+| Storage target | `sphereMaskVolume` (separate overlay) | Active layer's `MaskVolume` (shared) |
+| Channel behavior | Fixed per sphere type | Uses active channel |
+| NIfTI/GLTF export | Not exported (overlay only) | Fully exported as 3D volume |
+| Undo support | No | Yes (grouped multi-slice undo) |
+| Drag support | No | SphereEraser supports drag-to-erase |
+
+##### Scenario: AI result review with Sphere Eraser
+
+```typescript
+// Load AI segmentation result
+nrrdTools.setMasksFromNIfTI(layerVoxels);
+
+// Switch to sphere eraser for quick cleanup
+nrrdTools.setMode('sphereEraser');
+nrrdTools.setSphereBrushRadius(8);
+
+// User can now click or drag to erase incorrect regions
+// All changes are undoable and will be correctly exported
+```
+
+#### 5.5 `enableContrastDragEvents()` — Windowing
 
 Enable Ctrl+drag to adjust window/level (brightness/contrast):
 
@@ -735,6 +832,8 @@ window.addEventListener('keydown', (e) => {
 | Crosshair | `s` |
 | Sphere mode | `q` |
 | Mouse wheel | Zoom |
+| Scroll:Zoom shortcut | `Ctrl+1` |
+| Scroll:Slice shortcut | `Ctrl+2` |
 
 #### Reading current settings
 
@@ -1209,6 +1308,9 @@ interface IDragOpts {
   getSliceNum?: (sliceIndex: number, contrastIndex: number) => void;
 }
 
+// Tool mode (used by setMode/getMode)
+type ToolMode = "pencil" | "brush" | "eraser" | "sphere" | "calculator" | "sphereBrush" | "sphereEraser";
+
 // Keyboard settings
 interface IKeyBoardSettings {
   draw: string;
@@ -1277,9 +1379,11 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | | `getChannelHexColor(id, ch)` | Read Hex string |
 | | `getChannelCssColor(id, ch)` | Read CSS rgba() string |
 | | `resetChannelColors(id?, ch?)` | Reset to defaults |
-| **Tool Mode** | `setMode(mode)` | Switch tool mode: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` |
+| **Tool Mode** | `setMode(mode)` | Switch tool mode: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
 | | `getMode()` | Read current tool mode |
 | | `isCalculatorActive()` | Check if calculator (distance) mode is active |
+| **Sphere Brush** | `setSphereBrushRadius(radius)` | Set sphere brush/eraser radius [1, 50] |
+| | `getSphereBrushRadius()` | Read current sphere brush/eraser radius |
 | **Drawing** | `setOpacity(value)` | Set mask overlay opacity [0.1, 1] |
 | | `getOpacity()` | Read current opacity |
 | | `setBrushSize(size)` | Set brush/eraser size [5, 50], updates cursor |
