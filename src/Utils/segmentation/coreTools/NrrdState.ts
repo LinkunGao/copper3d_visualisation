@@ -77,6 +77,7 @@ export class NrrdState {
       nippleSphereOrigin: null,
       sphereMaskVolume: null,
       sphereRadius: 5,
+      sphereBrushRadius: 10,
     };
 
     this.flags = {
@@ -102,5 +103,6 @@ export class NrrdState {
     this.sphere.nippleSphereOrigin = null;
     this.sphere.sphereMaskVolume = null;
     this.sphere.sphereRadius = 5;
+    this.sphere.sphereBrushRadius = 10;
   }
 }

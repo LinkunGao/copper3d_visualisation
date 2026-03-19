@@ -126,5 +126,5 @@ export {
 export { MaskVolume } from './MaskVolume';
 
 // ── Undo/Redo Manager ──────────────────────────────────────────────────────
-export type { MaskDelta } from './UndoManager';
+export type { MaskDelta, UndoEntry } from './UndoManager';
 export { UndoManager } from './UndoManager';

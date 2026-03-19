@@ -21,13 +21,16 @@ export interface MaskDelta {
   newSlice: Uint8Array;
 }
 
+/** A single delta or a group of deltas treated as one undo unit. */
+export type UndoEntry = MaskDelta[];
+
 const MAX_STACK_SIZE = 50;
 
 const LAYER_IDS = ["layer1", "layer2", "layer3"] as const;
 
 export class UndoManager {
-  private undoStacks: Map<string, MaskDelta[]>;
-  private redoStacks: Map<string, MaskDelta[]>;
+  private undoStacks: Map<string, UndoEntry[]>;
+  private redoStacks: Map<string, UndoEntry[]>;
   private activeLayer: string = "layer1";
 
   constructor() {
@@ -40,42 +43,49 @@ export class UndoManager {
     this.activeLayer = layer;
   }
 
-  /** Push a delta onto the active layer's undo stack and clear the redo stack. */
+  /** Push a single delta onto the active layer's undo stack and clear the redo stack. */
   push(delta: MaskDelta): void {
-    const stack = this.undoStacks.get(delta.layerId) ?? this.undoStacks.get("layer1")!;
-    stack.push(delta);
+    this.pushGroup([delta]);
+  }
+
+  /** Push a group of deltas as a single undo unit (e.g. 3D sphere spanning multiple slices). */
+  pushGroup(deltas: MaskDelta[]): void {
+    if (deltas.length === 0) return;
+    const layerId = deltas[0].layerId;
+    const stack = this.undoStacks.get(layerId) ?? this.undoStacks.get("layer1")!;
+    stack.push(deltas);
     if (stack.length > MAX_STACK_SIZE) {
       stack.shift();
     }
     // Any new operation invalidates the redo history for that layer
-    const redoStack = this.redoStacks.get(delta.layerId) ?? this.redoStacks.get("layer1")!;
+    const redoStack = this.redoStacks.get(layerId) ?? this.redoStacks.get("layer1")!;
     redoStack.length = 0;
   }
 
   /**
    * Undo the last operation on the active layer.
-   * @returns The delta that was undone, or undefined if nothing to undo.
+   * @returns The delta(s) that were undone, or undefined if nothing to undo.
    */
-  undo(): MaskDelta | undefined {
+  undo(): UndoEntry | undefined {
     const stack = this.undoStacks.get(this.activeLayer)!;
-    const delta = stack.pop();
-    if (delta) {
-      this.redoStacks.get(this.activeLayer)!.push(delta);
+    const entry = stack.pop();
+    if (entry) {
+      this.redoStacks.get(this.activeLayer)!.push(entry);
     }
-    return delta;
+    return entry;
   }
 
   /**
    * Redo the last undone operation on the active layer.
-   * @returns The delta that was redone, or undefined if nothing to redo.
+   * @returns The delta(s) that were redone, or undefined if nothing to redo.
    */
-  redo(): MaskDelta | undefined {
+  redo(): UndoEntry | undefined {
     const stack = this.redoStacks.get(this.activeLayer)!;
-    const delta = stack.pop();
-    if (delta) {
-      this.undoStacks.get(this.activeLayer)!.push(delta);
+    const entry = stack.pop();
+    if (entry) {
+      this.undoStacks.get(this.activeLayer)!.push(entry);
     }
-    return delta;
+    return entry;
   }
 
   canUndo(): boolean {

@@ -35,6 +35,11 @@ export class ZoomTool extends BaseTool {
       if (this.ctx.eventRouter?.isShiftHeld()) {
         return;
       }
+      // Block zoom wheel when sphereBrush/sphereEraser is actively placing (left button held)
+      if ((this.ctx.gui_states.mode.sphereBrush || this.ctx.gui_states.mode.sphereEraser)
+        && this.ctx.eventRouter?.isLeftButtonDown()) {
+        return;
+      }
       e.preventDefault();
 
       const delta = e.detail ? e.detail > 0 : (e as any).wheelDelta < 0;

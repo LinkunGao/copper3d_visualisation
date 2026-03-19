@@ -27,7 +27,7 @@ export type InteractionMode =
 /**
  * GUI tool selection (set from UI buttons)
  */
-export type GuiTool = 'pencil' | 'brush' | 'eraser' | 'sphere';
+export type GuiTool = 'pencil' | 'brush' | 'eraser' | 'sphere' | 'sphereBrush' | 'sphereEraser';
 
 /**
  * Keyboard event handler type

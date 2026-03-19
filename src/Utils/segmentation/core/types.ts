@@ -194,7 +194,7 @@ export interface ISkipSlicesDictType {
 // ── Tool Mode & Events ─────────────────────────────────────────────────────
 
 /** Tool mode types for segmentation tools */
-export type ToolMode = "pencil" | "brush" | "eraser" | "sphere" | "calculator";
+export type ToolMode = "pencil" | "brush" | "eraser" | "sphere" | "calculator" | "sphereBrush" | "sphereEraser";
 
 export interface IDragPrameters {
   move: number;
@@ -215,6 +215,7 @@ export interface IDrawingEvents {
   handleOnDrawingBrushCricleMove: (ev: MouseEvent) => void;
   handleMouseZoomSliceWheel: (e: WheelEvent) => void;
   handleSphereWheel: (e: WheelEvent) => void;
+  handleSphereBrushWheel: (e: WheelEvent) => void;
 }
 
 export interface IContrastEvents {
@@ -321,6 +322,8 @@ export interface IToolModeState {
   pencil: boolean;
   eraser: boolean;
   sphere: boolean;
+  sphereBrush: boolean;
+  sphereEraser: boolean;
   activeSphereType: "tumour" | "skin" | "nipple" | "ribcage";
 }
 
@@ -531,6 +534,7 @@ export interface ISphereState {
   /** Dedicated MaskVolume for SphereTool 3D sphere data. Type is `any` to avoid circular deps. */
   sphereMaskVolume: any;
   sphereRadius: number;
+  sphereBrushRadius: number;
 }
 
 /** Internal flags — transient operational flags */

@@ -152,6 +152,8 @@ export class NrrdTools {
     this.drawCore.enterSphereMode = () => this.enterSphereMode();
     this.drawCore.exitSphereMode = () => this.exitSphereMode();
     this.drawCore.configMouseSliceWheel = () => this.configMouseSliceWheel();
+    this.drawCore.reloadMasksFromVolume = () => this.reloadMasksFromVolume();
+    this.drawCore.updateMouseWheelEvent = () => this.updateMouseWheelEvent();
   }
 
   /**
@@ -288,11 +290,15 @@ export class NrrdTools {
     if (!this.guiCallbacks) return;
 
     const prevSphere = this.state.gui_states.mode.sphere;
+    const prevSphereBrush = this.state.gui_states.mode.sphereBrush;
+    const prevSphereEraser = this.state.gui_states.mode.sphereEraser;
     const prevCalculator = this._calculatorActive;
 
     this.state.gui_states.mode.pencil = false;
     this.state.gui_states.mode.eraser = false;
     this.state.gui_states.mode.sphere = false;
+    this.state.gui_states.mode.sphereBrush = false;
+    this.state.gui_states.mode.sphereEraser = false;
     this._calculatorActive = false;
 
     switch (mode) {
@@ -314,6 +320,25 @@ export class NrrdTools {
         this.state.gui_states.mode.sphere = true;
         this._calculatorActive = true;
         break;
+      case "sphereBrush":
+        this.state.gui_states.mode.sphereBrush = true;
+        this.dragOperator.removeDragMode();
+        this.drawCore.eventRouter?.setGuiTool('sphereBrush');
+        break;
+      case "sphereEraser":
+        this.state.gui_states.mode.sphereEraser = true;
+        this.dragOperator.removeDragMode();
+        this.drawCore.eventRouter?.setGuiTool('sphereEraser');
+        break;
+    }
+
+    // Restore drag mode when leaving sphereBrush/sphereEraser
+    if ((prevSphereBrush || prevSphereEraser)
+      && !this.state.gui_states.mode.sphereBrush
+      && !this.state.gui_states.mode.sphereEraser
+      && !this.state.gui_states.mode.sphere) {
+      this.dragOperator.configDragMode();
+      this.drawCore.eventRouter?.setGuiTool('pencil');
     }
 
     if (prevSphere && !this.state.gui_states.mode.sphere) {
@@ -330,6 +355,8 @@ export class NrrdTools {
 
   getMode(): ToolMode {
     if (this._calculatorActive) return "calculator";
+    if (this.state.gui_states.mode.sphereBrush) return "sphereBrush";
+    if (this.state.gui_states.mode.sphereEraser) return "sphereEraser";
     if (this.state.gui_states.mode.sphere) return "sphere";
     if (this.state.gui_states.mode.eraser) return "eraser";
     if (this.state.gui_states.mode.pencil) return "pencil";
@@ -355,6 +382,14 @@ export class NrrdTools {
 
   getBrushSize(): number {
     return this.state.gui_states.drawing.brushAndEraserSize;
+  }
+
+  setSphereBrushRadius(radius: number): void {
+    this.state.nrrd_states.sphere.sphereBrushRadius = Math.max(1, Math.min(50, radius));
+  }
+
+  getSphereBrushRadius(): number {
+    return this.state.nrrd_states.sphere.sphereBrushRadius;
   }
 
   setWindowHigh(value: number): void {
@@ -1002,6 +1037,11 @@ export class NrrdTools {
   configMouseSliceWheel() {
     const handleMouseZoomSliceWheelMove = (e: WheelEvent) => {
       if (this.drawCore.eventRouter?.isShiftHeld()) {
+        return;
+      }
+      // Block slice wheel when sphereBrush/sphereEraser is actively placing (left button held)
+      if ((this.state.gui_states.mode.sphereBrush || this.state.gui_states.mode.sphereEraser)
+        && this.drawCore.eventRouter?.isLeftButtonDown()) {
         return;
       }
       e.preventDefault();

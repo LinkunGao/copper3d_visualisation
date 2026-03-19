@@ -48,6 +48,7 @@ export interface ToolHost {
     syncLayerSliceData(index: number, layer: string): void;
     filterDrawedImage(axis: "x" | "y" | "z", index: number): { image: ImageData } | undefined;
     pushUndoDelta(delta: MaskDelta): void;
+    pushUndoGroup(deltas: MaskDelta[]): void;
     getEraserUrls(): string[];
 
     // ── Sphere / Crosshair ─────────────────────────────────────────
@@ -124,4 +125,11 @@ export type SliceRenderHostDeps = Pick<ToolHost,
 export type DataLoaderHostDeps = Pick<ToolHost,
     'invalidateSliceBuffer' | 'setDisplaySlicesBaseOnAxis' | 'afterLoadSlice'
     | 'setEmptyCanvasSize' | 'syncLayerSliceData' | 'reloadMasksFromVolume' | 'resetZoom'
+>;
+
+/** SphereBrushTool host dependencies */
+export type SphereBrushHostDeps = Pick<ToolHost,
+    'getVolumeForLayer' | 'compositeAllLayers' | 'pushUndoGroup'
+    | 'renderSliceToCanvas' | 'getOrCreateSliceBuffer' | 'setEmptyCanvasSize'
+    | 'reloadMasksFromVolume' | 'getEraserUrls'
 >;
