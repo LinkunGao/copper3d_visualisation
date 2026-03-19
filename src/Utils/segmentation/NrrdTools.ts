@@ -121,6 +121,7 @@ export class NrrdTools {
       this.setEmptyCanvasSize.bind(this),
       this.drawCore.renderer.getOrCreateSliceBuffer.bind(this.drawCore.renderer),
       this.drawCore.renderer.renderSliceToCanvas.bind(this.drawCore.renderer),
+      this.drawCore.renderer.compositeAllLayers.bind(this.drawCore.renderer),
     );
 
     // Inject EventRouter into DragOperator for centralized event handling

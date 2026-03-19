@@ -105,7 +105,7 @@ export type DrawingHostDeps = Pick<ToolHost,
 export type DragSliceHostDeps = Pick<ToolHost,
     'setSyncsliceNum' | 'setIsDrawFalse' | 'flipDisplayImageByAxis'
     | 'setEmptyCanvasSize' | 'getOrCreateSliceBuffer' | 'renderSliceToCanvas'
-    | 'refreshSphereOverlay'
+    | 'refreshSphereOverlay' | 'compositeAllLayers'
 >;
 
 /** LayerChannelManager host dependencies */
