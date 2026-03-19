@@ -715,6 +715,18 @@ export class MaskVolume {
   }
 
   /**
+   * Return the number of bytes in one complete z-slice.
+   *
+   * Equal to `width × height × channels`. Useful for direct buffer
+   * index arithmetic in performance-critical code paths.
+   *
+   * @returns Bytes per z-slice.
+   */
+  getBytesPerSlice(): number {
+    return this.bytesPerSlice;
+  }
+
+  /**
    * Return total memory used by the backing buffer, in bytes.
    *
    * @returns `width × height × depth × channels` bytes.

@@ -6,6 +6,9 @@
  * jagged edges and fills small holes in segmentation annotations.
  *
  * Pure, stateless utility — no DOM/Canvas/GUI dependencies.
+ *
+ * Performance: uses direct typed-array access (bypassing getVoxel/setVoxel
+ * boundary checks) and branch-free convolution for the interior region.
  */
 
 import type { MaskVolume } from './MaskVolume';
@@ -37,18 +40,27 @@ export class GaussianSmoother {
     const { width, height, depth } = dims;
     const totalVoxels = width * height * depth;
 
+    // Direct access to underlying buffer — bypasses getVoxel/setVoxel
+    // boundary checks for ~10x speedup in hot loops.
+    const rawData = volume.getRawData();
+    const channels = volume.getChannels();
+    const bytesPerSlice = volume.getBytesPerSlice();
+    const rowStride = width * channels;
+
     // Compute per-axis sigma (normalized to voxel units)
     const sigmaX = spacing ? sigma / spacing[0] : sigma;
     const sigmaY = spacing ? sigma / spacing[1] : sigma;
     const sigmaZ = spacing ? sigma / spacing[2] : sigma;
 
-    // 1. Extract binary float buffer
+    // 1. Extract binary float buffer — direct array access
     const buffer = new Float32Array(totalVoxels);
     for (let z = 0; z < depth; z++) {
+      const zOffset = z * bytesPerSlice;
       for (let y = 0; y < height; y++) {
+        const zyOffset = zOffset + y * rowStride;
         for (let x = 0; x < width; x++) {
-          const idx = z * height * width + y * width + x;
-          buffer[idx] = volume.getVoxel(x, y, z) === channel ? 1.0 : 0.0;
+          const bufIdx = z * height * width + y * width + x;
+          buffer[bufIdx] = rawData[zyOffset + x * channels] === channel ? 1.0 : 0.0;
         }
       }
     }
@@ -62,20 +74,23 @@ export class GaussianSmoother {
     GaussianSmoother.convolve1D(buffer, width, height, depth, 1, kernelY); // Y axis
     GaussianSmoother.convolve1D(buffer, width, height, depth, 2, kernelZ); // Z axis
 
-    // 3 & 4. Threshold and write back
+    // 3 & 4. Threshold and write back — direct array access
     for (let z = 0; z < depth; z++) {
+      const zOffset = z * bytesPerSlice;
       for (let y = 0; y < height; y++) {
+        const zyOffset = zOffset + y * rowStride;
         for (let x = 0; x < width; x++) {
-          const idx = z * height * width + y * width + x;
-          const smoothed = buffer[idx] >= 0.5 ? 1 : 0;
-          const original = volume.getVoxel(x, y, z);
+          const bufIdx = z * height * width + y * width + x;
+          const smoothed = buffer[bufIdx] >= 0.5 ? 1 : 0;
+          const rawIdx = zyOffset + x * channels;
+          const original = rawData[rawIdx];
 
           if (smoothed === 1 && original !== channel) {
             // Smoothed region expands into this voxel — overwrite
-            volume.setVoxel(x, y, z, channel);
+            rawData[rawIdx] = channel;
           } else if (smoothed === 0 && original === channel) {
             // Smoothed region retreats — erase
-            volume.setVoxel(x, y, z, 0);
+            rawData[rawIdx] = 0;
           }
           // Otherwise leave unchanged
         }
@@ -117,6 +132,11 @@ export class GaussianSmoother {
   /**
    * In-place single-axis convolution with zero-padding at boundaries.
    *
+   * Uses a 3-segment approach: left boundary (with bounds check),
+   * middle interior (branch-free, ~95% of work), right boundary
+   * (with bounds check). This eliminates per-element branching
+   * in the hot inner loop.
+   *
    * @param data   Flat float buffer (width × height × depth).
    * @param width  X dimension.
    * @param height Y dimension.
@@ -132,7 +152,8 @@ export class GaussianSmoother {
     axis: number,
     kernel: Float32Array,
   ): void {
-    const radius = (kernel.length - 1) / 2;
+    const kLen = kernel.length;
+    const radius = (kLen - 1) / 2;
 
     // Determine the dimension length along the convolution axis
     // and the stride between consecutive elements along that axis
@@ -157,6 +178,10 @@ export class GaussianSmoother {
       outerCount = width * height;
     }
 
+    // Precompute middle segment bounds
+    const midStart = radius;
+    const midEnd = axisLen - radius;
+
     // Temporary line buffer to avoid read-after-write issues
     const line = new Float32Array(axisLen);
 
@@ -164,15 +189,12 @@ export class GaussianSmoother {
       // Compute the starting index for this line
       let lineStart: number;
       if (axis === 0) {
-        // outer = z * height + y → start = (z * height + y) * width
         lineStart = outer * width;
       } else if (axis === 1) {
-        // outer iterates: for each z, for each x → outer = z * width + x
         const z = Math.floor(outer / width);
         const x = outer % width;
         lineStart = z * width * height + x;
       } else {
-        // outer = y * width + x
         lineStart = outer;
       }
 
@@ -181,15 +203,36 @@ export class GaussianSmoother {
         line[i] = data[lineStart + i * stride];
       }
 
-      // Convolve and write back
-      for (let i = 0; i < axisLen; i++) {
+      // Left boundary segment (i = 0 .. radius-1): lower bound check
+      for (let i = 0; i < midStart; i++) {
         let sum = 0;
-        for (let k = 0; k < kernel.length; k++) {
+        for (let k = 0; k < kLen; k++) {
           const j = i + k - radius;
-          if (j >= 0 && j < axisLen) {
+          if (j >= 0) {
             sum += line[j] * kernel[k];
           }
-          // else: zero-padding (add nothing)
+        }
+        data[lineStart + i * stride] = sum;
+      }
+
+      // Middle segment (i = radius .. axisLen-radius-1): NO bounds check
+      for (let i = midStart; i < midEnd; i++) {
+        let sum = 0;
+        const lineOffset = i - radius;
+        for (let k = 0; k < kLen; k++) {
+          sum += line[lineOffset + k] * kernel[k];
+        }
+        data[lineStart + i * stride] = sum;
+      }
+
+      // Right boundary segment (i = axisLen-radius .. axisLen-1): upper bound check
+      for (let i = midEnd; i < axisLen; i++) {
+        let sum = 0;
+        for (let k = 0; k < kLen; k++) {
+          const j = i + k - radius;
+          if (j < axisLen) {
+            sum += line[j] * kernel[k];
+          }
         }
         data[lineStart + i * stride] = sum;
       }

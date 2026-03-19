@@ -1497,3 +1497,12 @@ setTimeout(() => {
 |--------|-----------|-------------|
 | `gaussianSmooth3D` | `(volume: MaskVolume, channel: number, sigma?: number, spacing?: [number, number, number]): void` | Apply separable 3D Gaussian smoothing to the specified channel (modifies volume in-place) |
 | `generateKernel1D` | `(sigma: number): Float32Array` | Generate a normalized 1D Gaussian kernel, truncated at ±3σ |
+
+#### Performance Optimizations
+
+GaussianSmoother includes two key performance optimizations:
+
+1. **Direct array access**: The extract and write-back phases bypass `getVoxel()`/`setVoxel()` boundary checks and function call overhead, directly accessing the underlying `Uint8Array` via `volume.getRawData()` with inline index calculation using `volume.getBytesPerSlice()` and `volume.getChannels()`.
+2. **Branch-free convolution**: The `convolve1D` inner loop is split into three segments — left boundary (with lower bound check), middle interior (no branching at all, handles ~95% of work), and right boundary (with upper bound check).
+
+> **Impact scope**: Only `GaussianSmoother.ts` is modified. All other tools continue using `getVoxel`/`setVoxel` with full boundary checks.

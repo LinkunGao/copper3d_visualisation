@@ -1145,3 +1145,12 @@ setTimeout(() => {
 |------|------|------|
 | `gaussianSmooth3D` | `(volume: MaskVolume, channel: number, sigma?: number, spacing?: [number, number, number]): void` | 对指定 channel 执行可分离 3D 高斯平滑（就地修改 volume） |
 | `generateKernel1D` | `(sigma: number): Float32Array` | 生成归一化 1D 高斯核，截断于 ±3σ |
+
+### 性能优化
+
+GaussianSmoother 经过两项关键性能优化：
+
+1. **直接数组访问**：提取和写回阶段绕过 `getVoxel()`/`setVoxel()` 的边界检查和函数调用开销，直接通过 `volume.getRawData()` 访问底层 `Uint8Array`，使用 `volume.getBytesPerSlice()` 和 `volume.getChannels()` 内联计算索引。
+2. **去分支卷积**：`convolve1D` 内部将卷积循环拆分为三段 — 左边界（带下界检查）、中间段（无任何分支判断，占 95%+ 工作量）、右边界（带上界检查）。
+
+> **影响范围**：仅修改 `GaussianSmoother.ts`，不影响其他 Tool 的 `getVoxel`/`setVoxel` 调用。

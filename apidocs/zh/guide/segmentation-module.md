@@ -1262,16 +1262,46 @@ volume.colorMap[channel]
 
 **文件**: [core/GaussianSmoother.ts](Utils/segmentation/core/GaussianSmoother.ts)
 
-纯静态工具类，用于分割 mask 的 3D 高斯平滑。无 DOM/Canvas/GUI 依赖。
+纯静态工具类，用于分割 mask 的 3D 高斯平滑。无 DOM/Canvas/GUI 依赖。包含直接数组访问和去分支卷积两项性能优化。
 
 ### 12.1 算法
 
 对 MaskVolume 中的单个 label channel 执行可分离 3D 高斯模糊：
 
-1. **提取**: 创建 Float32Array，voxel === channel 的位置为 1.0，其余为 0.0
-2. **模糊**: 沿 X → Y → Z 三轴依次执行 1D 高斯卷积（核截断于 ±3σ）
+1. **提取**: 创建 Float32Array，voxel === channel 的位置为 1.0，其余为 0.0（直接 `rawData[]` 访问）
+2. **模糊**: 沿 X → Y → Z 三轴依次执行 1D 高斯卷积（核截断于 ±3σ，中间段去分支）
 3. **阈值**: 以 0.5 为阈值二值化
-4. **写回**: 根据阈值结果覆写/擦除体素
+4. **写回**: 根据阈值结果覆写/擦除体素（直接 `rawData[]` 访问）
+
+### 12.1.1 性能优化
+
+两项关键优化显著降低执行时间：
+
+1. **直接数组访问** — 提取和写回阶段绕过 `getVoxel()`/`setVoxel()`（每次调用含 6 次边界检查 + 函数调用开销），通过 `volume.getRawData()` 直接访问底层 `Uint8Array`，使用 `volume.getBytesPerSlice()` 和 `volume.getChannels()` 内联计算索引：
+
+   ```typescript
+   const rawData = volume.getRawData();
+   const channels = volume.getChannels();
+   const bytesPerSlice = volume.getBytesPerSlice();
+   const rowStride = width * channels;
+   // 直接访问: rawData[zOffset + yOffset + x * channels]
+   ```
+
+2. **去分支卷积** — `convolve1D` 将循环拆分为三段：左边界（下界检查）、中间段（无任何分支判断，占 ~95% 工作量）、右边界（上界检查）：
+
+   ```typescript
+   // 中间段 — 无边界检查
+   for (let i = midStart; i < midEnd; i++) {
+     let sum = 0;
+     const lineOffset = i - radius;
+     for (let k = 0; k < kLen; k++) {
+       sum += line[lineOffset + k] * kernel[k];
+     }
+     data[lineStart + i * stride] = sum;
+   }
+   ```
+
+> **影响范围**：仅修改 `GaussianSmoother.ts`，不影响其他 Tool 的 `getVoxel`/`setVoxel` 调用。
 
 ### 12.2 公开 API
 

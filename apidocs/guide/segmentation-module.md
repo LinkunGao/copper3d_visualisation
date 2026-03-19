@@ -1114,16 +1114,46 @@ volume.colorMap[channel]
 
 **File**: `core/GaussianSmoother.ts`
 
-Pure stateless utility class for 3D Gaussian smoothing of segmentation masks. No DOM/Canvas/GUI dependencies.
+Pure stateless utility class for 3D Gaussian smoothing of segmentation masks. No DOM/Canvas/GUI dependencies. Includes performance optimizations for direct typed-array access and branch-free convolution.
 
 ### 12.1 Algorithm
 
 Applies separable 3D Gaussian blur to a single label channel within a MaskVolume:
 
-1. **Extract**: Create a Float32Array with 1.0 where voxel === channel, 0.0 elsewhere
-2. **Blur**: Apply separable Gaussian convolution (X → Y → Z) using 1D kernels truncated at ±3σ
+1. **Extract**: Create a Float32Array with 1.0 where voxel === channel, 0.0 elsewhere (direct `rawData[]` access)
+2. **Blur**: Apply separable Gaussian convolution (X → Y → Z) using 1D kernels truncated at ±3σ (branch-free middle segment)
 3. **Threshold**: Binarize at 0.5
-4. **Write back**: Overwrite/erase voxels according to the thresholded result
+4. **Write back**: Overwrite/erase voxels according to the thresholded result (direct `rawData[]` access)
+
+### 12.1.1 Performance Optimizations
+
+Two key optimizations reduce execution time significantly:
+
+1. **Direct array access** — The extract and write-back phases bypass `getVoxel()`/`setVoxel()` (which perform 6 boundary checks + function call overhead per voxel). Instead, `volume.getRawData()` gives direct access to the underlying `Uint8Array`, and indices are computed inline using `volume.getBytesPerSlice()` and `volume.getChannels()`:
+
+   ```typescript
+   const rawData = volume.getRawData();
+   const channels = volume.getChannels();
+   const bytesPerSlice = volume.getBytesPerSlice();
+   const rowStride = width * channels;
+   // Direct access: rawData[zOffset + yOffset + x * channels]
+   ```
+
+2. **Branch-free convolution** — `convolve1D` splits the loop into three segments: left boundary (lower bound check), middle interior (no branching, ~95% of work), right boundary (upper bound check):
+
+   ```typescript
+   // Middle segment — NO bounds check
+   for (let i = midStart; i < midEnd; i++) {
+     let sum = 0;
+     const lineOffset = i - radius;
+     for (let k = 0; k < kLen; k++) {
+       sum += line[lineOffset + k] * kernel[k];
+     }
+     data[lineStart + i * stride] = sum;
+   }
+   ```
+
+> **Impact scope**: Only `GaussianSmoother.ts` is modified. All other tools continue using `getVoxel`/`setVoxel` with full boundary checks — zero impact on existing code.
 
 ### 12.2 Public API
 
