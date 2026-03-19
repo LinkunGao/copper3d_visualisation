@@ -21,6 +21,8 @@ import { DragOperator } from "./DragOperator";
 import { DrawToolCore } from "./DrawToolCore";
 import { CanvasState } from "./CanvasState";
 import { MaskVolume } from "./core";
+import { GaussianSmoother } from "./core/GaussianSmoother";
+import type { MaskDelta } from "./core/UndoManager";
 import type { ChannelValue, RGBAColor, ChannelColorMap } from "./core";
 import type { SphereType } from "./tools/SphereTool";
 import { LayerChannelManager } from "./tools/LayerChannelManager";
@@ -121,6 +123,7 @@ export class NrrdTools {
       this.setEmptyCanvasSize.bind(this),
       this.drawCore.renderer.getOrCreateSliceBuffer.bind(this.drawCore.renderer),
       this.drawCore.renderer.renderSliceToCanvas.bind(this.drawCore.renderer),
+      this.drawCore.renderer.compositeAllLayers.bind(this.drawCore.renderer),
     );
 
     // Inject EventRouter into DragOperator for centralized event handling
@@ -465,7 +468,7 @@ export class NrrdTools {
     return this.state.gui_states.drawing.color;
   }
 
-  executeAction(action: "undo" | "redo" | "clearActiveSliceMask" | "clearActiveLayerMask" | "resetZoom" | "downloadCurrentMask"): void {
+  executeAction(action: "undo" | "redo" | "clearActiveSliceMask" | "clearActiveLayerMask" | "resetZoom" | "downloadCurrentMask" | "gaussianSmooth", opts?: { sigma?: number }): void {
     switch (action) {
       case "undo":
         this.undo();
@@ -501,6 +504,56 @@ export class NrrdTools {
           originHeight: this.state.nrrd_states.image.originHeight,
         };
         enableDownload(config);
+        break;
+      }
+      case "gaussianSmooth": {
+        const layerId = this.state.gui_states.layerChannel.layer;
+        const channel = this.state.gui_states.layerChannel.activeChannel;
+        const volume = this.drawCore.renderer.getVolumeForLayer(layerId);
+        if (volume && channel > 0) {
+          const dims = volume.getDimensions();
+
+          // 1. Snapshot all Z-slices before mutation (undo support)
+          const deltas: MaskDelta[] = [];
+          for (let z = 0; z < dims.depth; z++) {
+            const sliceData = volume.getSliceUint8(z, "z").data;
+            const hasChannel = sliceData.some((v) => v === channel);
+            if (hasChannel) {
+              deltas.push({
+                layerId,
+                axis: "z",
+                sliceIndex: z,
+                oldSlice: sliceData.slice(), // clone before mutation
+                newSlice: new Uint8Array(0), // placeholder, filled after smoothing
+              });
+            }
+          }
+
+          // 2. Apply smoothing with anisotropic spacing
+          const spacing = this.state.nrrd_states.image.voxelSpacing;
+          const spacingTuple: [number, number, number] | undefined =
+            spacing.length >= 3 ? [spacing[0], spacing[1], spacing[2]] : undefined;
+          const sigma = opts?.sigma ?? 1.0;
+          GaussianSmoother.gaussianSmooth3D(volume, channel, sigma, spacingTuple);
+
+          // 3. Capture newSlice data after smoothing and push undo group
+          for (const delta of deltas) {
+            delta.newSlice = volume.getSliceUint8(delta.sliceIndex, "z").data.slice();
+          }
+          if (deltas.length > 0) {
+            this.drawCore.undoManager.pushGroup(deltas);
+          }
+
+          // 4. Notify backend for each changed slice
+          for (const delta of deltas) {
+            const { data: sliceData, width, height } = volume.getSliceUint8(delta.sliceIndex, "z");
+            this.state.annotationCallbacks.onMaskChanged(
+              sliceData, layerId, channel, delta.sliceIndex, "z", width, height, false
+            );
+          }
+
+          this.reloadMasksFromVolume();
+        }
         break;
       }
     }

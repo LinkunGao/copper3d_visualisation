@@ -397,6 +397,9 @@ export class SliceRenderPipeline extends BaseTool {
    * Then update the changedWidth and changedHeight based on the sizeFactor.
    */
   updateOriginAndChangedWH(): void {
+    const prevW = this.ctx.nrrd_states.image.originWidth;
+    const prevH = this.ctx.nrrd_states.image.originHeight;
+
     this.ctx.nrrd_states.image.originWidth =
       this.ctx.protectedData.canvases.originCanvas.width;
     this.ctx.nrrd_states.image.originHeight =
@@ -406,7 +409,13 @@ export class SliceRenderPipeline extends BaseTool {
     // Setting them here would defeat the sizeChanged detection in resizePaintArea,
     // causing canvas elements to keep stale dimensions after axis switches.
     this.resizePaintArea(this.ctx.nrrd_states.view.sizeFactor);
-    this.resetPaintAreaUIPosition();
+
+    // Only re-center when origin dimensions changed (e.g. axis switch).
+    // Contrast toggle doesn't change origin size, so skip to preserve user's pan/zoom.
+    if (prevW !== this.ctx.nrrd_states.image.originWidth ||
+        prevH !== this.ctx.nrrd_states.image.originHeight) {
+      this.resetPaintAreaUIPosition();
+    }
   }
 
   /**

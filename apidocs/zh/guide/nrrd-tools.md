@@ -32,6 +32,7 @@
 12. [Vue 3 集成模式](#_12-vue-3-集成模式)
 13. [API 总结](#_13-api-总结)
 14. [类型参考](#_14-类型参考)
+15. [高斯平滑](#_15-高斯平滑-gaussian-smoothing)
 
 ---
 
@@ -974,7 +975,9 @@ function onChannelColorPicked(hex: string) {
 | | `setWindowLow(value)` | 给予专向底层向下那最为向至黑低值的那个定义设定底数区间值 |
 | | `finishWindowAdjustment()` | 当松开发下放结束在做了那些拉调节过后，令令去全局各切面帧一起整体全面执行更新刷上一最新次底图展现吧 |
 | | `getSliderMeta(key)` | 特给予前端专门界面拉推条提供给个它必须包含在最低，至上顶及进阶滑的数字全态底包包囊交由了 UI 那边去处理用（支持 key: `"globalAlpha"`, `"layerAlpha"`, `"brushAndEraserSize"` 等） |
-| **动作操作** | `executeAction(action)` | 送指令执跑启动这套: 单次的撤退`"undo"` / 或一次追回`"redo"` / 清这当下一副全图`"clearActiveSliceMask"` / 扫去扫清那整一本满册所有的卷层包`"clearActiveLayerMask"` / 大视角回定复原`"resetZoom"` / 去直接给向外提取拉带载出去现今这个截页面遮版图图去留做别保存用 `"downloadCurrentMask"` |
+| **动作操作** | `executeAction(action)` | 送指令执跑启动这套: 单次的撤退`"undo"` / 或一次追回`"redo"` / 清这当下一副全图`"clearActiveSliceMask"` / 扫去扫清那整一本满册所有的卷层包`"clearActiveLayerMask"` / 大视角回定复原`"resetZoom"` / 去直接给向外提取拉带载出去现今这个截页面遮版图图去留做别保存用 `"downloadCurrentMask"` / 高斯平滑 `"gaussianSmooth"` |
+| **高斯平滑** | `GaussianSmoother.gaussianSmooth3D(volume, channel, sigma?, spacing?)` | 对 MaskVolume 中指定 channel 的 mask 执行 3D 高斯平滑 |
+| | `GaussianSmoother.generateKernel1D(sigma)` | 生成归一化 1D 高斯核 |
 | **浏览导向** | `setSliceOrientation(axis)` | 让向直接转视角把当前被从这正平的视图里向给拨轮变作去转从别如头看过去切口样 `"x"` 或另向侧看 `"y"` 或者在切俯望底 `"z"`这各样的面向转去 |
 | **历史倒推** | `undo()` / `redo()` | 退一步倒先推走下撤销走上次这一笔一划，亦或直接叫返追着刚补弄错返回上才取消去的那补回来重做这步骤嘛 |
 | **键盘按键** | `setKeyboardSettings(partial)` | 供入进个重新配置并分配那几项有变动的特殊专键改替原键键名去变替原版绑位 |
@@ -1061,3 +1064,93 @@ interface ICommXYZ {
 type LayerId      = 'layer1' | 'layer2' | 'layer3' | 'layer4'; // 或许或者是可能为别的任一一这的那随其它意的其它那它的任何字元字串项
 type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 ```
+
+---
+
+## 15. 高斯平滑 (Gaussian Smoothing)
+
+NrrdTools 内置了 3D 高斯平滑功能，用于平滑分割 mask 的锯齿边缘和填充小孔。
+
+### 原理
+
+对指定 channel 的标注 mask 执行可分离 3D 高斯模糊（X→Y→Z 三轴依次卷积），然后以 0.5 为阈值二值化回 mask。
+
+### 使用方式
+
+通过 `executeAction` 调用：
+
+```typescript
+// 使用默认 sigma（1.0）
+nrrdTools.executeAction("gaussianSmooth");
+
+// 指定 sigma 值
+nrrdTools.executeAction("gaussianSmooth", { sigma: 2.0 });
+```
+
+**参数**：
+- `sigma`（可选，默认 `1.0`）：高斯核的标准差（以体素为单位）。值越大，平滑程度越高。
+
+### 各向异性间距支持
+
+当 NRRD 图像的体素间距不均匀时（如 `[0.488, 0.488, 1.0]`），平滑会自动根据间距调整各轴的 sigma，确保物理空间中的平滑半径是各向同性的：
+
+```
+per-axis sigma = sigma / spacing[axis]
+```
+
+间距信息自动从 `nrrd_states.image.voxelSpacing` 获取。
+
+### Undo 支持
+
+高斯平滑操作**完全可撤销**。执行前会对所有包含目标 channel 的 Z 切片进行快照，执行后推送到 UndoManager 的撤销栈。
+
+```typescript
+// 执行平滑
+nrrdTools.executeAction("gaussianSmooth", { sigma: 1.5 });
+
+// 撤销平滑操作（恢复所有受影响的切片）
+nrrdTools.undo();
+```
+
+### 后端同步
+
+平滑完成后，会自动为所有被修改的切片触发 `onMaskChanged` 回调，通知后端更新数据。
+
+### Vue 组件集成
+
+在 `OperationCtl.vue` 中，"Smoothing: Gaussian" 按钮和 "Smooth Sigma" slider 提供了完整的 UI 控制：
+
+```typescript
+// OperationCtl.vue 中的调用方式
+emitter.emit("Segmentation:SwitchAnimationStatus", { status: "flex", text: "Smoothing: Gaussian..." });
+setTimeout(() => {
+  try {
+    nrrdTools.executeAction("gaussianSmooth", { sigma: smoothSigma.value });
+    toast.success("Gaussian smoothing completed");
+  } catch (e) {
+    toast.error("Gaussian smoothing failed");
+  } finally {
+    emitter.emit("Segmentation:SwitchAnimationStatus", { status: "none" });
+  }
+}, 50);
+```
+
+> **注意**：由于平滑是同步操作（在主线程执行），使用 `setTimeout` 延迟 50ms 让 UI 有机会先渲染加载动画。
+
+### GaussianSmoother API
+
+`GaussianSmoother` 是一个纯静态工具类，无 DOM/Canvas/GUI 依赖：
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| `gaussianSmooth3D` | `(volume: MaskVolume, channel: number, sigma?: number, spacing?: [number, number, number]): void` | 对指定 channel 执行可分离 3D 高斯平滑（就地修改 volume） |
+| `generateKernel1D` | `(sigma: number): Float32Array` | 生成归一化 1D 高斯核，截断于 ±3σ |
+
+### 性能优化
+
+GaussianSmoother 经过两项关键性能优化：
+
+1. **直接数组访问**：提取和写回阶段绕过 `getVoxel()`/`setVoxel()` 的边界检查和函数调用开销，直接通过 `volume.getRawData()` 访问底层 `Uint8Array`，使用 `volume.getBytesPerSlice()` 和 `volume.getChannels()` 内联计算索引。
+2. **去分支卷积**：`convolve1D` 内部将卷积循环拆分为三段 — 左边界（带下界检查）、中间段（无任何分支判断，占 95%+ 工作量）、右边界（带上界检查）。
+
+> **影响范围**：仅修改 `GaussianSmoother.ts`，不影响其他 Tool 的 `getVoxel`/`setVoxel` 调用。

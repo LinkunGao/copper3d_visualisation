@@ -154,8 +154,8 @@ export class DragSliceTool extends BaseTool {
           }
         }
 
-        // Composite all layers to master canvas
-        this.compositeAllLayers();
+        // Composite all layers to master canvas (uses per-layer alpha)
+        this.callbacks.compositeAllLayers();
       }
 
       // Refresh sphere overlay from volume for the new slice
@@ -164,24 +164,6 @@ export class DragSliceTool extends BaseTool {
       }
 
       view.switchSliceFlag = false;
-    }
-  }
-
-  /**
-   * Composite all visible layer canvases to the master display canvas.
-   */
-  private compositeAllLayers(): void {
-    const masterCtx = this.ctx.protectedData.ctxes.drawingLayerMasterCtx;
-    const width = this.ctx.nrrd_states.view.changedWidth;
-    const height = this.ctx.nrrd_states.view.changedHeight;
-
-    masterCtx.clearRect(0, 0, width, height);
-
-    // Master stores full-alpha composite; globalAlpha applied in start() render loop.
-    for (const layerId of this.ctx.nrrd_states.image.layers) {
-      if (!this.ctx.gui_states.layerChannel.layerVisibility[layerId]) continue;
-      const target = this.ctx.protectedData.layerTargets.get(layerId);
-      if (target) masterCtx.drawImage(target.canvas, 0, 0, width, height);
     }
   }
 

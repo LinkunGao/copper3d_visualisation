@@ -401,6 +401,7 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | `getContainer()` | 获取内部主区域容器 |
 | `getDrawingCanvas()` | 获取顶层交互 Canvas |
 | `getNrrdToolsSettings()` | 获取完整 NrrdState 快照（5 个子对象） |
+| `executeAction(action)` | 执行预定义动作：`"undo"`, `"redo"`, `"clearActiveSliceMask"`, `"clearActiveLayerMask"`, `"resetZoom"`, `"downloadCurrentMask"`, `"gaussianSmooth"`。其中 `"gaussianSmooth"` 接受可选参数 `opts?: { sigma?: number }` |
 
 ---
 
@@ -1254,3 +1255,103 @@ volume.colorMap[channel]
   ↓ syncBrushColor()           → 画笔颜色从 colorMap 获取
   ↓ getChannelCssColor()       → Vue UI 从 colorMap 获取显示颜色
 ```
+
+---
+
+## 12. GaussianSmoother（高斯平滑）
+
+**文件**: [core/GaussianSmoother.ts](Utils/segmentation/core/GaussianSmoother.ts)
+
+纯静态工具类，用于分割 mask 的 3D 高斯平滑。无 DOM/Canvas/GUI 依赖。包含直接数组访问和去分支卷积两项性能优化。
+
+### 12.1 算法
+
+对 MaskVolume 中的单个 label channel 执行可分离 3D 高斯模糊：
+
+1. **提取**: 创建 Float32Array，voxel === channel 的位置为 1.0，其余为 0.0（直接 `rawData[]` 访问）
+2. **模糊**: 沿 X → Y → Z 三轴依次执行 1D 高斯卷积（核截断于 ±3σ，中间段去分支）
+3. **阈值**: 以 0.5 为阈值二值化
+4. **写回**: 根据阈值结果覆写/擦除体素（直接 `rawData[]` 访问）
+
+### 12.1.1 性能优化
+
+两项关键优化显著降低执行时间：
+
+1. **直接数组访问** — 提取和写回阶段绕过 `getVoxel()`/`setVoxel()`（每次调用含 6 次边界检查 + 函数调用开销），通过 `volume.getRawData()` 直接访问底层 `Uint8Array`，使用 `volume.getBytesPerSlice()` 和 `volume.getChannels()` 内联计算索引：
+
+   ```typescript
+   const rawData = volume.getRawData();
+   const channels = volume.getChannels();
+   const bytesPerSlice = volume.getBytesPerSlice();
+   const rowStride = width * channels;
+   // 直接访问: rawData[zOffset + yOffset + x * channels]
+   ```
+
+2. **去分支卷积** — `convolve1D` 将循环拆分为三段：左边界（下界检查）、中间段（无任何分支判断，占 ~95% 工作量）、右边界（上界检查）：
+
+   ```typescript
+   // 中间段 — 无边界检查
+   for (let i = midStart; i < midEnd; i++) {
+     let sum = 0;
+     const lineOffset = i - radius;
+     for (let k = 0; k < kLen; k++) {
+       sum += line[lineOffset + k] * kernel[k];
+     }
+     data[lineStart + i * stride] = sum;
+   }
+   ```
+
+> **影响范围**：仅修改 `GaussianSmoother.ts`，不影响其他 Tool 的 `getVoxel`/`setVoxel` 调用。
+
+### 12.2 公开 API
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| `gaussianSmooth3D` | `(volume: MaskVolume, channel: number, sigma?: number, spacing?: [number, number, number]): void` | 对指定 channel 执行可分离 3D 高斯平滑（就地修改 volume） |
+| `generateKernel1D` | `(sigma: number): Float32Array` | 生成归一化 1D 高斯核，截断于 ±3σ |
+
+### 12.3 各向异性间距支持
+
+当提供 `spacing` 参数时，各轴 sigma 按 `sigma / spacing[axis]` 计算，确保物理空间中的平滑半径是各向同性的：
+
+```typescript
+const sigmaX = spacing ? sigma / spacing[0] : sigma;
+const sigmaY = spacing ? sigma / spacing[1] : sigma;
+const sigmaZ = spacing ? sigma / spacing[2] : sigma;
+```
+
+### 12.4 NrrdTools 集成
+
+`executeAction("gaussianSmooth", { sigma })` 的内部流程：
+
+1. 获取当前活跃的 layer 和 channel
+2. 对所有包含目标 channel 的 Z 切片进行快照（undo 支持，`MaskDelta[]`）
+3. 调用 `GaussianSmoother.gaussianSmooth3D()`，传入 `nrrd_states.image.voxelSpacing` 中的体素间距
+4. 捕获平滑后的切片数据，通过 `undoManager.pushGroup()` 推入撤销栈
+5. 为每个被修改的切片触发 `onMaskChanged` 回调（后端同步）
+6. 调用 `reloadMasksFromVolume()` 刷新画布显示
+
+```
+executeAction("gaussianSmooth", { sigma })
+  │
+  ├─ 快照所有受影响的 Z 切片 (oldSlice)
+  │
+  ├─ GaussianSmoother.gaussianSmooth3D(volume, channel, sigma, spacing)
+  │
+  ├─ 捕获每个 delta 的 newSlice
+  │
+  ├─ undoManager.pushGroup(deltas)
+  │
+  ├─ FOR EACH 受影响的切片:
+  │   └─ onMaskChanged(sliceData, layerId, channel, z, "z", width, height, false)
+  │
+  └─ reloadMasksFromVolume()
+```
+
+### 12.5 Vue UI 集成
+
+- **按钮**: `OperationCtl.vue` 中的 "Smoothing: Gaussian"（`commFuncBtnValues`）
+- **滑块**: `commSliderRadioValues` 中的 "Smooth Sigma"（范围 0.5–5.0，步长 0.5，默认 1.0）
+- **加载动画**: 执行期间发送 `Segmentation:SwitchAnimationStatus` 事件
+- **Toast 通知**: 通过 `useToast` composable 显示成功/失败通知
+- **Emitter 事件**: `Segmentation:SwitchAnimationStatus`（已注册到 `custom-emitter.ts` 事件白名单）

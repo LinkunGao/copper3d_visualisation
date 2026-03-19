@@ -1394,7 +1394,9 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | | `setWindowLow(value)` | Set window low (image center) |
 | | `finishWindowAdjustment()` | Repaint all contrast slices after drag ends |
 | | `getSliderMeta(key)` | Get slider min/max/step/value for UI config (`"globalAlpha"`, `"layerAlpha"`, `"brushAndEraserSize"`, etc.) |
-| **Actions** | `executeAction(action)` | Run named action: `"undo"`, `"redo"`, `"clearActiveSliceMask"`, `"clearActiveLayerMask"`, `"resetZoom"`, `"downloadCurrentMask"` |
+| **Actions** | `executeAction(action)` | Run named action: `"undo"`, `"redo"`, `"clearActiveSliceMask"`, `"clearActiveLayerMask"`, `"resetZoom"`, `"downloadCurrentMask"`, `"gaussianSmooth"` |
+| **Gaussian Smoothing** | `GaussianSmoother.gaussianSmooth3D(volume, channel, sigma?, spacing?)` | Apply 3D Gaussian smoothing to a MaskVolume channel |
+| | `GaussianSmoother.generateKernel1D(sigma)` | Generate a normalized 1D Gaussian kernel |
 | **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"` |
 | | `setCalculateDistanceSphere(x, y, slice, type)` | Programmatically place a calculator sphere (simulates full click flow: record origin → draw → write to volume) |
 | **History** | `undo()` | Undo last stroke |
@@ -1414,3 +1416,93 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | | `getNrrdToolsSettings()` | Full `NrrdState` snapshot (grouped sub-objects: image, view, interaction, sphere, flags) |
 | | `getContainer()` | Host `HTMLElement` |
 | | `getDrawingCanvas()` | Top-layer `HTMLCanvasElement` |
+
+---
+
+### 15. Gaussian Smoothing
+
+NrrdTools includes built-in 3D Gaussian smoothing for segmentation masks, used to smooth jagged edges and fill small holes in annotations.
+
+#### How It Works
+
+Applies a separable 3D Gaussian blur (X → Y → Z convolution) to a single label channel within a MaskVolume, then thresholds the result at 0.5 back to a binary mask.
+
+#### Usage
+
+Invoke via `executeAction`:
+
+```typescript
+// Use default sigma (1.0)
+nrrdTools.executeAction("gaussianSmooth");
+
+// Specify sigma
+nrrdTools.executeAction("gaussianSmooth", { sigma: 2.0 });
+```
+
+**Parameters:**
+- `sigma` (optional, default `1.0`): Gaussian kernel standard deviation in voxel units. Higher values produce stronger smoothing.
+
+#### Anisotropic Spacing Support
+
+When NRRD images have non-uniform voxel spacing (e.g., `[0.488, 0.488, 1.0]`), smoothing automatically adjusts per-axis sigma to ensure isotropic smoothing in physical space:
+
+```
+per-axis sigma = sigma / spacing[axis]
+```
+
+Spacing is automatically read from `nrrd_states.image.voxelSpacing`.
+
+#### Undo Support
+
+Gaussian smoothing is **fully undoable**. Before execution, all Z-slices containing the target channel are snapshotted, and the deltas are pushed to the UndoManager stack after execution.
+
+```typescript
+// Apply smoothing
+nrrdTools.executeAction("gaussianSmooth", { sigma: 1.5 });
+
+// Undo smoothing (restores all affected slices)
+nrrdTools.undo();
+```
+
+#### Backend Sync
+
+After smoothing completes, `onMaskChanged` is automatically fired for every modified slice, notifying the backend to sync.
+
+#### Vue Component Integration
+
+In `OperationCtl.vue`, the "Smoothing: Gaussian" button and "Smooth Sigma" slider provide full UI control:
+
+```typescript
+// Usage in OperationCtl.vue
+emitter.emit("Segmentation:SwitchAnimationStatus", { status: "flex", text: "Smoothing: Gaussian..." });
+setTimeout(() => {
+  try {
+    nrrdTools.executeAction("gaussianSmooth", { sigma: smoothSigma.value });
+    toast.success("Gaussian smoothing completed");
+  } catch (e) {
+    toast.error("Gaussian smoothing failed");
+  } finally {
+    emitter.emit("Segmentation:SwitchAnimationStatus", { status: "none" });
+  }
+}, 50);
+```
+
+> **Note**: Since smoothing runs synchronously on the main thread, `setTimeout` with a 50ms delay allows the UI to render the loading animation first.
+
+#### GaussianSmoother API
+
+`GaussianSmoother` is a pure static utility class with no DOM/Canvas/GUI dependencies:
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `gaussianSmooth3D` | `(volume: MaskVolume, channel: number, sigma?: number, spacing?: [number, number, number]): void` | Apply separable 3D Gaussian smoothing to the specified channel (modifies volume in-place) |
+| `generateKernel1D` | `(sigma: number): Float32Array` | Generate a normalized 1D Gaussian kernel, truncated at ±3σ |
+
+#### Performance Optimizations
+
+GaussianSmoother includes two key performance optimizations:
+
+1. **Direct array access**: The extract and write-back phases bypass `getVoxel()`/`setVoxel()` boundary checks and function call overhead, directly accessing the underlying `Uint8Array` via `volume.getRawData()` with inline index calculation using `volume.getBytesPerSlice()` and `volume.getChannels()`.
+2. **Branch-free convolution**: The `convolve1D` inner loop is split into three segments — left boundary (with lower bound check), middle interior (no branching at all, handles ~95% of work), and right boundary (with upper bound check).
+
+> **Impact scope**: Only `GaussianSmoother.ts` is modified. All other tools continue using `getVoxel`/`setVoxel` with full boundary checks.

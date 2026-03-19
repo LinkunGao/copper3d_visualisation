@@ -42,6 +42,7 @@ export class DragOperator {
     buffer: ImageData, targetCtx: CanvasRenderingContext2D,
     scaledWidth: number, scaledHeight: number,
   ) => void;
+  private compositeAllLayers: () => void;
   private refreshSphereOverlayCb: (() => void) | null = null;
 
   // EventRouter for centralized event handling
@@ -64,6 +65,7 @@ export class DragOperator {
       buffer: ImageData, targetCtx: CanvasRenderingContext2D,
       scaledWidth: number, scaledHeight: number,
     ) => void,
+    compositeAllLayers: () => void,
   ) {
     this.container = container;
     this.drawingPrameters = drawingPrameters;
@@ -77,6 +79,7 @@ export class DragOperator {
     this.setEmptyCanvasSize = setEmptyCanvasSize;
     this.getOrCreateSliceBuffer = getOrCreateSliceBuffer;
     this.renderSliceToCanvas = renderSliceToCanvas;
+    this.compositeAllLayers = compositeAllLayers;
 
     this.showDragNumberDiv = createShowSliceNumberDiv();
     this.init();
@@ -110,6 +113,7 @@ export class DragOperator {
         getOrCreateSliceBuffer: (axis) => this.getOrCreateSliceBuffer(axis),
         renderSliceToCanvas: (layer, axis, sliceIndex, buffer, targetCtx, w, h) =>
           this.renderSliceToCanvas(layer, axis, sliceIndex, buffer, targetCtx, w, h),
+        compositeAllLayers: () => this.compositeAllLayers(),
         refreshSphereOverlay: () => this.refreshSphereOverlayCb?.(),
       },
       this.showDragNumberDiv,
