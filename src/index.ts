@@ -23,7 +23,7 @@ import { createTexture2D_NRRD } from "./Utils/texture2d";
 import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
 import { NrrdTools } from "./Utils/segmentation/NrrdTools";
-// Phase 7: Segmentation Module - Unified exports
+import { GaussianSmoother } from "./Utils/segmentation/core/GaussianSmoother";
 
 import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls";
 
@@ -85,6 +85,7 @@ export {
   CHANNEL_HEX_COLORS,
   rgbaToHex,
   rgbaToCss,
+  GaussianSmoother,
 };
 
 export type {
