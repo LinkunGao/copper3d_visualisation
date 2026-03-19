@@ -24,6 +24,7 @@ import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
 import { NrrdTools } from "./Utils/segmentation/NrrdTools";
 import { GaussianSmoother } from "./Utils/segmentation/core/GaussianSmoother";
+// Phase 7: Segmentation Module - Unified exports
 
 import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls";
 
@@ -50,7 +51,7 @@ import type { LayerId, ChannelValue } from "./Utils/segmentation/core/index";
 
 import "./css/style.css";
 
-export const REVISION = "v3.2.1-beta";
+export const REVISION = "v3.3.0-beta";
 
 console.log(
   `%cCopper3D Visualisation %cBeta:${REVISION}`,

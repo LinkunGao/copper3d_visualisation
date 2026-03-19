@@ -35,8 +35,8 @@ export class baseScene extends commonScene {
     super(container, opt);
     this.renderer = renderer;
 
-    this.ambientLight = new THREE.AmbientLight(0x202020, 0.3);
-    this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    this.ambientLight = new THREE.AmbientLight(0x606060, 0.8);
+    this.directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
     if (!opt?.alpha) {
       this.vignette = createBackground({
         aspect: this.container.clientWidth / this.container.clientHeight,
@@ -137,17 +137,35 @@ export class baseScene extends commonScene {
   }
 
   addLights() {
-    const hemiLight = new THREE.HemisphereLight();
+    // Hemisphere light: sky/ground for broad ambient fill
+    const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x0f0e0d, 0.6);
     hemiLight.name = "hemi_light";
     this.scene.add(hemiLight);
+
+    // Main key light — front-right, slightly above
     this.ambientLight.name = "ambient_light";
     this.directionalLight.name = "main_light";
-    this.directionalLight.position.set(0.5, 0, 0.866);
+    this.directionalLight.position.set(0.5, 0.5, 0.866);
     this.camera.add(this.ambientLight);
     this.camera.add(this.directionalLight);
+
+    // Fill light — opposite side to soften shadows
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    fillLight.name = "fill_light";
+    fillLight.position.set(-0.5, -0.2, -0.866);
+    this.camera.add(fillLight);
+
+    // Top light — illuminates the top surface that key/fill lights miss
+    const topLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    topLight.name = "top_light";
+    topLight.position.set(0, 1, 0.2);
+    this.camera.add(topLight);
+
     this.lights.push(this.ambientLight);
     this.lights.push(this.directionalLight);
     this.lights.push(hemiLight);
+    this.lights.push(fillLight);
+    this.lights.push(topLight);
   }
   removeLights() {
     if (this.lights) {

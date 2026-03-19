@@ -33,6 +33,12 @@ export default {
                 { text: "分割模块", link: "/zh/guide/segmentation-module" },
               ],
             },
+            {
+              text: "渲染",
+              items: [
+                { text: "Copper3d 渲染", link: "/zh/guide/copper3d-rendering-optimization_zh" },
+              ],
+            },
           ],
           "/apidist/": apidocConfig,
         },
@@ -57,6 +63,12 @@ export default {
           text: "Architecture",
           items: [
             { text: "Segmentation Module", link: "/guide/segmentation-module" },
+          ],
+        },
+        {
+          text: "Rendering",
+          items: [
+            { text: "Copper3d Rendering", link: "/guide/copper3d-rendering-optimization_en" },
           ],
         },
       ],

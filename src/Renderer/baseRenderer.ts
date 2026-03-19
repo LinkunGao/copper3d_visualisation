@@ -43,6 +43,8 @@ export class baseRenderer {
 
     // this.renderer.useLegacyLights = true;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.8;
     this.gui = null;
     this.stats = new Stats();
     this.pmremGenerator = new THREE.PMREMGenerator(this.renderer);
@@ -68,9 +70,9 @@ export class baseRenderer {
       grid: false,
       // Lights
       addLights: true,
-      exposure: 1.0,
-      ambientIntensity: 0.3,
-      ambientColor: 0x202020,
+      exposure: 1.8,
+      ambientIntensity: 0.8,
+      ambientColor: 0x606060,
       directIntensity: 0.8 * Math.PI,
       directColor: 0xffffff,
       bgColor1: "#5454ad",
