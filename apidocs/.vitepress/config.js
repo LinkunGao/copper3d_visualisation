@@ -36,7 +36,7 @@ export default {
             {
               text: "渲染",
               items: [
-                { text: "Copper3d 渲染", link: "/zh/guide/copper3d-rendering-optimization_zh" },
+                { text: "Copper3d 渲染", link: "/zh/guide/copper3d-rendering-optimization" },
               ],
             },
           ],
@@ -68,7 +68,7 @@ export default {
         {
           text: "Rendering",
           items: [
-            { text: "Copper3d Rendering", link: "/guide/copper3d-rendering-optimization_en" },
+            { text: "Copper3d Rendering", link: "/guide/copper3d-rendering-optimization" },
           ],
         },
       ],
