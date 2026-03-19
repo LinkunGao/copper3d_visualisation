@@ -393,6 +393,7 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | `getContainer()` | Get the internal main-area container element |
 | `getDrawingCanvas()` | Get the top-level interactive canvas |
 | `getNrrdToolsSettings()` | Get a full NrrdState snapshot (5 sub-objects) |
+| `executeAction(action)` | Execute a named action: `"undo"`, `"redo"`, `"clearActiveSliceMask"`, `"clearActiveLayerMask"`, `"resetZoom"`, `"downloadCurrentMask"`, `"gaussianSmooth"`. `"gaussianSmooth"` accepts optional `opts?: { sigma?: number }` |
 
 ---
 
@@ -1106,3 +1107,73 @@ volume.colorMap[channel]
   ↓ syncBrushColor()           → brush color reads colorMap
   ↓ getChannelCssColor()       → Vue UI reads colorMap for display
 ```
+
+---
+
+## 12. GaussianSmoother
+
+**File**: `core/GaussianSmoother.ts`
+
+Pure stateless utility class for 3D Gaussian smoothing of segmentation masks. No DOM/Canvas/GUI dependencies.
+
+### 12.1 Algorithm
+
+Applies separable 3D Gaussian blur to a single label channel within a MaskVolume:
+
+1. **Extract**: Create a Float32Array with 1.0 where voxel === channel, 0.0 elsewhere
+2. **Blur**: Apply separable Gaussian convolution (X → Y → Z) using 1D kernels truncated at ±3σ
+3. **Threshold**: Binarize at 0.5
+4. **Write back**: Overwrite/erase voxels according to the thresholded result
+
+### 12.2 Public API
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `gaussianSmooth3D` | `(volume: MaskVolume, channel: number, sigma?: number, spacing?: [number, number, number]): void` | Smooth a single label channel in-place using separable 3D Gaussian blur |
+| `generateKernel1D` | `(sigma: number): Float32Array` | Generate a normalized 1D Gaussian kernel truncated at ±3σ |
+
+### 12.3 Anisotropic Spacing
+
+When `spacing` is provided, per-axis sigma is computed as `sigma / spacing[axis]` to ensure isotropic physical smoothing:
+
+```typescript
+const sigmaX = spacing ? sigma / spacing[0] : sigma;
+const sigmaY = spacing ? sigma / spacing[1] : sigma;
+const sigmaZ = spacing ? sigma / spacing[2] : sigma;
+```
+
+### 12.4 NrrdTools Integration
+
+`executeAction("gaussianSmooth", { sigma })` in NrrdTools:
+
+1. Identifies the active layer and channel
+2. Snapshots all Z-slices containing the target channel (undo support via `MaskDelta[]`)
+3. Calls `GaussianSmoother.gaussianSmooth3D()` with voxel spacing from `nrrd_states.image.voxelSpacing`
+4. Captures post-smoothing slice data and pushes undo group via `undoManager.pushGroup()`
+5. Fires `onMaskChanged` callback for each modified slice (backend sync)
+6. Calls `reloadMasksFromVolume()` to refresh canvas display
+
+```
+executeAction("gaussianSmooth", { sigma })
+  │
+  ├─ snapshot all affected Z-slices (oldSlice)
+  │
+  ├─ GaussianSmoother.gaussianSmooth3D(volume, channel, sigma, spacing)
+  │
+  ├─ capture newSlice for each delta
+  │
+  ├─ undoManager.pushGroup(deltas)
+  │
+  ├─ FOR EACH affected slice:
+  │   └─ onMaskChanged(sliceData, layerId, channel, z, "z", width, height, false)
+  │
+  └─ reloadMasksFromVolume()
+```
+
+### 12.5 Vue UI Integration
+
+- **Button**: "Smoothing: Gaussian" in `OperationCtl.vue` (`commFuncBtnValues`)
+- **Slider**: "Smooth Sigma" radio in `commSliderRadioValues` (range 0.5–5.0, step 0.5, default 1.0)
+- **Loading animation**: Emits `Segmentation:SwitchAnimationStatus` event during execution
+- **Toast notification**: Success/failure toast via `useToast` composable
+- **Emitter event**: `Segmentation:SwitchAnimationStatus` (registered in `custom-emitter.ts` event whitelist)
