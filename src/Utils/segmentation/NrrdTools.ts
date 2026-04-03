@@ -899,7 +899,10 @@ export class NrrdTools {
   // 7. Delegated — LayerChannelManager
   // ═══════════════════════════════════════════════════════════════════════════
 
-  setActiveLayer(layerId: string): void { this.layerChannelManager.setActiveLayer(layerId); }
+  setActiveLayer(layerId: string): void {
+    this.layerChannelManager.setActiveLayer(layerId);
+    this.drawCore.undoManager.setActiveLayer(layerId);
+  }
   getActiveLayer(): string { return this.layerChannelManager.getActiveLayer(); }
   setActiveChannel(channel: ChannelValue): void { this.layerChannelManager.setActiveChannel(channel); }
   getActiveChannel(): number { return this.layerChannelManager.getActiveChannel(); }
