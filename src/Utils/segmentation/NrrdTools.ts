@@ -831,6 +831,16 @@ export class NrrdTools {
     this.sliceRenderPipeline.resetDisplaySlicesStatus();
   }
 
+  /**
+   * Swap slice data while preserving current slice index, zoom, and pan position.
+   * Used for register/origin image switching where the view state should persist.
+   */
+  switchSlicesPreservingView(allSlices: Array<nrrdSliceType>) {
+    this.state.protectedData.allSlicesArray.length = 0;
+    this.state.protectedData.allSlicesArray = [...allSlices];
+    this.sliceRenderPipeline.switchPreservingView();
+  }
+
   appendLoadingbar(loadingbar: HTMLDivElement) {
     this.state.protectedData.mainAreaContainer.appendChild(loadingbar);
   }

@@ -68,6 +68,52 @@ export class SliceRenderPipeline extends BaseTool {
     this.setupConfigs();
   }
 
+  /**
+   * Swap slice data for register/origin switching without resetting
+   * slice index, zoom (sizeFactor), or pan position.
+   */
+  switchPreservingView(): void {
+    // Rebuild displaySlices from the new allSlicesArray
+    this.setDisplaySlicesBaseOnAxis();
+    // Update mainPreSlices reference
+    this.setMainPreSlice();
+    this.updateMaxIndex();
+
+    // Clamp slice index if it exceeds new max
+    if (this.ctx.nrrd_states.view.preSliceIndex > this.ctx.nrrd_states.view.maxIndex)
+      this.ctx.nrrd_states.view.preSliceIndex = this.ctx.nrrd_states.view.maxIndex;
+
+    // Sync the new mainPreSlices.index to the current slice position
+    if (this.ctx.protectedData.mainPreSlices) {
+      this.ctx.protectedData.mainPreSlices.index = this.ctx.nrrd_states.view.preSliceIndex;
+      this.ctx.protectedData.canvases.originCanvas =
+        this.ctx.protectedData.mainPreSlices.canvas;
+    }
+
+    // Resize canvases to match origin dimensions (no pan reset)
+    const prevW = this.ctx.nrrd_states.image.originWidth;
+    const prevH = this.ctx.nrrd_states.image.originHeight;
+    if (this.ctx.protectedData.canvases.originCanvas) {
+      this.ctx.nrrd_states.image.originWidth =
+        this.ctx.protectedData.canvases.originCanvas.width;
+      this.ctx.nrrd_states.image.originHeight =
+        this.ctx.protectedData.canvases.originCanvas.height;
+    }
+    this.resizePaintArea(this.ctx.nrrd_states.view.sizeFactor);
+
+    // Only re-center if dimensions actually changed
+    if (prevW !== this.ctx.nrrd_states.image.originWidth ||
+        prevH !== this.ctx.nrrd_states.image.originHeight) {
+      this.resetPaintAreaUIPosition();
+    }
+
+    this.callbacks.updateShowNumDiv(this.ctx.nrrd_states.view.contrastNum);
+    this.callbacks.repraintCurrentContrastSlice();
+    this.redrawDisplayCanvas();
+    this.callbacks.compositeAllLayers();
+    this.callbacks.syncGuiParameterSettings();
+  }
+
   private setupConfigs(): void {
     // reset main slice
     this.setMainPreSlice();
