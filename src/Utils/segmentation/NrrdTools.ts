@@ -1180,4 +1180,49 @@ export class NrrdTools {
   drawCalculatorSphereOnEachViews(axis: "x" | "y" | "z") {
     this.drawCore.drawCalculatorSphereOnEachViews(axis);
   }
+
+  /**
+   * Copy all voxel data from one layer's MaskVolume to another.
+   *
+   * After the copy the target layer's display is refreshed so the UI
+   * shows the updated data immediately. The target layer's color map
+   * is preserved — only the raw voxel buffer is overwritten.
+   *
+   * Use case: when editing layer2 cascades to layer3 on the backend,
+   * call this to keep the frontend in sync without a network round-trip.
+   *
+   * @param sourceLayerId  Layer to copy from  (e.g. "layer2").
+   * @param targetLayerId  Layer to copy into  (e.g. "layer3").
+   *
+   * @example
+   * ```ts
+   * nrrdTools.copyLayerData("layer2", "layer3");
+   * ```
+   */
+  copyLayerData(sourceLayerId: string, targetLayerId: string): void {
+    const srcVol = this.drawCore.renderer.getVolumeForLayer(sourceLayerId);
+    const dstVol = this.drawCore.renderer.getVolumeForLayer(targetLayerId);
+    if (!srcVol || !dstVol) {
+      console.warn(
+        `copyLayerData: cannot resolve volumes for "${sourceLayerId}" → "${targetLayerId}"`
+      );
+      return;
+    }
+
+    const srcData = srcVol.getRawData();
+    const dstData = dstVol.getRawData();
+
+    if (srcData.length !== dstData.length) {
+      console.warn(
+        `copyLayerData: size mismatch (${srcData.length} vs ${dstData.length})`
+      );
+      return;
+    }
+
+    // Copy voxel data (preserves target color map)
+    dstVol.setRawData(new Uint8Array(srcData));
+
+    // Refresh the display so all three axes reflect the new data
+    this.reloadMasksFromVolume();
+  }
 }
