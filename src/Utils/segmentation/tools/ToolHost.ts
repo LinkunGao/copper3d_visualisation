@@ -99,6 +99,7 @@ export type SphereHostDeps = Pick<ToolHost,
 export type DrawingHostDeps = Pick<ToolHost,
     'setCurrentLayer' | 'compositeAllLayers' | 'syncLayerSliceData'
     | 'filterDrawedImage' | 'getVolumeForLayer' | 'pushUndoDelta' | 'getEraserUrls'
+    | 'renderSliceToCanvas' | 'getOrCreateSliceBuffer'
 >;
 
 /** DragSliceTool host dependencies */

@@ -327,11 +327,15 @@ export class NrrdTools {
         this.state.gui_states.mode.sphereBrush = true;
         this.dragOperator.removeDragMode();
         this.drawCore.eventRouter?.setGuiTool('sphereBrush');
+        this.state.protectedData.canvases.drawingCanvas.style.cursor =
+          this.state.gui_states.viewConfig.defaultPaintCursor;
         break;
       case "sphereEraser":
         this.state.gui_states.mode.sphereEraser = true;
         this.dragOperator.removeDragMode();
         this.drawCore.eventRouter?.setGuiTool('sphereEraser');
+        this.state.protectedData.canvases.drawingCanvas.style.cursor =
+          this.state.gui_states.viewConfig.defaultPaintCursor;
         break;
     }
 

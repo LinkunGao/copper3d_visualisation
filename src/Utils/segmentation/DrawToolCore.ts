@@ -159,6 +159,9 @@ export class DrawToolCore {
       getVolumeForLayer: (layer) => this.renderer.getVolumeForLayer(layer),
       pushUndoDelta: (delta) => this.undoManager.push(delta),
       getEraserUrls: () => this.eraserUrls,
+      renderSliceToCanvas: (layer, axis, sliceIndex, buffer, ctx, w, h) =>
+        this.renderer.renderSliceToCanvas(layer, axis, sliceIndex, buffer, ctx, w, h),
+      getOrCreateSliceBuffer: (axis) => this.renderer.getOrCreateSliceBuffer(axis),
     });
 
     this.sphereBrushTool = new SphereBrushTool(toolCtx, {
@@ -192,6 +195,10 @@ export class DrawToolCore {
         }
         if (next === 'crosshair') {
           this.state.protectedData.isDrawing = false;
+          // Wipe any lingering sphere preview (red dashed eraser outline /
+          // filled brush preview) when the user toggles into crosshair from
+          // sphereBrush/sphereEraser. Safe no-op when no placement is active.
+          this.sphereBrushTool?.cancelActivePlacement();
         }
       }
     });
@@ -296,9 +303,13 @@ export class DrawToolCore {
       if (this.drawingTool.isActive || this.panTool.isActive) {
         this.drawingPrameters.handleOnDrawingMouseMove(e);
       }
-      // Drag-erase: route move to sphereBrushTool when sphereEraser is active
-      if (this.sphereBrushTool.isActive && this.state.gui_states.mode.sphereEraser) {
-        this.sphereBrushTool.onSphereEraserMove(e);
+      // Drag: route move to sphereBrushTool for both brush and eraser
+      if (this.sphereBrushTool.isActive) {
+        if (this.state.gui_states.mode.sphereEraser) {
+          this.sphereBrushTool.onSphereEraserMove(e);
+        } else if (this.state.gui_states.mode.sphereBrush) {
+          this.sphereBrushTool.onSphereBrushMove(e);
+        }
       }
     });
     this.eventRouter.setPointerUpHandler((e: PointerEvent) => {
@@ -655,6 +666,11 @@ export class DrawToolCore {
     const w = this.state.protectedData.canvases.emptyCanvas.width;
     const h = this.state.protectedData.canvases.emptyCanvas.height;
 
+    // Bake step: downscale layer canvas (display resolution) to emptyCanvas
+    // (voxel resolution) before label extraction. Use nearest-neighbor
+    // (smoothing=false) so voxel occupancy is determined directly by the
+    // drawn pixels on the layer canvas, without blending that could shift
+    // the alpha>=128 threshold decision in setSliceLabelsFromImageData.
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(canvas, 0, 0, w, h);
   }

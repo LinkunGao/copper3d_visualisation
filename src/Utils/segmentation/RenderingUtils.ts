@@ -1,6 +1,7 @@
 import type { INewMaskData } from "./core/types";
 import type { MaskVolume } from "./core/index";
 import type { CanvasState } from "./CanvasState";
+import { extractLabelContours, findLabelsInSlice } from "./core/MarchingSquares";
 
 /**
  * RenderingUtils — Rendering / slice-buffer helper methods.
@@ -120,15 +121,21 @@ export class RenderingUtils {
     }
 
     /**
-     * Render a layer's slice into a reusable buffer and draw to the target canvas.
+     * Render a layer's slice onto the target canvas as vector contours.
      *
-     * Uses MaskVolume.renderLabelSliceInto() for zero-allocation rendering.
+     * Uses marching-squares to extract voxel-truthful Path2D contours per
+     * label, then `ctx.fill()` them at the display canvas resolution. This
+     * eliminates the bilinear-upscale blur and zoom-dependent shape drift
+     * that plagued the old putImageData → drawImage pipeline.
+     *
+     * The `buffer` parameter is kept for backward-compatible signature but
+     * is no longer used on this path — callers may pass any valid ImageData.
      */
     renderSliceToCanvas(
         layer: string,
         axis: "x" | "y" | "z",
         sliceIndex: number,
-        buffer: ImageData,
+        _buffer: ImageData,
         targetCtx: CanvasRenderingContext2D,
         scaledWidth: number,
         scaledHeight: number,
@@ -137,29 +144,43 @@ export class RenderingUtils {
             const volume = this.getVolumeForLayer(layer);
             if (!volume) return;
 
-            // Get channel visibility for this layer
             const channelVis = this.state.gui_states.layerChannel.channelVisibility[layer];
 
-            // Render label slice at full alpha — globalAlpha applied during compositeAllLayers
-            volume.renderLabelSliceInto(sliceIndex, axis, buffer, channelVis, 1.0);
-            this.setEmptyCanvasSize(axis);
-            this.state.protectedData.ctxes.emptyCtx.putImageData(buffer, 0, 0);
+            const slice = volume.getSliceUint8(sliceIndex, axis);
+            const W = slice.width;
+            const H = slice.height;
+            const stride = volume.getChannels();
+
+            const labels = findLabelsInSlice(slice.data, W, H, stride, 0);
+            if (labels.length === 0) return;
+
+            targetCtx.save();
+            // Vector fill — imageSmoothingEnabled is irrelevant here, but keep
+            // it off to match the rest of the pipeline.
             targetCtx.imageSmoothingEnabled = false;
-            // Coronal (axis='y') Z-flip: vertically flip the rendered mask to match
-            // the Z-flip applied during the write path (syncLayerSliceData).
+
+            // Coronal (axis='y') Z-flip: mirrors the flip applied by the write
+            // path (syncLayerSliceData). Apply BEFORE the voxel→display scale
+            // so the flip operates in display coordinates.
             if (axis === 'y') {
-                targetCtx.save();
                 targetCtx.scale(1, -1);
                 targetCtx.translate(0, -scaledHeight);
             }
-            targetCtx.drawImage(
-                this.state.protectedData.canvases.emptyCanvas,
-                0, 0, scaledWidth, scaledHeight
-            );
-            if (axis === 'y') {
-                targetCtx.restore();
+
+            // Voxel coord (x ∈ [0, W], y ∈ [0, H]) → display coord.
+            targetCtx.scale(scaledWidth / W, scaledHeight / H);
+
+            for (const lbl of labels) {
+                if (channelVis && channelVis[lbl] === false) continue;
+                const color = volume.getChannelColor(lbl);
+                const path = extractLabelContours(slice.data, W, H, lbl, stride, 0);
+                targetCtx.fillStyle =
+                    `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a / 255})`;
+                targetCtx.fill(path, 'nonzero');
             }
-        } catch (err) {
+
+            targetCtx.restore();
+        } catch {
             // Slice out of bounds or volume not ready — skip silently
         }
     }
