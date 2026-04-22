@@ -24,7 +24,11 @@ import type { SphereBrushHostDeps } from "./ToolHost";
 export class SphereBrushTool extends BaseTool {
   private callbacks: SphereBrushHostDeps;
 
-  /** Recorded sphere center in canvas mm-space */
+  /**
+   * Recorded sphere center in display (zoomed) coordinates.
+   * Used for both preview redraw and voxel calculation — the voxel conversion
+   * uses `changedWidth/Height` as the display scale, so no mm detour is needed.
+   */
   private centerX = 0;
   private centerY = 0;
   private centerSlice = 0;
@@ -33,10 +37,26 @@ export class SphereBrushTool extends BaseTool {
   /** Current operation mode for the active placement */
   private mode: "brush" | "eraser" = "brush";
 
-  /** Cumulative "before" snapshots for drag-erase undo (z-index → slice data) */
+  /** Cumulative "before" snapshots for drag undo (z-index → slice data) — used by both brush and eraser drag */
   private dragBeforeSnapshots: Map<number, Uint8Array> = new Map();
-  /** Whether a drag-erase has actually moved (vs. simple click-release) */
+  /** Whether a drag has actually moved (vs. simple click-release) */
   private dragMoved = false;
+
+  /**
+   * Latest cursor position in display (zoomed) coords. Used by the wheel
+   * handler to redraw the preview at the cursor, not the original mousedown
+   * point, during mid-drag radius changes.
+   */
+  private lastDisplayX = 0;
+  private lastDisplayY = 0;
+  private lastSliceIndex = 0;
+
+  /**
+   * All sphere centers written during the current stroke. The wheel handler
+   * retroactively re-renders the entire stroke at the new radius by restoring
+   * `dragBeforeSnapshots` and replaying every entry here.
+   */
+  private strokeCenters: Array<{ x: number; y: number; sliceIndex: number }> = [];
 
   constructor(ctx: ToolContext, callbacks: SphereBrushHostDeps) {
     super(ctx);
@@ -50,45 +70,70 @@ export class SphereBrushTool extends BaseTool {
   // ── Geometry (ported from SphereTool) ──────────────────────────
 
   /**
-   * Convert canvas mm-space coordinates to 3D voxel coordinates.
+   * Convert display (zoomed) coordinates to 3D voxel coordinates.
+   *
+   * Uses `changedWidth/Height` as the display scale directly (instead of
+   * going through mm via `/sizeFactor`). This keeps the write pixel-exact
+   * with the preview circle, which is drawn on a `changedWidth x changedHeight`
+   * sized sphere canvas — avoiding floating-point drift at high zoom levels.
    */
   private canvasToVoxelCenter(
-    canvasX: number, canvasY: number, sliceIndex: number,
+    displayX: number, displayY: number, sliceIndex: number,
     axis: "x" | "y" | "z"
   ): { x: number; y: number; z: number } {
     const nrrd = this.ctx.nrrd_states;
+    const cw = nrrd.view.changedWidth;
+    const ch = nrrd.view.changedHeight;
     switch (axis) {
       case 'z':
         return {
-          x: canvasX * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm,
-          y: canvasY * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm,
+          x: displayX * nrrd.image.nrrd_x_pixel / cw,
+          y: displayY * nrrd.image.nrrd_y_pixel / ch,
           z: sliceIndex,
         };
       case 'y':
         return {
-          x: canvasX * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm,
+          x: displayX * nrrd.image.nrrd_x_pixel / cw,
           y: sliceIndex,
-          z: (nrrd.image.nrrd_z_mm - canvasY) * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm,
+          // Coronal vertical flip: display Y=0 is top, voxel Z increases downward in mm-space
+          z: (ch - displayY) * nrrd.image.nrrd_z_pixel / ch,
         };
       case 'x':
         return {
           x: sliceIndex,
-          y: canvasY * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm,
-          z: canvasX * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm,
+          y: displayY * nrrd.image.nrrd_y_pixel / ch,
+          z: displayX * nrrd.image.nrrd_z_pixel / cw,
         };
     }
   }
 
   /**
    * Convert mm radius to per-axis voxel radii.
+   *
+   * For the two axes visible in the current view, scale via
+   * `changedWidth/Height` so the rendered ellipsoid cross-section matches
+   * the preview pixel radius exactly. The third (slice-direction) axis is
+   * not visible, so it uses the plain mm-based ratio.
    */
-  private getVoxelRadii(radius: number): { rx: number; ry: number; rz: number } {
+  private getVoxelRadii(radius: number, axis: "x" | "y" | "z"): { rx: number; ry: number; rz: number } {
     const nrrd = this.ctx.nrrd_states;
-    return {
-      rx: radius * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm,
-      ry: radius * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm,
-      rz: radius * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm,
-    };
+    const sf = nrrd.view.sizeFactor;
+    const cw = nrrd.view.changedWidth;
+    const ch = nrrd.view.changedHeight;
+    // pixel-exact voxel radius for the visible horizontal/vertical dims
+    const rxView = radius * sf * nrrd.image.nrrd_x_pixel / cw;
+    const ryView = radius * sf * nrrd.image.nrrd_y_pixel / ch;
+    const rzHoriz = radius * sf * nrrd.image.nrrd_z_pixel / cw;
+    const rzVert = radius * sf * nrrd.image.nrrd_z_pixel / ch;
+    // mm-based fallback for the slice-direction (perpendicular) dim
+    const rxMm = radius * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm;
+    const ryMm = radius * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm;
+    const rzMm = radius * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm;
+    switch (axis) {
+      case 'z': return { rx: rxView, ry: ryView, rz: rzMm };
+      case 'y': return { rx: rxView, ry: ryMm,   rz: rzVert };
+      case 'x': return { rx: rxMm,   ry: ryView, rz: rzHoriz };
+    }
   }
 
   /**
@@ -218,12 +263,17 @@ export class SphereBrushTool extends BaseTool {
     const sphereCanvas = this.ctx.protectedData.canvases.drawingSphereCanvas;
     const sphereCtx = this.ctx.protectedData.ctxes.drawingSphereCtx;
 
-    // Clear and resize sphere canvas
-    sphereCanvas.width = this.ctx.protectedData.canvases.originCanvas.width;
-    sphereCanvas.height = this.ctx.protectedData.canvases.originCanvas.height;
+    // Size sphere canvas to the zoomed display size so start() draws it 1:1 —
+    // no scaling step, eliminating any zoom-dependent positioning error.
+    const sf = this.ctx.nrrd_states.view.sizeFactor;
+    sphereCanvas.width = this.ctx.nrrd_states.view.changedWidth;
+    sphereCanvas.height = this.ctx.nrrd_states.view.changedHeight;
+
+    // mouseX/mouseY are already in zoomed display coords; scale radius to match.
+    const scaledRadius = radius * sf;
 
     sphereCtx.beginPath();
-    sphereCtx.arc(mouseX, mouseY, radius, 0, 2 * Math.PI);
+    sphereCtx.arc(mouseX, mouseY, scaledRadius, 0, 2 * Math.PI);
 
     if (isEraser) {
       // Eraser preview: dashed outline
@@ -278,18 +328,25 @@ export class SphereBrushTool extends BaseTool {
   configSphereBrushWheel(): (e: WheelEvent) => void {
     return (e: WheelEvent) => {
       e.preventDefault();
-      const sphere = this.ctx.nrrd_states.sphere;
-      if (e.deltaY < 0) {
-        sphere.sphereBrushRadius += 1;
-      } else {
-        sphere.sphereBrushRadius -= 1;
-      }
-      sphere.sphereBrushRadius = Math.max(1, Math.min(sphere.sphereBrushRadius, 50));
 
-      // Redraw preview
+      const sphere = this.ctx.nrrd_states.sphere;
+      sphere.sphereBrushRadius = Math.max(1, Math.min(
+        sphere.sphereBrushRadius + (e.deltaY < 0 ? 1 : -1), 50
+      ));
+
+      // 3D Slicer-style retroactive resize: if the user has already started
+      // painting/erasing a stroke, re-render the entire stroke at the new
+      // radius so the whole pipe/erase-path resizes together.
+      if (this.active && this.dragMoved && this.strokeCenters.length > 0) {
+        this.replayStrokeWithCurrentRadius();
+      }
+
+      // Preview always follows the latest cursor position, not the mousedown
+      // point — otherwise the preview circle appears stuck on click-down when
+      // the user scrolls after dragging elsewhere.
       if (this.active) {
         this.drawPreview(
-          this.centerX, this.centerY,
+          this.lastDisplayX, this.lastDisplayY,
           sphere.sphereBrushRadius,
           this.mode === "eraser"
         );
@@ -297,27 +354,155 @@ export class SphereBrushTool extends BaseTool {
     };
   }
 
+  /**
+   * Retroactively re-render the current stroke at the current radius.
+   *
+   * Step 1: walk every recorded stroke center and expand
+   *   `dragBeforeSnapshots` to cover the new (larger) bounding box. Slices
+   *   newly included here are still pristine because the original stroke
+   *   never touched them.
+   * Step 2: restore every snapshotted slice from its pristine backup.
+   * Step 3: replay every stroke center at the new radius.
+   *
+   * Step 3 produces the same final state as if the user had used the new
+   * radius from the start. Undo still captures the full stroke as one group
+   * at pointerup.
+   */
+  private replayStrokeWithCurrentRadius(): void {
+    if (this.strokeCenters.length === 0) return;
+
+    const layer = this.ctx.gui_states.layerChannel.layer;
+    const channel = this.ctx.gui_states.layerChannel.activeChannel || 1;
+    const axis = this.ctx.protectedData.axis;
+    const radius = this.ctx.nrrd_states.sphere.sphereBrushRadius;
+
+    let vol: any;
+    try {
+      vol = this.callbacks.getVolumeForLayer(layer);
+    } catch {
+      return;
+    }
+    const dims = vol.getDimensions();
+
+    // 1. Expand snapshot coverage using the new radius so any newly-exposed
+    //    Z slices are captured while still pristine.
+    for (const sc of this.strokeCenters) {
+      const center = this.canvasToVoxelCenter(sc.x, sc.y, sc.sliceIndex, axis);
+      const radii = this.getVoxelRadii(radius, axis);
+      const bb = this.getBoundingBox(center, radii, dims);
+      this.expandDragBeforeSnapshots(vol, bb.minZ, bb.maxZ);
+    }
+
+    // 2. Restore every snapshotted slice from pristine backup.
+    for (const [z, pristine] of this.dragBeforeSnapshots) {
+      try {
+        vol.setSliceUint8(z, pristine, 'z');
+      } catch {
+        // Slice write failed — skip silently so a single bad slice doesn't break the replay.
+      }
+    }
+
+    // 3. Replay every stroke center with the new radius.
+    for (const sc of this.strokeCenters) {
+      const center = this.canvasToVoxelCenter(sc.x, sc.y, sc.sliceIndex, axis);
+      const radii = this.getVoxelRadii(radius, axis);
+      const bb = this.getBoundingBox(center, radii, dims);
+      if (this.mode === "brush") {
+        this.write3DSphereToBrush(vol, center, radii, bb, channel);
+      } else {
+        this.erase3DSphereFromVolume(vol, center, radii, bb, channel);
+      }
+    }
+
+    this.refreshDisplay(layer, undefined, false);
+  }
+
   // ── Sphere Brush Click/PointerUp ───────────────────────────────
 
   /**
-   * Handle pointer-down in sphereBrush mode (direct click, no Shift needed).
+   * Handle pointer-down in sphereBrush mode (3D Slicer-style).
+   *
+   * Captures pristine snapshots at the mousedown location but does NOT
+   * write any voxels yet — the user may wheel-adjust the radius before
+   * dragging. The first sphere is written either by the first pointermove
+   * or by pointerup (single-click fallback).
    */
   onSphereBrushClick(e: MouseEvent): void {
-    this.centerX = e.offsetX / this.ctx.nrrd_states.view.sizeFactor;
-    this.centerY = e.offsetY / this.ctx.nrrd_states.view.sizeFactor;
+    this.centerX = e.offsetX;
+    this.centerY = e.offsetY;
     this.centerSlice = this.ctx.nrrd_states.view.currentSliceIndex;
+    this.lastDisplayX = this.centerX;
+    this.lastDisplayY = this.centerY;
+    this.lastSliceIndex = this.centerSlice;
     this.active = true;
     this.mode = "brush";
+    this.dragMoved = false;
+    this.dragBeforeSnapshots.clear();
+    this.strokeCenters = [{ x: this.centerX, y: this.centerY, sliceIndex: this.centerSlice }];
 
-    this.drawPreview(
-      this.centerX, this.centerY,
-      this.ctx.nrrd_states.sphere.sphereBrushRadius,
-      false
-    );
+    const layer = this.ctx.gui_states.layerChannel.layer;
+    const axis = this.ctx.protectedData.axis;
+    const radius = this.ctx.nrrd_states.sphere.sphereBrushRadius;
+
+    try {
+      const vol = this.callbacks.getVolumeForLayer(layer);
+      const dims = vol.getDimensions();
+      const center = this.canvasToVoxelCenter(this.centerX, this.centerY, this.centerSlice, axis);
+      const radii = this.getVoxelRadii(radius, axis);
+      const bb = this.getBoundingBox(center, radii, dims);
+      this.expandDragBeforeSnapshots(vol, bb.minZ, bb.maxZ);
+    } catch {
+      // Volume not ready — preview still shown so user gets visual feedback
+    }
+
+    this.drawPreview(this.centerX, this.centerY, radius, false);
   }
 
   /**
-   * Handle pointer-up in sphereBrush mode — write sphere to volume.
+   * Handle pointer-move in sphereBrush mode — drag to continuously paint.
+   *
+   * Mirrors sphereEraser drag: writes a new sphere at each move position,
+   * extends the cumulative before-snapshot to cover any newly-touched Z
+   * slices, and repaints the preview. Never notifies the backend; pointerup
+   * does that once for the whole stroke.
+   */
+  onSphereBrushMove(e: MouseEvent): void {
+    if (!this.active || this.mode !== "brush") return;
+    this.dragMoved = true;
+
+    const sliceIndex = this.ctx.nrrd_states.view.currentSliceIndex;
+    this.lastDisplayX = e.offsetX;
+    this.lastDisplayY = e.offsetY;
+    this.lastSliceIndex = sliceIndex;
+    this.strokeCenters.push({ x: e.offsetX, y: e.offsetY, sliceIndex });
+
+    const layer = this.ctx.gui_states.layerChannel.layer;
+    const channel = this.ctx.gui_states.layerChannel.activeChannel || 1;
+    const axis = this.ctx.protectedData.axis;
+    const radius = this.ctx.nrrd_states.sphere.sphereBrushRadius;
+
+    let vol: any;
+    try {
+      vol = this.callbacks.getVolumeForLayer(layer);
+    } catch {
+      return;
+    }
+
+    const dims = vol.getDimensions();
+    const center = this.canvasToVoxelCenter(e.offsetX, e.offsetY, sliceIndex, axis);
+    const radii = this.getVoxelRadii(radius, axis);
+    const bb = this.getBoundingBox(center, radii, dims);
+
+    this.expandDragBeforeSnapshots(vol, bb.minZ, bb.maxZ);
+    this.write3DSphereToBrush(vol, center, radii, bb, channel);
+
+    this.drawPreview(e.offsetX, e.offsetY, radius, false);
+    this.refreshDisplay(layer, undefined, false);
+  }
+
+  /**
+   * Handle pointer-up in sphereBrush mode — finalize stroke + push undo group
+   * + single batched backend notify for all Z slices touched during the drag.
    */
   onSphereBrushPointerUp(): void {
     if (!this.active || this.mode !== "brush") return;
@@ -332,31 +517,31 @@ export class SphereBrushTool extends BaseTool {
     try {
       vol = this.callbacks.getVolumeForLayer(layer);
     } catch {
-      this.clearPreview();
+      this.finalizeStrokeState();
       return;
     }
 
-    const dims = vol.getDimensions();
-    const center = this.canvasToVoxelCenter(this.centerX, this.centerY, this.centerSlice, axis);
-    const radii = this.getVoxelRadii(radius);
-    const bb = this.getBoundingBox(center, radii, dims);
+    // Click-without-drag: write the single sphere now so a plain click still
+    // paints something. onSphereBrushClick intentionally skipped this so the
+    // user could wheel-adjust radius first.
+    if (!this.dragMoved && this.strokeCenters.length > 0) {
+      const sc = this.strokeCenters[0];
+      const dims = vol.getDimensions();
+      const center = this.canvasToVoxelCenter(sc.x, sc.y, sc.sliceIndex, axis);
+      const radii = this.getVoxelRadii(radius, axis);
+      const bb = this.getBoundingBox(center, radii, dims);
+      this.expandDragBeforeSnapshots(vol, bb.minZ, bb.maxZ);
+      this.write3DSphereToBrush(vol, center, radii, bb, channel);
+    }
 
-    // Capture pre-write snapshots
-    const before = this.captureSliceSnapshots(vol, bb.minZ, bb.maxZ);
-
-    // Write sphere
-    this.write3DSphereToBrush(vol, center, radii, bb, channel);
-
-    // Capture post-write snapshots and push undo group
-    const after = this.captureSliceSnapshots(vol, bb.minZ, bb.maxZ);
-    const deltas = this.buildUndoGroup(layer, before, after);
+    const after = this.captureSliceSnapshots(vol, this.dragMinZ(), this.dragMaxZ());
+    const deltas = this.buildUndoGroup(layer, this.dragBeforeSnapshots, after);
     if (deltas.length > 0) {
       this.callbacks.pushUndoGroup(deltas);
     }
 
-    // Refresh display and notify backend of ALL changed slices
-    this.refreshDisplay(layer, deltas);
-    this.clearPreview();
+    this.refreshDisplay(layer, deltas, true);
+    this.finalizeStrokeState();
   }
 
   // ── Sphere Eraser Click/PointerUp ──────────────────────────────
@@ -366,13 +551,17 @@ export class SphereBrushTool extends BaseTool {
    * Initializes drag tracking for cumulative undo.
    */
   onSphereEraserClick(e: MouseEvent): void {
-    this.centerX = e.offsetX / this.ctx.nrrd_states.view.sizeFactor;
-    this.centerY = e.offsetY / this.ctx.nrrd_states.view.sizeFactor;
+    this.centerX = e.offsetX;
+    this.centerY = e.offsetY;
     this.centerSlice = this.ctx.nrrd_states.view.currentSliceIndex;
+    this.lastDisplayX = this.centerX;
+    this.lastDisplayY = this.centerY;
+    this.lastSliceIndex = this.centerSlice;
     this.active = true;
     this.mode = "eraser";
     this.dragMoved = false;
     this.dragBeforeSnapshots.clear();
+    this.strokeCenters = [{ x: this.centerX, y: this.centerY, sliceIndex: this.centerSlice }];
 
     // Capture initial "before" snapshots for the first sphere position
     const layer = this.ctx.gui_states.layerChannel.layer;
@@ -382,7 +571,7 @@ export class SphereBrushTool extends BaseTool {
       const dims = vol.getDimensions();
       const axis = this.ctx.protectedData.axis;
       const center = this.canvasToVoxelCenter(this.centerX, this.centerY, this.centerSlice, axis);
-      const radii = this.getVoxelRadii(radius);
+      const radii = this.getVoxelRadii(radius, axis);
       const bb = this.getBoundingBox(center, radii, dims);
       this.expandDragBeforeSnapshots(vol, bb.minZ, bb.maxZ);
     } catch {
@@ -403,9 +592,11 @@ export class SphereBrushTool extends BaseTool {
     if (!this.active || this.mode !== "eraser") return;
     this.dragMoved = true;
 
-    const mouseX = e.offsetX / this.ctx.nrrd_states.view.sizeFactor;
-    const mouseY = e.offsetY / this.ctx.nrrd_states.view.sizeFactor;
     const sliceIndex = this.ctx.nrrd_states.view.currentSliceIndex;
+    this.lastDisplayX = e.offsetX;
+    this.lastDisplayY = e.offsetY;
+    this.lastSliceIndex = sliceIndex;
+    this.strokeCenters.push({ x: e.offsetX, y: e.offsetY, sliceIndex });
 
     const layer = this.ctx.gui_states.layerChannel.layer;
     const channel = this.ctx.gui_states.layerChannel.activeChannel || 1;
@@ -420,8 +611,8 @@ export class SphereBrushTool extends BaseTool {
     }
 
     const dims = vol.getDimensions();
-    const center = this.canvasToVoxelCenter(mouseX, mouseY, sliceIndex, axis);
-    const radii = this.getVoxelRadii(radius);
+    const center = this.canvasToVoxelCenter(e.offsetX, e.offsetY, sliceIndex, axis);
+    const radii = this.getVoxelRadii(radius, axis);
     const bb = this.getBoundingBox(center, radii, dims);
 
     // Expand "before" snapshots to cover any new Z slices
@@ -430,11 +621,12 @@ export class SphereBrushTool extends BaseTool {
     // Erase sphere at current position
     this.erase3DSphereFromVolume(vol, center, radii, bb, channel);
 
-    // Update preview position
-    this.drawPreview(mouseX, mouseY, radius, true);
+    // Update preview position (pass display/zoomed coords)
+    this.drawPreview(e.offsetX, e.offsetY, radius, true);
 
-    // Refresh display so user sees the erase in real-time
-    this.refreshDisplay(layer);
+    // Refresh display locally — skip backend notify to avoid per-frame HTTP.
+    // onSphereEraserPointerUp batches all deltas into a single notify.
+    this.refreshDisplay(layer, undefined, false);
   }
 
   /**
@@ -454,17 +646,18 @@ export class SphereBrushTool extends BaseTool {
     try {
       vol = this.callbacks.getVolumeForLayer(layer);
     } catch {
-      this.clearPreview();
-      this.dragBeforeSnapshots.clear();
+      this.finalizeStrokeState();
       return;
     }
 
-    // If no drag occurred, erase at the click position (original click-release behavior)
-    if (!this.dragMoved) {
+    // Click-without-drag: erase at the click position (click-release behavior).
+    if (!this.dragMoved && this.strokeCenters.length > 0) {
+      const sc = this.strokeCenters[0];
       const dims = vol.getDimensions();
-      const center = this.canvasToVoxelCenter(this.centerX, this.centerY, this.centerSlice, axis);
-      const radii = this.getVoxelRadii(radius);
+      const center = this.canvasToVoxelCenter(sc.x, sc.y, sc.sliceIndex, axis);
+      const radii = this.getVoxelRadii(radius, axis);
       const bb = this.getBoundingBox(center, radii, dims);
+      this.expandDragBeforeSnapshots(vol, bb.minZ, bb.maxZ);
       this.erase3DSphereFromVolume(vol, center, radii, bb, channel);
     }
 
@@ -475,10 +668,21 @@ export class SphereBrushTool extends BaseTool {
       this.callbacks.pushUndoGroup(deltas);
     }
 
-    // Refresh display and notify backend of ALL changed slices
-    this.refreshDisplay(layer, deltas);
+    // Refresh display and notify backend of ALL changed slices — single HTTP batch
+    this.refreshDisplay(layer, deltas, true);
+    this.finalizeStrokeState();
+  }
+
+  /**
+   * Clear per-stroke state after pointerup or cancel. Kept as a helper so
+   * brush/eraser pointerup and cancelActivePlacement all reset the same set
+   * of fields — if a new drag-state field is added, only one place to update.
+   */
+  private finalizeStrokeState(): void {
     this.clearPreview();
     this.dragBeforeSnapshots.clear();
+    this.strokeCenters = [];
+    this.dragMoved = false;
   }
 
   /**
@@ -525,8 +729,15 @@ export class SphereBrushTool extends BaseTool {
    * @param changedDeltas - If provided, fire onMaskChanged for ALL changed
    *   slices (not just the current view slice) so the backend receives the
    *   full 3D sphere data for NII/GLTF export.
+   * @param notifyBackend - When false, only refresh the local canvas and skip
+   *   the onMaskChanged callback. Used during drag to avoid per-frame HTTP;
+   *   pointerup then calls with `true` to send a single batched update.
    */
-  private refreshDisplay(layerId: string, changedDeltas?: MaskDelta[]): void {
+  private refreshDisplay(
+    layerId: string,
+    changedDeltas?: MaskDelta[],
+    notifyBackend: boolean = true
+  ): void {
     // Re-render layer canvas from volume for the current slice
     const target = this.ctx.protectedData.layerTargets.get(layerId);
     if (target) {
@@ -547,6 +758,9 @@ export class SphereBrushTool extends BaseTool {
 
     // Composite all layers to master canvas
     this.callbacks.compositeAllLayers();
+
+    // Skip backend notify during drag — pointerup batches a single notify for the whole stroke.
+    if (!notifyBackend) return;
 
     // Fire onMaskChanged for ALL changed slices (not just the current view slice)
     // This ensures the backend receives the full 3D sphere data for export.
@@ -579,5 +793,23 @@ export class SphereBrushTool extends BaseTool {
   /** Whether a sphere placement is currently in progress */
   get isActive(): boolean {
     return this.active;
+  }
+
+  /**
+   * Defensively cancel any in-progress sphere placement and clear the preview.
+   *
+   * Called when crosshair mode is entered so any lingering sphere preview
+   * (e.g. red dashed eraser outline) is wiped immediately. In normal flow
+   * `leftButtonDown === true` blocks crosshair toggle, so this shouldn't
+   * fire mid-stroke — but if it ever does, we drop the drag snapshot
+   * rather than committing a partial undo entry.
+   */
+  cancelActivePlacement(): void {
+    if (!this.active) {
+      this.clearPreview();
+      return;
+    }
+    this.active = false;
+    this.finalizeStrokeState();
   }
 }

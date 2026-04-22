@@ -41,6 +41,12 @@ const DEFAULT_KEYBOARD_SETTINGS: KeyboardSettings = {
  */
 const DRAWING_TOOLS: Set<GuiTool> = new Set<GuiTool>(['pencil', 'brush', 'eraser']);
 
+/**
+ * Sphere-family tools (single-placement sphere + brush/eraser variants).
+ * All three participate in the same crosshair / contrast mutual-exclusion rules.
+ */
+const SPHERE_TOOLS: Set<GuiTool> = new Set<GuiTool>(['sphere', 'sphereBrush', 'sphereEraser']);
+
 export class EventRouter {
     // === DOM Elements ===
     private container: HTMLElement;
@@ -224,8 +230,8 @@ export class EventRouter {
     setGuiTool(tool: GuiTool): void {
         this.guiTool = tool;
 
-        // When entering sphere mode, keep crosshair if active, otherwise idle
-        if (tool === 'sphere') {
+        // When entering any sphere-family tool, keep crosshair if active, otherwise idle
+        if (SPHERE_TOOLS.has(tool)) {
             if (!this.state.crosshairEnabled) {
                 this.setMode('idle');
             }
@@ -238,9 +244,11 @@ export class EventRouter {
      * Blocked when draw or contrast mode is active, or left button is held (mutual exclusion).
      */
     toggleCrosshair(): void {
-        // Allow crosshair in drawing tools and sphere mode
-        if (!DRAWING_TOOLS.has(this.guiTool) && this.guiTool !== 'sphere') return;
-        // Block crosshair activation during draw, contrast, or while left button held
+        // Allow crosshair in drawing tools and all sphere-family tools (sphere / sphereBrush / sphereEraser)
+        if (!DRAWING_TOOLS.has(this.guiTool) && !SPHERE_TOOLS.has(this.guiTool)) return;
+        // Block crosshair activation during draw, contrast, or while left button held.
+        // The leftButtonDown guard also enforces "once a sphere preview is on screen,
+        // S is ignored until mouseup" for sphereBrush/sphereEraser.
         if (this.state.shiftHeld || this.state.leftButtonDown || this.mode === 'draw' || this.mode === 'contrast') return;
 
         this.state.crosshairEnabled = !this.state.crosshairEnabled;
@@ -390,9 +398,9 @@ export class EventRouter {
         }
 
         if (this.contrastEnabled && this.keyboardSettings.contrast.includes(ev.key)) {
-            // Block contrast state when crosshair, draw, or sphere is active (mutual exclusion)
+            // Block contrast state when crosshair, draw, or any sphere-family tool is active (mutual exclusion)
             if (!this.state.crosshairEnabled && this.mode !== 'draw'
-                && this.guiTool !== 'sphere') {
+                && !SPHERE_TOOLS.has(this.guiTool)) {
                 this.state.ctrlHeld = true;
             }
         }

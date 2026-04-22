@@ -128,3 +128,11 @@ export { MaskVolume } from './MaskVolume';
 // ── Undo/Redo Manager ──────────────────────────────────────────────────────
 export type { MaskDelta, UndoEntry } from './UndoManager';
 export { UndoManager } from './UndoManager';
+
+// ── Marching Squares ───────────────────────────────────────────────────────
+export type { ContourBBox, ContourPolygon } from './MarchingSquares';
+export {
+  extractLabelContours,
+  extractLabelPolygons,
+  findLabelsInSlice,
+} from './MarchingSquares';
