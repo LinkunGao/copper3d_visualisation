@@ -88,6 +88,15 @@ export class DrawToolCore {
   /** Wheel event dispatch mode — replaces manual wheel add/remove (Phase 2) */
   private activeWheelMode: 'zoom' | 'sphere' | 'sphereBrush' | 'none' = 'zoom';
 
+  /**
+   * While a slice-drag is in progress we temporarily reinterpret the wheel
+   * as Scroll:Slice so that wheel + drag both move slices instead of drag
+   * switching slices while wheel zooms. The original setting captured here
+   * is restored on pointerup. `null` means no swap is currently active.
+   * Only set to 'Scroll:Zoom' — Scroll:Slice never needs a swap.
+   */
+  private wheelModeBeforeDrag: 'Scroll:Zoom' | null = null;
+
   // need to return to parent
   start: () => void = () => { };
 
@@ -313,6 +322,15 @@ export class DrawToolCore {
       }
     });
     this.eventRouter.setPointerUpHandler((e: PointerEvent) => {
+      // Restore Scroll:Zoom if we swapped to Scroll:Slice on drag-start.
+      // Must run outside the drawing-tool gate below: slice-drag doesn't
+      // flip any of those flags, so the gate would skip restoration.
+      if (e.button === 0 && this.wheelModeBeforeDrag !== null) {
+        this.state.keyboardSettings.mouseWheel = this.wheelModeBeforeDrag;
+        this.wheelModeBeforeDrag = null;
+        this.updateMouseWheelEvent();
+      }
+
       if (this.drawingTool.isActive || this.drawingTool.painting
         || this.panTool.isActive
         || (this.state.gui_states.mode.sphere && this.eventRouter.getMode() !== 'crosshair')
@@ -470,6 +488,19 @@ export class DrawToolCore {
     };
     // Route pointerdown through EventRouter
     this.eventRouter.setPointerDownHandler((e: PointerEvent) => {
+      // On slice-drag start, temporarily borrow the wheel as Scroll:Slice
+      // so drag and wheel both move slices instead of fighting (drag
+      // switching slices while wheel zooms). Restored on pointerup.
+      // Scroll:Slice users need no swap — skip.
+      if (e.button === 0
+        && this.eventRouter.isDragSliceActive()
+        && this.wheelModeBeforeDrag === null
+        && this.state.keyboardSettings.mouseWheel === 'Scroll:Zoom') {
+        this.wheelModeBeforeDrag = 'Scroll:Zoom';
+        this.state.keyboardSettings.mouseWheel = 'Scroll:Slice';
+        this.updateMouseWheelEvent();
+      }
+
       this.drawingPrameters.handleOnDrawingMouseDown(e);
     });
 

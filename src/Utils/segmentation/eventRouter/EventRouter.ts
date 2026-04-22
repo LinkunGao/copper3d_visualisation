@@ -291,11 +291,11 @@ export class EventRouter {
 
     /**
      * Whether the user is currently performing a slice-drag (left-button held
-     * in idle mode with a non-sphere tool). In this state the mouse wheel is
-     * suppressed so that slice switching via drag and slice/zoom via wheel
-     * cannot fight each other. Draw / contrast / crosshair set `mode` away
-     * from 'idle', and sphere-family tools use left-drag for their own
-     * purposes, so both are correctly excluded.
+     * in idle mode with a non-sphere tool). Draw / contrast / crosshair set
+     * `mode` away from 'idle', and sphere-family tools use left-drag for
+     * their own purposes, so both are correctly excluded. Consumers use this
+     * to coordinate other input streams (e.g. temporarily reinterpreting the
+     * wheel) with an active slice-drag.
      */
     isDragSliceActive(): boolean {
         return (
@@ -496,16 +496,6 @@ export class EventRouter {
     }
 
     private handleWheel(ev: WheelEvent): void {
-        // Mutual exclusion: slice-drag wins over wheel. While the left button
-        // is held in a slice-drag context, swallow wheel events so the image
-        // cannot scroll/zoom at the same time the user is dragging slices.
-        // Re-checked on every event, so pressing the left button mid-scroll
-        // flips us into drag mode on the very next wheel tick.
-        if (this.isDragSliceActive()) {
-            ev.preventDefault();
-            return;
-        }
-
         if (this.wheelHandler) {
             this.wheelHandler(ev);
         }
