@@ -195,10 +195,10 @@ export class DragSliceTool extends BaseTool {
         view.currentSliceIndex = view.maxIndex;
       }
       if (view.showContrast) {
-        this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${this.ctx.protectedData.displaySlices.length - 1
-          } SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
+        this.showDragNumberDiv.innerHTML = `Contrast: ${contrastNum} / ${this.ctx.protectedData.displaySlices.length - 1
+          } &mdash; Slice: ${view.currentSliceIndex} / ${view.maxIndex}`;
       } else {
-        this.showDragNumberDiv.innerHTML = `SliceNum: ${view.currentSliceIndex}/${view.maxIndex}`;
+        this.showDragNumberDiv.innerHTML = `Slice: ${view.currentSliceIndex} / ${view.maxIndex}`;
       }
     }
   }
