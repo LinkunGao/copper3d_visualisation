@@ -60,6 +60,18 @@ export class MaskVolume {
   /** Per-channel color map used for colored rendering modes. */
   private colorMap: ChannelColorMap;
 
+  /**
+   * Monotonic data-mutation counter.
+   *
+   * Incremented by every method that mutates voxel data (not color).
+   * Consumers (e.g. the contour cache in RenderingUtils) key cached
+   * derivations on this value so an edit automatically invalidates them —
+   * it is impossible to forget an invalidation point because every write
+   * bumps the version. Color-map changes do **not** bump it (colors are
+   * applied at fill time, never cached).
+   */
+  private version = 0;
+
   // ── Constructor ────────────────────────────────────────────────────
 
   /**
@@ -188,6 +200,17 @@ export class MaskVolume {
    */
   setVoxel(x: number, y: number, z: number, value: number, channel = 0): void {
     this.data[this.getIndex(x, y, z, channel)] = value;
+    this.version++;
+  }
+
+  /**
+   * Return the current data-mutation version.
+   *
+   * Increments on every voxel write. Use as a cache key so derived data
+   * (e.g. extracted contours) is invalidated whenever the volume changes.
+   */
+  getVersion(): number {
+    return this.version;
   }
 
   // ── Color map management ──────────────────────────────────────────
@@ -376,6 +399,8 @@ export class MaskVolume {
       );
     }
 
+    this.version++;
+
     const pixels = imageData.data;
     const { width, height } = this.dims;
     const ch = this.numChannels;
@@ -487,6 +512,8 @@ export class MaskVolume {
         `got ${imageData.width}×${imageData.height}`
       );
     }
+
+    this.version++;
 
     // Build RGB→channel lookup map for O(1) reverse lookup
     const rgbToChannel = this.buildRgbToChannelMap();
@@ -785,6 +812,7 @@ export class MaskVolume {
       );
     }
     this.data = newData;
+    this.version++;
   }
 
   /**
@@ -831,6 +859,7 @@ export class MaskVolume {
    */
   clear(): void {
     this.data.fill(0);
+    this.version++;
   }
 
   /**
@@ -889,6 +918,8 @@ export class MaskVolume {
     channel?: number,
   ): void {
     this.validateSliceIndex(sliceIndex, axis);
+
+    this.version++;
 
     const [sliceW, sliceH] = this.getSliceDimensions(axis);
     const volData = this.data;
@@ -1012,6 +1043,8 @@ export class MaskVolume {
     axis: 'x' | 'y' | 'z' = 'z',
   ): void {
     this.validateSliceIndex(sliceIndex, axis);
+
+    this.version++;
 
     const [sliceW, sliceH] = this.getSliceDimensions(axis);
     const nch = this.numChannels;
