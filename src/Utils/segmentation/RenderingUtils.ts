@@ -24,6 +24,30 @@ export class RenderingUtils {
     private _reusableBufferWidth: number = 0;
     private _reusableBufferHeight: number = 0;
 
+    /**
+     * Per-layer contour cache.
+     *
+     * Caches the *expensive* part of slice rendering — `getSliceUint8` +
+     * `findLabelsInSlice` + `extractLabelContours` (Path2D build) — keyed by
+     * `${axis}:${sliceIndex}:${volume.version}`. The contours live in voxel
+     * coordinates; zoom only changes the `ctx.scale` transform, so on zoom /
+     * recomposite we reuse the cached Path2D and just re-fill, skipping
+     * marching-squares entirely. A volume edit bumps its version → cache miss
+     * → recompute (correct, automatic). Colors and channel visibility are
+     * applied at fill time and intentionally *not* cached, so toggling them
+     * needs no recompute.
+     *
+     * One entry per layer (the current slice). Switching slice/axis or
+     * editing overwrites it.
+     */
+    private _contourCache = new Map<string, {
+        key: string;
+        W: number;
+        H: number;
+        labels: number[];
+        paths: Map<number, Path2D>;
+    }>();
+
     constructor(state: CanvasState) {
         this.state = state;
     }
@@ -144,15 +168,29 @@ export class RenderingUtils {
             const volume = this.getVolumeForLayer(layer);
             if (!volume) return;
 
-            const channelVis = this.state.gui_states.layerChannel.channelVisibility[layer];
-
-            const slice = volume.getSliceUint8(sliceIndex, axis);
-            const W = slice.width;
-            const H = slice.height;
             const stride = volume.getChannels();
+            const cacheKey = `${axis}:${sliceIndex}:${volume.getVersion()}`;
 
-            const labels = findLabelsInSlice(slice.data, W, H, stride, 0);
-            if (labels.length === 0) return;
+            // Cache miss → run the expensive extraction once. Hits (zoom,
+            // recomposite, contrast toggle) skip straight to the fill below.
+            let entry = this._contourCache.get(layer);
+            if (!entry || entry.key !== cacheKey) {
+                const slice = volume.getSliceUint8(sliceIndex, axis);
+                const W = slice.width;
+                const H = slice.height;
+                const labels = findLabelsInSlice(slice.data, W, H, stride, 0);
+                const paths = new Map<number, Path2D>();
+                for (const lbl of labels) {
+                    paths.set(lbl, extractLabelContours(slice.data, W, H, lbl, stride, 0));
+                }
+                entry = { key: cacheKey, W, H, labels, paths };
+                this._contourCache.set(layer, entry);
+            }
+
+            if (entry.labels.length === 0) return;
+
+            const { W, H, labels, paths } = entry;
+            const channelVis = this.state.gui_states.layerChannel.channelVisibility[layer];
 
             targetCtx.save();
             // Vector fill — imageSmoothingEnabled is irrelevant here, but keep
@@ -172,8 +210,9 @@ export class RenderingUtils {
 
             for (const lbl of labels) {
                 if (channelVis && channelVis[lbl] === false) continue;
+                const path = paths.get(lbl);
+                if (!path) continue;
                 const color = volume.getChannelColor(lbl);
-                const path = extractLabelContours(slice.data, W, H, lbl, stride, 0);
                 targetCtx.fillStyle =
                     `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a / 255})`;
                 targetCtx.fill(path, 'nonzero');
@@ -192,6 +231,7 @@ export class RenderingUtils {
         this._reusableSliceBuffer = null;
         this._reusableBufferWidth = 0;
         this._reusableBufferHeight = 0;
+        this._contourCache.clear();
     }
 
     /**

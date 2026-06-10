@@ -876,3 +876,81 @@ describe('MaskVolume — Color Map Management', () => {
     expect(img.data[3]).toBe(200); // A = round(200 * 1.0 * 1.0)
   });
 });
+
+// =====================================================================
+//  Version counter (contour-cache invalidation key)
+// =====================================================================
+describe('MaskVolume — Version Counter', () => {
+  it('should start at 0 for a fresh volume', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    expect(vol.getVersion()).toBe(0);
+  });
+
+  it('should increment on setVoxel', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    const before = vol.getVersion();
+    vol.setVoxel(0, 0, 0, 1);
+    expect(vol.getVersion()).toBe(before + 1);
+  });
+
+  it('should increment on clear', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    const before = vol.getVersion();
+    vol.clear();
+    expect(vol.getVersion()).toBe(before + 1);
+  });
+
+  it('should increment on clearSlice', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    const before = vol.getVersion();
+    vol.clearSlice(0, 'z');
+    expect(vol.getVersion()).toBe(before + 1);
+  });
+
+  it('should increment on setRawData', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    const before = vol.getVersion();
+    vol.setRawData(new Uint8Array(4 * 4 * 4));
+    expect(vol.getVersion()).toBe(before + 1);
+  });
+
+  it('should increment on setSliceUint8', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    const before = vol.getVersion();
+    vol.setSliceUint8(0, new Uint8Array(4 * 4), 'z');
+    expect(vol.getVersion()).toBe(before + 1);
+  });
+
+  it('should increment on setSliceFromImageData', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    const before = vol.getVersion();
+    vol.setSliceFromImageData(0, createImageData(4, 4), 'z');
+    expect(vol.getVersion()).toBe(before + 1);
+  });
+
+  it('should increment on setSliceLabelsFromImageData', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    const before = vol.getVersion();
+    vol.setSliceLabelsFromImageData(0, createImageData(4, 4), 'z');
+    expect(vol.getVersion()).toBe(before + 1);
+  });
+
+  it('should NOT increment on color-map changes', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    const before = vol.getVersion();
+    vol.setChannelColor(1, { r: 1, g: 2, b: 3, a: 4 });
+    vol.resetChannelColors();
+    vol.getChannelColor(1);
+    vol.getColorMap();
+    expect(vol.getVersion()).toBe(before);
+  });
+
+  it('should NOT increment on read-only slice extraction', () => {
+    const vol = new MaskVolume(4, 4, 4);
+    vol.setVoxel(0, 0, 0, 1);
+    const after = vol.getVersion();
+    vol.getSliceUint8(0, 'z');
+    vol.getSliceImageData(0, 'z');
+    expect(vol.getVersion()).toBe(after);
+  });
+});
