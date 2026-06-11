@@ -78,10 +78,18 @@ export interface ContourBBox {
 export type ContourPolygon = ReadonlyArray<readonly [number, number]>;
 
 /**
- * Emit all per-cell polygons covering the voxels where `labels === targetLabel`.
+ * Emit polygons covering the voxels where `labels === targetLabel`.
  * Pure geometry function — no Canvas dependency. Consumers can build a Path2D
  * (see {@link extractLabelContours}) or walk the vertex arrays directly
  * (tests, export, stroke rendering).
+ *
+ * Boundary cells (marching-squares cases 1–14) emit their cut polygon as
+ * usual. Solid interior (case 15) is **coalesced into horizontal run-length
+ * rectangles** instead of one unit square per cell, collapsing the subpath
+ * count from O(area) to ≈ O(perimeter + rows). The filled region is
+ * pixel-identical (contiguous full-cell squares tile exactly into a rectangle
+ * with the same TL→TR→BR→BL winding), which is what keeps slice-scrubbing
+ * fast on large masks without changing the rendered silhouette.
  */
 export function extractLabelPolygons(
   labels: Uint8Array,
@@ -114,7 +122,27 @@ export function extractLabelPolygons(
   // render square [i, i+1] × [j, j+1]; its center is (i+0.5, j+0.5).
   const SHIFT = 0.5;
 
+  // Emit a single rectangle covering a contiguous run of full (code 15)
+  // cells [runStart .. runEnd] on row j. A full cell i covers render square
+  // [i+0.5, i+1.5] × [j+0.5, j+1.5]; consecutive full cells tile perfectly,
+  // so the run is pixel-identical to the per-cell squares it replaces.
+  // Vertices use the same TL→TR→BR→BL (CCW screen-space) winding as the
+  // case-15 unit square, so the nonzero fill matches at shared edges.
+  const pushFullRun = (runStart: number, runEnd: number, j: number): void => {
+    const x0 = runStart + SHIFT;
+    const x1 = runEnd + 1 + SHIFT;
+    const y0 = j + SHIFT;
+    const y1 = j + 1 + SHIFT;
+    out.push([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]);
+  };
+
   for (let j = j0; j < j1; j++) {
+    // Index where the current contiguous run of full (code 15) cells began,
+    // or -1 when no run is open. Coalescing the solid interior into row runs
+    // drops the per-cell square count from O(area) to O(rows + perimeter),
+    // which is what keeps fast slice-scrubbing smooth on large masks.
+    let runStart = -1;
+
     for (let i = i0; i < i1; i++) {
       const tl = sample(i, j);
       const tr = sample(i + 1, j);
@@ -127,6 +155,18 @@ export function extractLabelPolygons(
         (br ? 2 : 0) |
         (bl ? 1 : 0);
 
+      if (code === 15) {
+        // Extend (or open) the current full-cell run; defer emission.
+        if (runStart === -1) runStart = i;
+        continue;
+      }
+
+      // Non-full cell ends any open run — flush it as one rectangle.
+      if (runStart !== -1) {
+        pushFullRun(runStart, i - 1, j);
+        runStart = -1;
+      }
+
       if (code === 0) continue;
 
       const polygons = CELL_POLYGONS[code];
@@ -138,6 +178,11 @@ export function extractLabelPolygons(
         }
         out.push(abs);
       }
+    }
+
+    // Flush a run that reached the end of the row (last visited cell is i1-1).
+    if (runStart !== -1) {
+      pushFullRun(runStart, i1 - 1, j);
     }
   }
   return out;

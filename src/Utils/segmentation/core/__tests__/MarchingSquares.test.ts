@@ -199,4 +199,44 @@ describe('extractLabelPolygons', () => {
     expect(isPointInside(polys, -0.5, -0.5)).toBe(false);
     expect(isPointInside(polys, 3.5, 3.5)).toBe(false);
   });
+
+  // Performance contract: solid interior must be coalesced into horizontal
+  // run-length rectangles, NOT one unit square per cell. Without this, a large
+  // solid mask emits O(area) subpaths and tanks slice-scrubbing framerate.
+  it('coalesces a solid block into a sub-quadratic number of polygons', () => {
+    const N = 40;
+    const labels = new Uint8Array(N * N).fill(1);
+    const polys = extractLabelPolygons(labels, N, N, 1);
+
+    // O(area) would be ~N*N = 1600 squares. Run-length must stay near O(N):
+    // ≈ one interior rectangle per row + a perimeter halo of boundary cells.
+    expect(polys.length).toBeLessThan(6 * N);
+
+    // ...while still filling the whole region (every voxel center inside,
+    // outside the grid not covered) — pixel-equivalence preserved.
+    expect(isPointInside(polys, 0.5, 0.5)).toBe(true);
+    expect(isPointInside(polys, (N - 1) + 0.5, (N - 1) + 0.5)).toBe(true);
+    expect(isPointInside(polys, N / 2 + 0.5, N / 2 + 0.5)).toBe(true);
+    expect(isPointInside(polys, -0.5, -0.5)).toBe(false);
+    expect(isPointInside(polys, N + 0.5, N + 0.5)).toBe(false);
+  });
+
+  // A solid run broken by a background hole must flush into separate
+  // rectangles and leave the hole empty (run-length must not bridge holes).
+  it('does not bridge a background hole within a row', () => {
+    // 7×5 solid label-1 block with a single interior voxel punched out at (3,2).
+    const W = 7, H = 5;
+    const labels = new Uint8Array(W * H).fill(1);
+    labels[2 * W + 3] = 0; // hole at voxel (x=3, y=2)
+    const polys = extractLabelPolygons(labels, W, H, 1);
+
+    // Solid interior on both sides of the hole stays covered (voxel centers,
+    // which the existing all-same test confirms are reliable for fill).
+    expect(isPointInside(polys, 1.5, 1.5)).toBe(true);
+    expect(isPointInside(polys, 5.5, 2.5)).toBe(true);
+    // The hole forms an unfilled diamond centered on the missing voxel
+    // (3.5, 2.5). Sample slightly off-center to dodge ray-through-vertex
+    // degeneracy: |3.4-3.5| + |2.4-2.5| = 0.2 < 0.5 → strictly inside the hole.
+    expect(isPointInside(polys, 3.4, 2.4)).toBe(false);
+  });
 });
