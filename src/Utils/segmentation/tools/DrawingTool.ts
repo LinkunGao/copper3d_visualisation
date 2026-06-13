@@ -168,9 +168,15 @@ export class DrawingTool extends BaseTool {
         // Re-render from voxels to eliminate pencil snap
         this.refreshLayerFromVolume();
       } else {
-        // Brush mode: voxels already written during mousemove
-        // Just re-render final state and composite
+        // Brush mode: voxels already written directly into the MaskVolume
+        // during mousemove, so no canvas→voxel bake (syncLayerSliceData) is
+        // needed. But we MUST still notify the backend — unlike pencil/eraser
+        // (which go through syncLayerSliceData) the brush path never fires
+        // onMaskChanged, so brush strokes were silently never persisted via
+        // useReplaceMask. Re-render the final state, then fire onMaskChanged
+        // for the current slice (same pattern as SphereBrushTool.refreshDisplay).
         this.refreshLayerFromVolume();
+        this.notifyMaskChanged();
       }
     } else {
       // Eraser mode: still needs canvas→voxel bake
@@ -471,6 +477,31 @@ export class DrawingTool extends BaseTool {
 
     this.callbacks.compositeAllLayers();
     this.ctx.protectedData.mainPreSlices.mesh.material.map.needsUpdate = true;
+  }
+
+  /**
+   * Notify the backend of the brush stroke by firing onMaskChanged for the
+   * current slice. Brush writes voxels straight into the MaskVolume (no canvas
+   * bake), so we read the authoritative slice back from the volume — mirrors
+   * SphereBrushTool.refreshDisplay's notify path. Brush only ever touches the
+   * current view slice (canvasToVoxel3D fixes the slice axis), so a single
+   * slice notification is sufficient.
+   */
+  private notifyMaskChanged(): void {
+    if (this.ctx.nrrd_states.flags.loadingMaskData) return;
+    try {
+      const layer = this.ctx.gui_states.layerChannel.layer;
+      const vol = this.callbacks.getVolumeForLayer(layer);
+      const channel = this.ctx.gui_states.layerChannel.activeChannel || 1;
+      const axis = this.ctx.protectedData.axis;
+      const sliceIndex = this.ctx.nrrd_states.view.currentSliceIndex;
+      const { data: sliceData, width, height } = vol.getSliceUint8(sliceIndex, axis);
+      this.ctx.callbacks.onMaskChanged(
+        sliceData, layer, channel, sliceIndex, axis, width, height, false
+      );
+    } catch {
+      // Volume not ready — skip notification
+    }
   }
 
   // ── Private helpers ────────────────────────────────────────
