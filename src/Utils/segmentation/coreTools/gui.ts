@@ -1,5 +1,5 @@
 import { GUI } from "dat.gui";
-import { switchEraserSize, switchPencilIcon } from "../../utils";
+import { switchPencilIcon } from "../../utils";
 import {
   IDrawingEvents,
   IProtected,
@@ -20,7 +20,6 @@ interface IConfigGUI {
   drawingCanvas: HTMLCanvasElement;
   drawingPrameters: IDrawingEvents;
   protectedData: IProtected;
-  eraserUrls: string[];
   pencilUrls: string[];
   getVolumeForLayer: (layer: string) => any;
   mainPreSlices: any;
@@ -77,10 +76,7 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
     .name("BrushAndEraserSize")
     .min(5)
     .max(50)
-    .step(1)
-    .onChange(() => {
-      updateGuiBrushAndEraserSize();
-    });
+    .step(1);
 
   actionsFolder.add(configs.gui_states.mode, "eraser").onChange((value) => {
     updateGuiEraserState();
@@ -247,59 +243,34 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
     });
   actionsFolder.open();
 
-  const updateGuiBrushAndEraserSize = () => {
-    if (configs.gui_states.mode.eraser) {
-      configs.eraserUrls.length > 0
-        ? (configs.drawingCanvas.style.cursor = switchEraserSize(
-          configs.gui_states.drawing.brushAndEraserSize,
-          configs.eraserUrls
-        ))
-        : (configs.drawingCanvas.style.cursor = switchEraserSize(
-          configs.gui_states.drawing.brushAndEraserSize
-        ));
+  // Add/remove the hover-tracking listeners that feed the brush/eraser preview
+  // ring (mouseOver position). Present for brush & eraser, removed for pencil.
+  const setBrushHoverTracking = (enabled: boolean) => {
+    const handler = configs.drawingPrameters.handleOnDrawingBrushCricleMove;
+    if (enabled) {
+      configs.drawingCanvas.addEventListener("mouseover", handler);
+      configs.drawingCanvas.addEventListener("mouseout", handler);
+    } else {
+      configs.drawingCanvas.removeEventListener("mouseover", handler);
+      configs.drawingCanvas.removeEventListener("mouseout", handler);
     }
   };
 
   const updatePencilState = () => {
-    if (configs.gui_states.mode.pencil) {
-      // add canvas brush circle move event listeners
-      configs.drawingCanvas.removeEventListener(
-        "mouseover",
-        configs.drawingPrameters.handleOnDrawingBrushCricleMove
-      );
-      configs.drawingCanvas.removeEventListener(
-        "mouseout",
-        configs.drawingPrameters.handleOnDrawingBrushCricleMove
-      );
-    } else {
-      // add canvas brush circle move event listeners
-      configs.drawingCanvas.addEventListener(
-        "mouseover",
-        configs.drawingPrameters.handleOnDrawingBrushCricleMove
-      );
-      configs.drawingCanvas.addEventListener(
-        "mouseout",
-        configs.drawingPrameters.handleOnDrawingBrushCricleMove
-      );
-    }
+    // Pencil has no preview ring; brush keeps the hover-tracking listeners.
+    setBrushHoverTracking(!configs.gui_states.mode.pencil);
     configs.drawingCanvas.style.cursor = configs.gui_states.viewConfig.defaultPaintCursor;
   };
 
   const updateGuiEraserState = () => {
-    // configs.gui_states.mode.eraser = value;
+    // The eraser shows a dashed preview ring (rendered in DrawToolCore.start),
+    // so it needs the same hover-tracking as the brush. The canvas keeps the
+    // default paint cursor; the ring conveys size (resize via Shift+wheel).
     if (configs.gui_states.mode.eraser) {
-      configs.eraserUrls.length > 0
-        ? (configs.drawingCanvas.style.cursor = switchEraserSize(
-          configs.gui_states.drawing.brushAndEraserSize,
-          configs.eraserUrls
-        ))
-        : (configs.drawingCanvas.style.cursor = switchEraserSize(
-          configs.gui_states.drawing.brushAndEraserSize
-        ));
-    } else {
-      configs.drawingCanvas.style.cursor =
-        configs.gui_states.viewConfig.defaultPaintCursor;
+      setBrushHoverTracking(true);
     }
+    configs.drawingCanvas.style.cursor =
+      configs.gui_states.viewConfig.defaultPaintCursor;
   };
 
   const updateGuiSphereState = () => {
@@ -358,7 +329,6 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
       min: 5,
       max: 50,
       step: 1,
-      onChange: updateGuiBrushAndEraserSize,
     },
     eraser: {
       name: "Eraser",

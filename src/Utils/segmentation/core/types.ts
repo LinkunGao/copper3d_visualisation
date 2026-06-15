@@ -390,7 +390,6 @@ export interface IGuiParameterSettings {
     min: number,
     max: number,
     step: number,
-    onChange: () => void,
   },
   eraser: {
     name: "Eraser",

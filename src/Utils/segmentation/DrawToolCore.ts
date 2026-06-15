@@ -64,7 +64,6 @@ export class DrawToolCore {
     handleOnContrastMouseLeave: (ev: MouseEvent) => { },
   }
 
-  eraserUrls: string[] = [];
   pencilUrls: string[] = [];
   undoManager: UndoManager = new UndoManager();
 
@@ -167,7 +166,6 @@ export class DrawToolCore {
       filterDrawedImage: (axis, index) => this.renderer.filterDrawedImage(axis, index),
       getVolumeForLayer: (layer) => this.renderer.getVolumeForLayer(layer),
       pushUndoDelta: (delta) => this.undoManager.push(delta),
-      getEraserUrls: () => this.eraserUrls,
       renderSliceToCanvas: (layer, axis, sliceIndex, buffer, ctx, w, h) =>
         this.renderer.renderSliceToCanvas(layer, axis, sliceIndex, buffer, ctx, w, h),
       getOrCreateSliceBuffer: (axis) => this.renderer.getOrCreateSliceBuffer(axis),
@@ -182,7 +180,6 @@ export class DrawToolCore {
       getOrCreateSliceBuffer: (axis) => this.renderer.getOrCreateSliceBuffer(axis),
       setEmptyCanvasSize: (axis?) => this.setEmptyCanvasSize(axis),
       reloadMasksFromVolume: () => this.reloadMasksFromVolume(),
-      getEraserUrls: () => this.eraserUrls,
     });
   }
 
@@ -344,6 +341,12 @@ export class DrawToolCore {
 
     // Register wheel handler with EventRouter
     this.eventRouter.setWheelHandler((e: WheelEvent) => {
+      // Shift + wheel resizes the brush/eraser (like sphereBrush/sphereEraser
+      // radius), independent of whether the left button is held. Consumes the
+      // event so it never falls through to zoom/slice. Pencil is excluded even
+      // though it also uses Shift — see tryBrushEraserResizeWheel.
+      if (this.tryBrushEraserResizeWheel(e)) return;
+
       if (this.activeWheelMode === 'zoom') {
         this.drawingPrameters.handleMouseZoomSliceWheel(e);
       } else if (this.activeWheelMode === 'sphere') {
@@ -357,9 +360,54 @@ export class DrawToolCore {
     this.eventRouter.bindAll();
   }
 
-  setEraserUrls(urls: string[]) {
-    this.eraserUrls = urls;
+  /**
+   * Shift + mouse-wheel resize for the brush and eraser tools.
+   *
+   * Mirrors the sphereBrush/sphereEraser "scroll to change radius" UX so the
+   * user no longer has to reach for the B&E Size slider mid-annotation. Active
+   * whenever the EventRouter is in `draw` mode (i.e. Shift is held — with or
+   * without the left button down) and the current tool is brush or eraser.
+   *
+   * Pencil is deliberately excluded: it also draws with Shift, but its stroke
+   * width is fixed and unrelated to `brushAndEraserSize`. Sphere-family tools
+   * keep their own wheel-radius handler (`activeWheelMode === 'sphereBrush'`).
+   *
+   * `gui_states.mode` is the source of truth for the active tool here, not
+   * `eventRouter.getGuiTool()` — the latter is only updated for sphere tools.
+   *
+   * @returns true if the event was handled (and should not fall through to
+   *   the zoom/slice/sphere wheel handlers).
+   */
+  private tryBrushEraserResizeWheel(e: WheelEvent): boolean {
+    // `draw` mode means Shift is held and neither crosshair nor contrast is
+    // active (EventRouter only enters it for drawing tools under those rules),
+    // so it doubles as the "Shift held, not blocked" gate.
+    if (this.eventRouter.getMode() !== 'draw') return false;
+
+    const mode = this.state.gui_states.mode;
+    // Brush = no flag set; eraser = mode.eraser. Exclude pencil and all
+    // sphere-family tools.
+    if (mode.pencil || mode.sphere || mode.sphereBrush || mode.sphereEraser) {
+      return false;
+    }
+
+    e.preventDefault();
+
+    const drawing = this.state.gui_states.drawing;
+    // Step/bounds match the B&E Size slider config (min 5, max 50, step 1).
+    const next = Math.max(5, Math.min(50,
+      drawing.brushAndEraserSize + (e.deltaY < 0 ? 1 : -1)
+    ));
+    if (next === drawing.brushAndEraserSize) return true;
+    drawing.brushAndEraserSize = next;
+
+    // Both brush and eraser draw a size-preview ring in start() that reads
+    // brushAndEraserSize live, so the new size shows up on the next frame with
+    // no extra work here.
+
+    return true;
   }
+
   setPencilIconUrls(urls: string[]) {
     this.pencilUrls = urls;
     this.state.gui_states.viewConfig.defaultPaintCursor = switchPencilIcon(
@@ -550,6 +598,7 @@ export class DrawToolCore {
         );
         this.state.protectedData.ctxes.drawingCtx.globalAlpha =
           this.state.gui_states.drawing.globalAlpha;
+        const currentMode = this.eventRouter.getMode();
         if (this.state.protectedData.isDrawing) {
           this.state.protectedData.ctxes.drawingLayerMasterCtx.lineCap = "round";
           this.state.protectedData.ctxes.drawingLayerMasterCtx.globalAlpha = 1;
@@ -557,27 +606,29 @@ export class DrawToolCore {
             target.ctx.lineCap = "round";
             target.ctx.globalAlpha = 1;
           }
-        } else {
-          const currentMode = this.eventRouter.getMode();
-          if (currentMode === 'draw') {
-            this.drawingTool.renderBrushPreview(
-              this.state.protectedData.ctxes.drawingCtx,
-              this.state.nrrd_states.view.changedWidth,
-              this.state.nrrd_states.view.changedHeight
-            );
-          } else if (currentMode === 'crosshair' || this.eventRouter.isCrosshairEnabled()) {
-            this.crosshairTool.renderCrosshair(
-              this.state.protectedData.ctxes.drawingCtx,
-              this.state.nrrd_states.view.changedWidth,
-              this.state.nrrd_states.view.changedHeight
-            );
-          }
+        } else if (currentMode === 'crosshair' || this.eventRouter.isCrosshairEnabled()) {
+          this.crosshairTool.renderCrosshair(
+            this.state.protectedData.ctxes.drawingCtx,
+            this.state.nrrd_states.view.changedWidth,
+            this.state.nrrd_states.view.changedHeight
+          );
         }
         this.state.protectedData.ctxes.drawingCtx.drawImage(
           this.state.protectedData.canvases.drawingCanvasLayerMaster,
           0,
           0
         );
+
+        // Brush/eraser size ring is drawn AFTER the mask composite so it stays
+        // visible during an active stroke (not just on hover) — e.g. while the
+        // user resizes with Shift+wheel mid-paint. Gated on draw mode so it only
+        // shows for brush/eraser with Shift held (renderBrushPreview itself
+        // skips pencil and the no-hover case).
+        if (currentMode === 'draw') {
+          this.drawingTool.renderBrushPreview(
+            this.state.protectedData.ctxes.drawingCtx
+          );
+        }
 
         if (this.state.gui_states.mode.sphere
           || this.state.gui_states.mode.sphereBrush

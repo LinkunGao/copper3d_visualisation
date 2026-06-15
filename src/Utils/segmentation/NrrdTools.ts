@@ -82,7 +82,6 @@ export class NrrdTools {
   private guiCallbacks: {
     updatePencilState: () => void;
     updateEraserState: () => void;
-    updateBrushAndEraserSize: () => void;
     updateSphereState: () => void;
     updateCalDistance: (val: "tumour" | "skin" | "ribcage" | "nipple") => void;
     updateWindowHigh: (value: number) => void;
@@ -228,7 +227,6 @@ export class NrrdTools {
       nrrd_states: this.state.nrrd_states,
       drawingCanvas: this.state.protectedData.canvases.drawingCanvas,
       drawingPrameters: this.drawCore.drawingPrameters,
-      eraserUrls: this.drawCore.eraserUrls,
       pencilUrls: this.drawCore.pencilUrls,
       mainPreSlices: this.state.protectedData.mainPreSlices,
       protectedData: this.state.protectedData,
@@ -262,7 +260,6 @@ export class NrrdTools {
     this.guiCallbacks = {
       updatePencilState: this.guiParameterSettings.pencil.onChange,
       updateEraserState: this.guiParameterSettings.eraser.onChange,
-      updateBrushAndEraserSize: this.guiParameterSettings.brushAndEraserSize.onChange,
       updateSphereState: this.guiParameterSettings.sphere.onChange,
       updateCalDistance: this.guiParameterSettings.activeSphereType.onChange,
       updateWindowHigh: this.guiParameterSettings.windowHigh.onChange,
@@ -383,8 +380,9 @@ export class NrrdTools {
   }
 
   setBrushSize(size: number): void {
+    // No cursor side-effect needed: the brush/eraser preview ring reads this
+    // value live each frame (see DrawingTool.renderBrushPreview).
     this.state.gui_states.drawing.brushAndEraserSize = Math.max(5, Math.min(50, size));
-    this.guiCallbacks?.updateBrushAndEraserSize();
   }
 
   getBrushSize(): number {
@@ -641,10 +639,6 @@ export class NrrdTools {
 
   enableContrastDragEvents(callback: (step: number, towards: "horizental" | "vertical") => void) {
     this.drawCore.setupConrastEvents(callback);
-  }
-
-  setEraserUrls(urls: string[]) {
-    this.drawCore.setEraserUrls(urls);
   }
 
   setPencilIconUrls(urls: string[]) {

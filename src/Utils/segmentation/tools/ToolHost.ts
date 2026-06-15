@@ -49,7 +49,6 @@ export interface ToolHost {
     filterDrawedImage(axis: "x" | "y" | "z", index: number): { image: ImageData } | undefined;
     pushUndoDelta(delta: MaskDelta): void;
     pushUndoGroup(deltas: MaskDelta[]): void;
-    getEraserUrls(): string[];
 
     // ── Sphere / Crosshair ─────────────────────────────────────────
     enableCrosshair(): void;
@@ -98,7 +97,7 @@ export type SphereHostDeps = Pick<ToolHost,
 /** DrawingTool host dependencies */
 export type DrawingHostDeps = Pick<ToolHost,
     'setCurrentLayer' | 'compositeAllLayers' | 'syncLayerSliceData'
-    | 'filterDrawedImage' | 'getVolumeForLayer' | 'pushUndoDelta' | 'getEraserUrls'
+    | 'filterDrawedImage' | 'getVolumeForLayer' | 'pushUndoDelta'
     | 'renderSliceToCanvas' | 'getOrCreateSliceBuffer'
 >;
 
@@ -132,5 +131,5 @@ export type DataLoaderHostDeps = Pick<ToolHost,
 export type SphereBrushHostDeps = Pick<ToolHost,
     'getVolumeForLayer' | 'compositeAllLayers' | 'pushUndoGroup'
     | 'renderSliceToCanvas' | 'getOrCreateSliceBuffer' | 'setEmptyCanvasSize'
-    | 'reloadMasksFromVolume' | 'getEraserUrls'
+    | 'reloadMasksFromVolume'
 >;
