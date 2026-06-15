@@ -12,7 +12,6 @@
 
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
-import { switchEraserSize } from "../../utils";
 import type { MaskDelta } from "../core";
 import type { ICommXY } from "../core/types";
 import type { DrawingHostDeps } from "./ToolHost";
@@ -74,17 +73,11 @@ export class DrawingTool extends BaseTool {
     this.isPainting = true;
     this.ctx.protectedData.isDrawing = true;
 
-    // Set cursor based on mode
-    if (this.ctx.gui_states.mode.eraser) {
-      const urls = this.callbacks.getEraserUrls();
-      this.ctx.protectedData.canvases.drawingCanvas.style.cursor =
-        urls.length > 0
-          ? switchEraserSize(this.ctx.gui_states.drawing.brushAndEraserSize, urls)
-          : switchEraserSize(this.ctx.gui_states.drawing.brushAndEraserSize);
-    } else {
-      this.ctx.protectedData.canvases.drawingCanvas.style.cursor =
-        this.ctx.gui_states.viewConfig.defaultPaintCursor;
-    }
+    // Brush and eraser both show their size via the dashed/solid preview ring
+    // rendered in DrawToolCore.start(); the canvas keeps the default paint
+    // cursor underneath. (The eraser previously swapped in a sized PNG cursor.)
+    this.ctx.protectedData.canvases.drawingCanvas.style.cursor =
+      this.ctx.gui_states.viewConfig.defaultPaintCursor;
 
     // Record draw start position
     this.ctx.nrrd_states.interaction.drawStartPos.x = e.offsetX;
@@ -242,22 +235,31 @@ export class DrawingTool extends BaseTool {
   }
 
   /**
-   * Render brush circle preview on the drawing context.
+   * Render the size-preview ring for the brush / eraser on the drawing context.
+   *
+   * - Brush: solid outline in the current brush colour.
+   * - Eraser: red dashed outline (matches the sphereEraser preview), so the
+   *   eraser no longer needs a sized PNG cursor — the ring tracks the live
+   *   `brushAndEraserSize` and is what the user resizes with Shift+wheel.
+   *
+   * Only the pencil has no preview ring (its stroke width is fixed).
    */
   renderBrushPreview(
     ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number
+    _width?: number,
+    _height?: number
   ): void {
     if (
       this.ctx.gui_states.mode.pencil ||
-      this.ctx.gui_states.mode.eraser ||
       !this.ctx.nrrd_states.interaction.mouseOver
     ) {
       return;
     }
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = this.ctx.gui_states.drawing.brushColor;
+    const isEraser = this.ctx.gui_states.mode.eraser;
+    // No clearRect here: DrawToolCore.start() clears drawingCtx once per frame
+    // before compositing, and this ring is now drawn on top of the mask so it
+    // stays visible during an active stroke (e.g. while Shift+wheel resizing).
+    ctx.save();
     ctx.beginPath();
     ctx.arc(
       this.ctx.nrrd_states.interaction.mouseOverX,
@@ -266,8 +268,15 @@ export class DrawingTool extends BaseTool {
       0,
       Math.PI * 2
     );
-    ctx.strokeStyle = this.ctx.gui_states.drawing.brushColor;
+    if (isEraser) {
+      ctx.strokeStyle = "#ff4444";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+    } else {
+      ctx.strokeStyle = this.ctx.gui_states.drawing.brushColor;
+    }
     ctx.stroke();
+    ctx.restore();
   }
 
   // ── Brush mode: direct voxel write ────────────────────────────
