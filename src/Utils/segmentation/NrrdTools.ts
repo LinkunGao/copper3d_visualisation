@@ -266,6 +266,13 @@ export class NrrdTools {
       updateWindowLow: this.guiParameterSettings.windowLow.onChange,
       finishContrastAdjustment: this.guiParameterSettings.windowHigh.onFinished,
     };
+
+    // setupGUI may run AFTER images are loaded (e.g. the register/origin-switch load
+    // path), in which case the on-load syncGuiParameterSettings() ran while
+    // guiParameterSettings was still undefined and silently skipped the binding. Bind
+    // now so the window slider reflects the current volume's real min/max/window instead
+    // of the default 0/0 (which froze the slider and turned the image white on zoom).
+    this.syncGuiParameterSettings();
   }
 
   /**
