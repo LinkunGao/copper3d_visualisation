@@ -7,11 +7,18 @@ import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { copperNrrdTexture3dLoader } from "../Loader/copperNrrdLoader";
 import { copperVtkLoader, copperMultipleVtk } from "../Loader/copperVtkLoader";
-import { createTexture2D_Zip } from "../Utils/texture2d";
+import { createTexture2D_Array } from "../Utils/texture2d";
+import { copperDicomLoader } from "../Loader/copperDicomLoader";
+import { VTKLoader } from "three/examples/jsm/loaders/VTKLoader.js";
 import { baseScene } from "./baseScene";
 import { vtkModels } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
-import { ICopperSceneOpts } from "../types/types";
+import {
+  ICopperSceneOpts,
+  copperVolumeType,
+  aligned4DOptsType,
+  Aligned4DController,
+} from "../types/types";
 
 export class copperScene extends baseScene {
   clock: THREE.Clock = new THREE.Clock();
@@ -23,9 +30,6 @@ export class copperScene extends baseScene {
   private modelReady: boolean = false;
   private clipAction: any;
   // rayster pick
-
-  // texture2d
-  private texture2dMesh: THREE.Mesh | null = null;
 
   constructor(
     container: HTMLDivElement,
@@ -288,42 +292,199 @@ export class copperScene extends baseScene {
     };
   }
 
-  // texture2d
-  texture2d(url: string) {
-    createTexture2D_Zip(url, this.scene);
+  /**
+   * Load an aligned 4D scene: a cine MRI (one slice, N cardiac phases) rendered as a
+   * world-placed plane, plus 0..N deforming surface sequences (e.g. LV endo/epi). MRI
+   * and surfaces stay in their shared patient coordinate frame (no center/scale), and
+   * advance together off ONE shared frame clock. Returns a controller (play/pause/...).
+   */
+  loadAligned4D(
+    opts: aligned4DOptsType,
+    callback?: (ctrl: Aligned4DController) => void
+  ): void {
+    const dicomDepth = opts.dicomUrls.length;
 
-    const textureInterval = setInterval(() => {
-      this.scene.children.forEach((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          if (child.name === "texture2d_mesh_zip") {
-            this.texture2dMesh = child as THREE.Mesh;
-
-            const render_texture2d = () => {
-              if (this.texture2dMesh) {
-                let value = (this.texture2dMesh.material as any).uniforms[
-                  "depth"
-                ].value;
-
-                value += this.depthStep;
-                if (value > 109.0 || value < 0.0) {
-                  if (value > 1.0) value = 109.0 * 2.0 - value;
-                  if (value < 0.0) value = -value;
-
-                  this.depthStep = -this.depthStep;
-                }
-
-                (this.texture2dMesh.material as any).uniforms["depth"].value =
-                  value;
-              }
+    const loadDicomStack = (): Promise<copperVolumeType> =>
+      new Promise((resolve) => {
+        const volumes: Array<copperVolumeType> = [];
+        opts.dicomUrls.forEach((url) => {
+          copperDicomLoader(url, (volume) => {
+            volumes.push(volume);
+            if (volumes.length !== dicomDepth) return;
+            // order frames by cardiac phase (TriggerTime / SliceLocation)
+            volumes.sort((a, b) => a.order - b.order);
+            const frameSize = volumes[0].width * volumes[0].height;
+            const uint8 = new Uint8ClampedArray(frameSize * dicomDepth);
+            const uint16 = new Uint16Array(uint8.length);
+            volumes.forEach((v, index) => {
+              uint8.set(v.uint8, index * frameSize);
+              uint16.set(v.uint16, index * frameSize);
+            });
+            const stacked: copperVolumeType = {
+              ...volumes[0],
+              uint8,
+              uint16,
             };
-            this.addPreRenderCallbackFunction(render_texture2d);
-          }
-        }
+            resolve(stacked);
+          });
+        });
       });
-      if (this.texture2dMesh?.name === "texture2d_mesh_zip") {
-        clearInterval(textureInterval);
+
+    const loadSurfaceSequence = (
+      urls: Array<string>
+    ): Promise<Array<THREE.BufferGeometry>> =>
+      new Promise((resolve) => {
+        const loader = new VTKLoader();
+        const geometries: Array<THREE.BufferGeometry> = new Array(urls.length);
+        let done = 0;
+        urls.forEach((url, index) => {
+          loader.load(url, (geometry) => {
+            // keep world coordinates — no center()/scale()
+            geometry.computeVertexNormals();
+            geometries[index] = geometry;
+            if (++done === urls.length) resolve(geometries);
+          });
+        });
+      });
+
+    const surfaceDefs = opts.surfaces ?? [];
+
+    Promise.all([
+      loadDicomStack(),
+      ...surfaceDefs.map((s) => loadSurfaceSequence(s.urls)),
+    ]).then(([stacked, ...surfaceGeoms]) => {
+      if (opts.window) {
+        stacked.windowCenter = opts.window.center;
+        stacked.windowWidth = opts.window.width;
       }
-    }, 500);
+      const tex = createTexture2D_Array(
+        stacked as copperVolumeType,
+        dicomDepth,
+        this.scene as THREE.Scene,
+        undefined,
+        true
+      );
+      tex.setFrame(0);
+      if (opts.window) tex.setWindow(opts.window.center, opts.window.width);
+
+      const surfaceMeshes: Record<string, THREE.Mesh> = {};
+      const seqs: Array<{
+        mesh: THREE.Mesh;
+        geometries: Array<THREE.BufferGeometry>;
+        offset: number;
+      }> = [];
+      surfaceDefs.forEach((def, i) => {
+        const geometries = surfaceGeoms[i] as Array<THREE.BufferGeometry>;
+        const { vtkmaterial } = copperMultipleVtk(def.opts);
+        const mesh = new THREE.Mesh(geometries[0], vtkmaterial);
+        mesh.name = def.name;
+        this.scene.add(mesh);
+        surfaceMeshes[def.name] = mesh;
+        seqs.push({ mesh, geometries, offset: def.offset ?? 0 });
+      });
+
+      const frameCount = dicomDepth;
+      // Default one cardiac cycle ≈ 1012ms (32 phases × ~31.6ms) unless overridden.
+      const cycleMs = opts.cycleMs ?? 1012;
+
+      let frameIndex = 0;
+      let speed = 1;
+      let playing = true;
+      let disposed = false;
+      let lastStep = performance.now();
+      const dtBase = cycleMs / frameCount;
+
+      const applyFrame = () => {
+        tex.setFrame(frameIndex);
+        for (const s of seqs) {
+          const i =
+            (frameIndex + s.offset + s.geometries.length) % s.geometries.length;
+          s.mesh.geometry = s.geometries[i];
+        }
+      };
+
+      const tick = () => {
+        if (disposed || !playing) return;
+        const now = performance.now();
+        if (now - lastStep >= dtBase / speed) {
+          lastStep = now;
+          frameIndex = (frameIndex + 1) % frameCount;
+          applyFrame();
+        }
+      };
+      this.addPreRenderCallbackFunction(tick);
+      const clockId = (tick as any).id as number;
+
+      const ctrl: Aligned4DController = {
+        plane: tex.mesh,
+        surfaceMeshes,
+        frameCount,
+        play: () => {
+          playing = true;
+          lastStep = performance.now();
+        },
+        pause: () => {
+          playing = false;
+        },
+        toggle: () => {
+          playing = !playing;
+          lastStep = performance.now();
+        },
+        setSpeed: (x: number) => {
+          speed = Math.max(0.01, x);
+        },
+        setFrame: (i: number) => {
+          frameIndex = ((i % frameCount) + frameCount) % frameCount;
+          applyFrame();
+        },
+        setFrameOffset: (name: string, n: number) => {
+          const s = seqs.find((q) => q.mesh.name === name);
+          if (s) {
+            s.offset = n;
+            applyFrame();
+          }
+        },
+        setWindow: (center: number, width: number) => {
+          tex.setWindow(center, width);
+        },
+        setPlaneOpacity: (v: number) => {
+          const m = tex.mesh.material as THREE.ShaderMaterial;
+          m.transparent = v < 1;
+          m.uniforms.uOpacity.value = v;
+          m.needsUpdate = true;
+        },
+        setSurfaceOpacity: (name: string, v: number) => {
+          const mesh = surfaceMeshes[name];
+          if (!mesh) return;
+          const m = mesh.material as THREE.Material;
+          m.transparent = v < 1;
+          m.opacity = v;
+          m.needsUpdate = true;
+        },
+        setSurfaceVisible: (name: string, visible: boolean) => {
+          const mesh = surfaceMeshes[name];
+          if (mesh) mesh.visible = visible;
+        },
+        dispose: () => {
+          disposed = true;
+          this.removePreRenderCallbackFunction(clockId);
+          // plane
+          this.scene.remove(tex.mesh);
+          tex.mesh.geometry.dispose();
+          const pm = tex.mesh.material as THREE.ShaderMaterial;
+          (pm.uniforms.diffuse.value as THREE.Texture)?.dispose?.();
+          pm.dispose();
+          // surfaces
+          for (const s of seqs) {
+            this.scene.remove(s.mesh);
+            s.geometries.forEach((g) => g.dispose());
+            (s.mesh.material as THREE.Material).dispose();
+          }
+        },
+      };
+
+      callback && callback(ctrl);
+    });
   }
 
   getPlayRate() {

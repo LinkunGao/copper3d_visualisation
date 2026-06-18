@@ -40,6 +40,9 @@ import {
   loadingBarType,
   exportPaintImageType,
   IOptVTKLoader,
+  aligned4DSurfaceType,
+  aligned4DOptsType,
+  Aligned4DController,
 } from "./types/types";
 
 import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates, IGuiMeta } from "./Utils/segmentation/core/types";
@@ -51,7 +54,7 @@ import type { LayerId, ChannelValue } from "./Utils/segmentation/core/index";
 
 import "./css/style.css";
 
-export const REVISION = "v3.4.8-beta";
+export const REVISION = "v3.4.9-beta";
 
 console.log(
   `%cCopper3D Visualisation %cBeta:${REVISION}`,
@@ -102,6 +105,9 @@ export type {
   IPaintImage,
   exportPaintImageType,
   IOptVTKLoader,
+  aligned4DSurfaceType,
+  aligned4DOptsType,
+  Aligned4DController,
   ICommXYZ,
   IGUIStates,
   IGuiParameterSettings,
