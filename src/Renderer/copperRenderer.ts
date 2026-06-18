@@ -15,9 +15,15 @@ export class copperRenderer extends baseRenderer {
   private interval: number = 1 / this.fps;
 
   preRenderCallbackFunctions: Array<Function> = [];
+  private running: boolean = true;
 
   constructor(container: HTMLDivElement, options?: ICopperRenderOpt) {
     super(container, options);
+  }
+
+  // Stop the render loop (call on teardown to release the RAF and let GC reclaim).
+  stop() {
+    this.running = false;
   }
 
   getSceneByName(name: string) {
@@ -64,6 +70,7 @@ export class copperRenderer extends baseRenderer {
   onWindowResize() {}
 
   animate = (time?: number) => {
+    if (!this.running) return;
     switch (this.options?.fpsMode) {
       case "1":
         // fpsControl one: 30fps

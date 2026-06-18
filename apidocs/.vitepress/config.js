@@ -39,6 +39,12 @@ export default {
                 { text: "Copper3d 渲染", link: "/zh/guide/copper3d-rendering-optimization" },
               ],
             },
+            {
+              text: "4D 动画",
+              items: [
+                { text: "对齐 4D MRI + 模型 API", link: "/zh/guide/copper3d-4D-API" },
+              ],
+            },
           ],
           "/apidist/": apidocConfig,
         },
@@ -69,6 +75,12 @@ export default {
           text: "Rendering",
           items: [
             { text: "Copper3d Rendering", link: "/guide/copper3d-rendering-optimization" },
+          ],
+        },
+        {
+          text: "4D Animation",
+          items: [
+            { text: "Aligned 4D MRI + Surface API", link: "/guide/copper3d-4D-API" },
           ],
         },
       ],

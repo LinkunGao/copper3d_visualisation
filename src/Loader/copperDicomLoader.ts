@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import getVOILUT from "../Utils/getVOILUT";
 import dicomParser from "dicom-parser";
-import { copperVolumeType } from "../types/types";
+import { copperVolumeType, planeCorners } from "../types/types";
 // import { TAG_DICT } from "../lib/dicom_pharser_dictionary";
 
 const loader = new THREE.FileLoader().setResponseType("arraybuffer");
@@ -61,6 +61,20 @@ export function copperDicomLoader(
       windowWidth = 537;
     }
 
+    // Spatial geometry tags (DS VR, backslash-delimited) used to place the image plane
+    // at its true world pose, plus InstanceNumber as an ordering fallback.
+    const ipp = parseDS(dataSet.string("x00200032")); // ImagePositionPatient
+    const iop = parseDS(dataSet.string("x00200037")); // ImageOrientationPatient
+    const spacing = parseDS(dataSet.string("x00280030")); // PixelSpacing
+    let instanceNumber: number | undefined = parseInt(
+      dataSet.string("x00200013") as string
+    );
+    if (Number.isNaN(instanceNumber)) instanceNumber = undefined;
+    const corners =
+      ipp && iop && spacing
+        ? computeImagePlaneCorners(ipp, iop, spacing, w, h)
+        : undefined;
+
     let pixelData = dataSet.elements.x7fe00010;
     let uint16 = convertImplicitElement(pixelData, dicomFileAsBuffer);
     let voiLUT;
@@ -79,9 +93,51 @@ export function copperDicomLoader(
       uint16,
       uint8,
       order,
+      instanceNumber,
+      imagePositionPatient: ipp,
+      imageOrientationPatient: iop,
+      pixelSpacing: spacing,
+      corners,
     };
     callback && callback(copperVolume);
   });
+}
+
+// Parse a DICOM DS/IS multi-value string ("a\\b\\c") into a number[].
+function parseDS(s?: string): number[] | undefined {
+  if (!s) return undefined;
+  const a = s.split("\\").map((v) => parseFloat(v));
+  return a.length && !a.some((n) => Number.isNaN(n)) ? a : undefined;
+}
+
+/**
+ * Compute the 4 world-space corners of a DICOM image plane from its geometry tags.
+ * IPP is the CENTER of pixel (0,0), so corners sit half a pixel out. PixelSpacing is
+ * [rowSpacing, colSpacing]; IOP's first vector is the +column-index direction.
+ */
+export function computeImagePlaneCorners(
+  ipp: number[],
+  iop: number[],
+  spacing: number[],
+  cols: number,
+  rows: number
+): planeCorners {
+  const row = new THREE.Vector3(iop[0], iop[1], iop[2]); // +column-index dir
+  const col = new THREE.Vector3(iop[3], iop[4], iop[5]); // +row-index dir
+  const sc = spacing[1]; // column spacing (along row)
+  const sr = spacing[0]; // row spacing (along col)
+  const O = new THREE.Vector3(ipp[0], ipp[1], ipp[2]); // center of pixel (0,0)
+  const p = (a: number, b: number) =>
+    O.clone()
+      .addScaledVector(row, a * sc)
+      .addScaledVector(col, b * sr)
+      .toArray() as [number, number, number];
+  return {
+    tl: p(-0.5, -0.5),
+    tr: p(cols - 0.5, -0.5),
+    bl: p(-0.5, rows - 0.5),
+    br: p(cols - 0.5, rows - 0.5),
+  };
 }
 
 function convertImplicitElement(

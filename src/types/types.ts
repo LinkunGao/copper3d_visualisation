@@ -180,6 +180,13 @@ interface vtkModels {
   opts?: IOptVTKLoader;
 }
 
+interface planeCorners {
+  tl: [number, number, number];
+  tr: [number, number, number];
+  bl: [number, number, number];
+  br: [number, number, number];
+}
+
 interface copperVolumeType {
   tags: any;
   width: number;
@@ -190,6 +197,42 @@ interface copperVolumeType {
   uint16: Uint16Array;
   uint8: Uint8ClampedArray;
   order: number;
+  instanceNumber?: number;
+  imagePositionPatient?: number[]; // [x,y,z] world coord of pixel (0,0) center (IPP)
+  imageOrientationPatient?: number[]; // [rx,ry,rz, cx,cy,cz] row/col unit vectors (IOP)
+  pixelSpacing?: number[]; // [rowSpacing, colSpacing] mm
+  corners?: planeCorners; // computed world-space image-plane corners
+}
+
+interface aligned4DSurfaceType {
+  name: string;
+  urls: Array<string>;
+  opts?: IOptVTKLoader;
+  offset?: number; // phase offset vs MRI (frames), default 0
+}
+
+interface aligned4DOptsType {
+  dicomUrls: Array<string>;
+  surfaces?: Array<aligned4DSurfaceType>;
+  cycleMs?: number; // playback period; default derived from DICOM TriggerTime span
+  window?: { center: number; width: number }; // optional override of DICOM WC/WW
+}
+
+interface Aligned4DController {
+  plane: THREE.Mesh;
+  surfaceMeshes: Record<string, THREE.Mesh>;
+  frameCount: number;
+  play: () => void;
+  pause: () => void;
+  toggle: () => void;
+  setSpeed: (x: number) => void;
+  setFrame: (i: number) => void;
+  setFrameOffset: (name: string, n: number) => void;
+  setWindow: (center: number, width: number) => void;
+  setPlaneOpacity: (v: number) => void;
+  setSurfaceOpacity: (name: string, v: number) => void;
+  setSurfaceVisible: (name: string, visible: boolean) => void;
+  dispose: () => void;
 }
 
 interface dicomLoaderOptsType {
@@ -250,7 +293,11 @@ export type {
   positionType,
   optionsGltfExporterType,
   vtkModels,
+  planeCorners,
   copperVolumeType,
+  aligned4DSurfaceType,
+  aligned4DOptsType,
+  Aligned4DController,
   dicomLoaderOptsType,
   exportPaintImagesType,
   exportPaintImageType,
