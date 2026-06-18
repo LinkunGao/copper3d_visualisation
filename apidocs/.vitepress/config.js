@@ -77,6 +77,12 @@ export default {
             { text: "Copper3d Rendering", link: "/guide/copper3d-rendering-optimization" },
           ],
         },
+        {
+          text: "4D Animation",
+          items: [
+            { text: "Aligned 4D MRI + Surface API", link: "/guide/copper3d-4D-API" },
+          ],
+        },
       ],
       "/apidist/": apidocConfig,
     },
