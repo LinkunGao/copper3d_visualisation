@@ -32,6 +32,7 @@ export default {
               text: "架构",
               items: [
                 { text: "分割模块", link: "/zh/guide/segmentation-module" },
+                { text: "表面标注 API", link: "/zh/guide/surface-annotation-api" },
               ],
             },
             {
@@ -71,6 +72,7 @@ export default {
           text: "Architecture",
           items: [
             { text: "Segmentation Module", link: "/guide/segmentation-module" },
+            { text: "Surface Annotation API", link: "/guide/surface-annotation-api" },
           ],
         },
         {

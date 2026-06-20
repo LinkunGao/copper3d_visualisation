@@ -31,6 +31,14 @@ import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls"
 import { MeshNodeTool } from "./Utils/MeshNodeTool";
 import { removeGuiFolderChilden } from "./Utils/segmentation/coreTools/gui";
 
+import { SurfaceAnnotator } from "./Utils/surfaceAnnotation";
+import type {
+  SurfaceAnnotatorOptions,
+  Annotation,
+  AnnotationMode,
+  ExportOptions,
+} from "./Utils/surfaceAnnotation";
+
 import {
   nrrdMeshesType,
   nrrdSliceType,
@@ -60,7 +68,7 @@ import type {
 
 import "./css/style.css";
 
-export const REVISION = "v3.5.0-beta";
+export const REVISION = "v3.6.0-beta";
 
 console.log(
   `%cCopper3D Visualisation %cBeta:${REVISION}`,
@@ -98,6 +106,7 @@ export {
   rgbaToHex,
   rgbaToCss,
   GaussianSmoother,
+  SurfaceAnnotator,
 };
 
 export type {
@@ -131,4 +140,8 @@ export type {
   AiPromptPoint,
   AiPromptPayload,
   AiMaskResult,
+  SurfaceAnnotatorOptions,
+  Annotation,
+  AnnotationMode,
+  ExportOptions,
 };
