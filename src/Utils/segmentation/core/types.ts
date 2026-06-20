@@ -151,6 +151,38 @@ export const CHANNEL_HEX_COLORS: Readonly<Record<number, string>> = {
   8: '#8b5cf6',   // Violet
 };
 
+/**
+ * AI-Assist channel palette. Identical to the default palette EXCEPT:
+ *  - channel 1 = cyan (the AI-Assist accent #5ec8ff), so the 2D AI overlay aligns
+ *    with the cyan ai_generated GLB in the 3D panel;
+ *  - channel 6 takes the emerald that channel 1 vacated, so cyan isn't duplicated.
+ * Applied ONLY to the AI scratch layer (set per-volume in AiAssistTool.enter) —
+ * the global palette above is untouched, so the clinician mask stays emerald.
+ */
+export const AI_MASK_CHANNEL_COLORS: Readonly<ChannelColorMap> = {
+  0: { r: 0, g: 0, b: 0, a: 0 },
+  1: { r: 94, g: 200, b: 255, a: 255 },  // Cyan (#5ec8ff) — AI accent (was emerald)
+  2: { r: 244, g: 63, b: 94, a: 255 },   // Rose
+  3: { r: 59, g: 130, b: 246, a: 255 },  // Blue
+  4: { r: 251, g: 191, b: 36, a: 255 },  // Amber
+  5: { r: 217, g: 70, b: 239, a: 255 },  // Fuchsia
+  6: { r: 16, g: 185, b: 129, a: 255 },  // Emerald (was cyan — absorbs channel 1's old colour)
+  7: { r: 249, g: 115, b: 22, a: 255 },  // Orange
+  8: { r: 139, g: 92, b: 246, a: 255 },  // Violet
+};
+
+export const AI_CHANNEL_HEX_COLORS: Readonly<Record<number, string>> = {
+  0: '#000000',
+  1: '#5ec8ff',   // Cyan — AI accent
+  2: '#f43f5e',   // Rose
+  3: '#3b82f6',   // Blue
+  4: '#fbbf24',   // Amber
+  5: '#d946ef',   // Fuchsia
+  6: '#10b981',   // Emerald
+  7: '#f97316',   // Orange
+  8: '#8b5cf6',   // Violet
+};
+
 // ── Color Conversion Utilities ──────────────────────────────────────────
 
 /**
@@ -194,7 +226,7 @@ export interface ISkipSlicesDictType {
 // ── Tool Mode & Events ─────────────────────────────────────────────────────
 
 /** Tool mode types for segmentation tools */
-export type ToolMode = "pencil" | "brush" | "eraser" | "sphere" | "calculator" | "sphereBrush" | "sphereEraser";
+export type ToolMode = "pencil" | "brush" | "eraser" | "sphere" | "calculator" | "sphereBrush" | "sphereEraser" | "aiAssist";
 
 export interface IDragPrameters {
   move: number;

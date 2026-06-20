@@ -49,12 +49,18 @@ import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates, 
 import { NrrdState } from "./Utils/segmentation/coreTools/NrrdState";
 import { GuiState } from "./Utils/segmentation/coreTools/GuiState";
 import type { ToolMode, IAnnotationCallbacks } from "./Utils/segmentation/core/types";
-import { CHANNEL_COLORS, CHANNEL_HEX_COLORS, rgbaToHex, rgbaToCss } from "./Utils/segmentation/core/index";
+import { CHANNEL_COLORS, CHANNEL_HEX_COLORS, AI_MASK_CHANNEL_COLORS, AI_CHANNEL_HEX_COLORS, rgbaToHex, rgbaToCss } from "./Utils/segmentation/core/index";
 import type { LayerId, ChannelValue } from "./Utils/segmentation/core/index";
+import type {
+  AiPromptTool,
+  AiPromptPoint,
+  AiPromptPayload,
+  AiMaskResult,
+} from "./Utils/segmentation/tools/AiAssistTool";
 
 import "./css/style.css";
 
-export const REVISION = "v3.4.9-beta";
+export const REVISION = "v3.5.0-beta";
 
 console.log(
   `%cCopper3D Visualisation %cBeta:${REVISION}`,
@@ -87,6 +93,8 @@ export {
   removeGuiFolderChilden,
   CHANNEL_COLORS,
   CHANNEL_HEX_COLORS,
+  AI_MASK_CHANNEL_COLORS,
+  AI_CHANNEL_HEX_COLORS,
   rgbaToHex,
   rgbaToCss,
   GaussianSmoother,
@@ -119,4 +127,8 @@ export type {
   IAnnotationCallbacks,
   LayerId,
   ChannelValue,
+  AiPromptTool,
+  AiPromptPoint,
+  AiPromptPayload,
+  AiMaskResult,
 };

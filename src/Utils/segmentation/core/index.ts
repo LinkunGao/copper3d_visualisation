@@ -118,6 +118,8 @@ export {
   MASK_CHANNEL_CSS_COLORS,
   CHANNEL_COLORS,
   CHANNEL_HEX_COLORS,
+  AI_MASK_CHANNEL_COLORS,
+  AI_CHANNEL_HEX_COLORS,
   rgbaToHex,
   rgbaToCss,
 } from './types';

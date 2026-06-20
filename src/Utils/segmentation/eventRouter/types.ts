@@ -14,6 +14,7 @@
  * - `crosshair`: Crosshair mode enabled (C key toggle)
  * - `sphere`: Sphere placement tool active
  * - `pan`: Right-drag panning the canvas
+ * - `aiAssist`: AI-assist interactive prompt tool active (left-click = prompt point)
  */
 export type InteractionMode =
     | 'idle'
@@ -22,12 +23,13 @@ export type InteractionMode =
     | 'contrast'
     | 'crosshair'
     | 'sphere'
-    | 'pan';
+    | 'pan'
+    | 'aiAssist';
 
 /**
  * GUI tool selection (set from UI buttons)
  */
-export type GuiTool = 'pencil' | 'brush' | 'eraser' | 'sphere' | 'sphereBrush' | 'sphereEraser';
+export type GuiTool = 'pencil' | 'brush' | 'eraser' | 'sphere' | 'sphereBrush' | 'sphereEraser' | 'aiAssist';
 
 /**
  * Keyboard event handler type

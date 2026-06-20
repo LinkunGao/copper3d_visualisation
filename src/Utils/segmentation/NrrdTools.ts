@@ -25,6 +25,7 @@ import { GaussianSmoother } from "./core/GaussianSmoother";
 import type { MaskDelta } from "./core/UndoManager";
 import type { ChannelValue, RGBAColor, ChannelColorMap } from "./core";
 import type { SphereType } from "./tools/SphereTool";
+import type { AiPromptTool, AiPromptPayload, AiMaskResult } from "./tools/AiAssistTool";
 import { LayerChannelManager } from "./tools/LayerChannelManager";
 import { SliceRenderPipeline } from "./tools/SliceRenderPipeline";
 import { DataLoader } from "./tools/DataLoader";
@@ -295,6 +296,14 @@ export class NrrdTools {
    */
   setMode(mode: ToolMode): void {
     if (!this.guiCallbacks) return;
+
+    // While AI-assist owns the canvas, BLOCK switching to other tools — the user
+    // must explicitly Exit AI Assist from its panel first. (The Operation panel
+    // also disables its tool buttons via the AiAssist:ActiveChanged event, so this
+    // is just a defensive guard.)
+    if (this._aiAssistActive && mode !== "aiAssist") {
+      return;
+    }
 
     const prevSphere = this.state.gui_states.mode.sphere;
     const prevSphereBrush = this.state.gui_states.mode.sphereBrush;
@@ -1038,6 +1047,117 @@ export class NrrdTools {
       this.state.protectedData.canvases.drawingSphereCanvas.height
     );
     this.resetLayerCanvas();
+    this.reloadMasksFromVolume();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 10b. AI Assist (experimental) — interactive prompt segmentation
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Whether AI-assist mode is currently active. */
+  private _aiAssistActive = false;
+  /** Layer visibility snapshot taken on enter, restored on exit. */
+  private _aiPrevVisibility: Record<string, boolean> | null = null;
+
+  isAiAssistActive(): boolean { return this._aiAssistActive; }
+
+  /**
+   * Enter AI-assist mode (sandbox): hides the existing layer masks so ONLY the
+   * AI overlay is shown, takes canvas ownership (left-click = prompt), and creates
+   * the scratch volume. Right-drag still pans; wheel/slider still scrub slices.
+   * The hidden masks are restored on exit (merge writes into them first if asked).
+   */
+  enterAiAssistMode(): void {
+    if (this._aiAssistActive) return;
+    this._aiAssistActive = true;
+    this.dragOperator.removeDragMode();
+
+    // Hide all layer masks (visibility=false survives recomposite on slice change).
+    const vis = this.state.gui_states.layerChannel.layerVisibility;
+    this._aiPrevVisibility = { ...vis };
+    for (const layerId of this.state.nrrd_states.image.layers) vis[layerId] = false;
+    this.drawCore.renderer.compositeAllLayers();
+
+    this.drawCore.aiAssistTool.enter();
+    this.drawCore.eventRouter?.setGuiTool("aiAssist");
+  }
+
+  /**
+   * Exit AI-assist mode: drop the scratch volume, restore normal tooling AND the
+   * layer-mask visibility hidden on enter. If the caller merged first, the merged
+   * result is now part of the layer volume and reappears with the restored masks.
+   */
+  exitAiAssistMode(): void {
+    if (!this._aiAssistActive) return;
+    this._aiAssistActive = false;
+    this.drawCore.aiAssistTool.exit();
+    this.dragOperator.configDragMode();
+    this.drawCore.eventRouter?.setGuiTool("pencil");
+
+    if (this._aiPrevVisibility) {
+      const vis = this.state.gui_states.layerChannel.layerVisibility;
+      for (const k of Object.keys(this._aiPrevVisibility)) vis[k] = this._aiPrevVisibility[k];
+      this._aiPrevVisibility = null;
+    }
+    this.reloadMasksFromVolume();
+  }
+
+  // — Driver methods called by the app-layer composable —
+
+  aiSetPromptTool(tool: AiPromptTool): void { this.drawCore.aiAssistTool.setPromptTool(tool); }
+  aiSetPolarity(label: number): void { this.drawCore.aiAssistTool.setPolarity(label); }
+  /** Set the AI-layer channel (1-8) the predictions paint into. */
+  aiSetChannel(channel: number): void { this.drawCore.aiAssistTool.setChannel(channel); }
+  /** Set the scribble brush radius (px). */
+  aiSetScribbleSize(size: number): void { this.drawCore.aiAssistTool.setScribbleSize(size); }
+  /** Register the callback invoked when a prompt gesture completes (app → backend). */
+  aiOnPrompt(cb: (payload: AiPromptPayload) => void): void { this.drawCore.aiAssistTool.onPrompt = cb; }
+  /** Apply a backend mask result into the scratch volume (overlay repaints next frame). */
+  aiApplyMask(result: AiMaskResult): void { this.drawCore.aiAssistTool.applyMask(result); }
+  /** Clear the in-progress prompt set (e.g. slice change). */
+  aiClearPrompts(): void { this.drawCore.aiAssistTool.resetPrompts(); }
+  /** "New region": freeze current regions (they persist) + start a fresh prompt set. */
+  aiCommitRegion(): void { this.drawCore.aiAssistTool.commitRegion(); }
+  /** Discard all AI scratch painting since enter (sandbox discard). */
+  aiDiscard(): void { this.drawCore.aiAssistTool.discard(); }
+  /** True if the scratch volume holds any predicted voxels. */
+  aiHasData(): boolean { return this.drawCore.aiAssistTool.getScratchVolume()?.hasData() ?? false; }
+  /** Serialize the AI scratch as per-slice RLE for persisting to ai_generated_nii_LPS. */
+  aiGetScratchSlices(): { axis: "z"; width: number; height: number; slices: { sliceIndex: number; rle: number[] }[] } | null {
+    return this.drawCore.aiAssistTool.getScratchSlices();
+  }
+
+  /**
+   * Merge the AI scratch into a target layer as a single undoable group (sandbox
+   * merge — best-practice: non-destructive + one Ctrl+Z). The scratch's channel
+   * labels are PRESERVED (each AI channel maps onto the same channel of the
+   * target layer). Scans all z-slices, so voxels painted from any view are caught.
+   */
+  aiCommitToLayer(targetLayer: string = "layer1"): void {
+    const scratch = this.drawCore.aiAssistTool.getScratchVolume();
+    if (!scratch) return;
+    const target = this.state.protectedData.maskData.volumes[targetLayer];
+    if (!target) return;
+
+    const dims = scratch.getDimensions();
+    const deltas: MaskDelta[] = [];
+
+    for (let z = 0; z < dims.depth; z++) {
+      const sc = scratch.getSliceUint8(z, "z").data;
+      let any = false;
+      for (let i = 0; i < sc.length; i++) { if (sc[i] !== 0) { any = true; break; } }
+      if (!any) continue;
+
+      const oldSlice = target.getSliceUint8(z, "z").data; // copy
+      const newSlice = oldSlice.slice();
+      for (let i = 0; i < newSlice.length; i++) {
+        if (sc[i] !== 0) newSlice[i] = sc[i]; // preserve the AI channel label
+      }
+      target.setSliceUint8(z, newSlice, "z");
+      deltas.push({ layerId: targetLayer, axis: "z", sliceIndex: z, oldSlice, newSlice: newSlice.slice() });
+    }
+
+    if (deltas.length) this.drawCore.undoManager.pushGroup(deltas);
     this.reloadMasksFromVolume();
   }
 
