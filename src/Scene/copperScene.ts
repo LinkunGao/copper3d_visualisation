@@ -19,6 +19,8 @@ import {
   aligned4DOptsType,
   Aligned4DController,
 } from "../types/types";
+import { SurfaceAnnotator } from "../Utils/surfaceAnnotation";
+import type { SurfaceAnnotatorOptions } from "../Utils/surfaceAnnotation";
 
 export class copperScene extends baseScene {
   clock: THREE.Clock = new THREE.Clock();
@@ -29,6 +31,7 @@ export class copperScene extends baseScene {
   private playRate: number = 1.0;
   private modelReady: boolean = false;
   private clipAction: any;
+  private surfaceAnnotators: SurfaceAnnotator[] = [];
   // rayster pick
 
   constructor(
@@ -137,55 +140,60 @@ export class copperScene extends baseScene {
       }
     );
   }
-  // loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
-  //   objLoader.load(
-  //     url,
-  //     (obj) => {
-  //       obj.traverse((child) => {
-  //         if ((child as THREE.Mesh).isMesh) {
-  //           // (child as THREE.Mesh).material = new THREE.MeshStandardMaterial({
-  //           //   side: THREE.DoubleSide,
-  //           //   color: 0xffffff,
-  //           // });
-  //           // ((child as THREE.Mesh).material as THREE.MeshPhongMaterial).color =
-  //           //   new THREE.Color(0xffffff);
-  //         }
-  //       });
-  //       const box = new THREE.Box3().setFromObject(obj);
-  //       const size = box.getSize(new THREE.Vector3()).length();
-  //       const center = box.getCenter(new THREE.Vector3());
-
-  //       this.controls.maxDistance = size * 10;
-  //       obj.position.x += obj.position.x - center.x;
-  //       obj.position.y += obj.position.y - center.y;
-  //       obj.position.z += obj.position.z - center.z;
-
-  //       if (!this.cameraPositionFlag) {
-  //         this.camera.position.copy(center);
-  //         this.camera.position.x += size / 2.0;
-  //         this.camera.position.y += size / 5.0;
-  //         this.camera.position.z += size / 2.0;
-  //         this.camera.lookAt(center);
-  //         this.viewPoint = this.setViewPoint(
-  //           this.camera as THREE.PerspectiveCamera,
-  //           [center.x, center.y, center.z]
-  //         );
-  //       }
-  //       this.scene.add(obj);
-  //       !!callback && callback(obj);
-  //     }, // called when loading is in progresses
-  //     (xhr: any) => {
-  //       console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-  //     },
-  //     // called when loading has errors
-  //     (error: any) => {
-  //       console.log("An error happened");
-  //     }
-  //   );
-  // }
-
   loadVtk(url: string) {
     copperVtkLoader(url, this.scene, this.content);
+  }
+
+  /**
+   * 在给定模型表面创建标注器(画 contour / 放点 / 导出坐标)。
+   * target 可为单个 Mesh,或 Group/Object3D(自动选顶点数最多的 mesh)。
+   * 复用本 scene 的 camera / container / controls;几何非索引时内部自动焊接索引化。
+   */
+  createSurfaceAnnotator(
+    target: THREE.Mesh | THREE.Object3D,
+    opts?: Omit<
+      SurfaceAnnotatorOptions,
+      "scene" | "camera" | "container" | "controls" | "mesh"
+    >
+  ): SurfaceAnnotator {
+    const mesh = this.pickAnnotatableMesh(target);
+    if (!mesh)
+      throw new Error("createSurfaceAnnotator: no mesh found in target");
+    const annotator = new SurfaceAnnotator({
+      scene: this.scene,
+      camera: this.camera as THREE.PerspectiveCamera,
+      container: this.container,
+      controls: this.controls as unknown as { enabled: boolean },
+      mesh,
+      ...(opts ?? {}),
+    });
+    this.surfaceAnnotators.push(annotator);
+    return annotator;
+  }
+
+  private pickAnnotatableMesh(target: THREE.Object3D): THREE.Mesh | null {
+    if ((target as THREE.Mesh).isMesh) return target as THREE.Mesh;
+    let best: THREE.Mesh | null = null;
+    let bestCount = -1;
+    target.traverse((c) => {
+      const m = c as THREE.Mesh;
+      if (m.isMesh) {
+        const n =
+          (m.geometry as THREE.BufferGeometry).getAttribute("position")
+            ?.count ?? 0;
+        if (n > bestCount) {
+          bestCount = n;
+          best = m;
+        }
+      }
+    });
+    return best;
+  }
+
+  /** 释放本 scene 创建的所有标注器(移除事件监听与标注对象)。 */
+  disposeSurfaceAnnotators() {
+    this.surfaceAnnotators.forEach((a) => a.dispose());
+    this.surfaceAnnotators = [];
   }
 
   loadVtks(models: Array<vtkModels>) {
