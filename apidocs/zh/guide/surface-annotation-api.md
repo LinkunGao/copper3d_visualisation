@@ -1,0 +1,286 @@
+# Copper3D 表面标注 API（Surface Annotation）— 中文文档
+
+> 适用版本：`copper3d_visualisation` v3.6.0-beta 起
+> 模块位置：`src/ts/Utils/surfaceAnnotation/`，通过 `copperScene.createSurfaceAnnotator()` 暴露
+
+## 1. 概述
+
+表面标注让你在**任意 3D 模型表面**上：
+
+- 画 **contour 轮廓线**，两种模式：
+  - **Freehand（自由手绘）**：按住左键拖拽，笔触实时投射到表面。
+  - **Geodesic（测地线）**：点击若干锚点，自动沿网格表面求最短路径连接（贴合表面）。
+- 放 **标记点（fiducial points）**。
+- 轮廓可**闭合成环**（闭合段也沿表面走，不穿模）。
+- **多条标注**，每条带颜色 / 标签，支持选中 / 改名 / 改色 / 删除 / 撤销 / 清空。
+- **导出坐标**为 JSON，默认 **模型 local 坐标**（不受相机或模型摆放影响，可复现）。
+
+**格式无关**：标注器作用于 `THREE.Mesh`，不绑定任何 loader。OBJ / glTF / GLB / VTK / STL… 只要能加载成 mesh 都支持。也可直接传 `Group/Object3D`（内部自动挑顶点数最多的 mesh）。
+
+**不破坏你的模型**：测地线需要"按表面位置连通"的几何。标注器**内部单独焊接一份"仅位置"的几何**给寻路用，**不会改动你 mesh 的法线 / UV / 纹理**。
+
+## 2. 快速开始
+
+```ts
+import * as Copper from "copper3d_visualisation";
+
+const appRenderer = new Copper.copperRenderer(container, { guiOpen: false });
+const scene = appRenderer.createScene("annot") as Copper.copperScene;
+appRenderer.setCurrentScene(scene);
+appRenderer.animate();
+
+// 加载模型（用 copper 自带 loader），在回调里创建标注器
+scene.loadOBJ("/models/heart.obj", (group) => {
+  const annotator = scene.createSurfaceAnnotator(group);
+
+  // 切换模式即可开始标注
+  annotator.setMode("freehand"); // 或 "geodesic" / "point" / "navigate"
+
+  // 导出（默认 local 坐标）
+  // const data = annotator.exportJSON("heart.obj");
+});
+```
+
+> **取景与光照由你负责**：标注器只复用 scene 的 camera/container/controls，不主动设相机或加灯。用 `scene.loadViewUrl()`、手动设相机、或自加灯光。
+
+## 3. API 参考
+
+### 3.1 `copperScene.createSurfaceAnnotator(target, opts?)`
+
+```ts
+createSurfaceAnnotator(
+  target: THREE.Mesh | THREE.Object3D,
+  opts?: {
+    freehandColor?: string;   // 自由手绘色，默认 "#e5006e"
+    geodesicColor?: string;   // 测地线色，默认 "#ffa24e"
+    pointColor?: string;      // 标记点色，默认 "#ffd166"
+    lineWidth?: number;       // 线宽(像素)，默认 3
+    markerRadius?: number;    // 小球半径，默认 bbox 对角线 * 0.006
+    bboxDiagonal?: number;    // 手动指定尺寸基准，缺省自动从几何算
+    onModeChange?: (mode: AnnotationMode) => void;
+    onChange?: (annotations: Annotation[]) => void; // 标注列表增删/撤销/清空时触发
+  }
+): SurfaceAnnotator
+```
+
+- `target` 为 `Mesh` 时直接用；为 `Group/Object3D` 时挑顶点数最多的 mesh。找不到 mesh 会抛错。
+- 复用 `scene.camera / scene.container / scene.controls`，无需手动传。
+- 几何非索引时内部会处理（仅用于寻路，不动你的 mesh）。
+
+### 3.2 `copperScene.disposeSurfaceAnnotators()`
+
+释放该 scene 创建的所有标注器（移除全局事件监听）。
+
+### 3.3 `SurfaceAnnotator` 实例方法
+
+| 方法 | 说明 |
+|---|---|
+| `setMode(mode)` | 切换模式：`"navigate"` / `"freehand"` / `"geodesic"` / `"point"` |
+| `getMode()` | 返回当前模式 |
+| `getAnnotations()` | 返回当前标注列表快照 `Annotation[]` |
+| `getStore()` | 返回底层 `AnnotationStore`（高级用法：订阅/改名/改色） |
+| `selectAnnotation(id \| null)` | 选中某条（高亮：轮廓加粗 / 点放大） |
+| `refreshAnnotation(id)` | 改色后重画对应 3D 对象（配合 `store.setColor`） |
+| `deleteAnnotation(id)` | 删除某条 |
+| `undo()` | 撤销最近的添加 / 删除 |
+| `clearAll()` | 清空全部 |
+| `exportJSON(modelName, opts?)` | 导出为 JS 对象，见 §6 |
+| `dispose()` | 释放（移除事件监听）。卸载组件时务必调用 |
+
+### 3.4 `getStore()` 常用方法（`AnnotationStore`）
+
+| 方法 | 说明 |
+|---|---|
+| `subscribe(cb)` | 订阅列表变化，返回取消订阅函数 |
+| `list()` / `get(id)` | 取列表 / 取单条 |
+| `setLabel(id, label)` | 改名（改后 UI 自动刷新；3D 无需重画） |
+| `setColor(id, color)` | 改色（**改后需调 `annotator.refreshAnnotation(id)` 更新 3D**） |
+
+### 3.5 类型
+
+```ts
+type AnnotationMode = "navigate" | "freehand" | "geodesic" | "point";
+
+interface AnnotationVertex {       // 位置与法线均为模型 local 空间
+  x: number; y: number; z: number;
+  nx: number; ny: number; nz: number;
+  faceIndex: number;
+}
+
+interface Annotation {
+  id: string;
+  type: "contour" | "points";
+  mode: "freehand" | "geodesic" | null; // points 为 null
+  label: string;
+  color: string;                         // hex
+  closed: boolean;
+  vertices: AnnotationVertex[];
+  object3D: THREE.Object3D | null;       // 渲染对象引用
+}
+
+interface ExportOptions {
+  space?: "local" | "world";   // 默认 "local"
+  includeNormals?: boolean;    // true 时点为 [x,y,z,nx,ny,nz]
+}
+```
+
+## 4. 交互与快捷键
+
+进入标注模式后,标注器接管左键并关闭相机旋转；快捷键挂在 `window`（捕获阶段，确保不被 TrackballControls 抢走）。
+
+| 操作 | 行为 |
+|---|---|
+| 左键拖拽（Freehand） | 沿表面画线 |
+| 左键点击（Geodesic） | 加一个锚点；相邻锚点自动连测地线 |
+| 左键点击（Place point） | 放一个标记点 |
+| `1` / `2` / `3` / `4` | 切到 navigate / freehand / geodesic / point |
+| `Esc` | 回到 navigate |
+| 按住 `Space` | 临时恢复相机旋转（松开回标注） |
+| `Enter` | 闭合 / 结束当前 contour（沿表面闭合） |
+| `Ctrl + Z` | 撤销 |
+| `Delete` | 删除当前选中标注 |
+
+## 5. 坐标空间（重要）
+
+- **相机 pan / zoom / rotate 不改变坐标** —— 它们动的是相机，不是模型。
+- 模型若被**移动 / 旋转 / 缩放**（对象变换或动画），只有 **local 坐标不变**。
+- 因此标注器**内部以 local 存坐标**，渲染时再派生 world。
+- `exportJSON` **默认 `space:"local"`** —— 可复现、绑定模型自身坐标系。需要场景实际位置时传 `{ space:"world" }`。
+
+> 提示：若你在加载后**烘焙了缩放/平移进 geometry**（如 `geometry.scale()`），local 就会落在"已变换"的空间。想让 local = 原始模型文件坐标，请用**对象变换**（`mesh.position/scale`）或相机取景，**不要烘焙几何**。
+
+## 6. 导出格式
+
+`annotator.exportJSON("heart.obj")` 返回：
+
+```json
+{
+  "model": "heart.obj",
+  "exportedAt": "2026-06-21T...Z",
+  "space": "local",
+  "annotations": [
+    {
+      "id": "a1",
+      "type": "contour",
+      "mode": "geodesic",
+      "label": "LV outline",
+      "color": "#ffa24e",
+      "closed": true,
+      "points": [[x, y, z], ["..."]]
+    },
+    {
+      "id": "a2",
+      "type": "points",
+      "mode": null,
+      "label": "Point 2",
+      "color": "#ffd166",
+      "closed": false,
+      "points": [[x, y, z]]
+    }
+  ]
+}
+```
+
+`includeNormals: true` 时每个点为 `[x, y, z, nx, ny, nz]`。
+
+## 7. 使用案例
+
+### 案例 1 — 最小用法（OBJ）
+
+```ts
+scene.loadOBJ("/models/heart.obj", (group) => {
+  const annotator = scene.createSurfaceAnnotator(group);
+  annotator.setMode("geodesic");
+});
+```
+
+### 案例 2 — GLB + 自定义颜色
+
+```ts
+scene.loadPureGLB("/models/heart.glb", (group) => {
+  const annotator = scene.createSurfaceAnnotator(group, {
+    freehandColor: "#00e5ff",
+    geodesicColor: "#ff3b6b",
+    pointColor: "#ffe066",
+    lineWidth: 4,
+  });
+});
+```
+
+### 案例 3 — 用 `onChange` 驱动列表 UI + 改名 / 改色
+
+```ts
+let annotator;
+scene.loadOBJ("/models/heart.obj", (group) => {
+  annotator = scene.createSurfaceAnnotator(group, {
+    onChange: (annotations) => renderList(annotations), // 列表变化时刷新你的 UI
+    onModeChange: (mode) => updateModeButtons(mode),
+  });
+});
+
+// 选中 / 改名 / 改色
+function onSelect(id) { annotator.selectAnnotation(id); }
+function onRename(id, label) { annotator.getStore().setLabel(id, label); }
+function onRecolor(id, color) {
+  annotator.getStore().setColor(id, color);
+  annotator.refreshAnnotation(id); // 必须，更新 3D 颜色
+}
+```
+
+### 案例 4 — 导出（local / world / 带法线）+ 浏览器下载
+
+```ts
+const local = annotator.exportJSON("heart.obj");                       // 默认 local
+const world = annotator.exportJSON("heart.obj", { space: "world" });   // 世界系
+const withN = annotator.exportJSON("heart.obj", { includeNormals: true });
+
+// 触发下载（注意：a 必须挂到 DOM 才能在部分浏览器触发）
+function download(obj, filename = "annotations.json") {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+download(local);
+```
+
+### 案例 5 — 卸载
+
+```ts
+// 组件卸载 / 切换模型时
+annotator.dispose();          // 或 scene.disposeSurfaceAnnotators();
+appRenderer.dispose();
+```
+
+## 8. 注意事项
+
+- **取景 / 光照 / 加载** 都由你负责，标注器不碰。新模型记得自加灯光、设好相机。
+- **改色后必须 `refreshAnnotation(id)`**：`store.setColor` 只改数据,3D 对象颜色靠它更新。`setLabel` 则不用（不影响 3D）。
+- **快捷键是全局的（window）**：`1/2/3/4`、`Enter`、`Delete`、`Ctrl+Z`、`Space` 会被标注器监听。若你的页面别处也用这些键,可能冲突；不用时调 `dispose()` 解绑。
+- **同一页面建议只有一个活动标注器**：事件挂在 window 捕获阶段,多个实例会同时响应。多模型场景请在切换时 `dispose()` 旧的。
+- **测地线连通性**：若模型由**多个分离壳体**组成,跨壳体的测地线/闭合会退化成直线兜底。单一连通网格效果最好。
+- **测地线性能**：堆 Dijkstra,约 3 万顶点单次点击 < 100ms。**超大网格**(几十万顶点)点击可能有延迟(最近顶点查找为 O(V))。
+- **不会改你的 mesh**：内部用"仅位置"焊接的副本寻路,你 mesh 的法线/UV/纹理不受影响。但要求几何有 `position` 属性。
+- **导出只给对象,不替你下载**:浏览器下载/UI 触发由你做(见案例 4 的 `appendChild` 坑)。
+- **闭合是沿表面的**:`Enter` 用测地线把末点连回首点,不是直线弦,所以不会穿模。
+- **相机门控**:标注器会改 `scene.controls.enabled`(navigate 开、标注模式关、按住 Space 临时开)。若你别处也在控制它,注意协调。
+
+## 9. 导出符号
+
+从包根导出:
+
+```ts
+import {
+  SurfaceAnnotator,            // 值(用于 instanceof / 类型)
+} from "copper3d_visualisation";
+import type {
+  SurfaceAnnotatorOptions,
+  Annotation,
+  AnnotationMode,
+  ExportOptions,
+} from "copper3d_visualisation";
+```
+
+`createSurfaceAnnotator` 是 `copperScene` 的方法,通过 scene 实例调用。
