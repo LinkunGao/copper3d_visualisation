@@ -21,6 +21,7 @@ export class baseRenderer {
   pmremGenerator: THREE.PMREMGenerator;
 
   options: ICopperRenderOpt | undefined;
+  protected running: boolean = true;
   private state: stateType;
 
   // GUI update folder
@@ -138,6 +139,25 @@ export class baseRenderer {
 
   setClearColor(clearColor = 0x000000, alpha = 0) {
     this.renderer.setClearColor(clearColor, alpha);
+  }
+
+  // Stop the render loop (cancels the requestAnimationFrame chain).
+  stop() {
+    this.running = false;
+  }
+
+  // Full teardown: stop the loop, free the GPU resources, release the WebGL context
+  // (browsers cap live contexts ~16), and remove the canvas. Call on page unmount.
+  dispose() {
+    this.running = false;
+    try {
+      this.pmremGenerator?.dispose();
+      this.renderer.dispose();
+      this.renderer.forceContextLoss();
+    } catch (e) {
+      /* ignore */
+    }
+    this.renderer.domElement?.remove();
   }
 
   addGui() {

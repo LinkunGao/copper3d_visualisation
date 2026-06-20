@@ -54,6 +54,8 @@ export class EventRouter {
 
     // === State ===
     private mode: InteractionMode = 'idle';
+    /** Mode to restore after a right-drag pan ends (so pan doesn't drop aiAssist). */
+    private modeBeforePan: InteractionMode = 'idle';
     private guiTool: GuiTool = 'pencil';
     private state: InteractionState = {
         shiftHeld: false,
@@ -228,7 +230,21 @@ export class EventRouter {
      * Set the GUI tool (from UI buttons).
      */
     setGuiTool(tool: GuiTool): void {
+        const prevTool = this.guiTool;
         this.guiTool = tool;
+
+        // AI-assist owns the canvas: left-click/drag = prompt. Taking the
+        // 'aiAssist' mode (not 'idle') is what auto-disables left-drag slice
+        // scrubbing — `isDragSliceActive()` requires mode === 'idle'.
+        if (tool === 'aiAssist') {
+            this.state.crosshairEnabled = false;
+            this.setMode('aiAssist');
+            return;
+        }
+        // Leaving aiAssist → restore idle so slice-drag / wheel resume.
+        if (prevTool === 'aiAssist' && this.mode === 'aiAssist') {
+            this.setMode('idle');
+        }
 
         // When entering any sphere-family tool, keep crosshair if active, otherwise idle
         if (SPHERE_TOOLS.has(tool)) {
@@ -244,15 +260,23 @@ export class EventRouter {
      * Blocked when draw or contrast mode is active, or left button is held (mutual exclusion).
      */
     toggleCrosshair(): void {
-        // Allow crosshair in drawing tools and all sphere-family tools (sphere / sphereBrush / sphereEraser)
-        if (!DRAWING_TOOLS.has(this.guiTool) && !SPHERE_TOOLS.has(this.guiTool)) return;
+        // Allow crosshair in drawing tools, all sphere-family tools, AND aiAssist
+        // (so the crosshair can be used to debug while AI-assist is active).
+        if (!DRAWING_TOOLS.has(this.guiTool) && !SPHERE_TOOLS.has(this.guiTool) && this.guiTool !== 'aiAssist') return;
         // Block crosshair activation during draw, contrast, or while left button held.
         // The leftButtonDown guard also enforces "once a sphere preview is on screen,
         // S is ignored until mouseup" for sphereBrush/sphereEraser.
         if (this.state.shiftHeld || this.state.leftButtonDown || this.mode === 'draw' || this.mode === 'contrast') return;
 
         this.state.crosshairEnabled = !this.state.crosshairEnabled;
-        this.setMode(this.state.crosshairEnabled ? 'crosshair' : 'idle');
+        // Crosshair has PRIORITY over aiAssist: turning it on takes the mode (so
+        // AI point/box/scribble are suspended); turning it off restores aiAssist
+        // (not idle) when the AI tool is the active tool, otherwise idle.
+        if (this.state.crosshairEnabled) {
+            this.setMode('crosshair');
+        } else {
+            this.setMode(this.guiTool === 'aiAssist' ? 'aiAssist' : 'idle');
+        }
     }
 
     /**
@@ -414,8 +438,8 @@ export class EventRouter {
         }
 
         if (this.contrastEnabled && this.keyboardSettings.contrast.includes(ev.key)) {
-            // Block contrast state when crosshair, draw, or any sphere-family tool is active (mutual exclusion)
-            if (!this.state.crosshairEnabled && this.mode !== 'draw'
+            // Block contrast state when crosshair, draw, aiAssist, or any sphere-family tool is active (mutual exclusion)
+            if (!this.state.crosshairEnabled && this.mode !== 'draw' && this.mode !== 'aiAssist'
                 && !SPHERE_TOOLS.has(this.guiTool)) {
                 this.state.ctrlHeld = true;
             }
@@ -456,6 +480,9 @@ export class EventRouter {
             this.state.leftButtonDown = true;
         } else if (ev.button === 2) {
             this.state.rightButtonDown = true;
+            // Remember the mode we're panning out of so we can restore it on
+            // release — otherwise aiAssist (and any non-idle mode) is lost.
+            if (this.mode !== 'pan') this.modeBeforePan = this.mode;
             this.setMode('pan');
         }
 
@@ -478,7 +505,10 @@ export class EventRouter {
         } else if (ev.button === 2) {
             this.state.rightButtonDown = false;
             if (this.mode === 'pan') {
-                this.setMode('idle');
+                // Restore aiAssist if we panned out of it; otherwise idle (unchanged
+                // behaviour for normal drawing modes).
+                this.setMode(this.modeBeforePan === 'aiAssist' ? 'aiAssist' : 'idle');
+                this.modeBeforePan = 'idle';
             }
         }
 

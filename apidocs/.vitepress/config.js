@@ -25,6 +25,7 @@ export default {
               text: "使用指南",
               items: [
                 { text: "NrrdTools 使用指南", link: "/zh/guide/nrrd-tools" },
+                { text: "AI Assist API", link: "/zh/guide/ai-assist-api" },
               ],
             },
             {
@@ -63,6 +64,7 @@ export default {
           text: "Usage Guide",
           items: [
             { text: "NrrdTools Usage Guide", link: "/guide/nrrd-tools" },
+            { text: "AI Assist API", link: "/guide/ai-assist-api" },
           ],
         },
         {

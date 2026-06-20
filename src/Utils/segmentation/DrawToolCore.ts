@@ -18,6 +18,7 @@ import { PanTool } from "./tools/PanTool";
 import { DrawingTool } from "./tools/DrawingTool";
 import { ImageStoreHelper } from "./tools/ImageStoreHelper";
 import { SphereBrushTool } from "./tools/SphereBrushTool";
+import { AiAssistTool } from "./tools/AiAssistTool";
 import type { ToolContext } from "./tools/BaseTool";
 import { UndoManager } from "./core";
 
@@ -80,6 +81,8 @@ export class DrawToolCore {
   protected drawingTool!: DrawingTool;
   protected imageStoreHelper!: ImageStoreHelper;
   protected sphereBrushTool!: SphereBrushTool;
+  /** AI-assist interactive prompt tool (experimental). Public so NrrdTools/app can drive it. */
+  aiAssistTool!: AiAssistTool;
 
   /** Slice index recorded when paintOnCanvas() starts, guards stale-click */
   private paintSliceIndex = 0;
@@ -180,6 +183,12 @@ export class DrawToolCore {
       getOrCreateSliceBuffer: (axis) => this.renderer.getOrCreateSliceBuffer(axis),
       setEmptyCanvasSize: (axis?) => this.setEmptyCanvasSize(axis),
       reloadMasksFromVolume: () => this.reloadMasksFromVolume(),
+    });
+
+    this.aiAssistTool = new AiAssistTool(toolCtx, {
+      renderSliceToCanvas: (layer, axis, sliceIndex, buffer, ctx, w, h) =>
+        this.renderer.renderSliceToCanvas(layer, axis, sliceIndex, buffer, ctx, w, h),
+      getOrCreateSliceBuffer: (axis) => this.renderer.getOrCreateSliceBuffer(axis),
     });
   }
 
@@ -294,6 +303,7 @@ export class DrawToolCore {
         if (!this.eventRouter.isContrastEnabled()) return;
         // Block contrast toggle during crosshair, draw, or sphere (mutual exclusion)
         if (this.eventRouter.isCrosshairEnabled() || this.eventRouter.getMode() === 'draw') return;
+        if (this.eventRouter.getMode() === 'aiAssist') return;
         if (this.state.gui_states.mode.sphere) return;
         // Toggle contrast mode manually since it's on keyup
         if (this.eventRouter.getMode() !== 'contrast') {
@@ -306,6 +316,10 @@ export class DrawToolCore {
 
     // Register pointer handlers with EventRouter
     this.eventRouter.setPointerMoveHandler((e: PointerEvent) => {
+      if (this.eventRouter.getMode() === 'aiAssist') {
+        this.aiAssistTool.onPointerMove(e);
+        return;
+      }
       if (this.drawingTool.isActive || this.panTool.isActive) {
         this.drawingPrameters.handleOnDrawingMouseMove(e);
       }
@@ -319,6 +333,12 @@ export class DrawToolCore {
       }
     });
     this.eventRouter.setPointerUpHandler((e: PointerEvent) => {
+      if (this.eventRouter.getMode() === 'aiAssist') {
+        if (e.button === 0) this.aiAssistTool.onPointerUp(e);
+        // Right-button pan must still clean up (cursor/state) even in AI mode.
+        else if (e.button === 2) this.panTool.onPointerUp(e, this.state.gui_states.viewConfig.defaultPaintCursor);
+        return;
+      }
       // Restore Scroll:Zoom if we swapped to Scroll:Slice on drag-start.
       // Must run outside the drawing-tool gate below: slice-drag doesn't
       // flip any of those flags, so the gate would skip restoration.
@@ -508,7 +528,9 @@ export class DrawToolCore {
       }
 
       if (e.button === 0) {
-        if (this.eventRouter.getMode() === 'draw') {
+        if (this.eventRouter.getMode() === 'aiAssist') {
+          this.aiAssistTool.onPointerDown(e);
+        } else if (this.eventRouter.getMode() === 'draw') {
           this.drawingTool.onPointerDown(e);
         } else if (this.eventRouter.isCrosshairEnabled()) {
           this.state.nrrd_states.interaction.cursorPageX =
@@ -640,6 +662,13 @@ export class DrawToolCore {
             this.state.nrrd_states.view.changedWidth,
             this.state.nrrd_states.view.changedHeight
           );
+        }
+
+        // AI-assist scratch overlay — drawn each frame whenever an AI session is
+        // active (scratch volume exists), so it stays visible even when crosshair
+        // temporarily takes over the interaction mode for debugging.
+        if (this.aiAssistTool.getScratchVolume()) {
+          this.aiAssistTool.renderOverlay(this.state.protectedData.ctxes.drawingCtx);
         }
       } else {
         this.redrawDisplayCanvas();

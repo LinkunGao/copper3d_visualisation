@@ -17,6 +17,7 @@ export class copperMSceneRenderer {
   canvas: HTMLCanvasElement;
   sceneInfos: Array<copperMScene>;
   pmremGenerator: THREE.PMREMGenerator;
+  protected running: boolean = true;
 
   constructor(
     container: HTMLDivElement,
@@ -136,7 +137,27 @@ export class copperMSceneRenderer {
       this.renderer.setSize(width, height, false);
     }
   };
+  stop() {
+    this.running = false;
+  }
+
+  // Full teardown: stop the loop, free GPU resources, release the WebGL context, and
+  // remove the canvas. Call on page unmount to avoid context exhaustion / leaks.
+  dispose() {
+    this.running = false;
+    try {
+      this.pmremGenerator?.dispose();
+      this.renderer.dispose();
+      this.renderer.forceContextLoss();
+    } catch (e) {
+      /* ignore */
+    }
+    this.canvas?.remove();
+    this.elems.forEach((el) => el.remove());
+  }
+
   animate = () => {
+    if (!this.running) return;
     const clearColor = new THREE.Color("#000");
     this.renderer.setScissorTest(false);
     this.renderer.setClearColor(clearColor, 0);
