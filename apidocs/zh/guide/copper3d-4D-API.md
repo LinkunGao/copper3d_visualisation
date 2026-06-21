@@ -6,6 +6,10 @@
 
 所有内容都从包入口导出(`copper3d_visualisation` / `../ts/index`)。
 
+> 📖 **想了解 API 背后的原理?** 参见配套的原理详解
+> [4D 心脏（MRI + LV 表面）对齐渲染原理详解](./4D-MRI-LV-rendering.md),它逐步讲清楚
+> 32 张 MRI + 64 个 VTK 模型是如何被加载、对齐,并以同一个心动节律一起播放的。
+
 ---
 
 ## 1. 顶层入口:`copperScene.loadAligned4D()`

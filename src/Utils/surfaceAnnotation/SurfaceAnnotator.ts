@@ -51,6 +51,7 @@ export class SurfaceAnnotator {
   private readonly markerRadius: number;
   private readonly epsilon: number;
   private readonly minGap: number;
+  private readonly maxJump: number;
 
   private graph: MeshGraph;
   private store = new AnnotationStore();
@@ -75,6 +76,7 @@ export class SurfaceAnnotator {
     this.markerRadius = opts.markerRadius ?? diag * 0.006;
     this.epsilon = diag * 0.002;
     this.minGap = diag * 0.004;
+    this.maxJump = diag * 0.05;
 
     // 测地线连通性:单独焊接一份"仅位置"的几何给 MeshGraph 用——
     // 不动被渲染的 mesh(保留其法线/UV/纹理)。仅位置可保证同表面位置的顶点
@@ -284,7 +286,7 @@ export class SurfaceAnnotator {
     }
 
     if (this.mode === "freehand") {
-      this.activeStroke = new StrokeContour(this.minGap, this.o.mesh);
+      this.activeStroke = new StrokeContour(this.minGap, this.maxJump, this.o.mesh);
       this.activeStroke.begin();
       const h = this.hit(e);
       if (h) this.activeStroke.addSample(h);

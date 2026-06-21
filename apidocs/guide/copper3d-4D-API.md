@@ -6,6 +6,11 @@ N cardiac phases) **spatially and temporally aligned** with deforming surface me
 
 Everything is exported from the package entry (`copper3d_visualisation` / `../ts/index`).
 
+> 📖 **Want the "why" behind the API?** See the companion deep dive
+> [4D Heart (MRI + LV Surfaces) Aligned Rendering](./4D-MRI-LV-rendering.md), which walks
+> through how the 32 MRI frames + 64 VTK models are loaded, aligned, and animated on a single
+> cardiac clock.
+
 ---
 
 ## 1. High-level entry: `copperScene.loadAligned4D()`

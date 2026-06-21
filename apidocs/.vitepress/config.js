@@ -45,6 +45,7 @@ export default {
               text: "4D 动画",
               items: [
                 { text: "对齐 4D MRI + 模型 API", link: "/zh/guide/copper3d-4D-API" },
+                { text: "4D 心脏渲染原理详解", link: "/zh/guide/4D-MRI-LV-rendering" },
               ],
             },
           ],
@@ -85,6 +86,7 @@ export default {
           text: "4D Animation",
           items: [
             { text: "Aligned 4D MRI + Surface API", link: "/guide/copper3d-4D-API" },
+            { text: "4D Heart Rendering Deep Dive", link: "/guide/4D-MRI-LV-rendering" },
           ],
         },
       ],

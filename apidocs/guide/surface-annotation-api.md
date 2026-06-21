@@ -263,6 +263,7 @@ appRenderer.dispose();
 - **Your mesh is not modified.** Pathfinding uses a position-only welded copy; your mesh's normals/UVs/textures are untouched. The geometry must have a `position` attribute.
 - **Export returns an object; it does not download for you.** The browser download / UI trigger is up to you (see the `appendChild` gotcha in Example 4).
 - **Closing follows the surface.** `Enter` connects the last point back to the first via a geodesic, not a straight chord, so it never cuts through the model.
+- **Freehand is a screen-stroke projection.** Consecutive samples are joined by straight segments (unlike Geodesic, which strictly follows the surface). When the stroke grazes a cleft or silhouette edge, samples that jump to a far/back face are **dropped automatically** (distance-spike + normal-flip test) to avoid a segment cutting through the model; for strict surface hugging, use **Geodesic** mode.
 - **Camera gating.** The annotator toggles `scene.controls.enabled` (on in navigate, off in annotation modes, on while `Space` is held). Coordinate with any other code that controls it.
 
 ## 9. Exports
