@@ -68,7 +68,7 @@ import type {
 
 import "./css/style.css";
 
-export const REVISION = "v3.6.0-beta";
+export const REVISION = "v3.6.1-beta";
 
 console.log(
   `%cCopper3D Visualisation %cBeta:${REVISION}`,
