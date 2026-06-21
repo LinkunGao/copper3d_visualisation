@@ -9,7 +9,7 @@
 
 - 画 **contour 轮廓线**，两种模式：
   - **Freehand（自由手绘）**：按住左键拖拽，笔触实时投射到表面。
-  - **Geodesic（测地线）**：点击若干锚点，自动沿网格表面求最短路径连接（贴合表面）。
+  - **Geodesic（测地线）**：点击若干锚点，自动沿网格表面求最短路径连接（贴合表面）。每个锚点会显示为可见小球，可再次点击将其取消（悬停时显示 ✕）；按 `Enter` 结束后会移除锚点小球，只留下线。
 - 放 **标记点（fiducial points）**。
 - 轮廓可**闭合成环**（闭合段也沿表面走，不穿模）。
 - **多条标注**，每条带颜色 / 标签，支持选中 / 改名 / 改色 / 删除 / 撤销 / 清空。
@@ -55,7 +55,7 @@ createSurfaceAnnotator(
     geodesicColor?: string;   // 测地线色，默认 "#ffa24e"
     pointColor?: string;      // 标记点色，默认 "#ffd166"
     lineWidth?: number;       // 线宽(像素)，默认 3
-    markerRadius?: number;    // 小球半径，默认 bbox 对角线 * 0.006
+    markerRadius?: number;    // 小球半径，默认 bbox 对角线 * 0.0032
     bboxDiagonal?: number;    // 手动指定尺寸基准，缺省自动从几何算
     onModeChange?: (mode: AnnotationMode) => void;
     onChange?: (annotations: Annotation[]) => void; // 标注列表增删/撤销/清空时触发
@@ -131,13 +131,13 @@ interface ExportOptions {
 | 操作 | 行为 |
 |---|---|
 | 左键拖拽（Freehand） | 沿表面画线 |
-| 左键点击（Geodesic） | 加一个锚点；相邻锚点自动连测地线 |
+| 左键点击（Geodesic） | 加一个锚点；相邻锚点自动连测地线。点击已有锚点（悬停显示 ✕）可取消该点 |
 | 左键点击（Place point） | 放一个标记点 |
 | `1` / `2` / `3` / `4` | 切到 navigate / freehand / geodesic / point |
 | `Esc` | 回到 navigate |
 | 按住 `Space` | 临时恢复相机旋转（松开回标注） |
-| `Enter` | 闭合 / 结束当前 contour（沿表面闭合） |
-| `Ctrl + Z` | 撤销 |
+| `Enter` | 闭合 / 结束当前 contour（沿表面闭合；测地线会移除锚点小球，只留下线） |
+| `Ctrl + Z` | 撤销。测地线绘制过程中,撤销最近一次锚点编辑(加点**或**取消点),被取消的锚点可恢复 |
 | `Delete` | 删除当前选中标注 |
 
 ## 5. 坐标空间（重要）
