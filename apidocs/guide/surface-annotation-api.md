@@ -9,7 +9,7 @@ Surface annotation lets you draw on the surface of **any 3D model**:
 
 - Draw **contour lines**, in two modes:
   - **Freehand**: hold the left mouse button and drag; the stroke is projected onto the surface in real time.
-  - **Geodesic**: click a few anchor points; the path is computed as the shortest route along the mesh surface (hugs the terrain).
+  - **Geodesic**: click a few anchor points; the path is computed as the shortest route along the mesh surface (hugs the terrain). Each anchor is shown as a marker you can click again to remove (hovering it shows a ✕); `Enter` finishes the contour and removes the anchor markers, leaving only the line.
 - Drop **fiducial points**.
 - Contours can be **closed into a loop** (the closing segment also follows the surface — it does not cut through the model).
 - **Multiple annotations**, each with a color and label; select / rename / recolor / delete / undo / clear.
@@ -54,7 +54,7 @@ createSurfaceAnnotator(
     geodesicColor?: string;   // geodesic color, default "#ffa24e"
     pointColor?: string;      // marker color, default "#ffd166"
     lineWidth?: number;       // line width (px), default 3
-    markerRadius?: number;    // sphere radius, default bboxDiagonal * 0.006
+    markerRadius?: number;    // sphere radius, default bboxDiagonal * 0.0032
     bboxDiagonal?: number;    // size reference; auto-computed from geometry if omitted
     onModeChange?: (mode: AnnotationMode) => void;
     onChange?: (annotations: Annotation[]) => void; // fired on add/delete/undo/clear
@@ -130,13 +130,13 @@ In an annotation mode, the annotator captures the left mouse button and disables
 | Action | Behavior |
 |---|---|
 | Left drag (Freehand) | Draw along the surface |
-| Left click (Geodesic) | Add an anchor; adjacent anchors are connected by a geodesic |
+| Left click (Geodesic) | Add an anchor; adjacent anchors are connected by a geodesic. Click an existing anchor (hover shows a ✕) to remove it |
 | Left click (Place point) | Drop a fiducial marker |
 | `1` / `2` / `3` / `4` | Switch to navigate / freehand / geodesic / point |
 | `Esc` | Back to navigate |
 | Hold `Space` | Temporarily re-enable camera rotation (release to resume annotating) |
-| `Enter` | Close / finish the current contour (closes along the surface) |
-| `Ctrl + Z` | Undo |
+| `Enter` | Close / finish the current contour (closes along the surface; for a geodesic, removes the anchor markers and leaves only the line) |
+| `Ctrl + Z` | Undo. During an in-progress geodesic, undoes the last anchor edit (add **or** removal), so a cancelled anchor can be restored |
 | `Delete` | Delete the selected annotation |
 
 ## 5. Coordinate Space (important)

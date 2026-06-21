@@ -64,6 +64,12 @@ export class SurfaceAnnotator {
   private lastFreehand?: Annotation;
   private activeGeo?: GeodesicContour;
   private activeGeoLine?: Line2;
+  private activeGeoMarkers: THREE.Mesh[] = []; // 进行中测地线的可见锚点
+  private geoRay = new THREE.Raycaster();
+  private geoNdc = new THREE.Vector2();
+  private geoHoverBadge?: HTMLDivElement; // 悬停锚点时显示的"✕(可取消)"小标
+  private hoveredGeoMarker = -1;
+  private _projV = new THREE.Vector3();
 
   constructor(opts: SurfaceAnnotatorOptions) {
     this.o = opts;
@@ -73,7 +79,7 @@ export class SurfaceAnnotator {
     const diag =
       opts.bboxDiagonal ??
       (meshGeo.boundingBox as THREE.Box3).getSize(new THREE.Vector3()).length();
-    this.markerRadius = opts.markerRadius ?? diag * 0.006;
+    this.markerRadius = opts.markerRadius ?? diag * 0.0032;
     this.epsilon = diag * 0.002;
     this.minGap = diag * 0.004;
     this.maxJump = diag * 0.05;
@@ -135,6 +141,8 @@ export class SurfaceAnnotator {
   }
 
   setMode(m: AnnotationMode) {
+    // 离开测地线模式时丢弃尚未 Enter 落定的进行中测地线(清掉残留的锚点与线)。
+    if (m !== "geodesic" && this.activeGeo) this.clearActiveGeo();
     this.mode = m;
     this.applyCameraGating();
     this.o.onModeChange?.(m);
@@ -150,6 +158,17 @@ export class SurfaceAnnotator {
   }
 
   undo() {
+    // 测地线进行中 → 撤销最近一次锚点编辑(加点 / 取消点都能回退);
+    // 否则撤销最近一条已落定的标注。
+    if (this.activeGeo && this.activeGeo.canUndo()) {
+      this.activeGeo.undoEdit();
+      if (this.activeGeo.anchorCount === 0) this.clearActiveGeo();
+      else {
+        this.rebuildGeoMarkers();
+        this.redrawGeoLine();
+      }
+      return;
+    }
     this.store.undo();
   }
 
@@ -163,6 +182,7 @@ export class SurfaceAnnotator {
     });
     this.managed.clear();
     this.selectedId = null;
+    this.clearActiveGeo();
   }
 
   deleteAnnotation(id: string) {
@@ -248,10 +268,15 @@ export class SurfaceAnnotator {
     );
   }
 
-  /** 事件目标是否落在标注容器内(排除面板/页面其它区域的点击)。 */
+  /**
+   * 事件目标是否是容器内的 WebGL canvas。
+   * 仅认 canvas:面板(GUIDE / 控制面板 / 标注列表的 ✕ 按钮)都是 container 的子元素,
+   * 若只判断 contains 会把面板上的点击也当成在模型上作画 —— 这会"穿透"删除按钮、
+   * 让 ✕ 难以点中。只响应 canvas 上的指针事件即可彻底隔离 UI 与画布。
+   */
   private insideContainer(e: Event): boolean {
-    const t = e.target as Node | null;
-    return !!t && this.o.container.contains(t);
+    const t = e.target as HTMLElement | null;
+    return !!t && t.tagName === "CANVAS" && this.o.container.contains(t);
   }
 
   private onPointerDown = (e: PointerEvent) => {
@@ -303,6 +328,18 @@ export class SurfaceAnnotator {
     }
 
     if (this.mode === "geodesic") {
+      // 先判断是否点中了一个已有锚点 → 取消该点(支持取消其中任意一点)。
+      const pick = this.pickGeoMarker(e);
+      if (pick >= 0 && this.activeGeo) {
+        this.activeGeo.removeAnchorAt(pick);
+        if (this.activeGeo.anchorCount === 0) this.clearActiveGeo();
+        else {
+          this.rebuildGeoMarkers();
+          this.redrawGeoLine();
+        }
+        return;
+      }
+      // 否则在表面落一个新锚点。
       const h = this.hit(e);
       if (!h) return;
       if (!this.activeGeo) {
@@ -310,31 +347,175 @@ export class SurfaceAnnotator {
       }
       const local = this.o.mesh.worldToLocal(h.point.clone());
       this.activeGeo.addAnchor(local);
-      const verts = this.activeGeo.buildVertices(false);
-      if (!this.activeGeoLine) {
-        this.activeGeoLine = makeContourLine(
-          verts,
-          this.geodesicColor,
-          false,
-          this.o.container,
-          this.epsilon,
-          this.o.mesh
-        );
-        this.o.scene.add(this.activeGeoLine);
-      } else {
-        updateContourLine(
-          this.activeGeoLine,
-          verts,
-          false,
-          this.epsilon,
-          this.o.mesh
-        );
-      }
+      this.rebuildGeoMarkers();
+      this.redrawGeoLine();
     }
   };
 
+  /** 射线拾取进行中的锚点小球,返回锚点下标;未命中返回 -1。 */
+  private pickGeoMarker(e: PointerEvent): number {
+    if (!this.activeGeoMarkers.length) return -1;
+    const rect = this.o.container.getBoundingClientRect();
+    this.geoNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    this.geoNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    this.geoRay.setFromCamera(this.geoNdc, this.o.camera);
+    const hits = this.geoRay.intersectObjects(this.activeGeoMarkers, false);
+    if (!hits.length) return -1;
+    return this.activeGeoMarkers.indexOf(hits[0].object as THREE.Mesh);
+  }
+
+  /** 设置当前悬停的锚点(-1 = 无):更新高亮缩放、光标与"✕(可取消)"悬浮标。 */
+  private setGeoHover(idx: number) {
+    if (idx === this.hoveredGeoMarker) {
+      if (idx >= 0) this.positionGeoBadge(this.activeGeoMarkers[idx]);
+      return;
+    }
+    const prev = this.activeGeoMarkers[this.hoveredGeoMarker];
+    if (prev) prev.scale.setScalar(1);
+    this.hoveredGeoMarker = idx;
+    const cur = this.activeGeoMarkers[idx];
+    if (cur) {
+      cur.scale.setScalar(1.3);
+      this.ensureGeoBadge().style.display = "flex";
+      this.positionGeoBadge(cur);
+      this.o.container.style.cursor = "pointer";
+    } else {
+      if (this.geoHoverBadge) this.geoHoverBadge.style.display = "none";
+      this.o.container.style.cursor = "";
+    }
+  }
+
+  /** 懒创建悬浮 ✕ 标(挂在 container 内,pointer-events:none 不挡点击)。 */
+  private ensureGeoBadge(): HTMLDivElement {
+    if (this.geoHoverBadge) return this.geoHoverBadge;
+    const b = document.createElement("div");
+    b.textContent = "✕";
+    Object.assign(b.style, {
+      position: "absolute",
+      width: "16px",
+      height: "16px",
+      borderRadius: "50%",
+      background: "#ff5d6c",
+      color: "#fff",
+      font: "700 10px/1 system-ui, sans-serif",
+      display: "none",
+      alignItems: "center",
+      justifyContent: "center",
+      pointerEvents: "none",
+      zIndex: "15",
+      boxShadow: "0 2px 6px rgba(0,0,0,.45)",
+      transform: "translate(-50%, -50%)",
+      left: "0px",
+      top: "0px",
+    } as Partial<CSSStyleDeclaration>);
+    this.o.container.appendChild(b);
+    this.geoHoverBadge = b;
+    return b;
+  }
+
+  /** 把 ✕ 标定位到锚点投影到屏幕的位置(正中心,即光标悬停处,避免歧义)。 */
+  private positionGeoBadge(marker: THREE.Mesh) {
+    if (!marker) return;
+    const b = this.ensureGeoBadge();
+    this._projV.copy(marker.position).project(this.o.camera);
+    const rect = this.o.container.getBoundingClientRect();
+    const x = (this._projV.x * 0.5 + 0.5) * rect.width;
+    const y = (-this._projV.y * 0.5 + 0.5) * rect.height;
+    b.style.left = `${x}px`;
+    b.style.top = `${y}px`;
+  }
+
+  /** 据当前锚点重建可见的锚点小球(锚点比放点稍大,便于看见与点中取消)。 */
+  private rebuildGeoMarkers() {
+    this.setGeoHover(-1);
+    for (const m of this.activeGeoMarkers) {
+      this.o.scene.remove(m);
+      this.disposeObject(m);
+    }
+    this.activeGeoMarkers = [];
+    if (!this.activeGeo) return;
+    for (const v of this.activeGeo.getAnchorLocals()) {
+      const marker = makePointMarker(
+        v,
+        this.o.mesh,
+        this.geodesicColor,
+        this.markerRadius * 1.15
+      );
+      this.o.scene.add(marker);
+      this.activeGeoMarkers.push(marker);
+    }
+  }
+
+  /** 据当前锚点重画进行中的测地线(不闭合);不足两点时移除线。 */
+  private redrawGeoLine() {
+    if (!this.activeGeo) return;
+    const verts = this.activeGeo.buildVertices(false);
+    if (verts.length < 2) {
+      if (this.activeGeoLine) {
+        this.o.scene.remove(this.activeGeoLine);
+        this.disposeObject(this.activeGeoLine);
+        this.activeGeoLine = undefined;
+      }
+      return;
+    }
+    if (!this.activeGeoLine) {
+      this.activeGeoLine = makeContourLine(
+        verts,
+        this.geodesicColor,
+        false,
+        this.o.container,
+        this.epsilon,
+        this.o.mesh
+      );
+      this.o.scene.add(this.activeGeoLine);
+    } else {
+      updateContourLine(
+        this.activeGeoLine,
+        verts,
+        false,
+        this.epsilon,
+        this.o.mesh
+      );
+    }
+  }
+
+  /** 丢弃进行中的测地线:移除并 dispose 线与全部锚点。 */
+  private clearActiveGeo() {
+    this.setGeoHover(-1);
+    if (this.activeGeoLine) {
+      this.o.scene.remove(this.activeGeoLine);
+      this.disposeObject(this.activeGeoLine);
+      this.activeGeoLine = undefined;
+    }
+    for (const m of this.activeGeoMarkers) {
+      this.o.scene.remove(m);
+      this.disposeObject(m);
+    }
+    this.activeGeoMarkers = [];
+    this.activeGeo = undefined;
+  }
+
+  /** 移除进行中测地线的全部锚点小球(落定后调用:只留下线)。 */
+  private removeGeoMarkers() {
+    this.setGeoHover(-1);
+    for (const m of this.activeGeoMarkers) {
+      this.o.scene.remove(m);
+      this.disposeObject(m);
+    }
+    this.activeGeoMarkers = [];
+  }
+
   private onPointerMove = (e: PointerEvent) => {
-    if (this.spaceHeld) return;
+    if (this.spaceHeld) {
+      this.setGeoHover(-1);
+      return;
+    }
+    // 测地线模式下,悬停到锚点小球时显示"✕"提示(该点可被点击取消)。
+    if (this.mode === "geodesic" && !this.pointerDown) {
+      this.setGeoHover(
+        this.insideContainer(e) ? this.pickGeoMarker(e) : -1
+      );
+    }
     if (
       this.mode === "freehand" &&
       this.pointerDown &&
@@ -435,7 +616,10 @@ export class SurfaceAnnotator {
       this.store.add(ann);
     } else {
       this.o.scene.remove(this.activeGeoLine);
+      this.disposeObject(this.activeGeoLine);
     }
+    // 落定后清掉可见锚点,只留下贴合表面的线。
+    this.removeGeoMarkers();
     this.activeGeo = undefined;
     this.activeGeoLine = undefined;
   }
@@ -487,6 +671,9 @@ export class SurfaceAnnotator {
   };
 
   dispose() {
+    this.clearActiveGeo();
+    this.geoHoverBadge?.remove();
+    this.geoHoverBadge = undefined;
     window.removeEventListener("pointerdown", this.onPointerDown, true);
     window.removeEventListener("pointermove", this.onPointerMove, true);
     window.removeEventListener("pointerup", this.onPointerUp, true);
