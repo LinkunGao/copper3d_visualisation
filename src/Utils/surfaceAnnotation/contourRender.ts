@@ -41,6 +41,9 @@ export function makeContourLine(
   const mat = new LineMaterial({
     color: new THREE.Color(color).getHex(),
     linewidth: 3, // 像素宽(需 resolution 配合)
+    // depthTest stays ON so the model correctly occludes the line when it is on the far side
+    // (no see-through). The host applies polygonOffset to the SURFACE material so the line still
+    // wins where it lies coplanar with the surface (no z-fighting / sinking on bumpy meshes).
   });
   mat.resolution.set(container.clientWidth, container.clientHeight);
   const line = new Line2(geo, mat);

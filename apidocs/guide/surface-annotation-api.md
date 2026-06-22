@@ -130,7 +130,7 @@ In an annotation mode, the annotator captures the left mouse button and disables
 | Action | Behavior |
 |---|---|
 | Left drag (Freehand) | Draw along the surface |
-| Left click (Geodesic) | Add an anchor; adjacent anchors are connected by a geodesic. Click an existing anchor (hover shows a ✕) to remove it |
+| Left click (Geodesic) | Add an anchor; adjacent anchors are connected by a geodesic. Click on **or near** an existing anchor (hover shows a ✕) to remove it — picking uses a screen-space pixel tolerance, so you don't have to hit the marker exactly. Clicking in open space adds a new anchor |
 | Left click (Place point) | Drop a fiducial marker |
 | `1` / `2` / `3` / `4` | Switch to navigate / freehand / geodesic / point |
 | `Esc` | Back to navigate |
@@ -265,6 +265,7 @@ appRenderer.dispose();
 - **Closing follows the surface.** `Enter` connects the last point back to the first via a geodesic, not a straight chord, so it never cuts through the model.
 - **Freehand is a screen-stroke projection.** Consecutive samples are joined by straight segments (unlike Geodesic, which strictly follows the surface). When the stroke grazes a cleft or silhouette edge, samples that jump to a far/back face are **dropped automatically** (distance-spike + normal-flip test) to avoid a segment cutting through the model; for strict surface hugging, use **Geodesic** mode.
 - **Camera gating.** The annotator toggles `scene.controls.enabled` (on in navigate, off in annotation modes, on while `Space` is held). Coordinate with any other code that controls it.
+- **Contours & markers render on top.** Contour lines and point / geodesic-anchor markers are drawn with depth testing disabled, so they stay fully visible on rough or voxelised surfaces (never swallowed by ridges between the camera and the line) and during drawing. The trade-off is that they are also visible through the model from the far side — intentional, for annotation legibility. A geometric surface offset (`epsilon`) alone cannot achieve this on bumpy meshes (too little sinks into the surface, too much floats above it), which is why depth testing is disabled instead.
 
 ## 9. Exports
 
