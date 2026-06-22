@@ -2,8 +2,10 @@ import * as THREE from "three";
 import { getLut } from "../Loader/copperDicomLoader";
 import { copperVolumeType, planeCorners } from "../types/types";
 import { GUI } from "dat.gui";
-import vert_2d from "../lib/shader/texture2d_vertex.glsl";
-import frag_2d from "../lib/shader/texture2d_frag.glsl";
+// Loaded as raw strings (?raw) — no GLSL/glslify handler in this app's Vite build, and the
+// 2D texture/volume path that uses these is never exercised by the surface annotator.
+import vert_2d from "../lib/shader/texture2d_vertex.glsl?raw";
+import frag_2d from "../lib/shader/texture2d_frag.glsl?raw";
 
 let planeWidth = 80;
 let planeHeight = 80;

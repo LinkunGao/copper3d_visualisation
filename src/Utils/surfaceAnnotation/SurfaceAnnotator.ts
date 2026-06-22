@@ -20,6 +20,12 @@ export interface SurfaceAnnotatorOptions {
   mesh: THREE.Mesh;
   /** 缺省时从 mesh 几何包围盒对角线自算。 */
   bboxDiagonal?: number;
+  /**
+   * 标注线离开表面的外移量(world 单位),默认 bboxDiagonal*0.002。
+   * 单独提供可与采样间距(minGap/maxJump,仍由 bboxDiagonal 推导)解耦 —— 在凹凸/体素表面上
+   * 需要较大外移把线浮到起伏之上、又不想因此把采样变粗时使用。
+   */
+  epsilon?: number;
   /** 自由手绘 contour 颜色,默认 #e5006e。 */
   freehandColor?: string;
   /** 测地线 contour 颜色,默认 #ffa24e。 */
@@ -80,7 +86,7 @@ export class SurfaceAnnotator {
       opts.bboxDiagonal ??
       (meshGeo.boundingBox as THREE.Box3).getSize(new THREE.Vector3()).length();
     this.markerRadius = opts.markerRadius ?? diag * 0.0032;
-    this.epsilon = diag * 0.002;
+    this.epsilon = opts.epsilon ?? diag * 0.002;
     this.minGap = diag * 0.004;
     this.maxJump = diag * 0.05;
 
@@ -352,16 +358,35 @@ export class SurfaceAnnotator {
     }
   };
 
-  /** 射线拾取进行中的锚点小球,返回锚点下标;未命中返回 -1。 */
+  /**
+   * 拾取进行中的锚点:返回最近锚点的下标(屏幕像素距离 < 容差),未命中返回 -1。
+   *
+   * 改用「屏幕空间像素距离」而非射线/球相交:锚点小球很小,严格的 ray/sphere 命中要求像素级
+   * 精准对中,绝大多数点击都会落空 —— 而落空会穿到「新增锚点」分支,导致想删点反而多放了一个点,
+   * 也就是之前「删点要点好几下、必须正中小球」的根因。把每个锚点投影到屏幕、取容差内最近的一个,
+   * 删点就稳定可靠了。容差按小球的屏幕半径放大,保证好点中。
+   */
   private pickGeoMarker(e: PointerEvent): number {
     if (!this.activeGeoMarkers.length) return -1;
     const rect = this.o.container.getBoundingClientRect();
-    this.geoNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    this.geoNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    this.geoRay.setFromCamera(this.geoNdc, this.o.camera);
-    const hits = this.geoRay.intersectObjects(this.activeGeoMarkers, false);
-    if (!hits.length) return -1;
-    return this.activeGeoMarkers.indexOf(hits[0].object as THREE.Mesh);
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const TOL = 16; // 命中容差(像素),比小球本身大,容错点击
+    let best = -1;
+    let bestDist = TOL;
+    const v = this._projV;
+    for (let i = 0; i < this.activeGeoMarkers.length; i++) {
+      v.copy(this.activeGeoMarkers[i].position).project(this.o.camera);
+      if (v.z > 1) continue; // 投影到相机背后,跳过
+      const sx = (v.x * 0.5 + 0.5) * rect.width;
+      const sy = (-v.y * 0.5 + 0.5) * rect.height;
+      const d = Math.hypot(sx - px, sy - py);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
   }
 
   /** 设置当前悬停的锚点(-1 = 无):更新高亮缩放、光标与"✕(可取消)"悬浮标。 */

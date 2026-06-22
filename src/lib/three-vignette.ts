@@ -7,8 +7,14 @@ import {
   Vector2,
 } from "three";
 
-import vert from "./three-vignette.vert";
-import frag from "./three-vignette.frag";
+// Loaded as raw strings (?raw). The original copper3d build compiled these via
+// rollup-plugin-glslify; this app has no GLSL/glslify handler, so importing them as modules
+// makes Vite try to parse GLSL as JS ("Unexpected identifier 'vec3'") and the bundle dies.
+// The vignette background is only built for non-alpha scenes and this app always uses
+// alpha:true, so these shaders are never compiled/used — loading them as inert strings is
+// enough to keep the module importable.
+import vert from "./three-vignette.vert?raw";
+import frag from "./three-vignette.frag?raw";
 
 interface optType {
   [key: string]: any;
