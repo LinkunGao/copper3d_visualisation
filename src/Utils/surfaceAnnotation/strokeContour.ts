@@ -3,9 +3,10 @@ import type { AnnotationVertex, SurfaceHit } from "./types";
 import { worldHitToLocalVertex } from "./types";
 
 /**
- * 模式 A(自由手绘)一笔的状态机。
- * pointermove 时不断 addSample;与上一采样点世界距离 < minGap 的样本丢弃,避免过密。
- * 顶点以 local 存(由 mesh 把世界命中点转 local)。
+ * State machine for one stroke in mode A (freehand).
+ * On pointermove it keeps calling addSample; samples whose world distance from the previous
+ * sample is < minGap are dropped to avoid over-density.
+ * Vertices are stored in local space (the mesh converts the world hit point to local).
  */
 export class StrokeContour {
   private verts: AnnotationVertex[] = [];
@@ -14,9 +15,11 @@ export class StrokeContour {
   private has = false;
 
   /**
-   * @param minGap  采样最小间距(世界系),去抖
-   * @param maxJump 跳变阈值(世界系):距离 > maxJump 且法线大幅翻转时丢弃该样本,
-   *                避免笔触掠过沟缝/轮廓边时相邻点落在不同深度、直线段横穿模型。
+   * @param minGap  minimum sample spacing (world space), debounce
+   * @param maxJump jump threshold (world space): drop the sample when distance > maxJump and the
+   *                normal flips sharply, to prevent adjacent points landing at different depths
+   *                (and the straight segment cutting through the model) when the stroke grazes a
+   *                groove or contour edge.
    */
   constructor(
     private minGap: number,
@@ -32,10 +35,12 @@ export class StrokeContour {
   addSample(hit: SurfaceHit) {
     if (this.has) {
       const d = hit.point.distanceTo(this.last);
-      if (d < this.minGap) return; // 太近,去抖
-      // 跳变剔除:距离突然很大「且」法线大幅翻转(>~75°)→ 多半跳到了背面/远面,丢弃,
-      // 否则相邻两点之间的直线段会横穿模型内部。两个条件同时满足才剔除:
-      // 快速画(距离大、法线相近)不误删;画过尖锐棱边(法线变、距离近)也不误删。
+      if (d < this.minGap) return; // too close, debounce
+      // Jump rejection: distance suddenly large AND normal flips sharply (>~75°) → likely jumped to
+      // the back/far side, so drop it, otherwise the straight segment between adjacent points cuts
+      // through the model interior. Only reject when both conditions hold:
+      // fast drawing (large distance, similar normals) isn't falsely dropped, and drawing over a
+      // sharp edge (normal changes, distance small) isn't falsely dropped either.
       if (d > this.maxJump && hit.normal.dot(this.lastNormal) < 0.25) return;
     }
     this.verts.push(worldHitToLocalVertex(hit, this.mesh));

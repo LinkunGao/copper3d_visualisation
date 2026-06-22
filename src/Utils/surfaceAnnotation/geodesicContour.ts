@@ -3,22 +3,23 @@ import type { AnnotationVertex } from "./types";
 import { MeshGraph } from "./MeshGraph";
 
 /**
- * 模式 B(测地线)状态机:逐次点击锚点,相邻锚点之间用 MeshGraph 求最短路径,
- * 拼成一条贴合表面的折线。Enter 结束并可闭合(首尾再求一段)。
+ * State machine for mode B (geodesic): click anchors one by one, find the shortest path between
+ * adjacent anchors with MeshGraph, and stitch them into a polyline that hugs the surface.
+ * Enter finishes and can close the loop (computing one more segment between first and last).
  */
 export class GeodesicContour {
-  private anchors: number[] = []; // 顶点索引
-  private segments: number[][] = []; // 相邻锚点间路径(含端点)
-  private history: number[][] = []; // 每次增删前的锚点快照,用于撤销
+  private anchors: number[] = []; // vertex indices
+  private segments: number[][] = []; // path between adjacent anchors (endpoints included)
+  private history: number[][] = []; // anchor snapshot before each add/remove, for undo
 
   constructor(private graph: MeshGraph, private mesh: THREE.Mesh) {}
 
-  /** 任何改动锚点前先存一份快照(顶点索引数组很小,快照成本可忽略)。 */
+  /** Save a snapshot before any anchor change (the vertex-index array is tiny, so snapshot cost is negligible). */
   private snapshot() {
     this.history.push(this.anchors.slice());
   }
 
-  /** 传入 local 命中点,snap 到最近顶点并对上一锚点求路径。 */
+  /** Given a local hit point, snap to the nearest vertex and compute the path to the previous anchor. */
   addAnchor(localHitPoint: THREE.Vector3) {
     const v = this.graph.nearestVertex(localHitPoint);
     this.snapshot();
@@ -29,7 +30,7 @@ export class GeodesicContour {
     this.anchors.push(v);
   }
 
-  /** 删除指定下标的锚点,重算相邻段(支持取消中间任意一点)。 */
+  /** Remove the anchor at the given index and recompute adjacent segments (allows canceling any middle point). */
   removeAnchorAt(index: number) {
     if (index < 0 || index >= this.anchors.length) return;
     this.snapshot();
@@ -37,12 +38,12 @@ export class GeodesicContour {
     this.rebuildSegments();
   }
 
-  /** 是否还有可撤销的编辑(加点/删点)。 */
+  /** Whether there is still an editable change to undo (add/remove point). */
   canUndo(): boolean {
     return this.history.length > 0;
   }
 
-  /** 撤销上一次锚点编辑(加点 → 删回去;删点 → 恢复)。无历史返回 false。 */
+  /** Undo the last anchor edit (add → remove it; remove → restore it). Returns false when no history. */
   undoEdit(): boolean {
     const prev = this.history.pop();
     if (!prev) return false;
@@ -51,7 +52,7 @@ export class GeodesicContour {
     return true;
   }
 
-  /** 据当前锚点序列整体重算所有相邻段路径。 */
+  /** Recompute all adjacent-segment paths from the current anchor sequence. */
   private rebuildSegments() {
     this.segments = [];
     for (let i = 1; i < this.anchors.length; i++) {
@@ -61,7 +62,7 @@ export class GeodesicContour {
     }
   }
 
-  /** 各锚点的 local 顶点(用于绘制可见的锚点标记)。 */
+  /** Local vertex of each anchor (used to draw visible anchor markers). */
   getAnchorLocals(): AnnotationVertex[] {
     return this.anchors.map((i) => this.graph.vertexLocal(i));
   }
@@ -70,7 +71,7 @@ export class GeodesicContour {
     return this.anchors.length;
   }
 
-  /** 把所有路径顶点(world)+ 法线 拼成折线;closed 时补一段首尾路径。 */
+  /** Stitch all path vertices (world) + normals into a polyline; when closed, add one first-to-last segment. */
   buildVertices(closed: boolean): AnnotationVertex[] {
     const segs = this.segments.slice();
     if (closed && this.anchors.length > 2) {
@@ -83,13 +84,13 @@ export class GeodesicContour {
     }
     const idxPath: number[] = [];
     segs.forEach((s, si) => {
-      const start = si === 0 ? 0 : 1; // 去重相邻段共享端点
+      const start = si === 0 ? 0 : 1; // dedupe the endpoint shared between adjacent segments
       for (let k = start; k < s.length; k++) idxPath.push(s[k]);
     });
     if (idxPath.length === 0 && this.anchors.length === 1) {
       idxPath.push(this.anchors[0]);
     }
-    // 图几何即 local 空间,直接产出 local 顶点(渲染时再派生 world)。
+    // The graph geometry is already local space, so emit local vertices directly (world is derived at render time).
     return idxPath.map((i) => this.graph.vertexLocal(i));
   }
 }

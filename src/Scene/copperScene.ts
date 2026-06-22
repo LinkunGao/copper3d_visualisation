@@ -145,9 +145,9 @@ export class copperScene extends baseScene {
   }
 
   /**
-   * 在给定模型表面创建标注器(画 contour / 放点 / 导出坐标)。
-   * target 可为单个 Mesh,或 Group/Object3D(自动选顶点数最多的 mesh)。
-   * 复用本 scene 的 camera / container / controls;几何非索引时内部自动焊接索引化。
+   * Create an annotator on the surface of a given model (draw contours / place points / export coordinates).
+   * target can be a single Mesh, or a Group/Object3D (the mesh with the most vertices is chosen automatically).
+   * Reuses this scene's camera / container / controls; non-indexed geometry is welded and indexed automatically.
    */
   createSurfaceAnnotator(
     target: THREE.Mesh | THREE.Object3D,
@@ -190,7 +190,7 @@ export class copperScene extends baseScene {
     return best;
   }
 
-  /** 释放本 scene 创建的所有标注器(移除事件监听与标注对象)。 */
+  /** Dispose all annotators created on this scene (removes event listeners and annotation objects). */
   disposeSurfaceAnnotators() {
     this.surfaceAnnotators.forEach((a) => a.dispose());
     this.surfaceAnnotators = [];

@@ -18,26 +18,27 @@ export interface SurfaceAnnotatorOptions {
   container: HTMLElement;
   controls: { enabled: boolean };
   mesh: THREE.Mesh;
-  /** 缺省时从 mesh 几何包围盒对角线自算。 */
+  /** Computed from the mesh geometry's bounding-box diagonal when omitted. */
   bboxDiagonal?: number;
   /**
-   * 标注线离开表面的外移量(world 单位),默认 bboxDiagonal*0.002。
-   * 单独提供可与采样间距(minGap/maxJump,仍由 bboxDiagonal 推导)解耦 —— 在凹凸/体素表面上
-   * 需要较大外移把线浮到起伏之上、又不想因此把采样变粗时使用。
+   * Outward offset of the annotation line from the surface (world units), defaults to bboxDiagonal*0.002.
+   * Providing it separately decouples it from the sampling spacing (minGap/maxJump, still derived from
+   * bboxDiagonal) — useful on bumpy/voxel surfaces where a larger offset is needed to float the line
+   * above the relief without also coarsening the sampling.
    */
   epsilon?: number;
-  /** 自由手绘 contour 颜色,默认 #e5006e。 */
+  /** Freehand contour color, defaults to #e5006e. */
   freehandColor?: string;
-  /** 测地线 contour 颜色,默认 #ffa24e。 */
+  /** Geodesic contour color, defaults to #ffa24e. */
   geodesicColor?: string;
-  /** 放点标记颜色,默认 #ffd166。 */
+  /** Point-marker color, defaults to #ffd166. */
   pointColor?: string;
-  /** 线宽(像素),默认 3。 */
+  /** Line width (pixels), defaults to 3. */
   lineWidth?: number;
-  /** 标记小球半径,默认 bboxDiagonal*0.006。 */
+  /** Marker sphere radius, defaults to bboxDiagonal*0.006. */
   markerRadius?: number;
   onModeChange?: (m: AnnotationMode) => void;
-  /** 标注列表变化回调(增删/撤销/清空)。 */
+  /** Callback when the annotation list changes (add/remove/undo/clear). */
   onChange?: (annotations: Annotation[]) => void;
 }
 
@@ -45,9 +46,10 @@ const LINE_W = 3;
 const LINE_W_SEL = 6;
 
 /**
- * 表面标注主控制器(Phase 4):navigate / freehand / geodesic / point 四模式,
- * Enter 闭合,数据交给 AnnotationStore 管理(多条带颜色标签、撤销/删除/清空、导出)。
- * 渲染层据 store.list() 做场景对账(reconcile),撤销/删除自动加/移 three 对象。
+ * Main surface-annotation controller (Phase 4): four modes navigate / freehand / geodesic / point,
+ * Enter closes the loop, and data is managed by AnnotationStore (multiple color-labeled strips,
+ * undo/delete/clear, export).
+ * The render layer reconciles the scene against store.list(); undo/delete automatically add/remove three objects.
  */
 export class SurfaceAnnotator {
   private o: SurfaceAnnotatorOptions;
@@ -70,17 +72,17 @@ export class SurfaceAnnotator {
   private lastFreehand?: Annotation;
   private activeGeo?: GeodesicContour;
   private activeGeoLine?: Line2;
-  private activeGeoMarkers: THREE.Mesh[] = []; // 进行中测地线的可见锚点
+  private activeGeoMarkers: THREE.Mesh[] = []; // visible anchors of the in-progress geodesic
   private geoRay = new THREE.Raycaster();
   private geoNdc = new THREE.Vector2();
-  private geoHoverBadge?: HTMLDivElement; // 悬停锚点时显示的"✕(可取消)"小标
+  private geoHoverBadge?: HTMLDivElement; // small "✕ (cancel)" badge shown when hovering an anchor
   private hoveredGeoMarker = -1;
   private _projV = new THREE.Vector3();
 
   constructor(opts: SurfaceAnnotatorOptions) {
     this.o = opts;
     const meshGeo = opts.mesh.geometry as THREE.BufferGeometry;
-    if (!meshGeo.getAttribute("normal")) meshGeo.computeVertexNormals(); // 渲染需要法线
+    if (!meshGeo.getAttribute("normal")) meshGeo.computeVertexNormals(); // rendering needs normals
     meshGeo.computeBoundingBox();
     const diag =
       opts.bboxDiagonal ??
@@ -90,9 +92,10 @@ export class SurfaceAnnotator {
     this.minGap = diag * 0.004;
     this.maxJump = diag * 0.05;
 
-    // 测地线连通性:单独焊接一份"仅位置"的几何给 MeshGraph 用——
-    // 不动被渲染的 mesh(保留其法线/UV/纹理)。仅位置可保证同表面位置的顶点
-    // 被 mergeVertices 合并(否则逐面法线/UV 会阻止合并,图断裂 → 闭合穿模)。
+    // Geodesic connectivity: weld a separate "position-only" geometry for MeshGraph to use —
+    // leaving the rendered mesh untouched (keeping its normals/UV/texture). Position-only ensures
+    // vertices at the same surface position get merged by mergeVertices (otherwise per-face
+    // normals/UV would block the merge, breaking the graph → the closed loop cuts through the model).
     const posOnly = new THREE.BufferGeometry();
     posOnly.setAttribute(
       "position",
@@ -103,8 +106,8 @@ export class SurfaceAnnotator {
     this.graph = new MeshGraph(graphGeo);
 
     this.store.subscribe(() => this.reconcile());
-    // 监听挂到 window 的捕获阶段(capture=true):在 copper 的 TrackballControls
-    // 之前拿到每一个指针事件,避免它的 setPointerCapture / 事件路由导致拖拽中途丢 move。
+    // Listen on window in the capture phase (capture=true): receive every pointer event before
+    // copper's TrackballControls, so its setPointerCapture / event routing doesn't drop moves mid-drag.
     window.addEventListener("pointerdown", this.onPointerDown, true);
     window.addEventListener("pointermove", this.onPointerMove, true);
     window.addEventListener("pointerup", this.onPointerUp, true);
@@ -114,7 +117,7 @@ export class SurfaceAnnotator {
     this.applyCameraGating();
   }
 
-  /** 窗口尺寸变化时更新所有 fat line 的像素分辨率,否则线宽会失真。 */
+  /** Update the pixel resolution of all fat lines on window resize, otherwise line width distorts. */
   private onResize = () => {
     const w = this.o.container.clientWidth;
     const h = this.o.container.clientHeight;
@@ -140,14 +143,14 @@ export class SurfaceAnnotator {
     return this.o.pointColor ?? "#ffd166";
   }
 
-  // ---- 对外 API(供 Vue 调用) ----
+  // ---- Public API (called from Vue) ----
 
   getMode(): AnnotationMode {
     return this.mode;
   }
 
   setMode(m: AnnotationMode) {
-    // 离开测地线模式时丢弃尚未 Enter 落定的进行中测地线(清掉残留的锚点与线)。
+    // When leaving geodesic mode, discard the in-progress geodesic not yet committed with Enter (clear leftover anchors and line).
     if (m !== "geodesic" && this.activeGeo) this.clearActiveGeo();
     this.mode = m;
     this.applyCameraGating();
@@ -158,14 +161,14 @@ export class SurfaceAnnotator {
     return this.store;
   }
 
-  /** 当前标注列表快照。 */
+  /** Snapshot of the current annotation list. */
   getAnnotations(): Annotation[] {
     return this.store.list();
   }
 
   undo() {
-    // 测地线进行中 → 撤销最近一次锚点编辑(加点 / 取消点都能回退);
-    // 否则撤销最近一条已落定的标注。
+    // Geodesic in progress → undo the most recent anchor edit (both adding and canceling a point can be rolled back);
+    // otherwise undo the most recently committed annotation.
     if (this.activeGeo && this.activeGeo.canUndo()) {
       this.activeGeo.undoEdit();
       if (this.activeGeo.anchorCount === 0) this.clearActiveGeo();
@@ -201,7 +204,7 @@ export class SurfaceAnnotator {
     this.applySelection();
   }
 
-  /** 颜色变更后重画对应 three 对象。 */
+  /** Redraw the corresponding three object after a color change. */
   refreshAnnotation(id: string) {
     const a = this.store.get(id);
     if (!a || !a.object3D) return;
@@ -217,14 +220,14 @@ export class SurfaceAnnotator {
     return this.store.toJSON(modelName, this.o.mesh, opts);
   }
 
-  // ---- 内部 ----
+  // ---- Internal ----
 
   private applyCameraGating() {
-    // 按住 Space 临时旋转优先;否则仅 navigate 模式开相机。
+    // Holding Space for temporary rotation takes priority; otherwise enable the camera only in navigate mode.
     this.o.controls.enabled = this.spaceHeld || this.mode === "navigate";
   }
 
-  /** 据 store.list() 对账场景:补齐缺失对象、移除已删对象(不 dispose,留给撤销恢复)。 */
+  /** Reconcile the scene against store.list(): add missing objects, remove deleted ones (no dispose, kept for undo restore). */
   private reconcile() {
     const present = new Set<THREE.Object3D>();
     for (const a of this.store.list()) if (a.object3D) present.add(a.object3D);
@@ -275,10 +278,11 @@ export class SurfaceAnnotator {
   }
 
   /**
-   * 事件目标是否是容器内的 WebGL canvas。
-   * 仅认 canvas:面板(GUIDE / 控制面板 / 标注列表的 ✕ 按钮)都是 container 的子元素,
-   * 若只判断 contains 会把面板上的点击也当成在模型上作画 —— 这会"穿透"删除按钮、
-   * 让 ✕ 难以点中。只响应 canvas 上的指针事件即可彻底隔离 UI 与画布。
+   * Whether the event target is the WebGL canvas inside the container.
+   * Only accept the canvas: panels (GUIDE / control panel / the ✕ buttons in the annotation list)
+   * are all children of the container, so checking contains alone would treat clicks on the panels
+   * as drawing on the model — which "leaks through" the delete buttons and makes ✕ hard to click.
+   * Responding only to pointer events on the canvas fully isolates the UI from the drawing surface.
    */
   private insideContainer(e: Event): boolean {
     const t = e.target as HTMLElement | null;
@@ -287,7 +291,7 @@ export class SurfaceAnnotator {
 
   private onPointerDown = (e: PointerEvent) => {
     if (this.spaceHeld) return;
-    if (e.button !== 0) return; // 仅左键
+    if (e.button !== 0) return; // left button only
     if (!this.insideContainer(e)) return;
     this.pointerDown = true;
 
@@ -334,7 +338,7 @@ export class SurfaceAnnotator {
     }
 
     if (this.mode === "geodesic") {
-      // 先判断是否点中了一个已有锚点 → 取消该点(支持取消其中任意一点)。
+      // First check whether an existing anchor was clicked → cancel that point (any point can be canceled).
       const pick = this.pickGeoMarker(e);
       if (pick >= 0 && this.activeGeo) {
         this.activeGeo.removeAnchorAt(pick);
@@ -345,7 +349,7 @@ export class SurfaceAnnotator {
         }
         return;
       }
-      // 否则在表面落一个新锚点。
+      // Otherwise drop a new anchor on the surface.
       const h = this.hit(e);
       if (!h) return;
       if (!this.activeGeo) {
@@ -359,25 +363,29 @@ export class SurfaceAnnotator {
   };
 
   /**
-   * 拾取进行中的锚点:返回最近锚点的下标(屏幕像素距离 < 容差),未命中返回 -1。
+   * Pick an in-progress anchor: return the index of the nearest anchor (screen pixel distance <
+   * tolerance), or -1 on a miss.
    *
-   * 改用「屏幕空间像素距离」而非射线/球相交:锚点小球很小,严格的 ray/sphere 命中要求像素级
-   * 精准对中,绝大多数点击都会落空 —— 而落空会穿到「新增锚点」分支,导致想删点反而多放了一个点,
-   * 也就是之前「删点要点好几下、必须正中小球」的根因。把每个锚点投影到屏幕、取容差内最近的一个,
-   * 删点就稳定可靠了。容差按小球的屏幕半径放大,保证好点中。
+   * Uses "screen-space pixel distance" instead of ray/sphere intersection: the anchor spheres are
+   * tiny, so strict ray/sphere hits require pixel-perfect aiming and most clicks miss — and a miss
+   * falls through to the "add anchor" branch, so trying to delete a point ends up adding one. That
+   * was the root cause of the old "deleting a point takes several clicks, must hit the sphere dead
+   * center" problem. Projecting each anchor to the screen and taking the nearest within tolerance
+   * makes deletion stable and reliable. The tolerance is enlarged relative to the sphere's screen
+   * radius to make it easy to hit.
    */
   private pickGeoMarker(e: PointerEvent): number {
     if (!this.activeGeoMarkers.length) return -1;
     const rect = this.o.container.getBoundingClientRect();
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
-    const TOL = 16; // 命中容差(像素),比小球本身大,容错点击
+    const TOL = 16; // hit tolerance (pixels), larger than the sphere itself for forgiving clicks
     let best = -1;
     let bestDist = TOL;
     const v = this._projV;
     for (let i = 0; i < this.activeGeoMarkers.length; i++) {
       v.copy(this.activeGeoMarkers[i].position).project(this.o.camera);
-      if (v.z > 1) continue; // 投影到相机背后,跳过
+      if (v.z > 1) continue; // projects behind the camera, skip
       const sx = (v.x * 0.5 + 0.5) * rect.width;
       const sy = (-v.y * 0.5 + 0.5) * rect.height;
       const d = Math.hypot(sx - px, sy - py);
@@ -389,7 +397,7 @@ export class SurfaceAnnotator {
     return best;
   }
 
-  /** 设置当前悬停的锚点(-1 = 无):更新高亮缩放、光标与"✕(可取消)"悬浮标。 */
+  /** Set the currently hovered anchor (-1 = none): update highlight scale, cursor, and the "✕ (cancel)" floating badge. */
   private setGeoHover(idx: number) {
     if (idx === this.hoveredGeoMarker) {
       if (idx >= 0) this.positionGeoBadge(this.activeGeoMarkers[idx]);
@@ -410,7 +418,7 @@ export class SurfaceAnnotator {
     }
   }
 
-  /** 懒创建悬浮 ✕ 标(挂在 container 内,pointer-events:none 不挡点击)。 */
+  /** Lazily create the floating ✕ badge (appended inside the container, pointer-events:none so it doesn't block clicks). */
   private ensureGeoBadge(): HTMLDivElement {
     if (this.geoHoverBadge) return this.geoHoverBadge;
     const b = document.createElement("div");
@@ -438,7 +446,7 @@ export class SurfaceAnnotator {
     return b;
   }
 
-  /** 把 ✕ 标定位到锚点投影到屏幕的位置(正中心,即光标悬停处,避免歧义)。 */
+  /** Position the ✕ badge at the anchor's screen projection (dead center, i.e. where the cursor hovers, to avoid ambiguity). */
   private positionGeoBadge(marker: THREE.Mesh) {
     if (!marker) return;
     const b = this.ensureGeoBadge();
@@ -450,7 +458,7 @@ export class SurfaceAnnotator {
     b.style.top = `${y}px`;
   }
 
-  /** 据当前锚点重建可见的锚点小球(锚点比放点稍大,便于看见与点中取消)。 */
+  /** Rebuild the visible anchor spheres from the current anchors (slightly larger than placed points, so they're easy to see and click to cancel). */
   private rebuildGeoMarkers() {
     this.setGeoHover(-1);
     for (const m of this.activeGeoMarkers) {
@@ -471,7 +479,7 @@ export class SurfaceAnnotator {
     }
   }
 
-  /** 据当前锚点重画进行中的测地线(不闭合);不足两点时移除线。 */
+  /** Redraw the in-progress geodesic from the current anchors (not closed); remove the line when fewer than two points. */
   private redrawGeoLine() {
     if (!this.activeGeo) return;
     const verts = this.activeGeo.buildVertices(false);
@@ -504,7 +512,7 @@ export class SurfaceAnnotator {
     }
   }
 
-  /** 丢弃进行中的测地线:移除并 dispose 线与全部锚点。 */
+  /** Discard the in-progress geodesic: remove and dispose the line and all anchors. */
   private clearActiveGeo() {
     this.setGeoHover(-1);
     if (this.activeGeoLine) {
@@ -520,7 +528,7 @@ export class SurfaceAnnotator {
     this.activeGeo = undefined;
   }
 
-  /** 移除进行中测地线的全部锚点小球(落定后调用:只留下线)。 */
+  /** Remove all anchor spheres of the in-progress geodesic (called after committing: only the line remains). */
   private removeGeoMarkers() {
     this.setGeoHover(-1);
     for (const m of this.activeGeoMarkers) {
@@ -535,7 +543,7 @@ export class SurfaceAnnotator {
       this.setGeoHover(-1);
       return;
     }
-    // 测地线模式下,悬停到锚点小球时显示"✕"提示(该点可被点击取消)。
+    // In geodesic mode, show the "✕" hint when hovering an anchor sphere (that point can be clicked to cancel).
     if (this.mode === "geodesic" && !this.pointerDown) {
       this.setGeoHover(
         this.insideContainer(e) ? this.pickGeoMarker(e) : -1
@@ -589,7 +597,7 @@ export class SurfaceAnnotator {
   private closeLastContour() {
     const last = this.lastFreehand;
     if (!last || last.closed || last.vertices.length < 3 || !last.object3D) return;
-    // 用测地线沿表面把末点连回首点,避免直线弦从模型内部"抄近路"被遮挡。
+    // Use a geodesic along the surface to connect the last point back to the first, so a straight chord doesn't "shortcut" through the model interior and get occluded.
     const tail = last.vertices[last.vertices.length - 1];
     const head = last.vertices[0];
     const closing = this.surfacePathBetween(tail, head);
@@ -604,7 +612,7 @@ export class SurfaceAnnotator {
     );
   }
 
-  /** 沿网格表面求 a→b 的测地路径(local 顶点),去掉与 a 重合的首点。a/b 已是 local。 */
+  /** Compute the geodesic path a→b along the mesh surface (local vertices), dropping the first point that coincides with a. a/b are already local. */
   private surfacePathBetween(
     a: AnnotationVertex,
     b: AnnotationVertex
@@ -615,7 +623,7 @@ export class SurfaceAnnotator {
     return path.slice(1).map((i) => this.graph.vertexLocal(i));
   }
 
-  /** 结束当前测地线:闭合成环并落定为一条 contour。 */
+  /** Finish the current geodesic: close it into a ring and commit it as one contour. */
   private finishGeodesic() {
     if (!this.activeGeo || !this.activeGeoLine) return;
     const closed = this.activeGeo.anchorCount > 2;
@@ -643,7 +651,7 @@ export class SurfaceAnnotator {
       this.o.scene.remove(this.activeGeoLine);
       this.disposeObject(this.activeGeoLine);
     }
-    // 落定后清掉可见锚点,只留下贴合表面的线。
+    // After committing, clear the visible anchors and leave only the surface-hugging line.
     this.removeGeoMarkers();
     this.activeGeo = undefined;
     this.activeGeoLine = undefined;
@@ -677,7 +685,7 @@ export class SurfaceAnnotator {
       return;
     }
     if (e.key === "Enter") {
-      // 测地线进行中 → 结束并闭合;否则闭合最近一条自由手绘线。
+      // Geodesic in progress → finish and close it; otherwise close the most recent freehand line.
       if (this.activeGeo) this.finishGeodesic();
       else this.closeLastContour();
       return;

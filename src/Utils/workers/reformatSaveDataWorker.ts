@@ -3,7 +3,7 @@ import { IPaintImage } from "../segmentation/core/types";
 addEventListener("message", (event) => {
   const data = event.data;
   if (data.type === "reformat") {
-    // 在 Worker 中执行计算量大的代码
+    // Run the compute-heavy code inside the Worker
     const masks = restructData(
       data.masksData,
       data.len,
@@ -14,7 +14,7 @@ addEventListener("message", (event) => {
       masks,
       type: "reformat",
     };
-    // 发送计算结果到主线程
+    // Send the computed result back to the main thread
     postMessage(result);
   } else if (data.type === "saveBlob") {
     const result = convertReformatDataToBlob(data.maskData);

@@ -4,11 +4,11 @@ export type AnnotationMode = "navigate" | "freehand" | "geodesic" | "point";
 
 export interface SurfaceHit {
   point: THREE.Vector3; // world
-  normal: THREE.Vector3; // 插值法线 (world)
+  normal: THREE.Vector3; // interpolated normal (world)
   faceIndex: number;
 }
 
-/** 标注顶点:位置与法线均为 **模型 local 空间**(单一真源,不受相机/摆放影响)。 */
+/** Annotation vertex: position and normal are both in **model local space** (single source of truth, unaffected by camera/placement). */
 export interface AnnotationVertex {
   x: number;
   y: number;
@@ -22,24 +22,24 @@ export interface AnnotationVertex {
 export interface Annotation {
   id: string;
   type: "contour" | "points";
-  mode: "freehand" | "geodesic" | null; // points 为 null
+  mode: "freehand" | "geodesic" | null; // null for points
   label: string;
   color: string; // hex, e.g. "#ff5a6e"
   closed: boolean;
   vertices: AnnotationVertex[];
-  object3D: THREE.Object3D | null; // 渲染对象引用(导出时剔除)
+  object3D: THREE.Object3D | null; // render-object reference (stripped on export)
 }
 
 export interface ExportOptions {
-  /** 导出坐标空间,默认 "local"(模型空间,可复现、不受相机/摆放影响)。 */
+  /** Export coordinate space, defaults to "local" (model space, reproducible and unaffected by camera/placement). */
   space?: "local" | "world";
-  /** 是否在每个点附带法线 [x,y,z,nx,ny,nz]。 */
+  /** Whether to attach a normal to each point [x,y,z,nx,ny,nz]. */
   includeNormals?: boolean;
 }
 
 const _inv = new THREE.Matrix4();
 
-/** 世界系命中点 → local 顶点(位置 worldToLocal,法线用逆变换)。 */
+/** World-space hit point → local vertex (position via worldToLocal, normal via inverse transform). */
 export function worldHitToLocalVertex(
   h: SurfaceHit,
   mesh: THREE.Mesh
@@ -60,7 +60,7 @@ export function worldHitToLocalVertex(
 
 const _nm = new THREE.Matrix3();
 
-/** local 顶点 → world 位置 + world 法线(供渲染)。 */
+/** Local vertex → world position + world normal (for rendering). */
 export function localVertexToWorld(
   v: AnnotationVertex,
   mesh: THREE.Mesh

@@ -4,9 +4,9 @@ import type { Annotation, AnnotationVertex, ExportOptions } from "./types";
 type Op = { kind: "add" | "remove"; ann: Annotation };
 
 /**
- * 标注数据模型 + 撤销栈 + 导出。纯数据,无 three / DOM 依赖。
- * 撤销只记录 add / remove 两类原子操作(满足"撤销最近添加 / 恢复删除")。
- * 通过 subscribe 通知 UI 与渲染层(后者据 list() 做场景对账)。
+ * Annotation data model + undo stack + export. Pure data, no three / DOM dependencies.
+ * Undo only records two atomic operations, add / remove (enough for "undo last add / restore delete").
+ * Notifies the UI and render layer via subscribe (the latter reconciles the scene against list()).
  */
 export class AnnotationStore {
   private items: Annotation[] = [];
@@ -49,7 +49,7 @@ export class AnnotationStore {
     this.notify();
   }
 
-  /** 清空,返回被清掉的项(供渲染层 dispose three 对象)。 */
+  /** Clear all, returning the removed items (so the render layer can dispose three objects). */
   clear(): Annotation[] {
     const old = this.items;
     this.items = [];
