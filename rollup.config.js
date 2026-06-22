@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "fs";
 import resolve from "rollup-plugin-node-resolve"; // 依赖引用插件
 import commonjs from "rollup-plugin-commonjs"; // commonjs模块转换插件
 import image from "@rollup/plugin-image";
@@ -9,6 +10,29 @@ const getPath = (_path) => path.resolve(__dirname, _path);
 import packageJSON from "./package.json";
 
 const extensions = [".js", ".ts", ".tsx"];
+
+// 处理 Vite 风格的 `?raw` 导入：把文件内容作为原始字符串引入
+const rawPlugin = () => ({
+  name: "raw-loader",
+  resolveId(source, importer) {
+    if (source.endsWith("?raw")) {
+      const clean = source.slice(0, -"?raw".length);
+      const resolved = importer
+        ? path.resolve(path.dirname(importer), clean)
+        : path.resolve(clean);
+      return resolved + "?raw";
+    }
+    return null;
+  },
+  load(id) {
+    if (id.endsWith("?raw")) {
+      const filePath = id.slice(0, -"?raw".length);
+      const code = fs.readFileSync(filePath, "utf-8");
+      return `export default ${JSON.stringify(code)};`;
+    }
+    return null;
+  },
+});
 
 // 导入本地ts配置
 const tsPlugin = ts({
@@ -21,6 +45,7 @@ const commonConf = {
   // 入口文件
   input: getPath("./src/index.ts"),
   plugins: [
+    rawPlugin(),
     resolve({
       extensions,
     }),

@@ -1,14 +1,16 @@
 import * as THREE from "three";
 
 /**
- * 从 BufferGeometry 的索引构建顶点邻接图,用于模式 B(测地线)的最短路径。
- * 顶点坐标按 local 存;传入的查询点需先转为 local(mesh.worldToLocal)。
+ * Build a vertex adjacency graph from a BufferGeometry's index, used for the shortest path in
+ * mode B (geodesic). Vertex coordinates are stored in local space; query points must be converted
+ * to local first (mesh.worldToLocal).
  *
- * 说明:几何须为已索引(indexed)。modelLoader 用 mergeVertices 焊接重复顶点,
- * 保证同一表面位置共享顶点,邻接图才连通。
+ * Note: the geometry must be indexed. modelLoader welds duplicate vertices with mergeVertices so
+ * that vertices at the same surface position are shared, otherwise the adjacency graph won't be connected.
  *
- * 性能:O(V²) Dijkstra + O(V) 最近顶点查找。对几万顶点单次点击可接受;
- * 若过大可后续换二叉堆 + 空间网格加速(留作升级)。
+ * Performance: O(V²) Dijkstra + O(V) nearest-vertex lookup. Acceptable for a single click on tens
+ * of thousands of vertices; if too large it can later be sped up with a binary heap + spatial grid
+ * (left as a future upgrade).
  */
 export class MeshGraph {
   private positions: Float32Array;
@@ -42,7 +44,7 @@ export class MeshGraph {
         addEdge(c, a);
       }
     } else {
-      // 非索引兜底(连通性差,仅避免崩溃)。
+      // Non-indexed fallback (poor connectivity, only to avoid crashing).
       for (let i = 0; i + 2 < this.vertexCount; i += 3) {
         addEdge(i, i + 1);
         addEdge(i + 1, i + 2);
@@ -61,7 +63,7 @@ export class MeshGraph {
     return this.positions[i * 3 + 2];
   }
 
-  /** 最近顶点(传入 local 坐标)。 */
+  /** Nearest vertex (pass in local coordinates). */
   nearestVertex(localPoint: THREE.Vector3): number {
     let best = -1;
     let bestD = Infinity;
@@ -79,8 +81,8 @@ export class MeshGraph {
   }
 
   /**
-   * 两顶点间最短路径(含端点的顶点索引序列)。二叉堆 Dijkstra,O(E log V)。
-   * 不连通时返回 [start,end] 兜底。
+   * Shortest path between two vertices (sequence of vertex indices including endpoints).
+   * Binary-heap Dijkstra, O(E log V). Falls back to [start,end] when disconnected.
    */
   shortestPath(startV: number, endV: number): number[] {
     if (startV === endV) return [startV];
@@ -143,7 +145,7 @@ export class MeshGraph {
     return n.applyMatrix3(nm).normalize();
   }
 
-  /** 顶点的 local 坐标 + local 法线(图几何即 local 空间)。 */
+  /** Vertex local coordinates + local normal (the graph geometry is already local space). */
   vertexLocal(i: number): {
     x: number;
     y: number;
@@ -165,7 +167,7 @@ export class MeshGraph {
   }
 }
 
-/** 极简二叉最小堆(按 priority 排序,存顶点索引)。用于 Dijkstra。 */
+/** Minimal binary min-heap (ordered by priority, stores vertex indices). Used for Dijkstra. */
 class MinHeap {
   private ids: number[] = [];
   private prio: number[] = [];

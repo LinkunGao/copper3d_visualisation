@@ -285,7 +285,7 @@ export function copperNrrdTexture3dLoader(
 
       const boundingBox = new THREE.Box3().setFromObject(mesh);
 
-      // 获取边界框的尺寸
+      // Get the size of the bounding box
       const size_ = new THREE.Vector3();
       boundingBox.getSize(size_);
 

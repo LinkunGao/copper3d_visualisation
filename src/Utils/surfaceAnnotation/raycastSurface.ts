@@ -18,11 +18,15 @@ const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 
 /**
- * 用重心坐标在命中三角形上插值"逐顶点平滑法线",而不是用逐面法线。
+ * Interpolate a "smooth per-vertex normal" across the hit triangle using barycentric coordinates,
+ * instead of using the per-face normal.
  *
- * 体素 / marching-cubes 网格的逐面法线是轴对齐的台阶方向(±x/±y/±z),用它把标注线沿法线外移
- * 会把点推向相邻台阶、而不是干净地"朝外",导致线在凹凸面上忽进忽出、被台阶遮断。平滑法线沿表面
- * 连续变化,外移方向稳定一致,线才能平滑地浮在起伏之上。返回 false 表示无法插值(调用方回退到面法线)。
+ * Per-face normals on voxel / marching-cubes meshes are axis-aligned stair directions (±x/±y/±z);
+ * using them to push the annotation line outward along the normal shoves points toward neighboring
+ * stairs rather than cleanly "outward", making the line dip in and out on bumpy surfaces and get
+ * occluded by the steps. A smooth normal varies continuously along the surface, so the outward
+ * direction is stable and consistent and the line can float smoothly above the relief. Returns false
+ * when interpolation isn't possible (caller falls back to the face normal).
  */
 function interpolateLocalNormal(
   geom: THREE.BufferGeometry,
@@ -36,7 +40,7 @@ function interpolateLocalNormal(
   _pa.fromBufferAttribute(posAttr, face.a);
   _pb.fromBufferAttribute(posAttr, face.b);
   _pc.fromBufferAttribute(posAttr, face.c);
-  // 重心坐标(局部空间):u/v/w
+  // Barycentric coordinates (local space): u/v/w
   _v0.subVectors(_pb, _pa);
   _v1.subVectors(_pc, _pa);
   _v2.subVectors(localPoint, _pa);
@@ -64,8 +68,9 @@ function interpolateLocalNormal(
 }
 
 /**
- * 把屏幕坐标(clientX/Y)投射到 mesh 表面,返回命中点、world-space 法线与 faceIndex。
- * 未命中返回 null。本地实现,不依赖 Copper3D 未导出的 raycast 内部函数。
+ * Project screen coordinates (clientX/Y) onto the mesh surface, returning the hit point,
+ * world-space normal, and faceIndex. Returns null on a miss. Local implementation that does not
+ * depend on Copper3D's unexported raycast internals.
  */
 export function raycastSurface(
   camera: THREE.PerspectiveCamera,

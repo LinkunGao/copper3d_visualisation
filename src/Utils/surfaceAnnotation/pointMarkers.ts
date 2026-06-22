@@ -3,8 +3,9 @@ import type { AnnotationVertex } from "./types";
 import { localVertexToWorld } from "./types";
 
 /**
- * 在 local 顶点处生成一个标记小球(fiducial)。local→world 后沿 world 法线略外移,
- * 避免一半埋进表面。radius 由调用方按模型 bbox 缩放传入。
+ * Create a marker sphere (fiducial) at a local vertex. After local→world, nudge it
+ * outward along the world normal so it doesn't sink halfway into the surface.
+ * radius is passed in by the caller, scaled to the model bbox.
  */
 export function makePointMarker(
   v: AnnotationVertex,
