@@ -1106,16 +1106,39 @@ export class NrrdTools {
 
   aiSetPromptTool(tool: AiPromptTool): void { this.drawCore.aiAssistTool.setPromptTool(tool); }
   aiSetPolarity(label: number): void { this.drawCore.aiAssistTool.setPolarity(label); }
-  /** Set the AI-layer channel (1-8) the predictions paint into. */
-  aiSetChannel(channel: number): void { this.drawCore.aiAssistTool.setChannel(channel); }
+  /** Select the active Segmentation by its label value (the AI paints into it). */
+  aiSetActiveSegment(label: number): void { this.drawCore.aiAssistTool.setActiveSegment(label); }
+  /** Set a Segmentation's colour (its label's colorMap entry; 2D overlay repaints). */
+  aiSetSegmentColor(label: number, color: { r: number; g: number; b: number; a: number }): void {
+    this.drawCore.aiAssistTool.setSegmentColor(label, color);
+  }
+  /** "New segmentation": freeze current regions + switch to a new label. */
+  aiNewSegment(label: number): void { this.drawCore.aiAssistTool.newSegment(label); }
+  /** Delete a Segmentation: erase all its label's voxels from scratch + committed. */
+  aiClearSegment(label: number): void { this.drawCore.aiAssistTool.clearSegment(label); }
   /** Set the scribble brush radius (px). */
   aiSetScribbleSize(size: number): void { this.drawCore.aiAssistTool.setScribbleSize(size); }
   /** Register the callback invoked when a prompt gesture completes (app → backend). */
   aiOnPrompt(cb: (payload: AiPromptPayload) => void): void { this.drawCore.aiAssistTool.onPrompt = cb; }
+  /** Register the callback fired when the lasso vertex set changes (drives the Finish button). */
+  aiOnLassoChange(cb: (count: number, editing: boolean) => void): void { this.drawCore.aiAssistTool.onLassoChange = cb; }
   /** Apply a backend mask result into the scratch volume (overlay repaints next frame). */
   aiApplyMask(result: AiMaskResult): void { this.drawCore.aiAssistTool.applyMask(result); }
   /** Clear the in-progress prompt set (e.g. slice change). */
   aiClearPrompts(): void { this.drawCore.aiAssistTool.resetPrompts(); }
+  // — Lasso v2 (discrete-vertex closed-curve) controls —
+  /** Close + send the in-progress lasso to the backend (needs ≥3 vertices). */
+  aiFinishLasso(): void { this.drawCore.aiAssistTool.finishLasso(); }
+  /** Undo the last lasso vertex add/delete. */
+  aiLassoUndo(): void { this.drawCore.aiAssistTool.lassoUndoAction(); }
+  /** Redo the last undone lasso vertex change. */
+  aiLassoRedo(): void { this.drawCore.aiAssistTool.lassoRedoAction(); }
+  /** Abandon the in-progress lasso (Esc). */
+  aiCancelLasso(): void { this.drawCore.aiAssistTool.cancelLasso(); }
+  /** True while the user is placing lasso vertices. */
+  aiIsLassoEditing(): boolean { return this.drawCore.aiAssistTool.isLassoEditing(); }
+  /** Number of placed lasso vertices (drives the Finish button). */
+  aiLassoVertCount(): number { return this.drawCore.aiAssistTool.getLassoVertCount(); }
   /** "New region": freeze current regions (they persist) + start a fresh prompt set. */
   aiCommitRegion(): void { this.drawCore.aiAssistTool.commitRegion(); }
   /** Discard all AI scratch painting since enter (sandbox discard). */
@@ -1125,6 +1148,11 @@ export class NrrdTools {
   /** Serialize the AI scratch as per-slice RLE for persisting to ai_generated_nii_LPS. */
   aiGetScratchSlices(): { axis: "z"; width: number; height: number; slices: { sliceIndex: number; rle: number[] }[] } | null {
     return this.drawCore.aiAssistTool.getScratchSlices();
+  }
+  /** Per-segmentation serialization (one binary RLE per label per z-slice) for the
+   *  multi-label / per-colour 3D build. */
+  aiGetScratchSegments(): { axis: "z"; width: number; height: number; segments: { label: number; slices: { sliceIndex: number; rle: number[] }[] }[] } | null {
+    return this.drawCore.aiAssistTool.getScratchSegments();
   }
 
   /**
