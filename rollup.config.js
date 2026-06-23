@@ -6,6 +6,7 @@ import image from "@rollup/plugin-image";
 import glslify from "rollup-plugin-glslify";
 import ts from "rollup-plugin-typescript2";
 import postcss from "rollup-plugin-postcss";
+import replace from "@rollup/plugin-replace";
 const getPath = (_path) => path.resolve(__dirname, _path);
 import packageJSON from "./package.json";
 
@@ -45,6 +46,10 @@ const commonConf = {
   // 入口文件
   input: getPath("./src/index.ts"),
   plugins: [
+    replace({
+      preventAssignment: true,
+      __REVISION__: JSON.stringify(`v${packageJSON.version}`),
+    }),
     rawPlugin(),
     resolve({
       extensions,

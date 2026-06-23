@@ -4,6 +4,7 @@ declare module "*.hdr";
 declare module "*.png";
 declare module "*.jpg";
 declare module "*.glsl";
+declare module "*.css";
 declare module "fflate";
 declare module "dicom-parser";
 declare module "copper3d_plugin_nrrd";

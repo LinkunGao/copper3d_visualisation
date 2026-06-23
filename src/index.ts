@@ -68,13 +68,21 @@ import type {
 
 import "./css/style.css";
 
-export const REVISION = "v3.6.5-beta";
+// __REVISION__ is injected at build time by rollup @rollup/plugin-replace, sourced from package.json version
+export const REVISION = __REVISION__;
 
-console.log(
-  `%cCopper3D Visualisation %cBeta:${REVISION}`,
-  "padding: 3px;color:white; background:#023047",
-  "padding: 3px;color:white; background:#f50a25"
-);
+// Expose on global so the version can be read in a production browser console via window.__COPPER3D_VERSION__
+if (typeof window !== "undefined") {
+  (window as any).__COPPER3D_VERSION__ = REVISION;
+}
+
+if (typeof console !== "undefined") {
+  console.log(
+    `%cCopper3D Visualisation %c${REVISION}`,
+    "padding: 3px;color:white; background:#023047",
+    "padding: 3px;color:white; background:#f50a25"
+  );
+}
 
 export {
   copperRenderer,
