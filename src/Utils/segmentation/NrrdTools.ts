@@ -1156,12 +1156,23 @@ export class NrrdTools {
   }
 
   /**
-   * Merge the AI scratch into a target layer as a single undoable group (sandbox
-   * merge — best-practice: non-destructive + one Ctrl+Z). The scratch's channel
-   * labels are PRESERVED (each AI channel maps onto the same channel of the
-   * target layer). Scans all z-slices, so voxels painted from any view are caught.
+   * Merge the AI scratch into a target layer with an explicit per-segmentation
+   * mapping, as a single undoable group (sandbox merge — non-destructive + one
+   * Ctrl+Z). `mapping` is `{ AI scratch label -> target channel(1-8) }`; any label
+   * absent from the mapping (or mapped to 0) is DISCARDED (not merged). Several AI
+   * labels MAY map to the SAME channel — after merge the channel is the identity
+   * (CLAUDE.md decision M2), so the merged voxels take that channel's fixed colour.
+   *
+   * UNION semantics (M4): an AI voxel only fills a target voxel that is currently
+   * EMPTY (0) — existing manual annotation is NEVER erased. Where two AI labels map
+   * to different channels and overlap the same voxel, the first one written wins
+   * (iteration order), an accepted edge case for a single-value-per-voxel mask.
+   * Scans all z-slices, so voxels painted from any view are caught.
    */
-  aiCommitToLayer(targetLayer: string = "layer1"): void {
+  aiCommitToLayerMapped(
+    targetLayer: string,
+    mapping: Record<number, number>,
+  ): void {
     const scratch = this.drawCore.aiAssistTool.getScratchVolume();
     if (!scratch) return;
     const target = this.state.protectedData.maskData.volumes[targetLayer];
@@ -1178,15 +1189,36 @@ export class NrrdTools {
 
       const oldSlice = target.getSliceUint8(z, "z").data; // copy
       const newSlice = oldSlice.slice();
+      let changed = false;
       for (let i = 0; i < newSlice.length; i++) {
-        if (sc[i] !== 0) newSlice[i] = sc[i]; // preserve the AI channel label
+        const label = sc[i];
+        if (label === 0) continue;
+        const ch = mapping[label];
+        if (!ch) continue;             // unmapped / discarded segmentation
+        if (newSlice[i] === 0) {       // union: fill only EMPTY voxels (M4)
+          newSlice[i] = ch;
+          changed = true;
+        }
       }
+      if (!changed) continue;          // nothing landed on this slice → no delta
       target.setSliceUint8(z, newSlice, "z");
       deltas.push({ layerId: targetLayer, axis: "z", sliceIndex: z, oldSlice, newSlice: newSlice.slice() });
     }
 
     if (deltas.length) this.drawCore.undoManager.pushGroup(deltas);
     this.reloadMasksFromVolume();
+  }
+
+  /**
+   * Back-compat shim: merge with an IDENTITY mapping (each AI label → the same
+   * channel number) via the mapped path above. Newer callers should use
+   * `aiCommitToLayerMapped` with an explicit per-segmentation mapping.
+   */
+  aiCommitToLayer(targetLayer: string = "layer1"): void {
+    const segs = this.drawCore.aiAssistTool.getScratchSegments();
+    const mapping: Record<number, number> = {};
+    for (const s of segs?.segments ?? []) mapping[s.label] = s.label;
+    this.aiCommitToLayerMapped(targetLayer, mapping);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

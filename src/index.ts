@@ -68,8 +68,16 @@ import type {
 
 import "./css/style.css";
 
-// __REVISION__ is injected at build time by rollup @rollup/plugin-replace, sourced from package.json version
-export const REVISION = __REVISION__;
+// __REVISION__ is injected at build time by rollup @rollup/plugin-replace, sourced from package.json version.
+// When copper3d is consumed from local source (no rollup replace step), the identifier is undefined and
+// referencing it throws a ReferenceError — guard it so local loading still works.
+let _revision = "unknown";
+try {
+  _revision = __REVISION__;
+} catch {
+  /* __REVISION__ not injected (local source build) */
+}
+export const REVISION = _revision;
 
 // Expose on global so the version can be read in a production browser console via window.__COPPER3D_VERSION__
 if (typeof window !== "undefined") {

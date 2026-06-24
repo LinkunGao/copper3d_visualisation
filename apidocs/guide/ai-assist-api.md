@@ -255,10 +255,28 @@ if (vol && vol.segments.length) {
 Legacy **binary** serialization (any non-zero label → 1), one RLE per non-empty z-slice. Kept
 for single-mask backends; prefer `aiGetScratchSegments` for per-colour output.
 
+#### `aiCommitToLayerMapped(targetLayer: string, mapping: Record<number, number>): void`
+**Merge** the AI scratch into a real mask layer with an explicit **per-segmentation mapping**:
+`{ scratch label → target channel }`. A label absent from `mapping` (or mapped to `0`) is
+**discarded** (not merged). Several labels MAY map to the same channel — after merge the
+**channel is the identity**, so the merged voxels take that channel's colour (not the AI
+segmentation's sandbox colour).
+
+**Union semantics:** an AI voxel only fills a target voxel that is currently **empty (0)** —
+existing annotation is **never erased**. Where two labels mapped to different channels overlap
+the same voxel, the first written wins (iteration order). Scans all z-slices (any-view voxels
+captured); one undoable group.
+
+```ts
+// seg label 1 → channel 2, label 3 → channel 2 (merged together), label 4 dropped:
+tools.aiCommitToLayerMapped("layer3", { 1: 2, 3: 2 });
+```
+
 #### `aiCommitToLayer(targetLayer: string = "layer1"): void`
-**Merge** the AI scratch into a real mask layer (labels preserved) as a single undoable
-operation. Scans all z-slices, so voxels painted from any view are captured. This is the only
-call that writes the AI result into the actual annotation layers.
+Back-compat shim: merge with an **identity mapping** (each label → the same channel number)
+via `aiCommitToLayerMapped`. Same **union** semantics (fills only empty voxels; existing
+annotation preserved), one undoable group, scans all z-slices. This (or the mapped form) is the
+only call that writes the AI result into the actual annotation layers.
 
 ---
 
@@ -327,6 +345,7 @@ palette; the host app is the source of truth for segmentation colours. The defau
 | `aiNewSegment(label)` | method | "New segmentation": freeze current + switch to a new label |
 | `aiClearSegment(label)` | method | Delete a segmentation's voxels (scratch + frozen) |
 | `aiGetScratchSegments()` | method | Per-label serialization for a multi-label / per-colour 3D build |
+| `aiCommitToLayerMapped(layer, mapping)` | method | Merge with an explicit per-segmentation `{label → channel}` map (many-to-one, discard); **union** (fills empty voxels only) |
 
 ### Lasso (new prompt tool)
 | Symbol | Kind | Purpose |
@@ -342,6 +361,7 @@ palette; the host app is the source of truth for segmentation colours. The defau
 ### Behaviour changes
 - **`enterAiAssistMode` no longer applies a fixed AI palette** — push segmentation colours via `aiSetSegmentColor`.
 - **`aiSetChannel` removed.** Use `aiSetActiveSegment` + `aiSetSegmentColor`.
+- **Merge is now additive (union).** `aiCommitToLayer` / `aiCommitToLayerMapped` only fill **empty** target voxels — existing annotation is never overwritten (previously the merge overwrote). `aiCommitToLayer` is now an identity-mapping shim over `aiCommitToLayerMapped`.
 - **Point tool** now draws a seed marker per click + a hover crosshair; markers hide once a prediction lands.
 - **Lasso** is discrete click-to-place vertices → smooth, non-self-intersecting closed curve; sent only on finish.
 
