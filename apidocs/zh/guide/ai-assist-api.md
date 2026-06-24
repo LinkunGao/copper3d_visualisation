@@ -237,9 +237,24 @@ if (vol && vol.segments.length) {
 旧的**二值**序列化(任意非零 label → 1),每个非空 z 切片一条 RLE。保留给单 mask 的后端;要按颜色
 输出请用 `aiGetScratchSegments`。
 
+#### `aiCommitToLayerMapped(targetLayer: string, mapping: Record<number, number>): void`
+按**逐 segmentation 映射**把 AI 涂层**合并**进真正的 mask 图层:`{ 涂层 label → 目标 channel }`。
+`mapping` 里没有(或映射到 `0`)的 label 会被**丢弃**(不合并)。多个 label **可**映射到同一个
+channel —— 合并后**身份按 channel 走**,所以合并的体素采用该 channel 的颜色(不是 AI segmentation
+在沙箱里的颜色)。
+
+**并集语义**:AI 体素只填目标里当前**为空(0)**的体素 —— 已有标注**永不抹除**。两个映射到不同 channel
+的 label 在同一体素重叠时,先写者胜(迭代序)。扫描所有 z 切片(任意视图画的体素都捕获);单次可撤销。
+
+```ts
+// seg label 1 → channel 2,label 3 → channel 2(并到一起),label 4 丢弃:
+tools.aiCommitToLayerMapped("layer3", { 1: 2, 3: 2 });
+```
+
 #### `aiCommitToLayer(targetLayer: string = "layer1"): void`
-把 AI 涂层**合并**进真正的 mask 图层(保留 label),作为一次可撤销操作。会扫描所有 z 切片,因此从任意
-视图画的体素都会被捕获。这是唯一把 AI 结果写进实际标注图层的调用。
+向后兼容薄壳:用 **identity 映射**(每个 label → 同号 channel)经 `aiCommitToLayerMapped` 合并。
+同样的**并集**语义(只填空体素;已有标注保留)、单次可撤销、扫描所有 z 切片。这(或 mapped 形式)是
+唯一把 AI 结果写进实际标注图层的调用。
 
 ---
 
@@ -307,6 +322,7 @@ segmentation 的颜色现在是自由的(任意 RGB),由宿主通过 `aiSetSegme
 | `aiNewSegment(label)` | 方法 | "New segmentation":冻结当前 + 切到新 label |
 | `aiClearSegment(label)` | 方法 | 删除某 segmentation 的体素(活动 + 冻结) |
 | `aiGetScratchSegments()` | 方法 | 按 label 序列化,供多 label / 按色 3D 构建 |
+| `aiCommitToLayerMapped(layer, mapping)` | 方法 | 按显式 `{label → channel}` 映射合并(可多对一、可丢弃);**并集**(只填空体素) |
 
 ### 套索(新提示工具)
 | 符号 | 类型 | 用途 |
@@ -322,6 +338,7 @@ segmentation 的颜色现在是自由的(任意 RGB),由宿主通过 `aiSetSegme
 ### 行为变化
 - **`enterAiAssistMode` 不再应用固定 AI 调色板**——用 `aiSetSegmentColor` 推 segmentation 颜色。
 - **移除 `aiSetChannel`。** 改用 `aiSetActiveSegment` + `aiSetSegmentColor`。
+- **合并改为叠加(并集)。** `aiCommitToLayer` / `aiCommitToLayerMapped` 只填**空**的目标体素——已有标注永不被覆盖(此前的合并是覆盖写)。`aiCommitToLayer` 现在是 `aiCommitToLayerMapped` 的 identity 映射薄壳。
 - **point 工具**现在每次点击画一个种子 marker + hover 十字准星;预测落地后 marker 隐藏。
 - **套索**是点击落点 → 平滑、不自交的闭合曲线;仅在完成时发送。
 
