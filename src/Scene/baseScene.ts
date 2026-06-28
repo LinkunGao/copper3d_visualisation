@@ -35,8 +35,11 @@ export class baseScene extends commonScene {
     super(container, opt);
     this.renderer = renderer;
 
-    this.ambientLight = new THREE.AmbientLight(0x606060, 0.8);
-    this.directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    // three r165+ removed `useLegacyLights`; lighting is always physically
+    // correct now, which makes the same intensity ~1/PI as dim as the old
+    // (three <=0.150) legacy default. Scale by PI to keep the prior brightness.
+    this.ambientLight = new THREE.AmbientLight(0x606060, 0.8 * Math.PI);
+    this.directionalLight = new THREE.DirectionalLight(0xffffff, 1.0 * Math.PI);
     if (!opt?.alpha) {
       this.vignette = createBackground({
         aspect: this.container.clientWidth / this.container.clientHeight,
@@ -138,7 +141,7 @@ export class baseScene extends commonScene {
 
   addLights() {
     // Hemisphere light: sky/ground for broad ambient fill
-    const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x0f0e0d, 0.6);
+    const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x0f0e0d, 0.6 * Math.PI);
     hemiLight.name = "hemi_light";
     this.scene.add(hemiLight);
 
@@ -150,13 +153,13 @@ export class baseScene extends commonScene {
     this.camera.add(this.directionalLight);
 
     // Fill light — opposite side to soften shadows
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4 * Math.PI);
     fillLight.name = "fill_light";
     fillLight.position.set(-0.5, -0.2, -0.866);
     this.camera.add(fillLight);
 
     // Top light — illuminates the top surface that key/fill lights miss
-    const topLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    const topLight = new THREE.DirectionalLight(0xffffff, 0.5 * Math.PI);
     topLight.name = "top_light";
     topLight.position.set(0, 1, 0.2);
     this.camera.add(topLight);
