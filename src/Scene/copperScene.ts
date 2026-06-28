@@ -374,6 +374,12 @@ export class copperScene extends baseScene {
       );
       tex.setFrame(0);
       if (opts.window) tex.setWindow(opts.window.center, opts.window.width);
+      // All meshes sit at the origin (world coords live in the geometry), so their
+      // transparent-sort distances tie. three <=0.150 broke the tie by insertion
+      // order; >=0.170 resolves it per-camera, which makes the draw order flip while
+      // rotating (flicker / vanishing surfaces). Pin an explicit, deterministic
+      // order: MRI plane first (backdrop), then the surfaces in definition order.
+      tex.mesh.renderOrder = 0;
 
       const surfaceMeshes: Record<string, THREE.Mesh> = {};
       const seqs: Array<{
@@ -386,6 +392,7 @@ export class copperScene extends baseScene {
         const { vtkmaterial } = copperMultipleVtk(def.opts);
         const mesh = new THREE.Mesh(geometries[0], vtkmaterial);
         mesh.name = def.name;
+        mesh.renderOrder = i + 1;
         this.scene.add(mesh);
         surfaceMeshes[def.name] = mesh;
         seqs.push({ mesh, geometries, offset: def.offset ?? 0 });
