@@ -33,7 +33,7 @@ appRenderer.animate();
 scene.loadOBJ("/models/heart.obj", (group) => {
   const annotator = scene.createSurfaceAnnotator(group);
 
-  // 切换模式即可开始标注
+  // 武装一个工具；随后按住/轻点 Space 进入绘制（见 §4）
   annotator.setMode("freehand"); // 或 "geodesic" / "point" / "navigate"
 
   // 导出（默认 local 坐标）
@@ -59,6 +59,7 @@ createSurfaceAnnotator(
     bboxDiagonal?: number;    // 手动指定尺寸基准，缺省自动从几何算
     onModeChange?: (mode: AnnotationMode) => void;
     onChange?: (annotations: Annotation[]) => void; // 标注列表增删/撤销/清空时触发
+    onInteractionChange?: (s: InteractionState) => void; // 绘制状态/武装工具/锁定变化时触发（见 §4）
   }
 ): SurfaceAnnotator
 ```
@@ -81,9 +82,11 @@ createSurfaceAnnotator(
 | `getStore()` | 返回底层 `AnnotationStore`（高级用法：订阅/改名/改色） |
 | `selectAnnotation(id \| null)` | 选中某条（高亮：轮廓加粗 / 点放大） |
 | `refreshAnnotation(id)` | 改色后重画对应 3D 对象（配合 `store.setColor`） |
+| `setVisible(id, visible)` | 显示 / 隐藏某条标注（只切换其 3D 对象，数据保留） |
 | `deleteAnnotation(id)` | 删除某条 |
 | `undo()` | 撤销最近的添加 / 删除 |
 | `clearAll()` | 清空全部 |
+| `importAnnotations(payload)` | 从导出对象重建标注（见 §6），返回导入条数。缺法线时从网格最近顶点恢复，缺 `visible` 默认为 `true`。导入的每条均为一等公民（可选中 / 改色 / 隐藏 / 删除 / 导出） |
 | `exportJSON(modelName, opts?)` | 导出为 JS 对象，见 §6 |
 | `dispose()` | 释放（移除事件监听）。卸载组件时务必调用 |
 
@@ -95,6 +98,7 @@ createSurfaceAnnotator(
 | `list()` / `get(id)` | 取列表 / 取单条 |
 | `setLabel(id, label)` | 改名（改后 UI 自动刷新；3D 无需重画） |
 | `setColor(id, color)` | 改色（**改后需调 `annotator.refreshAnnotation(id)` 更新 3D**） |
+| `setVisible(id, visible)` | 显示 / 隐藏（也可经 `annotator.setVisible` 调用） |
 
 ### 3.5 类型
 
@@ -114,6 +118,7 @@ interface Annotation {
   label: string;
   color: string;                         // hex
   closed: boolean;
+  visible: boolean;                      // 单条显示/隐藏（默认 true）
   vertices: AnnotationVertex[];
   object3D: THREE.Object3D | null;       // 渲染对象引用
 }
@@ -122,23 +127,38 @@ interface ExportOptions {
   space?: "local" | "world";   // 默认 "local"
   includeNormals?: boolean;    // true 时点为 [x,y,z,nx,ny,nz]
 }
+
+// 实时交互状态，由 onInteractionChange 发出（见 §4）
+interface InteractionState {
+  drawing: boolean;            // 正在绘制时为 true（按住 Space 或处于 draw-lock）
+  armed: AnnotationMode;       // 将要绘制的工具 —— "freehand" | "geodesic" | "point"
+  locked: boolean;             // draw-lock 是否开启（轻点 Space 切换）
+}
 ```
 
 ## 4. 交互与快捷键
 
-进入标注模式后,标注器接管左键并关闭相机旋转；快捷键挂在 `window`（捕获阶段，确保不被 TrackballControls 抢走）。
+标注器是 **navigate 优先**：选择某个绘制模式（`freehand` / `geodesic` / `point`）只会**武装（arm）**该工具，并**不会**接管鼠标 —— 相机旋转 / 缩放 / 平移默认保持可用。需要用 `Space` 显式进入**绘制**状态：
+
+- **按住 `Space`** —— 瞬时：按住期间绘制，松开即回到导航。
+- **轻点 `Space`**（快速一按，< 250 毫秒）—— 切换 **draw-lock（绘制锁定）**：绘制保持开启，直到再次轻点 `Space`。
+
+只有在绘制状态下，标注器才接管左键并关闭相机旋转；否则相机自由。真正生效的是**被武装的工具**（而非菜单里的 mode），所以你可以先旋转模型，再按住/轻点 `Space` 立刻用选好的工具绘制。快捷键挂在 `window`（捕获阶段，确保不被 TrackballControls 抢走），并在 `<input>` / `<textarea>` 中输入时自动忽略。
 
 | 操作 | 行为 |
 |---|---|
-| 左键拖拽（Freehand） | 沿表面画线 |
-| 左键点击（Geodesic） | 加一个锚点；相邻锚点自动连测地线。点击已有锚点**或其附近**（悬停显示 ✕）即可取消该点 —— 命中判定采用屏幕像素容差，不必精确点中小球；点击空白处则新增锚点 |
-| 左键点击（Place point） | 放一个标记点 |
-| `1` / `2` / `3` / `4` | 切到 navigate / freehand / geodesic / point |
-| `Esc` | 回到 navigate |
-| 按住 `Space` | 临时恢复相机旋转（松开回标注） |
+| `1` / `2` / `3` / `4` | 武装 navigate / freehand / geodesic / point |
+| 按住 `Space` | 瞬时绘制（松开 → 导航） |
+| 轻点 `Space`（< 250ms） | 切换 **draw-lock**（绘制保持开启） |
+| 左键拖拽（Freehand，绘制中） | 沿表面画线 |
+| 左键点击（Geodesic，绘制中） | 加一个锚点；相邻锚点自动连测地线。点击已有锚点**或其附近**（悬停显示 ✕）即可取消该点 —— 命中判定采用屏幕像素容差，不必精确点中小球；点击空白处则新增锚点 |
+| 左键点击（Place point，绘制中） | 放一个标记点 |
+| `Esc` | 清除 draw-lock 并回到 navigate |
 | `Enter` | 闭合 / 结束当前 contour（沿表面闭合；测地线会移除锚点小球，只留下线） |
 | `Ctrl + Z` | 撤销。测地线绘制过程中,撤销最近一次锚点编辑(加点**或**取消点),被取消的锚点可恢复 |
-| `Delete` | 删除当前选中标注 |
+| `Delete` / `Backspace` | 删除当前选中标注 |
+
+订阅 `onInteractionChange({ drawing, armed, locked })` 即可驱动一个实时模式指示器 —— 例如 `drawing` 为 false 时显示"Navigate"，为 true 时显示"Drawing — Freehand"（`locked` 时再加锁定徽标）。
 
 ## 5. 坐标空间（重要）
 
@@ -166,6 +186,7 @@ interface ExportOptions {
       "label": "LV outline",
       "color": "#ffa24e",
       "closed": true,
+      "visible": true,
       "points": [[x, y, z], ["..."]]
     },
     {
@@ -175,13 +196,16 @@ interface ExportOptions {
       "label": "Point 2",
       "color": "#ffd166",
       "closed": false,
+      "visible": true,
       "points": [[x, y, z]]
     }
   ]
 }
 ```
 
-`includeNormals: true` 时每个点为 `[x, y, z, nx, ny, nz]`。
+`includeNormals: true` 时每个点为 `[x, y, z, nx, ny, nz]`。每条标注都带 `visible` 字段，因此经 `exportJSON` → `importAnnotations` 往返后，显示/隐藏状态会被保留。
+
+> **用 `importAnnotations` 往返**：把导出的对象直接喂回去，即可在重新加载的模型上重建标注。点应为 **local** 空间（导出默认值）。`id` 仅对单点条目复用（让往返保持稳定 id），其余每条都会分配新 id 以避免冲突。若某点缺法线（只有 `[x,y,z]`），法线会从焊接图的最近顶点恢复。
 
 ## 7. 使用案例
 
@@ -246,7 +270,32 @@ function download(obj, filename = "annotations.json") {
 download(local);
 ```
 
-### 案例 5 — 卸载
+### 案例 5 — 导入已存文件 + 单条显隐
+
+```ts
+scene.loadOBJ("/models/heart.obj", (group) => {
+  const annotator = scene.createSurfaceAnnotator(group);
+
+  // 重建此前导出的标注（例如从后端取回）
+  const saved = await (await fetch("/api/annotations/heart.json")).json();
+  const n = annotator.importAnnotations(saved); // 返回重建条数
+
+  // 不删除，仅隐藏某一条
+  annotator.setVisible(saved.annotations[0].id, false);
+});
+```
+
+### 案例 6 — 用 `onInteractionChange` 做实时模式指示
+
+```ts
+scene.createSurfaceAnnotator(group, {
+  onInteractionChange: ({ drawing, armed, locked }) => {
+    badge.textContent = drawing ? `Drawing — ${armed}${locked ? "（锁定）" : ""}` : "Navigate";
+  },
+});
+```
+
+### 案例 7 — 卸载
 
 ```ts
 // 组件卸载 / 切换模型时
@@ -266,7 +315,7 @@ appRenderer.dispose();
 - **导出只给对象,不替你下载**:浏览器下载/UI 触发由你做(见案例 4 的 `appendChild` 坑)。
 - **闭合是沿表面的**:`Enter` 用测地线把末点连回首点,不是直线弦,所以不会穿模。
 - **Freehand 是屏幕笔触投射**:相邻采样点用直线段相连(不像 Geodesic 严格沿表面走)。掠过沟缝/轮廓边时,跳到背面/远面的采样点会被**自动剔除**(距离突变 + 法线翻转判据),避免直线段横穿模型;若需严格贴合表面,请用 **Geodesic** 模式。
-- **相机门控**:标注器会改 `scene.controls.enabled`(navigate 开、标注模式关、按住 Space 临时开)。若你别处也在控制它,注意协调。
+- **相机门控（navigate 优先）**:标注器会改 `scene.controls.enabled`：**默认开启**（随时可旋转），**仅在绘制时关闭** —— 即按住 `Space` 或处于 draw-lock 期间。若你别处也在控制它,注意协调。
 - **轮廓线与标记常驻顶层**:轮廓线、放点 / 测地线锚点小球均关闭了深度测试(depthTest),因此在凹凸 / 体素化表面上始终完整可见(不会被相机与线之间的山脊吞掉),绘制过程中也可见。代价是从背面也能透过模型看到它们 —— 这是为标注可读性刻意为之。仅靠几何表面偏移(epsilon)在凹凸网格上无法两全(偏移太小会沉进表面,太大会浮在空中),所以改为关闭深度测试。
 
 ## 9. 导出符号
@@ -282,6 +331,7 @@ import type {
   Annotation,
   AnnotationMode,
   ExportOptions,
+  InteractionState,
 } from "copper3d_visualisation";
 ```
 

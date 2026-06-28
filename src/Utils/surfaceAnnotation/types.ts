@@ -26,6 +26,7 @@ export interface Annotation {
   label: string;
   color: string; // hex, e.g. "#ff5a6e"
   closed: boolean;
+  visible: boolean;
   vertices: AnnotationVertex[];
   object3D: THREE.Object3D | null; // render-object reference (stripped on export)
 }

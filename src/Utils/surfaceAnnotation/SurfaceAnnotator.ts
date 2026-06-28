@@ -40,6 +40,8 @@ export interface SurfaceAnnotatorOptions {
   onModeChange?: (m: AnnotationMode) => void;
   /** Callback when the annotation list changes (add/remove/undo/clear). */
   onChange?: (annotations: Annotation[]) => void;
+  /** Callback when interaction state changes (drawing, armed tool, draw-lock status). */
+  onInteractionChange?: (s: { drawing: boolean; armed: AnnotationMode; locked: boolean }) => void;
 }
 
 const LINE_W = 3;
@@ -55,6 +57,11 @@ export class SurfaceAnnotator {
   private o: SurfaceAnnotatorOptions;
   private mode: AnnotationMode = "navigate";
   private spaceHeld = false;
+  private drawLock = false;
+  private armed: AnnotationMode = "freehand";
+  private spaceDownAt = 0;
+  private spaceDragged = false;
+  private static readonly TAP_MS = 250;
   private pointerDown = false;
   private readonly markerRadius: number;
   private readonly epsilon: number;
@@ -153,6 +160,9 @@ export class SurfaceAnnotator {
     // When leaving geodesic mode, discard the in-progress geodesic not yet committed with Enter (clear leftover anchors and line).
     if (m !== "geodesic" && this.activeGeo) this.clearActiveGeo();
     this.mode = m;
+    // Record armed tool when choosing a drawing mode (not navigate).
+    // Camera gating is NOT changed here — the user must use Space to enter drawing.
+    if (m !== "navigate") this.armed = m;
     this.applyCameraGating();
     this.o.onModeChange?.(m);
   }
@@ -220,11 +230,90 @@ export class SurfaceAnnotator {
     return this.store.toJSON(modelName, this.o.mesh, opts);
   }
 
+  setVisible(id: string, visible: boolean) {
+    this.store.setVisible(id, visible);
+  }
+
+  /**
+   * Rebuild annotations from an exported payload (local-space points). Normals are taken from the
+   * point when present ([x,y,z,nx,ny,nz]); otherwise recovered from the welded graph's nearest
+   * vertex. Each imported item becomes first-class (select/recolor/hide/delete/export).
+   */
+  importAnnotations(payload: { annotations: Array<{
+    id?: string; type: "contour" | "points"; mode: "freehand" | "geodesic" | null;
+    label: string; color: string; closed: boolean; visible?: boolean; points: number[][];
+  }> }): number {
+    let count = 0;
+    let maxImported = this.seq;
+    for (const a of payload.annotations ?? []) {
+      const verts: AnnotationVertex[] = a.points.map((p) => {
+        const [x, y, z] = p;
+        let nx = p[3], ny = p[4], nz = p[5];
+        if (nx === undefined || ny === undefined || nz === undefined) {
+          const nrm = this.graph.nearestNormalLocal(new THREE.Vector3(x, y, z));
+          nx = nrm.x; ny = nrm.y; nz = nrm.z;
+        }
+        return { x, y, z, nx, ny, nz, faceIndex: 0 };
+      });
+      if (a.type === "points") {
+        for (const v of verts) {
+          // Only reuse the provided id for a single-point entry (the round-trip case);
+          // a multi-point points entry must get a fresh id per marker to avoid duplicate keys.
+          const id = a.id && verts.length === 1 ? a.id : this.nextId();
+          const marker = makePointMarker(v, this.o.mesh, a.color, this.markerRadius);
+          this.o.scene.add(marker);
+          this.store.add({
+            id,
+            type: "points",
+            mode: null,
+            label: a.label,
+            color: a.color,
+            closed: false,
+            visible: a.visible ?? true,
+            vertices: [v],
+            object3D: marker,
+          });
+          // track max numeric id
+          const m = id.match(/^a(\d+)$/);
+          if (m) maxImported = Math.max(maxImported, parseInt(m[1], 10));
+          count++;
+        }
+      } else {
+        if (verts.length < 2) continue;
+        const id = a.id ?? this.nextId();
+        const line = makeContourLine(verts, a.color, a.closed, this.o.container, this.epsilon, this.o.mesh);
+        this.o.scene.add(line);
+        this.store.add({
+          id,
+          type: "contour",
+          mode: a.mode,
+          label: a.label,
+          color: a.color,
+          closed: a.closed,
+          visible: a.visible ?? true,
+          vertices: verts,
+          object3D: line,
+        });
+        const m = id.match(/^a(\d+)$/);
+        if (m) maxImported = Math.max(maxImported, parseInt(m[1], 10));
+        count++;
+      }
+    }
+    // keep seq ahead of any imported numeric ids to avoid collisions
+    if (maxImported > this.seq) this.seq = maxImported;
+    return count;
+  }
+
   // ---- Internal ----
 
+  private get drawing(): boolean {
+    return this.drawLock || this.spaceHeld;
+  }
+
   private applyCameraGating() {
-    // Holding Space for temporary rotation takes priority; otherwise enable the camera only in navigate mode.
-    this.o.controls.enabled = this.spaceHeld || this.mode === "navigate";
+    // Default is navigate (camera enabled). Drawing only when drawLock or spaceHeld.
+    this.o.controls.enabled = !this.drawing;
+    this.o.onInteractionChange?.({ drawing: this.drawing, armed: this.armed, locked: this.drawLock });
   }
 
   /** Reconcile the scene against store.list(): add missing objects, remove deleted ones (no dispose, kept for undo restore). */
@@ -238,6 +327,10 @@ export class SurfaceAnnotator {
       if (!this.managed.has(o)) this.o.scene.add(o);
     }
     this.managed = present;
+    // Apply per-annotation visibility
+    for (const a of this.store.list()) {
+      if (a.object3D) a.object3D.visible = a.visible;
+    }
     this.applySelection();
     this.o.onChange?.(this.store.list());
   }
@@ -245,6 +338,7 @@ export class SurfaceAnnotator {
   private applySelection() {
     for (const a of this.store.list()) {
       if (!a.object3D) continue;
+      if (!a.visible) continue;
       const sel = a.id === this.selectedId;
       if (a.type === "contour") {
         const mat = (a.object3D as Line2).material as LineMaterial;
@@ -290,12 +384,18 @@ export class SurfaceAnnotator {
   }
 
   private onPointerDown = (e: PointerEvent) => {
-    if (this.spaceHeld) return;
     if (e.button !== 0) return; // left button only
     if (!this.insideContainer(e)) return;
     this.pointerDown = true;
 
-    if (this.mode === "point") {
+    // Only act with the armed tool when in drawing mode (drawLock or spaceHeld).
+    // When not drawing, navigation is the default — pointer events go to camera controls.
+    if (!this.drawing) return;
+
+    // Use armed tool (not this.mode which may be "navigate")
+    const activeTool = this.armed;
+
+    if (activeTool === "point") {
       const h = this.hit(e);
       if (!h) return;
       const v = worldHitToLocalVertex(h, this.o.mesh);
@@ -313,6 +413,7 @@ export class SurfaceAnnotator {
         label: `Point ${this.seq}`,
         color: this.pointColorVal,
         closed: false,
+        visible: true,
         vertices: [v],
         object3D: marker,
       };
@@ -320,7 +421,7 @@ export class SurfaceAnnotator {
       return;
     }
 
-    if (this.mode === "freehand") {
+    if (activeTool === "freehand") {
       this.activeStroke = new StrokeContour(this.minGap, this.maxJump, this.o.mesh);
       this.activeStroke.begin();
       const h = this.hit(e);
@@ -337,7 +438,7 @@ export class SurfaceAnnotator {
       return;
     }
 
-    if (this.mode === "geodesic") {
+    if (activeTool === "geodesic") {
       // First check whether an existing anchor was clicked → cancel that point (any point can be canceled).
       const pick = this.pickGeoMarker(e);
       if (pick >= 0 && this.activeGeo) {
@@ -539,18 +640,30 @@ export class SurfaceAnnotator {
   }
 
   private onPointerMove = (e: PointerEvent) => {
-    if (this.spaceHeld) {
-      this.setGeoHover(-1);
+    // Track if user dragged while space was held (so a hold-drag is not treated as a tap).
+    if (this.spaceHeld && this.pointerDown) {
+      this.spaceDragged = true;
+    }
+    // When not drawing, navigation is default — don't interfere with camera controls.
+    if (!this.drawing) {
+      // In geodesic mode we can still show the hover hint when not drawing.
+      if (this.armed === "geodesic" && !this.pointerDown) {
+        this.setGeoHover(
+          this.insideContainer(e) ? this.pickGeoMarker(e) : -1
+        );
+      } else {
+        this.setGeoHover(-1);
+      }
       return;
     }
-    // In geodesic mode, show the "✕" hint when hovering an anchor sphere (that point can be clicked to cancel).
-    if (this.mode === "geodesic" && !this.pointerDown) {
+    // Drawing mode: geodesic hover hint
+    if (this.armed === "geodesic" && !this.pointerDown) {
       this.setGeoHover(
         this.insideContainer(e) ? this.pickGeoMarker(e) : -1
       );
     }
     if (
-      this.mode === "freehand" &&
+      this.armed === "freehand" &&
       this.pointerDown &&
       this.activeStroke &&
       this.activeLine
@@ -581,6 +694,7 @@ export class SurfaceAnnotator {
           label: `Contour ${this.seq}`,
           color: this.freehandColor,
           closed: false,
+          visible: true,
           vertices: verts,
           object3D: this.activeLine,
         };
@@ -643,6 +757,7 @@ export class SurfaceAnnotator {
         label: `Contour ${this.seq}`,
         color: this.geodesicColor,
         closed,
+        visible: true,
         vertices: verts,
         object3D: this.activeGeoLine,
       };
@@ -667,11 +782,17 @@ export class SurfaceAnnotator {
   private onKeyDown = (e: KeyboardEvent) => {
     if (this.isTypingTarget(e)) return;
     if (e.code === "Space") {
+      if (!this.spaceHeld) {
+        this.spaceDownAt = performance.now();
+        this.spaceDragged = false;
+      }
       this.spaceHeld = true;
       this.applyCameraGating();
+      e.preventDefault();
       return;
     }
     if (e.key === "Escape") {
+      this.drawLock = false;
       this.setMode("navigate");
       return;
     }
@@ -698,7 +819,11 @@ export class SurfaceAnnotator {
 
   private onKeyUp = (e: KeyboardEvent) => {
     if (e.code === "Space") {
+      const held = performance.now() - this.spaceDownAt;
       this.spaceHeld = false;
+      if (held <= SurfaceAnnotator.TAP_MS && !this.spaceDragged) {
+        this.drawLock = !this.drawLock; // tap toggles lock
+      }
       this.applyCameraGating();
     }
   };

@@ -58,6 +58,7 @@ createSurfaceAnnotator(
     bboxDiagonal?: number;    // size reference; auto-computed from geometry if omitted
     onModeChange?: (mode: AnnotationMode) => void;
     onChange?: (annotations: Annotation[]) => void; // fired on add/delete/undo/clear
+    onInteractionChange?: (s: InteractionState) => void; // fired when drawing/armed/lock changes (see §4)
   }
 ): SurfaceAnnotator
 ```
@@ -80,9 +81,11 @@ Disposes every annotator created by this scene (removes the global event listene
 | `getStore()` | The underlying `AnnotationStore` (advanced: subscribe / rename / recolor) |
 | `selectAnnotation(id \| null)` | Select one (highlight: thicker contour / larger point) |
 | `refreshAnnotation(id)` | Re-render the 3D object after a color change (pairs with `store.setColor`) |
+| `setVisible(id, visible)` | Show / hide a single annotation (its 3D object is toggled; data is kept) |
 | `deleteAnnotation(id)` | Delete one |
 | `undo()` | Undo the most recent add / delete |
 | `clearAll()` | Clear everything |
+| `importAnnotations(payload)` | Rebuild annotations from an exported payload (see §6). Returns the count imported. Missing normals are recovered from the mesh's nearest vertex; missing `visible` defaults to `true`. Each imported item is first-class (select / recolor / hide / delete / export) |
 | `exportJSON(modelName, opts?)` | Export to a JS object, see §6 |
 | `dispose()` | Release (removes event listeners). Always call on teardown |
 
@@ -94,6 +97,7 @@ Disposes every annotator created by this scene (removes the global event listene
 | `list()` / `get(id)` | Get the list / a single item |
 | `setLabel(id, label)` | Rename (UI refreshes automatically; no 3D re-render needed) |
 | `setColor(id, color)` | Recolor (**then call `annotator.refreshAnnotation(id)` to update the 3D object**) |
+| `setVisible(id, visible)` | Show / hide (also reachable via `annotator.setVisible`) |
 
 ### 3.5 Types
 
@@ -113,6 +117,7 @@ interface Annotation {
   label: string;
   color: string;                         // hex
   closed: boolean;
+  visible: boolean;                      // per-annotation show/hide (default true)
   vertices: AnnotationVertex[];
   object3D: THREE.Object3D | null;       // render object reference
 }
@@ -121,23 +126,38 @@ interface ExportOptions {
   space?: "local" | "world";   // default "local"
   includeNormals?: boolean;    // when true, points are [x,y,z,nx,ny,nz]
 }
+
+// Live interaction state, emitted by onInteractionChange (see §4)
+interface InteractionState {
+  drawing: boolean;            // true while strokes/clicks draw (Space held or draw-lock on)
+  armed: AnnotationMode;       // the tool that will draw — "freehand" | "geodesic" | "point"
+  locked: boolean;             // draw-lock is on (toggled by tapping Space)
+}
 ```
 
 ## 4. Interaction & Shortcuts
 
-In an annotation mode, the annotator captures the left mouse button and disables camera rotation. Shortcuts are bound on `window` (capture phase, so TrackballControls cannot intercept them).
+The annotator is **navigate-first**: choosing a drawing mode (`freehand` / `geodesic` / `point`) **arms** that tool but does **not** take over the mouse — camera rotate / zoom / pan stay active. You enter the **drawing** state explicitly with `Space`:
+
+- **Hold `Space`** — momentary: draw while held; release returns to navigation.
+- **Tap `Space`** (a quick press, < 250 ms) — toggles **draw-lock**: drawing stays on until you tap `Space` again.
+
+Only while drawing does the annotator capture the left mouse button and disable camera rotation; otherwise the camera is free. The **armed tool** (not the menu mode) is what acts when you draw, so you can rotate the model, then hold/tap `Space` and immediately draw with the tool you picked. Shortcuts are bound on `window` (capture phase, so TrackballControls cannot intercept them), and are ignored while typing in an `<input>` / `<textarea>`.
 
 | Action | Behavior |
 |---|---|
-| Left drag (Freehand) | Draw along the surface |
-| Left click (Geodesic) | Add an anchor; adjacent anchors are connected by a geodesic. Click on **or near** an existing anchor (hover shows a ✕) to remove it — picking uses a screen-space pixel tolerance, so you don't have to hit the marker exactly. Clicking in open space adds a new anchor |
-| Left click (Place point) | Drop a fiducial marker |
-| `1` / `2` / `3` / `4` | Switch to navigate / freehand / geodesic / point |
-| `Esc` | Back to navigate |
-| Hold `Space` | Temporarily re-enable camera rotation (release to resume annotating) |
+| `1` / `2` / `3` / `4` | Arm navigate / freehand / geodesic / point |
+| Hold `Space` | Momentary draw (release → navigate) |
+| Tap `Space` (< 250 ms) | Toggle **draw-lock** (drawing stays on) |
+| Left drag (Freehand, while drawing) | Draw along the surface |
+| Left click (Geodesic, while drawing) | Add an anchor; adjacent anchors are connected by a geodesic. Click on **or near** an existing anchor (hover shows a ✕) to remove it — picking uses a screen-space pixel tolerance, so you don't have to hit the marker exactly. Clicking in open space adds a new anchor |
+| Left click (Place point, while drawing) | Drop a fiducial marker |
+| `Esc` | Clear draw-lock and return to navigate |
 | `Enter` | Close / finish the current contour (closes along the surface; for a geodesic, removes the anchor markers and leaves only the line) |
 | `Ctrl + Z` | Undo. During an in-progress geodesic, undoes the last anchor edit (add **or** removal), so a cancelled anchor can be restored |
-| `Delete` | Delete the selected annotation |
+| `Delete` / `Backspace` | Delete the selected annotation |
+
+Subscribe to `onInteractionChange({ drawing, armed, locked })` to drive a live mode indicator — e.g. show "Navigate" when `drawing` is false and "Drawing — Freehand" (with a lock badge when `locked`) when it is true.
 
 ## 5. Coordinate Space (important)
 
@@ -165,6 +185,7 @@ In an annotation mode, the annotator captures the left mouse button and disables
       "label": "LV outline",
       "color": "#ffa24e",
       "closed": true,
+      "visible": true,
       "points": [[x, y, z], ["..."]]
     },
     {
@@ -174,13 +195,16 @@ In an annotation mode, the annotator captures the left mouse button and disables
       "label": "Point 2",
       "color": "#ffd166",
       "closed": false,
+      "visible": true,
       "points": [[x, y, z]]
     }
   ]
 }
 ```
 
-With `includeNormals: true`, each point is `[x, y, z, nx, ny, nz]`.
+With `includeNormals: true`, each point is `[x, y, z, nx, ny, nz]`. Each annotation carries its `visible` flag, so a round-trip through `exportJSON` → `importAnnotations` preserves show/hide state.
+
+> **Round-trip with `importAnnotations`.** Feed the exported object straight back to rebuild the annotations on a freshly loaded model. Points should be in **local** space (the export default). `id` is reused only for single-point entries (so a round-trip keeps stable ids); every other item gets a fresh id to avoid collisions. If a point lacks normals (`[x,y,z]` only), the normal is recovered from the welded graph's nearest vertex.
 
 ## 7. Usage Examples
 
@@ -244,7 +268,32 @@ function download(obj, filename = "annotations.json") {
 download(local);
 ```
 
-### Example 5 — Teardown
+### Example 5 — Import a saved file + per-annotation visibility
+
+```ts
+scene.loadOBJ("/models/heart.obj", (group) => {
+  const annotator = scene.createSurfaceAnnotator(group);
+
+  // Re-hydrate previously exported annotations (e.g. fetched from a backend)
+  const saved = await (await fetch("/api/annotations/heart.json")).json();
+  const n = annotator.importAnnotations(saved); // returns how many were rebuilt
+
+  // Hide / show a single annotation without deleting it
+  annotator.setVisible(saved.annotations[0].id, false);
+});
+```
+
+### Example 6 — Live mode indicator with `onInteractionChange`
+
+```ts
+scene.createSurfaceAnnotator(group, {
+  onInteractionChange: ({ drawing, armed, locked }) => {
+    badge.textContent = drawing ? `Drawing — ${armed}${locked ? " (locked)" : ""}` : "Navigate";
+  },
+});
+```
+
+### Example 7 — Teardown
 
 ```ts
 // on component unmount / model switch
@@ -264,7 +313,7 @@ appRenderer.dispose();
 - **Export returns an object; it does not download for you.** The browser download / UI trigger is up to you (see the `appendChild` gotcha in Example 4).
 - **Closing follows the surface.** `Enter` connects the last point back to the first via a geodesic, not a straight chord, so it never cuts through the model.
 - **Freehand is a screen-stroke projection.** Consecutive samples are joined by straight segments (unlike Geodesic, which strictly follows the surface). When the stroke grazes a cleft or silhouette edge, samples that jump to a far/back face are **dropped automatically** (distance-spike + normal-flip test) to avoid a segment cutting through the model; for strict surface hugging, use **Geodesic** mode.
-- **Camera gating.** The annotator toggles `scene.controls.enabled` (on in navigate, off in annotation modes, on while `Space` is held). Coordinate with any other code that controls it.
+- **Camera gating (navigate-first).** The annotator toggles `scene.controls.enabled`: **enabled by default** (you can always orbit), and **disabled only while drawing** — i.e. while `Space` is held or draw-lock is on. Coordinate with any other code that controls it.
 - **Contours & markers render on top.** Contour lines and point / geodesic-anchor markers are drawn with depth testing disabled, so they stay fully visible on rough or voxelised surfaces (never swallowed by ridges between the camera and the line) and during drawing. The trade-off is that they are also visible through the model from the far side — intentional, for annotation legibility. A geometric surface offset (`epsilon`) alone cannot achieve this on bumpy meshes (too little sinks into the surface, too much floats above it), which is why depth testing is disabled instead.
 
 ## 9. Exports
@@ -280,6 +329,7 @@ import type {
   Annotation,
   AnnotationMode,
   ExportOptions,
+  InteractionState,
 } from "copper3d_visualisation";
 ```
 

@@ -82,6 +82,14 @@ export class AnnotationStore {
     }
   }
 
+  setVisible(id: string, visible: boolean) {
+    const a = this.get(id);
+    if (a) {
+      a.visible = visible;
+      this.notify();
+    }
+  }
+
   toJSON(modelName: string, mesh: THREE.Mesh, opts: ExportOptions = {}) {
     const space = opts.space ?? "local";
     const toPt = (v: AnnotationVertex): number[] => {
@@ -109,6 +117,7 @@ export class AnnotationStore {
         label: a.label,
         color: a.color,
         closed: a.closed,
+        visible: a.visible,
         points: a.vertices.map(toPt),
       })),
     };

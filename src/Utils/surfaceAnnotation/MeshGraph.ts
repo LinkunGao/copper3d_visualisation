@@ -145,6 +145,21 @@ export class MeshGraph {
     return n.applyMatrix3(nm).normalize();
   }
 
+  /** Vertex local normal at index i (reads from the welded graphGeo normal attribute). */
+  vertexNormalLocal(i: number): THREE.Vector3 {
+    return new THREE.Vector3(
+      this.normals ? this.normals[i * 3] : 0,
+      this.normals ? this.normals[i * 3 + 1] : 0,
+      this.normals ? this.normals[i * 3 + 2] : 1
+    );
+  }
+
+  /** Normal at the vertex nearest to localPoint (for recovering normals from imported point coordinates). */
+  nearestNormalLocal(p: THREE.Vector3): THREE.Vector3 {
+    const i = this.nearestVertex(p);
+    return this.vertexNormalLocal(i);
+  }
+
   /** Vertex local coordinates + local normal (the graph geometry is already local space). */
   vertexLocal(i: number): {
     x: number;
