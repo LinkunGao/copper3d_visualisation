@@ -28,6 +28,12 @@ export interface Annotation {
   closed: boolean;
   visible: boolean;
   vertices: AnnotationVertex[];
+  /**
+   * Geodesic control points (local-space positions) — present only for geodesic contours. Lets a
+   * committed contour be re-opened for editing (drag/delete/insert its anchors). Stored as positions
+   * (not graph indices) so it survives export/import across sessions.
+   */
+  anchors?: AnnotationVertex[];
   object3D: THREE.Object3D | null; // render-object reference (stripped on export)
 }
 

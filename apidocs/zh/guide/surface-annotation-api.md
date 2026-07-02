@@ -9,7 +9,7 @@
 
 - 画 **contour 轮廓线**，两种模式：
   - **Freehand（自由手绘）**：按住左键拖拽，笔触实时投射到表面。
-  - **Geodesic（测地线）**：点击若干锚点，自动沿网格表面求最短路径连接（贴合表面）。每个锚点会显示为可见小球，可再次点击将其取消（悬停时显示 ✕）；按 `Enter` 结束后会移除锚点小球，只留下线。
+  - **Geodesic（测地线）**：点击若干锚点，自动沿网格表面求最短路径连接（贴合表面），并做平滑处理。**拖拽**锚点可移动它，**右键**删除，**点击线段**可在两点间插入新锚点；按 `Enter` 结束。已完成的测地线之后可再次选中，继续编辑它的锚点。
 - 放 **标记点（fiducial points）**。
 - 轮廓可**闭合成环**（闭合段也沿表面走，不穿模）。
 - **多条标注**，每条带颜色 / 标签，支持选中 / 改名 / 改色 / 删除 / 撤销 / 清空。
@@ -59,7 +59,8 @@ createSurfaceAnnotator(
     bboxDiagonal?: number;    // 手动指定尺寸基准，缺省自动从几何算
     onModeChange?: (mode: AnnotationMode) => void;
     onChange?: (annotations: Annotation[]) => void; // 标注列表增删/撤销/清空时触发
-    onInteractionChange?: (s: InteractionState) => void; // 绘制状态/武装工具/锁定变化时触发（见 §4）
+    onInteractionChange?: (s: InteractionState) => void; // 绘制状态/武装工具/锁定/编辑态变化时触发（见 §4）
+    onSelectionChange?: (id: string | null) => void;     // 引擎自身改变选中时触发（删除、回到 navigate 时取消选中）—— 用于同步你的列表 UI 高亮
   }
 ): SurfaceAnnotator
 ```
@@ -80,11 +81,11 @@ createSurfaceAnnotator(
 | `getMode()` | 返回当前模式 |
 | `getAnnotations()` | 返回当前标注列表快照 `Annotation[]` |
 | `getStore()` | 返回底层 `AnnotationStore`（高级用法：订阅/改名/改色） |
-| `selectAnnotation(id \| null)` | 选中某条（高亮：轮廓加粗 / 点放大） |
+| `selectAnnotation(id \| null)` | 选中某条（高亮：轮廓加粗 / 点放大），传 `null` 取消选中。选中会**自动切换到画它所用的工具**（点 → `point`，轮廓 → 其 `freehand`/`geodesic` 模式）；若是测地线，会随之重新打开它的锚点手柄以供编辑 |
 | `refreshAnnotation(id)` | 改色后重画对应 3D 对象（配合 `store.setColor`） |
 | `setVisible(id, visible)` | 显示 / 隐藏某条标注（只切换其 3D 对象，数据保留） |
-| `deleteAnnotation(id)` | 删除某条 |
-| `undo()` | 撤销最近的添加 / 删除 |
+| `deleteAnnotation(id)` | 删除某条。若删的正是当前正在编辑的测地线，会一并拆除它的锚点手柄（不留残余） |
+| `undo()` | 撤销最近的添加 / 删除。当某条测地线正在绘制/编辑时，改为撤销最近一次锚点编辑（加 / 移动 / 删除 / 插入） |
 | `clearAll()` | 清空全部 |
 | `importAnnotations(payload)` | 从导出对象重建标注（见 §6），返回导入条数。缺法线时从网格最近顶点恢复，缺 `visible` 默认为 `true`。导入的每条均为一等公民（可选中 / 改色 / 隐藏 / 删除 / 导出） |
 | `exportJSON(modelName, opts?)` | 导出为 JS 对象，见 §6 |
@@ -120,6 +121,7 @@ interface Annotation {
   closed: boolean;
   visible: boolean;                      // 单条显示/隐藏（默认 true）
   vertices: AnnotationVertex[];
+  anchors?: AnnotationVertex[];          // 仅测地线轮廓：控制点，使已提交的轮廓可被重新打开编辑（随导出/导入一同保存）
   object3D: THREE.Object3D | null;       // 渲染对象引用
 }
 
@@ -133,6 +135,7 @@ interface InteractionState {
   drawing: boolean;            // 正在绘制时为 true（按住 Space 或处于 draw-lock）
   armed: AnnotationMode;       // 将要绘制的工具 —— "freehand" | "geodesic" | "point"
   locked: boolean;             // draw-lock 是否开启（轻点 Space 切换）
+  editing: boolean;            // 当前有可编辑的测地线（正在绘制或重新打开的已提交轮廓）→ 其锚点可拖拽/删除/插入；可据此显示编辑提示
 }
 ```
 
@@ -151,14 +154,21 @@ interface InteractionState {
 | 按住 `Space` | 瞬时绘制（松开 → 导航） |
 | 轻点 `Space`（< 250ms） | 切换 **draw-lock**（绘制保持开启） |
 | 左键拖拽（Freehand，绘制中） | 沿表面画线 |
-| 左键点击（Geodesic，绘制中） | 加一个锚点；相邻锚点自动连测地线。点击已有锚点**或其附近**（悬停显示 ✕）即可取消该点 —— 命中判定采用屏幕像素容差，不必精确点中小球；点击空白处则新增锚点 |
+| 左键点击空白表面（Geodesic，绘制中） | 加一个锚点；相邻锚点自动连成平滑测地线 |
+| 左键**拖拽**锚点（Geodesic） | 移动它，相连的线段实时重算。只要测地线可编辑就能拖 —— 即使在 navigate 子态下 —— 于是你可以先旋转，再抓住某个点 |
+| **右键**点击锚点（Geodesic） | 删除它（画布上的系统右键菜单已被屏蔽） |
+| 左键点击**线段**（两锚点之间，Geodesic） | 在该处插入一个新锚点 |
 | 左键点击（Place point，绘制中） | 放一个标记点 |
-| `Esc` | 清除 draw-lock 并回到 navigate |
-| `Enter` | 闭合 / 结束当前 contour（沿表面闭合；测地线会移除锚点小球，只留下线） |
-| `Ctrl + Z` | 撤销。测地线绘制过程中,撤销最近一次锚点编辑(加点**或**取消点),被取消的锚点可恢复 |
+| `Esc` | 两段式：先取消当前选中 / 放弃正在绘制的测地线（仍留在当前工具）；再按一次（无选中时）回到 navigate |
+| `Enter` | 闭合 / 结束当前 contour。若在编辑已提交的测地线 → 定稿并隐藏手柄 |
+| `Ctrl + Z` | 撤销。当测地线正在绘制/编辑时，撤销最近一次锚点编辑（加 / 移动 / 删除 / 插入） |
 | `Delete` / `Backspace` | 删除当前选中标注 |
 
-订阅 `onInteractionChange({ drawing, armed, locked })` 即可驱动一个实时模式指示器 —— 例如 `drawing` 为 false 时显示"Navigate"，为 true 时显示"Drawing — Freehand"（`locked` 时再加锁定徽标）。
+**锚点命中**采用屏幕像素容差，不必精确点中小球。锚点手柄绘制为「白色外圈 + 工具色内核」，在线条与表面上都醒目；删除用右键（不再有逐点的 ✕ 图标）。
+
+**编辑已提交的测地线。** 选中它（在列表里或通过 `selectAnnotation`）—— 因为选中会切换到 Geodesic 工具，它的锚点会作为可拖拽手柄重新出现。拖拽 / 右键 / 插入即可实时编辑；`Enter`、切换工具、选中别的、或 `Esc` 都会定稿。若锚点少于 2 个则删除该条。`Annotation.anchors`（以及导出的 `anchors`）正是它跨会话可再编辑的依据。
+
+订阅 `onInteractionChange({ drawing, armed, locked, editing })` 可驱动实时模式指示器与测地线编辑提示（`editing` 为 true 时显示）。订阅 `onSelectionChange(id)`，让引擎自身触发的选中变化（删除、回到 navigate 时取消选中）同步到你的列表 UI。
 
 ## 5. 坐标空间（重要）
 
@@ -187,7 +197,8 @@ interface InteractionState {
       "color": "#ffa24e",
       "closed": true,
       "visible": true,
-      "points": [[x, y, z], ["..."]]
+      "points": [[x, y, z], ["..."]],
+      "anchors": [[x, y, z], ["..."]]
     },
     {
       "id": "a2",
@@ -203,7 +214,7 @@ interface InteractionState {
 }
 ```
 
-`includeNormals: true` 时每个点为 `[x, y, z, nx, ny, nz]`。每条标注都带 `visible` 字段，因此经 `exportJSON` → `importAnnotations` 往返后，显示/隐藏状态会被保留。
+`includeNormals: true` 时每个点为 `[x, y, z, nx, ny, nz]`。每条标注都带 `visible` 字段，因此经 `exportJSON` → `importAnnotations` 往返后，显示/隐藏状态会被保留。**测地线轮廓**还会额外带 `anchors`（其控制点，格式同 `[x,y,z]` / `[x,y,z,nx,ny,nz]`），因此重新导入的测地线仍可编辑；`importAnnotations` 会把它们映射回最近的图顶点。
 
 > **用 `importAnnotations` 往返**：把导出的对象直接喂回去，即可在重新加载的模型上重建标注。点应为 **local** 空间（导出默认值）。`id` 仅对单点条目复用（让往返保持稳定 id），其余每条都会分配新 id 以避免冲突。若某点缺法线（只有 `[x,y,z]`），法线会从焊接图的最近顶点恢复。
 
@@ -289,9 +300,11 @@ scene.loadOBJ("/models/heart.obj", (group) => {
 
 ```ts
 scene.createSurfaceAnnotator(group, {
-  onInteractionChange: ({ drawing, armed, locked }) => {
+  onInteractionChange: ({ drawing, armed, locked, editing }) => {
     badge.textContent = drawing ? `Drawing — ${armed}${locked ? "（锁定）" : ""}` : "Navigate";
+    editHint.hidden = !editing; // editing 时显示「拖拽移动·右键删除·点线段插入」提示
   },
+  onSelectionChange: (id) => refreshListHighlight(id), // 引擎可能自行取消选中（删除 / 回到 navigate）
 });
 ```
 
@@ -316,7 +329,7 @@ appRenderer.dispose();
 - **闭合是沿表面的**:`Enter` 用测地线把末点连回首点,不是直线弦,所以不会穿模。
 - **Freehand 是屏幕笔触投射**:相邻采样点用直线段相连(不像 Geodesic 严格沿表面走)。掠过沟缝/轮廓边时,跳到背面/远面的采样点会被**自动剔除**(距离突变 + 法线翻转判据),避免直线段横穿模型;若需严格贴合表面,请用 **Geodesic** 模式。
 - **相机门控（navigate 优先）**:标注器会改 `scene.controls.enabled`：**默认开启**（随时可旋转），**仅在绘制时关闭** —— 即按住 `Space` 或处于 draw-lock 期间。若你别处也在控制它,注意协调。
-- **轮廓线与标记常驻顶层**:轮廓线、放点 / 测地线锚点小球均关闭了深度测试(depthTest),因此在凹凸 / 体素化表面上始终完整可见(不会被相机与线之间的山脊吞掉),绘制过程中也可见。代价是从背面也能透过模型看到它们 —— 这是为标注可读性刻意为之。仅靠几何表面偏移(epsilon)在凹凸网格上无法两全(偏移太小会沉进表面,太大会浮在空中),所以改为关闭深度测试。
+- **轮廓线与标记贴合表面、会被模型遮挡（不穿透）**：轮廓线沿法线抬升 `epsilon`，并开启深度测试（depthTest），配合对表面三角形的 polygon-offset「贴花」偏置——于是线在它所贴的表面上赢得深度测试（凹凸/体素网格上不闪烁），而位于模型背面时又会被正确遮挡（不穿透）。放点 / 测地线锚点标记是抬起的球体，同样开启深度测试。测地线锚点**手柄**绘制为「工具色内核 + 白色外圈」并再抬高一点，使其在线条与表面上都醒目。
 
 ## 9. 导出符号
 

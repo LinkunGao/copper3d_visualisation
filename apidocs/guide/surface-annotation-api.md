@@ -9,7 +9,7 @@ Surface annotation lets you draw on the surface of **any 3D model**:
 
 - Draw **contour lines**, in two modes:
   - **Freehand**: hold the left mouse button and drag; the stroke is projected onto the surface in real time.
-  - **Geodesic**: click a few anchor points; the path is computed as the shortest route along the mesh surface (hugs the terrain). Each anchor is shown as a marker you can click again to remove (hovering it shows a ✕); `Enter` finishes the contour and removes the anchor markers, leaving only the line.
+  - **Geodesic**: click a few anchor points; the path is the shortest route along the mesh surface (hugs the terrain), smoothed for a clean curve. **Drag** an anchor to move it, **right-click** to delete, **click the line** to insert one; `Enter` finishes. A finished geodesic can be re-selected later to edit its anchors again.
 - Drop **fiducial points**.
 - Contours can be **closed into a loop** (the closing segment also follows the surface — it does not cut through the model).
 - **Multiple annotations**, each with a color and label; select / rename / recolor / delete / undo / clear.
@@ -58,7 +58,8 @@ createSurfaceAnnotator(
     bboxDiagonal?: number;    // size reference; auto-computed from geometry if omitted
     onModeChange?: (mode: AnnotationMode) => void;
     onChange?: (annotations: Annotation[]) => void; // fired on add/delete/undo/clear
-    onInteractionChange?: (s: InteractionState) => void; // fired when drawing/armed/lock changes (see §4)
+    onInteractionChange?: (s: InteractionState) => void; // fired when drawing/armed/lock/editing changes (see §4)
+    onSelectionChange?: (id: string | null) => void;     // fired when the ENGINE changes the selection itself (delete, deselect-on-navigate) — mirror it into your list UI
   }
 ): SurfaceAnnotator
 ```
@@ -79,11 +80,11 @@ Disposes every annotator created by this scene (removes the global event listene
 | `getMode()` | Current mode |
 | `getAnnotations()` | Snapshot of the current annotation list `Annotation[]` |
 | `getStore()` | The underlying `AnnotationStore` (advanced: subscribe / rename / recolor) |
-| `selectAnnotation(id \| null)` | Select one (highlight: thicker contour / larger point) |
+| `selectAnnotation(id \| null)` | Select one (highlight: thicker contour / larger point), or pass `null` to deselect. Selecting **switches to the tool that drew it** (points → `point`, contour → its `freehand`/`geodesic` mode); a geodesic then re-opens its anchor handles for editing |
 | `refreshAnnotation(id)` | Re-render the 3D object after a color change (pairs with `store.setColor`) |
 | `setVisible(id, visible)` | Show / hide a single annotation (its 3D object is toggled; data is kept) |
-| `deleteAnnotation(id)` | Delete one |
-| `undo()` | Undo the most recent add / delete |
+| `deleteAnnotation(id)` | Delete one. If it's the geodesic currently being edited, its anchor handles are torn down too (no orphans) |
+| `undo()` | Undo the most recent add / delete. During a geodesic that is being drawn/edited, undoes the last anchor edit instead (add / move / remove / insert) |
 | `clearAll()` | Clear everything |
 | `importAnnotations(payload)` | Rebuild annotations from an exported payload (see §6). Returns the count imported. Missing normals are recovered from the mesh's nearest vertex; missing `visible` defaults to `true`. Each imported item is first-class (select / recolor / hide / delete / export) |
 | `exportJSON(modelName, opts?)` | Export to a JS object, see §6 |
@@ -119,6 +120,7 @@ interface Annotation {
   closed: boolean;
   visible: boolean;                      // per-annotation show/hide (default true)
   vertices: AnnotationVertex[];
+  anchors?: AnnotationVertex[];          // geodesic contours only: the control points, so a committed contour can be re-opened for editing (survives export/import)
   object3D: THREE.Object3D | null;       // render object reference
 }
 
@@ -132,6 +134,7 @@ interface InteractionState {
   drawing: boolean;            // true while strokes/clicks draw (Space held or draw-lock on)
   armed: AnnotationMode;       // the tool that will draw — "freehand" | "geodesic" | "point"
   locked: boolean;             // draw-lock is on (toggled by tapping Space)
+  editing: boolean;            // a geodesic is editable now (in-progress or a re-opened committed one) → its anchors can be dragged/deleted/inserted; use it to show an edit hint
 }
 ```
 
@@ -150,14 +153,21 @@ Only while drawing does the annotator capture the left mouse button and disable 
 | Hold `Space` | Momentary draw (release → navigate) |
 | Tap `Space` (< 250 ms) | Toggle **draw-lock** (drawing stays on) |
 | Left drag (Freehand, while drawing) | Draw along the surface |
-| Left click (Geodesic, while drawing) | Add an anchor; adjacent anchors are connected by a geodesic. Click on **or near** an existing anchor (hover shows a ✕) to remove it — picking uses a screen-space pixel tolerance, so you don't have to hit the marker exactly. Clicking in open space adds a new anchor |
+| Left click on open surface (Geodesic, while drawing) | Add an anchor; adjacent anchors are connected by a smoothed geodesic |
+| Left **drag** an anchor (Geodesic) | Move it; the connected segments re-flow live. Works whenever the geodesic is editable — even in the navigate sub-state — so you can rotate, then grab a point |
+| **Right-click** an anchor (Geodesic) | Delete it (the OS context menu is suppressed over the canvas) |
+| Left click **on the line** between two anchors (Geodesic) | Insert a new anchor there |
 | Left click (Place point, while drawing) | Drop a fiducial marker |
-| `Esc` | Clear draw-lock and return to navigate |
-| `Enter` | Close / finish the current contour (closes along the surface; for a geodesic, removes the anchor markers and leaves only the line) |
-| `Ctrl + Z` | Undo. During an in-progress geodesic, undoes the last anchor edit (add **or** removal), so a cancelled anchor can be restored |
+| `Esc` | Two-stage: first clears the current selection / cancels an in-progress geodesic (staying in the tool); pressed again (nothing selected) returns to navigate |
+| `Enter` | Close / finish the current contour. Editing a committed geodesic → finalizes the edit and hides the handles |
+| `Ctrl + Z` | Undo. While a geodesic is being drawn/edited, undoes the last anchor edit (add / move / remove / insert) |
 | `Delete` / `Backspace` | Delete the selected annotation |
 
-Subscribe to `onInteractionChange({ drawing, armed, locked })` to drive a live mode indicator — e.g. show "Navigate" when `drawing` is false and "Drawing — Freehand" (with a lock badge when `locked`) when it is true.
+**Anchor picking** uses a screen-space pixel tolerance, so you don't need to hit the tiny marker exactly. Anchor handles are drawn as a white-rim + tool-colored-core so they stand out against both the line and the surface; deletion is right-click (there is no per-anchor ✕ affordance).
+
+**Editing a committed geodesic.** Select it (in the list or via `selectAnnotation`) — because selecting switches to the Geodesic tool, its anchors re-appear as draggable handles. Drag / right-click / insert edit it live; `Enter`, switching tool, selecting another, or `Esc` finalizes. Reducing it below 2 anchors deletes it. `Annotation.anchors` (and the exported `anchors`) are what make this re-editable across sessions.
+
+Subscribe to `onInteractionChange({ drawing, armed, locked, editing })` to drive a live mode indicator and a geodesic edit hint (show it while `editing`). Subscribe to `onSelectionChange(id)` so engine-initiated selection changes (delete, deselect-on-navigate) stay mirrored in your list UI.
 
 ## 5. Coordinate Space (important)
 
@@ -186,7 +196,8 @@ Subscribe to `onInteractionChange({ drawing, armed, locked })` to drive a live m
       "color": "#ffa24e",
       "closed": true,
       "visible": true,
-      "points": [[x, y, z], ["..."]]
+      "points": [[x, y, z], ["..."]],
+      "anchors": [[x, y, z], ["..."]]
     },
     {
       "id": "a2",
@@ -202,7 +213,7 @@ Subscribe to `onInteractionChange({ drawing, armed, locked })` to drive a live m
 }
 ```
 
-With `includeNormals: true`, each point is `[x, y, z, nx, ny, nz]`. Each annotation carries its `visible` flag, so a round-trip through `exportJSON` → `importAnnotations` preserves show/hide state.
+With `includeNormals: true`, each point is `[x, y, z, nx, ny, nz]`. Each annotation carries its `visible` flag, so a round-trip through `exportJSON` → `importAnnotations` preserves show/hide state. **Geodesic contours** additionally carry `anchors` (their control points, same `[x,y,z]` / `[x,y,z,nx,ny,nz]` shape), so a re-imported geodesic stays editable; `importAnnotations` maps them back to the nearest graph vertices.
 
 > **Round-trip with `importAnnotations`.** Feed the exported object straight back to rebuild the annotations on a freshly loaded model. Points should be in **local** space (the export default). `id` is reused only for single-point entries (so a round-trip keeps stable ids); every other item gets a fresh id to avoid collisions. If a point lacks normals (`[x,y,z]` only), the normal is recovered from the welded graph's nearest vertex.
 
@@ -287,9 +298,11 @@ scene.loadOBJ("/models/heart.obj", (group) => {
 
 ```ts
 scene.createSurfaceAnnotator(group, {
-  onInteractionChange: ({ drawing, armed, locked }) => {
+  onInteractionChange: ({ drawing, armed, locked, editing }) => {
     badge.textContent = drawing ? `Drawing — ${armed}${locked ? " (locked)" : ""}` : "Navigate";
+    editHint.hidden = !editing; // show "drag move · right-click delete · click line insert" while editing a geodesic
   },
+  onSelectionChange: (id) => refreshListHighlight(id), // engine may deselect on its own (delete / navigate)
 });
 ```
 
@@ -314,7 +327,7 @@ appRenderer.dispose();
 - **Closing follows the surface.** `Enter` connects the last point back to the first via a geodesic, not a straight chord, so it never cuts through the model.
 - **Freehand is a screen-stroke projection.** Consecutive samples are joined by straight segments (unlike Geodesic, which strictly follows the surface). When the stroke grazes a cleft or silhouette edge, samples that jump to a far/back face are **dropped automatically** (distance-spike + normal-flip test) to avoid a segment cutting through the model; for strict surface hugging, use **Geodesic** mode.
 - **Camera gating (navigate-first).** The annotator toggles `scene.controls.enabled`: **enabled by default** (you can always orbit), and **disabled only while drawing** — i.e. while `Space` is held or draw-lock is on. Coordinate with any other code that controls it.
-- **Contours & markers render on top.** Contour lines and point / geodesic-anchor markers are drawn with depth testing disabled, so they stay fully visible on rough or voxelised surfaces (never swallowed by ridges between the camera and the line) and during drawing. The trade-off is that they are also visible through the model from the far side — intentional, for annotation legibility. A geometric surface offset (`epsilon`) alone cannot achieve this on bumpy meshes (too little sinks into the surface, too much floats above it), which is why depth testing is disabled instead.
+- **Contours & markers sit on the surface, occluded by the model.** Contour lines are lifted along the normal by `epsilon` and depth-tested (with a polygon-offset "decal" bias on the surface triangles), so they read cleanly on rough / voxelised meshes without z-fighting, yet are correctly hidden when on the model's far side (no see-through). Point and geodesic-anchor markers are lifted spheres, likewise depth-tested. Geodesic anchor **handles** are drawn as a white rim around a tool-colored core and lifted a touch more, so they stand out against both the line and the surface.
 
 ## 9. Exports
 
