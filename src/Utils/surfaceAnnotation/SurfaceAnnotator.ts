@@ -4,7 +4,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 import type { Annotation, AnnotationMode, AnnotationVertex, SurfaceHit, ExportOptions } from "./types";
 import { worldHitToLocalVertex } from "./types";
 import { raycastSurface } from "./raycastSurface";
-import { makePointMarker } from "./pointMarkers";
+import { makePointMarker, makeAnchorHandle } from "./pointMarkers";
 import { StrokeContour } from "./strokeContour";
 import { makeContourLine, updateContourLine, setContourColor } from "./contourRender";
 import { MeshGraph } from "./MeshGraph";
@@ -40,8 +40,16 @@ export interface SurfaceAnnotatorOptions {
   onModeChange?: (m: AnnotationMode) => void;
   /** Callback when the annotation list changes (add/remove/undo/clear). */
   onChange?: (annotations: Annotation[]) => void;
-  /** Callback when interaction state changes (drawing, armed tool, draw-lock status). */
-  onInteractionChange?: (s: { drawing: boolean; armed: AnnotationMode; locked: boolean }) => void;
+  /** Callback when the engine changes the selection itself (delete, deselect-on-navigate) so the UI can mirror it. */
+  onSelectionChange?: (id: string | null) => void;
+  /** Callback when interaction state changes (drawing, armed tool, draw-lock status, geodesic-editing). */
+  onInteractionChange?: (s: {
+    drawing: boolean;
+    armed: AnnotationMode;
+    locked: boolean;
+    /** True while a geodesic is editable (in-progress or a re-opened committed one) → its anchors can be dragged/deleted/inserted. */
+    editing: boolean;
+  }) => void;
 }
 
 const LINE_W = 3;
@@ -79,11 +87,14 @@ export class SurfaceAnnotator {
   private lastFreehand?: Annotation;
   private activeGeo?: GeodesicContour;
   private activeGeoLine?: Line2;
-  private activeGeoMarkers: THREE.Mesh[] = []; // visible anchors of the in-progress geodesic
+  private activeGeoMarkers: THREE.Object3D[] = []; // visible anchor handles of the active geodesic
   private geoRay = new THREE.Raycaster();
   private geoNdc = new THREE.Vector2();
-  private geoHoverBadge?: HTMLDivElement; // small "✕ (cancel)" badge shown when hovering an anchor
   private hoveredGeoMarker = -1;
+  private draggingAnchor = -1; // anchor index currently being dragged (-1 = none)
+  private geoRedrawScheduled = false; // rAF coalescing flag for live drag redraw
+  private editingId: string | null = null; // committed geodesic re-opened for editing (Task 1.5)
+  private geoClosed = false; // whether the active/edited geodesic is a closed loop
   private _projV = new THREE.Vector3();
 
   constructor(opts: SurfaceAnnotatorOptions) {
@@ -121,8 +132,17 @@ export class SurfaceAnnotator {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("resize", this.onResize);
+    // Suppress the browser's native context menu over the WebGL canvas in EVERY mode: right-click
+    // there is used for camera pan (and, in geodesic mode, delete-anchor), so the OS menu must
+    // never appear. Guarded by insideContainer → right-clicking the HTML panels keeps its menu.
+    window.addEventListener("contextmenu", this.onContextMenu, true);
     this.applyCameraGating();
   }
+
+  /** Block the OS right-click menu when the pointer is over the WebGL canvas (not the HTML panels). */
+  private onContextMenu = (e: MouseEvent) => {
+    if (this.insideContainer(e)) e.preventDefault();
+  };
 
   /** Update the pixel resolution of all fat lines on window resize, otherwise line width distorts. */
   private onResize = () => {
@@ -157,12 +177,18 @@ export class SurfaceAnnotator {
   }
 
   setMode(m: AnnotationMode) {
-    // When leaving geodesic mode, discard the in-progress geodesic not yet committed with Enter (clear leftover anchors and line).
-    if (m !== "geodesic" && this.activeGeo) this.clearActiveGeo();
+    // When leaving geodesic mode: commit an in-progress EDIT of a committed contour, or discard a
+    // not-yet-committed new geodesic (clear leftover anchors and line).
+    if (m !== "geodesic") {
+      if (this.editingId) this.recommitGeodesic();
+      else if (this.activeGeo) this.clearActiveGeo();
+    }
     this.mode = m;
     // Record armed tool when choosing a drawing mode (not navigate).
     // Camera gating is NOT changed here — the user must use Space to enter drawing.
     if (m !== "navigate") this.armed = m;
+    // Returning to Navigate clears the selection too (put everything away).
+    if (m === "navigate") this.setSelected(null);
     this.applyCameraGating();
     this.o.onModeChange?.(m);
   }
@@ -177,21 +203,24 @@ export class SurfaceAnnotator {
   }
 
   undo() {
-    // Geodesic in progress → undo the most recent anchor edit (both adding and canceling a point can be rolled back);
-    // otherwise undo the most recently committed annotation.
+    // A geodesic being drawn/edited → undo the most recent anchor edit. afterGeoEdit() handles both
+    // the in-progress and committed-edit cases uniformly, including degenerate cleanup (so undo can't
+    // dispose a committed line or leave a stale edit session).
     if (this.activeGeo && this.activeGeo.canUndo()) {
       this.activeGeo.undoEdit();
-      if (this.activeGeo.anchorCount === 0) this.clearActiveGeo();
-      else {
-        this.rebuildGeoMarkers();
-        this.redrawGeoLine();
-      }
+      this.afterGeoEdit();
       return;
     }
     this.store.undo();
   }
 
   clearAll() {
+    // Drop any edit session first; the edited line is owned by the store and disposed by clear() below.
+    if (this.editingId) {
+      this.activeGeoLine = undefined;
+      this.editingId = null;
+      this.geoClosed = false;
+    }
     const removed = this.store.clear();
     removed.forEach((a) => {
       if (a.object3D) {
@@ -205,13 +234,42 @@ export class SurfaceAnnotator {
   }
 
   deleteAnnotation(id: string) {
-    if (this.selectedId === id) this.selectedId = null;
+    // If we're deleting the geodesic currently being edited, tear the edit session down first so
+    // its anchor handles aren't orphaned in the scene (the line itself is removed by reconcile).
+    if (this.editingId === id) {
+      this.removeGeoMarkers();
+      this.activeGeo = undefined;
+      this.activeGeoLine = undefined;
+      this.editingId = null;
+      this.geoClosed = false;
+    }
+    if (this.selectedId === id) this.setSelected(null);
     this.store.remove(id);
+    this.emitInteraction();
   }
 
   selectAnnotation(id: string | null) {
+    // Commit any open geodesic edit before the selection changes.
+    if (this.editingId && this.editingId !== id) this.recommitGeodesic();
     this.selectedId = id;
     this.applySelection();
+    if (!id) return;
+    const a = this.store.get(id);
+    if (!a) return;
+    // Selecting an annotation switches to the tool that drew it, so you can carry on editing it
+    // (and a geodesic opens its anchor handles). points → Place point; contour → its draw mode.
+    const tool: AnnotationMode = a.type === "points" ? "point" : a.mode ?? "freehand";
+    if (this.mode !== tool) this.setMode(tool);
+    // With Geodesic now active, re-open the contour's anchors for editing.
+    if (this.mode === "geodesic") this.tryOpenGeoEdit(id);
+  }
+
+  /** Change the selection from inside the engine (delete / deselect-on-navigate) and mirror it to the UI. */
+  private setSelected(id: string | null) {
+    if (this.selectedId === id) return;
+    this.selectedId = id;
+    this.applySelection();
+    this.o.onSelectionChange?.(id);
   }
 
   /** Redraw the corresponding three object after a color change. */
@@ -242,19 +300,17 @@ export class SurfaceAnnotator {
   importAnnotations(payload: { annotations: Array<{
     id?: string; type: "contour" | "points"; mode: "freehand" | "geodesic" | null;
     label: string; color: string; closed: boolean; visible?: boolean; points: number[][];
+    anchors?: number[][];
   }> }): number {
     let count = 0;
     let maxImported = this.seq;
     for (const a of payload.annotations ?? []) {
-      const verts: AnnotationVertex[] = a.points.map((p) => {
-        const [x, y, z] = p;
-        let nx = p[3], ny = p[4], nz = p[5];
-        if (nx === undefined || ny === undefined || nz === undefined) {
-          const nrm = this.graph.nearestNormalLocal(new THREE.Vector3(x, y, z));
-          nx = nrm.x; ny = nrm.y; nz = nrm.z;
-        }
-        return { x, y, z, nx, ny, nz, faceIndex: 0 };
-      });
+      const verts: AnnotationVertex[] = a.points.map((p) => this.rawToVertex(p));
+      // Geodesic control points, if the payload carries them → keep the contour editable.
+      const anchors: AnnotationVertex[] | undefined =
+        a.mode === "geodesic" && a.anchors && a.anchors.length
+          ? a.anchors.map((p) => this.rawToVertex(p))
+          : undefined;
       if (a.type === "points") {
         for (const v of verts) {
           // Only reuse the provided id for a single-point entry (the round-trip case);
@@ -292,6 +348,7 @@ export class SurfaceAnnotator {
           closed: a.closed,
           visible: a.visible ?? true,
           vertices: verts,
+          anchors,
           object3D: line,
         });
         const m = id.match(/^a(\d+)$/);
@@ -313,7 +370,17 @@ export class SurfaceAnnotator {
   private applyCameraGating() {
     // Default is navigate (camera enabled). Drawing only when drawLock or spaceHeld.
     this.o.controls.enabled = !this.drawing;
-    this.o.onInteractionChange?.({ drawing: this.drawing, armed: this.armed, locked: this.drawLock });
+    this.emitInteraction();
+  }
+
+  /** Emit the current interaction state (camera gating + whether a geodesic is editable). */
+  private emitInteraction() {
+    this.o.onInteractionChange?.({
+      drawing: this.drawing,
+      armed: this.armed,
+      locked: this.drawLock,
+      editing: !!this.activeGeo,
+    });
   }
 
   /** Reconcile the scene against store.list(): add missing objects, remove deleted ones (no dispose, kept for undo restore). */
@@ -350,15 +417,29 @@ export class SurfaceAnnotator {
   }
 
   private disposeObject(o: THREE.Object3D) {
-    const any = o as THREE.Mesh;
-    any.geometry?.dispose?.();
-    const mat = any.material as THREE.Material | THREE.Material[] | undefined;
-    if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
-    else mat?.dispose?.();
+    // Traverse so composite handles (Group of rim + core meshes) are fully freed, not just the root.
+    o.traverse((c) => {
+      const any = c as THREE.Mesh;
+      any.geometry?.dispose?.();
+      const mat = any.material as THREE.Material | THREE.Material[] | undefined;
+      if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+      else mat?.dispose?.();
+    });
   }
 
   private nextId(): string {
     return "a" + ++this.seq;
+  }
+
+  /** Parse a raw exported point ([x,y,z] or [x,y,z,nx,ny,nz], local space) into an AnnotationVertex, recovering the normal from the nearest graph vertex when absent. */
+  private rawToVertex(p: number[]): AnnotationVertex {
+    const [x, y, z] = p;
+    let nx = p[3], ny = p[4], nz = p[5];
+    if (nx === undefined || ny === undefined || nz === undefined) {
+      const nrm = this.graph.nearestNormalLocal(new THREE.Vector3(x, y, z));
+      nx = nrm.x; ny = nrm.y; nz = nrm.z;
+    }
+    return { x, y, z, nx, ny, nz, faceIndex: 0 };
   }
 
   private hit(e: PointerEvent): SurfaceHit | null {
@@ -384,8 +465,57 @@ export class SurfaceAnnotator {
   }
 
   private onPointerDown = (e: PointerEvent) => {
-    if (e.button !== 0) return; // left button only
     if (!this.insideContainer(e)) return;
+
+    // Geodesic anchor editing (drag to move / right-click to delete) is available whenever an
+    // editable geodesic exists — even outside draw-lock — because it requires precisely hitting an
+    // existing anchor. This lets the user rotate the model freely and still grab a point. Handled
+    // BEFORE the button/drawing gates below.
+    if (this.armed === "geodesic" && this.activeGeo) {
+      if (e.button === 2) {
+        const pick = this.pickGeoMarker(e);
+        if (pick >= 0) {
+          e.preventDefault();
+          this.activeGeo.removeAnchorAt(pick);
+          this.afterGeoEdit();
+          return;
+        }
+      } else if (e.button === 0) {
+        const pick = this.pickGeoMarker(e);
+        if (pick >= 0) {
+          e.preventDefault();
+          this.draggingAnchor = pick;
+          this.pointerDown = true;
+          this.o.controls.enabled = false; // suppress camera while dragging the anchor
+          this.o.container.style.cursor = "grabbing";
+          return;
+        }
+        // Missed every anchor → if the click lands on the line body, insert a new anchor there
+        // (works in an edit session or an in-progress geodesic, regardless of draw-lock).
+        if (this.activeGeo.anchorCount >= 2) {
+          const h = this.hit(e);
+          if (h) {
+            const insertAt = this.activeGeo.nearestInsertIndex(
+              h.point,
+              this.o.mesh.matrixWorld,
+              this.geoClosed,
+              this.minGap * 4
+            );
+            if (insertAt >= 0) {
+              e.preventDefault();
+              this.activeGeo.insertAnchorAt(
+                insertAt + 1,
+                this.o.mesh.worldToLocal(h.point.clone())
+              );
+              this.afterGeoEdit();
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    if (e.button !== 0) return; // the remaining tools are left-button only
     this.pointerDown = true;
 
     // Only act with the armed tool when in drawing mode (drawLock or spaceHeld).
@@ -439,18 +569,8 @@ export class SurfaceAnnotator {
     }
 
     if (activeTool === "geodesic") {
-      // First check whether an existing anchor was clicked → cancel that point (any point can be canceled).
-      const pick = this.pickGeoMarker(e);
-      if (pick >= 0 && this.activeGeo) {
-        this.activeGeo.removeAnchorAt(pick);
-        if (this.activeGeo.anchorCount === 0) this.clearActiveGeo();
-        else {
-          this.rebuildGeoMarkers();
-          this.redrawGeoLine();
-        }
-        return;
-      }
-      // Otherwise drop a new anchor on the surface.
+      // Anchor grab/delete was already handled above; here we only drop a NEW anchor on the surface
+      // (clicks on an existing anchor never reach this point).
       const h = this.hit(e);
       if (!h) return;
       if (!this.activeGeo) {
@@ -458,10 +578,56 @@ export class SurfaceAnnotator {
       }
       const local = this.o.mesh.worldToLocal(h.point.clone());
       this.activeGeo.addAnchor(local);
+      this.afterGeoEdit();
+    }
+  };
+
+  /** After any anchor edit: refresh markers + line; drop/delete the contour when it becomes degenerate. */
+  private afterGeoEdit() {
+    if (!this.activeGeo) return;
+    if (this.editingId) {
+      // Editing a committed contour: fewer than 2 anchors → delete the whole annotation.
+      if (this.activeGeo.anchorCount < 2) {
+        const id = this.editingId;
+        this.removeGeoMarkers();
+        this.activeGeo = undefined;
+        this.activeGeoLine = undefined; // owned by the annotation; deleteAnnotation disposes it
+        this.editingId = null;
+        this.geoClosed = false;
+        this.deleteAnnotation(id);
+        this.emitInteraction();
+        return;
+      }
+      this.rebuildGeoMarkers();
+      this.redrawGeoLine();
+      this.emitInteraction();
+      return;
+    }
+    // In-progress new geodesic.
+    if (this.activeGeo.anchorCount === 0) {
+      this.clearActiveGeo();
+    } else {
       this.rebuildGeoMarkers();
       this.redrawGeoLine();
     }
-  };
+    this.emitInteraction();
+  }
+
+  /** Coalesce live drag redraws to one per animation frame (moveAnchorTo runs Dijkstra per move). */
+  private scheduleGeoRedraw() {
+    if (this.geoRedrawScheduled) return;
+    this.geoRedrawScheduled = true;
+    requestAnimationFrame(() => {
+      this.geoRedrawScheduled = false;
+      this.rebuildGeoMarkers();
+      this.redrawGeoLine();
+      if (this.draggingAnchor >= 0) {
+        this.o.container.style.cursor = "grabbing";
+        // keep the grabbed handle emphasized through the live rebuilds
+        this.activeGeoMarkers[this.draggingAnchor]?.scale.setScalar(1.4);
+      }
+    });
+  }
 
   /**
    * Pick an in-progress anchor: return the index of the nearest anchor (screen pixel distance <
@@ -498,68 +664,27 @@ export class SurfaceAnnotator {
     return best;
   }
 
-  /** Set the currently hovered anchor (-1 = none): update highlight scale, cursor, and the "✕ (cancel)" floating badge. */
+  /**
+   * Set the currently hovered anchor (-1 = none): scale it up as a highlight and show a "grab"
+   * cursor to signal it's draggable. Delete is now a right-click (no floating ✕ affordance).
+   */
   private setGeoHover(idx: number) {
-    if (idx === this.hoveredGeoMarker) {
-      if (idx >= 0) this.positionGeoBadge(this.activeGeoMarkers[idx]);
-      return;
-    }
+    if (idx === this.hoveredGeoMarker) return;
     const prev = this.activeGeoMarkers[this.hoveredGeoMarker];
     if (prev) prev.scale.setScalar(1);
     this.hoveredGeoMarker = idx;
     const cur = this.activeGeoMarkers[idx];
+    // Don't fight the "grabbing" cursor set during an active drag.
+    if (this.draggingAnchor >= 0) return;
     if (cur) {
-      cur.scale.setScalar(1.3);
-      this.ensureGeoBadge().style.display = "flex";
-      this.positionGeoBadge(cur);
-      this.o.container.style.cursor = "pointer";
+      cur.scale.setScalar(1.35);
+      this.o.container.style.cursor = "grab";
     } else {
-      if (this.geoHoverBadge) this.geoHoverBadge.style.display = "none";
       this.o.container.style.cursor = "";
     }
   }
 
-  /** Lazily create the floating ✕ badge (appended inside the container, pointer-events:none so it doesn't block clicks). */
-  private ensureGeoBadge(): HTMLDivElement {
-    if (this.geoHoverBadge) return this.geoHoverBadge;
-    const b = document.createElement("div");
-    b.textContent = "✕";
-    Object.assign(b.style, {
-      position: "absolute",
-      width: "16px",
-      height: "16px",
-      borderRadius: "50%",
-      background: "#ff5d6c",
-      color: "#fff",
-      font: "700 10px/1 system-ui, sans-serif",
-      display: "none",
-      alignItems: "center",
-      justifyContent: "center",
-      pointerEvents: "none",
-      zIndex: "15",
-      boxShadow: "0 2px 6px rgba(0,0,0,.45)",
-      transform: "translate(-50%, -50%)",
-      left: "0px",
-      top: "0px",
-    } as Partial<CSSStyleDeclaration>);
-    this.o.container.appendChild(b);
-    this.geoHoverBadge = b;
-    return b;
-  }
-
-  /** Position the ✕ badge at the anchor's screen projection (dead center, i.e. where the cursor hovers, to avoid ambiguity). */
-  private positionGeoBadge(marker: THREE.Mesh) {
-    if (!marker) return;
-    const b = this.ensureGeoBadge();
-    this._projV.copy(marker.position).project(this.o.camera);
-    const rect = this.o.container.getBoundingClientRect();
-    const x = (this._projV.x * 0.5 + 0.5) * rect.width;
-    const y = (-this._projV.y * 0.5 + 0.5) * rect.height;
-    b.style.left = `${x}px`;
-    b.style.top = `${y}px`;
-  }
-
-  /** Rebuild the visible anchor spheres from the current anchors (slightly larger than placed points, so they're easy to see and click to cancel). */
+  /** Rebuild the visible anchor spheres from the current anchors (slightly larger than placed points, so they're easy to see and grab). */
   private rebuildGeoMarkers() {
     this.setGeoHover(-1);
     for (const m of this.activeGeoMarkers) {
@@ -569,23 +694,25 @@ export class SurfaceAnnotator {
     this.activeGeoMarkers = [];
     if (!this.activeGeo) return;
     for (const v of this.activeGeo.getAnchorLocals()) {
-      const marker = makePointMarker(
+      const marker = makeAnchorHandle(
         v,
         this.o.mesh,
         this.geodesicColor,
-        this.markerRadius * 1.15
+        this.markerRadius * 1.7
       );
       this.o.scene.add(marker);
       this.activeGeoMarkers.push(marker);
     }
   }
 
-  /** Redraw the in-progress geodesic from the current anchors (not closed); remove the line when fewer than two points. */
+  /** Redraw the active geodesic from its current anchors (honoring the closed state); when editing a committed contour, also keep the stored annotation data in sync so export stays correct. */
   private redrawGeoLine() {
     if (!this.activeGeo) return;
-    const verts = this.activeGeo.buildVertices(false);
+    const closed = this.geoClosed;
+    const verts = this.activeGeo.buildVertices(closed);
     if (verts.length < 2) {
-      if (this.activeGeoLine) {
+      // Only dispose the line for an in-progress geodesic; when editing, the line belongs to the annotation.
+      if (this.activeGeoLine && !this.editingId) {
         this.o.scene.remove(this.activeGeoLine);
         this.disposeObject(this.activeGeoLine);
         this.activeGeoLine = undefined;
@@ -596,7 +723,7 @@ export class SurfaceAnnotator {
       this.activeGeoLine = makeContourLine(
         verts,
         this.geodesicColor,
-        false,
+        closed,
         this.o.container,
         this.epsilon,
         this.o.mesh
@@ -606,10 +733,19 @@ export class SurfaceAnnotator {
       updateContourLine(
         this.activeGeoLine,
         verts,
-        false,
+        closed,
         this.epsilon,
         this.o.mesh
       );
+    }
+    // Live-sync the committed annotation's data while it is being edited.
+    if (this.editingId) {
+      const a = this.store.get(this.editingId);
+      if (a) {
+        a.vertices = verts;
+        a.closed = closed;
+        a.anchors = this.activeGeo.getAnchorLocals();
+      }
     }
   }
 
@@ -627,6 +763,7 @@ export class SurfaceAnnotator {
     }
     this.activeGeoMarkers = [];
     this.activeGeo = undefined;
+    this.emitInteraction();
   }
 
   /** Remove all anchor spheres of the in-progress geodesic (called after committing: only the line remains). */
@@ -640,6 +777,19 @@ export class SurfaceAnnotator {
   }
 
   private onPointerMove = (e: PointerEvent) => {
+    // Live anchor drag: move the grabbed anchor to the surface point under the cursor and redraw
+    // (both adjacent segments recompute inside moveAnchorTo). Takes priority over everything else.
+    if (this.draggingAnchor >= 0) {
+      const h = this.hit(e);
+      if (h && this.activeGeo) {
+        this.activeGeo.moveAnchorTo(
+          this.draggingAnchor,
+          this.o.mesh.worldToLocal(h.point.clone())
+        );
+        this.scheduleGeoRedraw();
+      }
+      return;
+    }
     // Track if user dragged while space was held (so a hold-drag is not treated as a tap).
     if (this.spaceHeld && this.pointerDown) {
       this.spaceDragged = true;
@@ -682,6 +832,15 @@ export class SurfaceAnnotator {
   };
 
   private onPointerUp = () => {
+    // Finish an anchor drag: restore camera gating + cursor. (Re-commit of an edited committed
+    // contour is wired in Task 1.5.)
+    if (this.draggingAnchor >= 0) {
+      this.draggingAnchor = -1;
+      this.pointerDown = false;
+      this.o.container.style.cursor = this.hoveredGeoMarker >= 0 ? "grab" : "";
+      this.applyCameraGating();
+      return;
+    }
     if (!this.pointerDown) return;
     this.pointerDown = false;
     if (this.activeStroke && this.activeLine) {
@@ -759,6 +918,7 @@ export class SurfaceAnnotator {
         closed,
         visible: true,
         vertices: verts,
+        anchors: this.activeGeo.getAnchorLocals(),
         object3D: this.activeGeoLine,
       };
       this.store.add(ann);
@@ -770,6 +930,61 @@ export class SurfaceAnnotator {
     this.removeGeoMarkers();
     this.activeGeo = undefined;
     this.activeGeoLine = undefined;
+    this.geoClosed = false;
+    this.emitInteraction();
+  }
+
+  /**
+   * Re-open a committed geodesic contour for editing: rebuild its anchors (from the stored positions)
+   * as draggable markers and reuse its line for live updates. No-op for non-geodesic / anchorless
+   * annotations. The edit session ends on Enter / mode-switch / selecting another / Esc.
+   */
+  private tryOpenGeoEdit(id: string) {
+    if (this.editingId === id) return;
+    const a = this.store.get(id);
+    if (!a || a.type !== "contour" || a.mode !== "geodesic" || !a.anchors || a.anchors.length < 2) {
+      return;
+    }
+    // Discard a half-drawn (uncommitted) geodesic before entering the edit session.
+    if (this.activeGeo && !this.editingId) this.clearActiveGeo();
+    const indices = a.anchors.map((v) =>
+      this.graph.nearestVertex(new THREE.Vector3(v.x, v.y, v.z))
+    );
+    this.activeGeo = GeodesicContour.fromAnchors(this.graph, this.o.mesh, indices);
+    this.activeGeoLine = (a.object3D as Line2 | null) ?? undefined;
+    this.editingId = id;
+    this.geoClosed = a.closed;
+    this.rebuildGeoMarkers();
+    this.redrawGeoLine();
+    this.emitInteraction();
+  }
+
+  /**
+   * Finalize an edit session on a committed geodesic: the annotation data was kept in sync live
+   * (redrawGeoLine), so here we just remove the edit markers, notify subscribers, and end the
+   * session — or delete the annotation if it was reduced below 2 anchors.
+   */
+  private recommitGeodesic() {
+    const id = this.editingId;
+    if (!id) return;
+    if (!this.activeGeo || this.activeGeo.anchorCount < 2) {
+      this.removeGeoMarkers();
+      this.activeGeo = undefined;
+      this.activeGeoLine = undefined; // owned by the annotation
+      this.editingId = null;
+      this.geoClosed = false;
+      this.deleteAnnotation(id);
+      this.emitInteraction();
+      return;
+    }
+    this.redrawGeoLine(); // final data sync
+    this.removeGeoMarkers();
+    this.activeGeo = undefined;
+    this.activeGeoLine = undefined; // owned by the annotation, do not dispose
+    this.editingId = null;
+    this.geoClosed = false;
+    this.store.touch();
+    this.emitInteraction();
   }
 
   private isTypingTarget(e: KeyboardEvent): boolean {
@@ -792,6 +1007,16 @@ export class SurfaceAnnotator {
       return;
     }
     if (e.key === "Escape") {
+      // First Esc clears an active selection / in-progress geodesic while staying in the current
+      // tool; a second Esc (nothing selected) returns to Navigate.
+      if (this.selectedId || this.activeGeo) {
+        if (this.editingId) this.recommitGeodesic();
+        else if (this.activeGeo) this.clearActiveGeo();
+        this.setSelected(null);
+        this.drawLock = false;
+        this.applyCameraGating();
+        return;
+      }
       this.drawLock = false;
       this.setMode("navigate");
       return;
@@ -806,8 +1031,10 @@ export class SurfaceAnnotator {
       return;
     }
     if (e.key === "Enter") {
-      // Geodesic in progress → finish and close it; otherwise close the most recent freehand line.
-      if (this.activeGeo) this.finishGeodesic();
+      // Editing a committed geodesic → finalize the edit; a fresh geodesic in progress → finish and
+      // close it; otherwise close the most recent freehand line.
+      if (this.editingId) this.recommitGeodesic();
+      else if (this.activeGeo) this.finishGeodesic();
       else this.closeLastContour();
       return;
     }
@@ -830,13 +1057,12 @@ export class SurfaceAnnotator {
 
   dispose() {
     this.clearActiveGeo();
-    this.geoHoverBadge?.remove();
-    this.geoHoverBadge = undefined;
     window.removeEventListener("pointerdown", this.onPointerDown, true);
     window.removeEventListener("pointermove", this.onPointerMove, true);
     window.removeEventListener("pointerup", this.onPointerUp, true);
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("resize", this.onResize);
+    window.removeEventListener("contextmenu", this.onContextMenu, true);
   }
 }

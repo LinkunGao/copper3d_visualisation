@@ -90,6 +90,11 @@ export class AnnotationStore {
     }
   }
 
+  /** Notify subscribers after an in-place mutation of an existing annotation (e.g. geodesic edit re-commit). */
+  touch() {
+    this.notify();
+  }
+
   toJSON(modelName: string, mesh: THREE.Mesh, opts: ExportOptions = {}) {
     const space = opts.space ?? "local";
     const toPt = (v: AnnotationVertex): number[] => {
@@ -110,16 +115,23 @@ export class AnnotationStore {
       model: modelName,
       exportedAt: new Date().toISOString(),
       space,
-      annotations: this.items.map((a) => ({
-        id: a.id,
-        type: a.type,
-        mode: a.mode,
-        label: a.label,
-        color: a.color,
-        closed: a.closed,
-        visible: a.visible,
-        points: a.vertices.map(toPt),
-      })),
+      annotations: this.items.map((a) => {
+        const out: Record<string, unknown> = {
+          id: a.id,
+          type: a.type,
+          mode: a.mode,
+          label: a.label,
+          color: a.color,
+          closed: a.closed,
+          visible: a.visible,
+          points: a.vertices.map(toPt),
+        };
+        // Geodesic contours also carry their control points so a round-tripped import stays editable.
+        if (a.mode === "geodesic" && a.anchors && a.anchors.length) {
+          out.anchors = a.anchors.map(toPt);
+        }
+        return out;
+      }),
     };
   }
 }
