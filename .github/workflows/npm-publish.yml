@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+      - run: npm install -g npm@11.5.1   # 固定 npm 版本，绕开 provenance 回归 bug (npm/cli#8699)
       - run: npm ci
       - run: npm run build --if-present
-      - run: npm publish
+      - run: npm publish --provenance
