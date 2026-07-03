@@ -106,7 +106,8 @@ export class copperScene extends baseScene {
   loadPureGLB(
     url: string,
     callback?: (mesh: THREE.Group) => void,
-    opts?: { color: string; enhanceMaterial?: boolean }
+    opts?: { color: string; enhanceMaterial?: boolean },
+    onError?: (error: unknown) => void
   ) {
     const loader = copperGltfLoader(this.renderer);
     loader.load(
@@ -137,6 +138,9 @@ export class copperScene extends baseScene {
       (xhr: any) => {},
       (error: any) => {
         console.log("An error happened: ", error);
+        // Surface the failure to the caller so it can stop its loading state / report it,
+        // instead of the load silently hanging forever on a corrupt/invalid GLB.
+        !!onError && onError(error);
       }
     );
   }
