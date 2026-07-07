@@ -96,6 +96,7 @@ export class SurfaceAnnotator {
   private editingId: string | null = null; // committed geodesic re-opened for editing (Task 1.5)
   private geoClosed = false; // whether the active/edited geodesic is a closed loop
   private _projV = new THREE.Vector3();
+  private listenersOn = false;
 
   constructor(opts: SurfaceAnnotatorOptions) {
     this.o = opts;
@@ -126,16 +127,7 @@ export class SurfaceAnnotator {
     this.store.subscribe(() => this.reconcile());
     // Listen on window in the capture phase (capture=true): receive every pointer event before
     // copper's TrackballControls, so its setPointerCapture / event routing doesn't drop moves mid-drag.
-    window.addEventListener("pointerdown", this.onPointerDown, true);
-    window.addEventListener("pointermove", this.onPointerMove, true);
-    window.addEventListener("pointerup", this.onPointerUp, true);
-    window.addEventListener("keydown", this.onKeyDown);
-    window.addEventListener("keyup", this.onKeyUp);
-    window.addEventListener("resize", this.onResize);
-    // Suppress the browser's native context menu over the WebGL canvas in EVERY mode: right-click
-    // there is used for camera pan (and, in geodesic mode, delete-anchor), so the OS menu must
-    // never appear. Guarded by insideContainer → right-clicking the HTML panels keeps its menu.
-    window.addEventListener("contextmenu", this.onContextMenu, true);
+    this.addListeners();
     this.applyCameraGating();
   }
 
@@ -290,6 +282,12 @@ export class SurfaceAnnotator {
 
   setVisible(id: string, visible: boolean) {
     this.store.setVisible(id, visible);
+  }
+
+  /** Show/hide every annotation in this model in one reconcile (backs the per-model hide-all button). */
+  setAllVisible(visible: boolean) {
+    for (const a of this.store.list()) a.visible = visible;
+    this.store.touch(); // one notify → reconcile() applies object3D.visible
   }
 
   /**
@@ -1055,8 +1053,20 @@ export class SurfaceAnnotator {
     }
   };
 
-  dispose() {
-    this.clearActiveGeo();
+  private addListeners() {
+    if (this.listenersOn) return;
+    window.addEventListener("pointerdown", this.onPointerDown, true);
+    window.addEventListener("pointermove", this.onPointerMove, true);
+    window.addEventListener("pointerup", this.onPointerUp, true);
+    window.addEventListener("keydown", this.onKeyDown);
+    window.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("resize", this.onResize);
+    window.addEventListener("contextmenu", this.onContextMenu, true);
+    this.listenersOn = true;
+  }
+
+  private removeListeners() {
+    if (!this.listenersOn) return;
     window.removeEventListener("pointerdown", this.onPointerDown, true);
     window.removeEventListener("pointermove", this.onPointerMove, true);
     window.removeEventListener("pointerup", this.onPointerUp, true);
@@ -1064,5 +1074,38 @@ export class SurfaceAnnotator {
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("resize", this.onResize);
     window.removeEventListener("contextmenu", this.onContextMenu, true);
+    this.listenersOn = false;
+  }
+
+  /** Attach input listeners and make this annotator live. Idempotent. */
+  activate() { this.addListeners(); }
+
+  /** Detach input listeners so this annotator ignores input while its lines stay in the scene. Idempotent. */
+  deactivate() {
+    if (!this.listenersOn) return;
+    // Finish or discard any in-progress geodesic so a dormant annotator leaves no half-state.
+    if (this.editingId) this.recommitGeodesic();
+    else if (this.activeGeo) this.clearActiveGeo();
+    // Discard any in-progress freehand stroke — only onPointerUp commits it, and we are detaching
+    // that listener; committing a half-drawn stroke on an active-model switch would be surprising.
+    if (this.activeStroke && this.activeLine) {
+      this.o.scene.remove(this.activeLine);
+      this.disposeObject(this.activeLine);
+      this.activeStroke = undefined;
+      this.activeLine = undefined;
+    }
+    // Reset transient pointer state so a later activate() cannot commit stale drag/stroke data.
+    this.draggingAnchor = -1;
+    this.pointerDown = false;
+    // Release draw-lock / space and un-gate the camera so a dormant model never leaves controls locked.
+    this.drawLock = false;
+    this.spaceHeld = false;
+    this.applyCameraGating();
+    this.removeListeners();
+  }
+
+  dispose() {
+    this.clearActiveGeo();
+    this.removeListeners();
   }
 }

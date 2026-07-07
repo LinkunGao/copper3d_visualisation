@@ -89,6 +89,9 @@ createSurfaceAnnotator(
 | `clearAll()` | 清空全部 |
 | `importAnnotations(payload)` | 从导出对象重建标注（见 §6），返回导入条数。缺法线时从网格最近顶点恢复，缺 `visible` 默认为 `true`。导入的每条均为一等公民（可选中 / 改色 / 隐藏 / 删除 / 导出） |
 | `exportJSON(modelName, opts?)` | 导出为 JS 对象，见 §6 |
+| `activate()` | *（多模型）* 把此标注器设为**活动**的那个 —— （重新）挂上它的全局监听，使 `Space` / 工具 / 指针作用于**这个**模型。幂等。同一时刻只激活一个（先 `deactivate` 上一个） |
+| `deactivate()` | *（多模型）* 让此标注器进入**休眠**：提交正在编辑的测地线（未定稿的则丢弃），复位 draw-lock，解除相机门控（`controls.enabled = true`），再摘掉监听。它已提交的线/点**仍留在场景中、保持可见**，只是不再响应输入。幂等 |
+| `setAllVisible(visible)` | *（多模型）* 一次性显示 / 隐藏此模型的**全部**标注（单次 reconcile）—— 用于每个模型的「一键隐藏所有标注」开关。不删除数据 |
 | `dispose()` | 释放（移除事件监听）。卸载组件时务必调用 |
 
 ### 3.4 `getStore()` 常用方法（`AnnotationStore`）
@@ -316,12 +319,47 @@ annotator.dispose();          // 或 scene.disposeSurfaceAnnotators();
 appRenderer.dispose();
 ```
 
+### 案例 8 — 同一场景多个模型（activate / deactivate）
+
+```ts
+// 把同一 case 的多个模型加载进同一个 scene。每个模型一个标注器，
+// 同一时刻只有一个「活动」（可编辑），休眠的模型轮廓保持可见但不响应输入。
+const annotators = new Map<string, Copper.SurfaceAnnotator>();
+let activeId: string | null = null;
+
+function addModel(id: string, group: THREE.Object3D) {
+  const a = scene.createSurfaceAnnotator(group);
+  a.deactivate();                 // 加载即休眠 —— 取景/光照/框选仍由你负责
+  annotators.set(id, a);
+}
+
+function setActive(id: string) {
+  if (activeId) annotators.get(activeId)?.deactivate(); // 提交并清理旧的
+  annotators.get(id)?.activate();                       // 此模型接管 Space / 工具
+  activeId = id;
+}
+
+// 每个模型的「一键隐藏所有标注」（区别于隐藏模型表面网格）
+function hideAllAnnotations(id: string, hidden: boolean) {
+  annotators.get(id)?.setAllVisible(!hidden);
+}
+
+// 拆除单个模型，或整个 case
+function removeModel(id: string) {
+  annotators.get(id)?.dispose();  // 移除它的轮廓 + 监听
+  annotators.delete(id);
+  if (activeId === id) activeId = null;
+}
+```
+
+> 引擎不会判断哪个是「主模型」，也不设相机 —— 那是宿主应用的职责（例如 Surface Annotator 应用会框选包围盒最大的模型）。标注器只复用 scene 里已有的相机 / controls。
+
 ## 8. 注意事项
 
 - **取景 / 光照 / 加载** 都由你负责，标注器不碰。新模型记得自加灯光、设好相机。
 - **改色后必须 `refreshAnnotation(id)`**：`store.setColor` 只改数据,3D 对象颜色靠它更新。`setLabel` 则不用（不影响 3D）。
 - **快捷键是全局的（window）**：`1/2/3/4`、`Enter`、`Delete`、`Ctrl+Z`、`Space` 会被标注器监听。若你的页面别处也用这些键,可能冲突；不用时调 `dispose()` 解绑。
-- **同一页面建议只有一个活动标注器**：事件挂在 window 捕获阶段,多个实例会同时响应。多模型场景请在切换时 `dispose()` 旧的。
+- **同一时刻只能有一个「活动」标注器，但可以共存多个**：事件挂在 window 捕获阶段，两个**活动**实例会同时响应 `Space` / 工具 / 指针。同一场景加载多个模型时，为每个模型建一个标注器并立即 `deactivate()`，只对要编辑的那个调 `activate()`（并 `deactivate()` 上一个）。休眠的标注器仍把轮廓留在场景里、只是不响应输入，所以切换模型不再需要 `dispose()` 后重新加载。新构造的标注器**默认是活动的**（向后兼容），因此单模型调用方无需改动。
 - **测地线连通性**：若模型由**多个分离壳体**组成,跨壳体的测地线/闭合会退化成直线兜底。单一连通网格效果最好。
 - **测地线性能**：堆 Dijkstra,约 3 万顶点单次点击 < 100ms。**超大网格**(几十万顶点)点击可能有延迟(最近顶点查找为 O(V))。
 - **不会改你的 mesh**：内部用"仅位置"焊接的副本寻路,你 mesh 的法线/UV/纹理不受影响。但要求几何有 `position` 属性。
