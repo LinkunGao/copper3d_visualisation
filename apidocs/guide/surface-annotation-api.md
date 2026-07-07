@@ -88,6 +88,9 @@ Disposes every annotator created by this scene (removes the global event listene
 | `clearAll()` | Clear everything |
 | `importAnnotations(payload)` | Rebuild annotations from an exported payload (see §6). Returns the count imported. Missing normals are recovered from the mesh's nearest vertex; missing `visible` defaults to `true`. Each imported item is first-class (select / recolor / hide / delete / export) |
 | `exportJSON(modelName, opts?)` | Export to a JS object, see §6 |
+| `activate()` | *(multi-model)* Make this annotator the **live** one — (re)attaches its global listeners so `Space` / tools / pointer act on **this** model. Idempotent. Activate exactly one at a time (deactivate the previous first) |
+| `deactivate()` | *(multi-model)* Put this annotator **dormant** — commits an in-progress geodesic (or discards an uncommitted one), resets draw-lock, un-gates the camera (`controls.enabled = true`), then detaches its listeners. Its committed lines/markers **stay in the scene, visible**; they just stop responding to input. Idempotent |
+| `setAllVisible(visible)` | *(multi-model)* Show / hide **every** annotation of this model in one call (single reconcile) — backs a per-model "hide all annotations" toggle. Does not delete data |
 | `dispose()` | Release (removes event listeners). Always call on teardown |
 
 ### 3.4 `getStore()` common methods (`AnnotationStore`)
@@ -314,12 +317,48 @@ annotator.dispose();          // or scene.disposeSurfaceAnnotators();
 appRenderer.dispose();
 ```
 
+### Example 8 — Multiple models in one scene (activate / deactivate)
+
+```ts
+// Load several models of the same case into ONE scene. Each gets its own
+// annotator; only one is "active" (editable) at a time. Dormant models keep
+// their contours visible but ignore input.
+const annotators = new Map<string, Copper.SurfaceAnnotator>();
+let activeId: string | null = null;
+
+function addModel(id: string, group: THREE.Object3D) {
+  const a = scene.createSurfaceAnnotator(group);
+  a.deactivate();                 // dormant on load — no camera/lighting/framing here (that's yours)
+  annotators.set(id, a);
+}
+
+function setActive(id: string) {
+  if (activeId) annotators.get(activeId)?.deactivate(); // commits/cleans up the old one
+  annotators.get(id)?.activate();                       // this model now owns Space / tools
+  activeId = id;
+}
+
+// Per-model "hide all annotations" toggle (distinct from hiding the surface mesh)
+function hideAllAnnotations(id: string, hidden: boolean) {
+  annotators.get(id)?.setAllVisible(!hidden);
+}
+
+// Teardown one model, or the whole case
+function removeModel(id: string) {
+  annotators.get(id)?.dispose();  // removes its contours + listeners
+  annotators.delete(id);
+  if (activeId === id) activeId = null;
+}
+```
+
+> The engine does not choose which model is "primary" or frame the camera — that's the host app's call (e.g. the Surface Annotator app frames the largest-bounding-box model). The annotator only reuses the scene's existing camera/controls.
+
 ## 8. Caveats
 
 - **Framing / lighting / loading are yours.** The annotator touches none of them — add lights and set the camera for each new model.
 - **After a color change you must call `refreshAnnotation(id)`.** `store.setColor` only updates data; the 3D object's color is updated by `refreshAnnotation`. `setLabel` needs no re-render.
 - **Shortcuts are global (window-level).** `1/2/3/4`, `Enter`, `Delete`, `Ctrl+Z`, `Space` are all listened for. If your page uses these keys elsewhere, conflicts are possible — call `dispose()` when you are done to unbind.
-- **Prefer a single active annotator per page.** Events are on the window capture phase; multiple instances would all respond. In multi-model scenarios, `dispose()` the old one before creating a new one.
+- **Exactly one *active* annotator at a time — but many may coexist.** Events are on the window capture phase, so two *active* instances would both respond to `Space` / tools / pointer. For multiple models in one scene, create an annotator per model and immediately `deactivate()` all but one; call `activate()` on the model you want to edit (and `deactivate()` the previous). Dormant annotators keep their contours in the scene but ignore input, so you no longer have to `dispose()` and reload to switch models. A freshly constructed annotator is **active by default** (backward-compatible), so single-model callers need no changes.
 - **Geodesic connectivity.** If the model consists of **several disconnected shells**, a geodesic (or closing segment) across shells falls back to a straight line. A single connected mesh works best.
 - **Geodesic performance.** Heap Dijkstra; ~30k vertices is < 100ms per click. **Very large meshes** (hundreds of thousands of vertices) may lag (nearest-vertex lookup is O(V)).
 - **Your mesh is not modified.** Pathfinding uses a position-only welded copy; your mesh's normals/UVs/textures are untouched. The geometry must have a `position` attribute.
