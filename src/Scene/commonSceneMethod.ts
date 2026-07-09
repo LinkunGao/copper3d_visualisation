@@ -11,6 +11,7 @@ import {
 } from "../types/types";
 import * as THREE from "three";
 import { GUI } from "dat.gui";
+import { createPreRenderRegistry } from "./preRenderRegistry";
 import { copperDicomLoader } from "../Loader/copperDicomLoader";
 import { createTexture2D_Array } from "../Utils/texture2d";
 import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
@@ -75,22 +76,7 @@ export class commonScene {
 
     this.controls = new Copper3dTrackballControls(this.camera, this.container);
     this.controls.dispose();
-    this.preRenderCallbackFunctions = {
-      index: 0,
-      cache: [],
-      add(fn) {
-        if (!fn.id) {
-          fn.id = this.cache.length;
-          this.cache.push(fn);
-          return;
-        }
-      },
-      remove(id) {
-        if (this.cache[id]) {
-          this.cache.splice(id, 1);
-        }
-      },
-    };
+    this.preRenderCallbackFunctions = createPreRenderRegistry();
   }
 
   createDemoMesh() {
@@ -119,10 +105,9 @@ export class commonScene {
     }
   }
 
+  /** Registers a per-frame callback and returns its id, for removePreRenderCallbackFunction. */
   addPreRenderCallbackFunction(callbackFunction: Function) {
-    this.preRenderCallbackFunctions.add(callbackFunction);
-    const id = this.preRenderCallbackFunctions.index;
-    return id;
+    return this.preRenderCallbackFunctions.add(callbackFunction);
   }
 
   removePreRenderCallbackFunction(id: number) {

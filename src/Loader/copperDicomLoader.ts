@@ -66,6 +66,9 @@ export function copperDicomLoader(
     const ipp = parseDS(dataSet.string("x00200032")); // ImagePositionPatient
     const iop = parseDS(dataSet.string("x00200037")); // ImageOrientationPatient
     const spacing = parseDS(dataSet.string("x00280030")); // PixelSpacing
+    // FrameOfReferenceUID: two series share a world coordinate system only if this matches.
+    // It is the only field that lets another modality prove it is already registered to this one.
+    const frameOfReferenceUID = dataSet.string("x00200052") ?? undefined;
     let instanceNumber: number | undefined = parseInt(
       dataSet.string("x00200013") as string
     );
@@ -97,6 +100,7 @@ export function copperDicomLoader(
       imagePositionPatient: ipp,
       imageOrientationPatient: iop,
       pixelSpacing: spacing,
+      frameOfReferenceUID,
       corners,
     };
     callback && callback(copperVolume);

@@ -6,6 +6,7 @@ import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { copperNrrdTexture3dLoader } from "../Loader/copperNrrdLoader";
+import { loadRaw4DVolume as loadRaw4DVolumeImpl } from "../Loader/copperRaw4DVolumeLoader";
 import { copperVtkLoader, copperMultipleVtk } from "../Loader/copperVtkLoader";
 import { createTexture2D_Array } from "../Utils/texture2d";
 import { copperDicomLoader } from "../Loader/copperDicomLoader";
@@ -18,6 +19,8 @@ import {
   copperVolumeType,
   aligned4DOptsType,
   Aligned4DController,
+  raw4DVolumeOptsType,
+  Raw4DVolumeController,
 } from "../types/types";
 import { SurfaceAnnotator } from "../Utils/surfaceAnnotation";
 import type { SurfaceAnnotatorOptions } from "../Utils/surfaceAnnotation";
@@ -431,13 +434,13 @@ export class copperScene extends baseScene {
           applyFrame();
         }
       };
-      this.addPreRenderCallbackFunction(tick);
-      const clockId = (tick as any).id as number;
+      const clockId = this.addPreRenderCallbackFunction(tick);
 
       const ctrl: Aligned4DController = {
         plane: tex.mesh,
         surfaceMeshes,
         frameCount,
+        frameOfReferenceUID: stacked.frameOfReferenceUID,
         play: () => {
           playing = true;
           lastStep = performance.now();
@@ -465,6 +468,9 @@ export class copperScene extends baseScene {
         },
         setWindow: (center: number, width: number) => {
           tex.setWindow(center, width);
+        },
+        setPlaneBrightness: (v: number) => {
+          tex.setBrightness(v);
         },
         setPlaneOpacity: (v: number) => {
           const m = tex.mesh.material as THREE.ShaderMaterial;
@@ -504,6 +510,19 @@ export class copperScene extends baseScene {
 
       callback && callback(ctrl);
     });
+  }
+
+  /**
+   * Load a 4D volume sequence (.mhd/.raw per cardiac phase) and render it as a raycast
+   * volume. The returned controller runs no clock of its own — drive it with
+   * setFrame()/setPhase() so it can share a cardiac-phase clock with other modalities.
+   */
+  loadRaw4DVolume(
+    mhdUrls: Array<string>,
+    opts?: raw4DVolumeOptsType,
+    callback?: (ctrl: Raw4DVolumeController) => void
+  ): void {
+    loadRaw4DVolumeImpl(mhdUrls, this.scene as THREE.Scene, opts, callback);
   }
 
   getPlayRate() {
