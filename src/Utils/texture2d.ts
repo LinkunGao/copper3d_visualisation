@@ -16,6 +16,8 @@ export interface texture2dResult {
   updateTexture: (copperVolume: copperVolumeType) => void;
   setFrame: (i: number) => void;
   setWindow: (center: number, width: number) => void;
+  /** Post-window gain. 1.0 is faithful; 1.5 is the historical hard-coded default. */
+  setBrightness: (v: number) => void;
 }
 
 // Build a quad from the 4 world-space image-plane corners (preserves real pose).
@@ -59,6 +61,7 @@ export function createTexture2D_NRRD(
       diffuse: { value: texture },
       depth: { value: 1 },
       uOpacity: { value: 1 },
+      uBrightness: { value: 1.5 },
     },
     vertexShader: vert_2d,
     fragmentShader: frag_2d,
@@ -117,6 +120,7 @@ export function createTexture2D_Array(
       diffuse: { value: texture },
       depth: { value: 0 },
       uOpacity: { value: 1 },
+      uBrightness: { value: 1.5 },
     },
     vertexShader: vert_2d,
     fragmentShader: frag_2d,
@@ -162,5 +166,10 @@ export function createTexture2D_Array(
     updateTexture(copperVolume);
   }
 
-  return { mesh, copperVolume, updateTexture, setFrame, setWindow };
+  /** Post-window gain. 1.0 is faithful; the historical default is 1.5. */
+  function setBrightness(v: number) {
+    (material.uniforms.uBrightness.value as number) = v;
+  }
+
+  return { mesh, copperVolume, updateTexture, setFrame, setWindow, setBrightness };
 }

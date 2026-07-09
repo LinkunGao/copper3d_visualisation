@@ -51,6 +51,9 @@ import {
   aligned4DSurfaceType,
   aligned4DOptsType,
   Aligned4DController,
+  raw4DVolumeTransformType,
+  raw4DVolumeOptsType,
+  Raw4DVolumeController,
 } from "./types/types";
 
 import { IPaintImage, ICommXYZ, IGUIStates, IGuiParameterSettings, INrrdStates, IGuiMeta } from "./Utils/segmentation/core/types";
@@ -141,6 +144,9 @@ export type {
   aligned4DSurfaceType,
   aligned4DOptsType,
   Aligned4DController,
+  raw4DVolumeTransformType,
+  raw4DVolumeOptsType,
+  Raw4DVolumeController,
   ICommXYZ,
   IGUIStates,
   IGuiParameterSettings,

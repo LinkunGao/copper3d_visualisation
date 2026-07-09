@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createPreRenderRegistry } from "./preRenderRegistry";
 import { GUI } from "dat.gui";
 import { Controls, CameraViewPoint } from "../Controls/copperControls";
 import { createBackground, customMeshType } from "../lib/three-vignette";
@@ -75,20 +76,7 @@ export class copperMScene extends commonScene {
     this.controls.rotateSpeed = 0.02;
     (this.controls as Copper3dTrackballControls).staticMoving = true;
     // this.controls = new OrbitControls(this.camera, this.container);
-    this.preRenderCallbackFunctions = {
-      index: 0,
-      cache: [],
-      add(fn) {
-        if (!fn.id) {
-          fn.id = ++this.index;
-          this.cache[fn.id] = fn;
-          return;
-        }
-      },
-      remove(id) {
-        if (this.cache[id]) delete this.cache[id];
-      },
-    };
+    this.preRenderCallbackFunctions = createPreRenderRegistry();
     this.init();
   }
   init() {

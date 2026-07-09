@@ -10,9 +10,6 @@
 > - `src/ts/Utils/getVOILUT.ts` — window width/center mapping function
 > - `src/ts/lib/shader/texture2d_frag.glsl` — fragment shader
 > - `src/ts/Renderer/copperRenderer.ts` / `src/ts/Scene/commonSceneMethod.ts` — render loop and tick callbacks
->
-> 📘 For the public API surface (`loadAligned4D`, `Aligned4DController`, options, teardown),
-> see [Aligned 4D MRI + Surface API](./copper3d-4D-API.md).
 
 ---
 
@@ -89,7 +86,7 @@ Fragment shader (`texture2d_frag.glsl`):
 
 ```glsl
 vec4 color = texture(diffuse, vec3(vUv, depth));  // 3rd component depth = which frame
-outColor = vec4(color.rrr * 1.5, uOpacity);
+outColor = vec4(color.rrr * uBrightness, uOpacity);   // uBrightness defaults to 1.5
 ```
 
 > **Key point:** all 32 frames live in GPU memory; switching a frame costs one uniform write. That is orders of magnitude faster than rebuilding/re-uploading a texture each frame, which is why cine playback is smooth.
@@ -253,12 +250,14 @@ DICOM pixels are **16-bit** (`uint16`, 0–65535; CT may even be signed HU value
 
 ### 6.2 ⚠️ Key architecture: this project does windowing on the CPU, not in the shader
 
-The fragment shader (`texture2d_frag.glsl`) merely samples and multiplies by 1.5 for brightness — **no window width/center**:
+The fragment shader (`texture2d_frag.glsl`) merely samples and applies a gain — **no window width/center**:
 
 ```glsl
 vec4 color = texture(diffuse, vec3(vUv, depth));
-outColor = vec4(color.rrr * 1.5, uOpacity);
+outColor = vec4(color.rrr * uBrightness, uOpacity);   // uBrightness defaults to 1.5
 ```
+
+(That gain cannot fix a washed-out image; see [6.6](#66--the-gotcha-a-window-whose-lower-bound-is-below-zero).)
 
 The actual windowing happens in a **CPU loop at load time** (`copperDicomLoader.ts`):
 
@@ -328,12 +327,72 @@ lutArray[]  (LUT, length = pixel value range)
 uint8[]  (8-bit grayscale, window baked in)
   │  concatenate 32 frames → DataArrayTexture
   ▼
-GPU texture → shader sample + ×1.5 + uOpacity → screen
+GPU texture → shader sample × uBrightness + uOpacity → screen
 ```
 
 The raw `uint16` data is **kept** in `copperVolume` precisely so later `setWindow` can recompute — recomputation must start from `uint16`, never from the already-lossy `uint8`.
 
-### 6.6 If you want real-time window dragging (GPU version)
+### 6.6 ⚠️ The gotcha: a window whose lower bound is below zero
+
+**Symptom:** what should be black background renders as dark grey, and the whole image looks washed out.
+
+It is tempting to blame the shader. `texture2d_frag.glsl` used to hard-code a gain:
+
+```glsl
+outColor = vec4( color.rrr * 1.5, uOpacity );   // "lighten a bit"
+```
+
+**That gain is not what greys out the blacks.** `0 × 1.5` is still `0`. A multiplicative gain can never lift true black — it only clips the top of the range.
+
+The real cause is arithmetic inside the window. This series declares:
+
+```
+WindowCenter = 226      WindowWidth = 537
+lower bound  = 226 − 537/2 = −42.5
+```
+
+MR pixel values are **never negative**. So the darkest sample the scanner can produce, `0`, maps to
+
+```
+(0 − (−42.5)) / 537 × 255 ≈ 20
+```
+
+Raw black lands at **20/255**, and no pixel in the image can ever reach 0. Measured on frame 1 of this series:
+
+| window / gain | lower bound | % pure black | % clipped white | mean |
+|---|---|---|---|---|
+| DICOM's own (226 / 537), ×1.5 | −42.5 | **0.0 %** | 1.3 % | 84.1 |
+| DICOM's own (226 / 537), ×1.0 | −42.5 | **0.0 %** | 0.0 % | 56.5 |
+| re-floored (247 / 494), ×1.0 | 0 | **2.8 %** | 0.0 % | 39.5 |
+| re-floored (247 / 494), ×1.5 | 0 | **2.8 %** | 1.0 % | 58.7 |
+
+**The fix is to floor the window at zero**, keeping the same ceiling (`WC + WW/2 = 494.5`):
+
+```ts
+scene.loadAligned4D({
+  dicomUrls,
+  window: { center: 247, width: 494 },   // lower bound = 0
+  surfaces: [...],
+});
+```
+
+Note the last row: once the floor is at 0, blacks stay black **even with the ×1.5 gain**, because the gain cannot lift 0. The gain is still worth controlling — at 1.5 it clips ~1 % of pixels to pure white — so it is now a uniform instead of a magic number:
+
+```glsl
+uniform float uBrightness;   // defaults to 1.5, the historical hard-coded value
+outColor = vec4( color.rrr * uBrightness, uOpacity );
+```
+
+reachable at runtime:
+
+```ts
+ctrl.setPlaneBrightness(1.0);   // faithful; 1.5 is the historical default
+ctrl.setWindow(247, 494);       // recomputes the LUT from the retained uint16
+```
+
+**The lesson generalises:** when a medical image refuses to go black, check `WC − WW/2` before you touch the shader. A DICOM's declared window is a *display suggestion*, not a promise that it maps the sensor's floor to zero.
+
+### 6.7 If you want real-time window dragging (GPU version)
 
 Pass the raw 16-bit into the shader and do windowing on the GPU:
 
@@ -399,11 +458,11 @@ render() {
 
 ### 7.4 What "register a tick callback" means
 
-The framework maintains an array `preRenderCallbackFunctions`, and every frame it iterates that array and calls each function once. **"Registering a tick callback" = pushing your function into that per-frame array.** Once in, your function automatically gains the ability to run "every frame."
+The framework maintains a registry `preRenderCallbackFunctions`, and every frame it iterates its `cache` and calls each function once. **"Registering a tick callback" = adding your function to that per-frame registry.** Once in, your function automatically gains the ability to run "every frame."
 
 ```ts
 addPreRenderCallbackFunction(callbackFunction) {
-  this.preRenderCallbackFunctions.push(callbackFunction);  // add to array, return id
+  return this.preRenderCallbackFunctions.add(callbackFunction);  // returns the id
 }
 ```
 
@@ -411,9 +470,23 @@ In the 4D code:
 
 ```ts
 const tick = () => { /* advance frameIndex, switch layer, swap geometry */ };
-this.addPreRenderCallbackFunction(tick);   // register
+const clockId = this.addPreRenderCallbackFunction(tick);   // register, keep the id
 // on dispose: this.removePreRenderCallbackFunction(clockId);  // unregister
 ```
+
+#### ⚠️ An id is not an array index
+
+The registry (`Scene/preRenderRegistry.ts`) hands out ids from a **monotonic counter** and keeps them in an array parallel to `cache`. That distinction matters, and the earlier implementation got it wrong in three compounding ways:
+
+1. its `index` was never incremented, so `addPreRenderCallbackFunction` **always returned `0`**;
+2. `add` guarded with `if (!fn.id)` while the very first id was `0` — falsy — so the first callback looked unregistered forever;
+3. `remove(id)` spliced `cache` at the raw id, **treating the id as an array index**, so removing one callback shifted every later one and silently invalidated its owner's id.
+
+This was not theoretical. `example13` registers the segmentation tool's tick first (id `0`), then a second callback `a`. Registration returned `0` for `a`, so removing `a` deleted **the segmentation tool's** callback instead. `loadAligned4D` had quietly worked around it by reading a private `(tick as any).id` that `add` stamped onto the function.
+
+Ids are now stable across removals, never reused, and `remove` of an unknown id is a no-op — behaviour pinned by unit tests in `Scene/preRenderRegistry.test.ts`.
+
+**Rule of thumb:** if a handle is returned to a caller who may hold it across other mutations, it must not be a positional index into a mutable array.
 
 **Core insight:** the tick itself **does not draw** — it only **changes data** (frameIndex+1, switch texture layer, swap geometry); the actual drawing is `scene.render()`. Both happen in order within the same frame — change the data, draw it, and it moves.
 
