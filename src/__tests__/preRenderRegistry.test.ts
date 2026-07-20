@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createPreRenderRegistry } from "./preRenderRegistry.ts";
+import { createPreRenderRegistry } from "../Scene/preRenderRegistry.js";
 
 const noop = () => {};
 

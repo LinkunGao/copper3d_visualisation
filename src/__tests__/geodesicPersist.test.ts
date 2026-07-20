@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import * as THREE from "three";
-import { AnnotationStore } from "../annotationStore";
-import { SurfaceAnnotator } from "../SurfaceAnnotator";
-import type { Annotation, AnnotationVertex } from "../types";
+import { AnnotationStore } from "../Utils/surfaceAnnotation/annotationStore";
+import { SurfaceAnnotator } from "../Utils/surfaceAnnotation/SurfaceAnnotator";
+import type { Annotation, AnnotationVertex } from "../Utils/surfaceAnnotation/types";
 
 function v(x: number, y: number, z: number): AnnotationVertex {
   return { x, y, z, nx: 0, ny: 0, nz: 1, faceIndex: 0 };

@@ -1,5 +1,5 @@
-/**
- * GaussianSmoother — Unit Tests
+﻿/**
+ * GaussianSmoother â€” Unit Tests
  *
  * Covers: kernel generation, no-op on empty volume, single voxel removal,
  * solid block preservation, channel isolation, overwrite behavior,
@@ -7,13 +7,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { GaussianSmoother } from '../GaussianSmoother';
-import { MaskVolume } from '../MaskVolume';
+import { GaussianSmoother } from '../Utils/segmentation/core/GaussianSmoother';
+import { MaskVolume } from '../Utils/segmentation/core/MaskVolume';
 
 // =====================================================================
 //  1. Kernel Generation
 // =====================================================================
-describe('GaussianSmoother — Kernel Generation', () => {
+describe('GaussianSmoother â€” Kernel Generation', () => {
   it('should produce a symmetric kernel', () => {
     const kernel = GaussianSmoother.generateKernel1D(1.0);
     const len = kernel.length;
@@ -29,7 +29,7 @@ describe('GaussianSmoother — Kernel Generation', () => {
     expect(sum).toBeCloseTo(1.0, 4);
   });
 
-  it('should have correct size for given sigma (±3σ)', () => {
+  it('should have correct size for given sigma (Â±3Ïƒ)', () => {
     const sigma = 2.0;
     const kernel = GaussianSmoother.generateKernel1D(sigma);
     const expectedRadius = Math.ceil(sigma * 3);
@@ -56,10 +56,10 @@ describe('GaussianSmoother — Kernel Generation', () => {
 // =====================================================================
 //  2. No-op on Empty Volume
 // =====================================================================
-describe('GaussianSmoother — Empty Volume', () => {
+describe('GaussianSmoother â€” Empty Volume', () => {
   it('should leave volume unchanged when channel is absent', () => {
     const vol = new MaskVolume(8, 8, 8);
-    // Volume is all zeros — channel 1 does not exist
+    // Volume is all zeros â€” channel 1 does not exist
     const before = new Uint8Array(vol.getRawData());
     GaussianSmoother.gaussianSmooth3D(vol, 1, 1.0);
     expect(vol.getRawData()).toEqual(before);
@@ -69,7 +69,7 @@ describe('GaussianSmoother — Empty Volume', () => {
 // =====================================================================
 //  3. Single Voxel Removal
 // =====================================================================
-describe('GaussianSmoother — Single Voxel', () => {
+describe('GaussianSmoother â€” Single Voxel', () => {
   it('should erase a single isolated voxel (below threshold after blur)', () => {
     const vol = new MaskVolume(10, 10, 10);
     vol.setVoxel(5, 5, 5, 1);
@@ -84,12 +84,12 @@ describe('GaussianSmoother — Single Voxel', () => {
 // =====================================================================
 //  4. Solid Block Preservation
 // =====================================================================
-describe('GaussianSmoother — Solid Block', () => {
+describe('GaussianSmoother â€” Solid Block', () => {
   it('should preserve the interior of a large solid block', () => {
     const size = 20;
     const vol = new MaskVolume(size, size, size);
 
-    // Fill a 14×14×14 block in the center (3..16 on each axis)
+    // Fill a 14Ã—14Ã—14 block in the center (3..16 on each axis)
     for (let z = 3; z <= 16; z++) {
       for (let y = 3; y <= 16; y++) {
         for (let x = 3; x <= 16; x++) {
@@ -114,7 +114,7 @@ describe('GaussianSmoother — Solid Block', () => {
 // =====================================================================
 //  5. Channel Isolation
 // =====================================================================
-describe('GaussianSmoother — Channel Isolation', () => {
+describe('GaussianSmoother â€” Channel Isolation', () => {
   it('should not modify other channels when smoothing a target channel', () => {
     const vol = new MaskVolume(10, 10, 10);
 
@@ -146,7 +146,7 @@ describe('GaussianSmoother — Channel Isolation', () => {
       }
     }
 
-    // Smooth channel 2 (which doesn't exist) — should be no-op
+    // Smooth channel 2 (which doesn't exist) â€” should be no-op
     GaussianSmoother.gaussianSmooth3D(vol, 2, 1.0);
 
     // Channel 3 should be untouched
@@ -164,7 +164,7 @@ describe('GaussianSmoother — Channel Isolation', () => {
 // =====================================================================
 //  6. Overwrite Behavior
 // =====================================================================
-describe('GaussianSmoother — Overwrite', () => {
+describe('GaussianSmoother â€” Overwrite', () => {
   it('should overwrite other labels when smoothed channel expands', () => {
     const vol = new MaskVolume(12, 12, 12);
 
@@ -198,11 +198,11 @@ describe('GaussianSmoother — Overwrite', () => {
 // =====================================================================
 //  7. Anisotropic Spacing
 // =====================================================================
-describe('GaussianSmoother — Anisotropic Spacing', () => {
+describe('GaussianSmoother â€” Anisotropic Spacing', () => {
   it('should produce different kernel sizes for different spacing values', () => {
-    // With spacing [1, 1, 3], Z-axis sigma = 1.0/3.0 ≈ 0.33 → much narrower kernel
+    // With spacing [1, 1, 3], Z-axis sigma = 1.0/3.0 â‰ˆ 0.33 â†’ much narrower kernel
     const kernelXY = GaussianSmoother.generateKernel1D(1.0 / 1.0); // sigma=1.0
-    const kernelZ = GaussianSmoother.generateKernel1D(1.0 / 3.0);  // sigma≈0.33
+    const kernelZ = GaussianSmoother.generateKernel1D(1.0 / 3.0);  // sigmaâ‰ˆ0.33
     expect(kernelZ.length).toBeLessThan(kernelXY.length);
   });
 
@@ -258,7 +258,7 @@ describe('GaussianSmoother — Anisotropic Spacing', () => {
 // =====================================================================
 //  8. Undo Integration
 // =====================================================================
-describe('GaussianSmoother — Undo Integration', () => {
+describe('GaussianSmoother â€” Undo Integration', () => {
   it('should allow restoring volume state via raw data snapshot', () => {
     const vol = new MaskVolume(10, 10, 10);
 

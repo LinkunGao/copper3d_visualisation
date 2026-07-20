@@ -10,11 +10,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { ContourPolygon } from '../MarchingSquares';
+import type { ContourPolygon } from '../Utils/segmentation/core/MarchingSquares';
 import {
   extractLabelPolygons,
   findLabelsInSlice,
-} from '../MarchingSquares';
+} from '../Utils/segmentation/core/MarchingSquares';
 
 /**
  * Point-in-region test for a list of polygons. We treat them as a union:

@@ -20,7 +20,7 @@ loader = new NRRDLoader();
 
 // loader.setSegmentationn(true);
 
-let cube: THREE.Mesh;
+let cube!: THREE.Mesh;
 let gui: GUI | undefined;
 let oldGuiDom: HTMLDivElement;
 
