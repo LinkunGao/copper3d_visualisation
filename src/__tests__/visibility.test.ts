@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import * as THREE from "three";
-import { AnnotationStore } from "../annotationStore";
-import { SurfaceAnnotator } from "../SurfaceAnnotator";
-import type { Annotation } from "../types";
+import { AnnotationStore } from "../Utils/surfaceAnnotation/annotationStore";
+import { SurfaceAnnotator } from "../Utils/surfaceAnnotation/SurfaceAnnotator";
+import type { Annotation } from "../Utils/surfaceAnnotation/types";
 
 function ann(id: string): Annotation {
   return { id, type: "points", mode: null, label: id, color: "#fff",

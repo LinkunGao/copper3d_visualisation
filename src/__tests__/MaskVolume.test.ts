@@ -1,5 +1,5 @@
-/**
- * MaskVolume — Comprehensive Unit Tests
+﻿/**
+ * MaskVolume â€” Comprehensive Unit Tests
  *
  * Covers: constructor, voxel access, bounds checking, multi-channel,
  * slice extraction (all axes), slice insertion (all axes), utility methods,
@@ -7,14 +7,14 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MaskVolume } from '../MaskVolume';
+import { MaskVolume } from '../Utils/segmentation/core/MaskVolume';
 import {
   RenderMode,
   MASK_CHANNEL_COLORS,
-} from '../types';
-import type { ChannelColorMap, RGBAColor } from '../types';
+} from '../Utils/segmentation/core/types';
+import type { ChannelColorMap, RGBAColor } from '../Utils/segmentation/core/types';
 
-// ─── Helper: create a small ImageData-like object for jsdom ──────────
+// â”€â”€â”€ Helper: create a small ImageData-like object for jsdom â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function createImageData(width: number, height: number): ImageData {
   return new ImageData(width, height);
 }
@@ -22,7 +22,7 @@ function createImageData(width: number, height: number): ImageData {
 // =====================================================================
 //  1. Constructor
 // =====================================================================
-describe('MaskVolume — Constructor', () => {
+describe('MaskVolume â€” Constructor', () => {
   it('should create a volume with correct dimensions', () => {
     const vol = new MaskVolume(10, 20, 30);
     const dims = vol.getDimensions();
@@ -95,7 +95,7 @@ describe('MaskVolume — Constructor', () => {
 // =====================================================================
 //  2. Voxel Access
 // =====================================================================
-describe('MaskVolume — Voxel Get/Set', () => {
+describe('MaskVolume â€” Voxel Get/Set', () => {
   let vol: MaskVolume;
 
   beforeEach(() => {
@@ -141,7 +141,7 @@ describe('MaskVolume — Voxel Get/Set', () => {
 // =====================================================================
 //  3. Bounds Checking
 // =====================================================================
-describe('MaskVolume — Bounds Checking', () => {
+describe('MaskVolume â€” Bounds Checking', () => {
   let vol: MaskVolume;
 
   beforeEach(() => {
@@ -180,7 +180,7 @@ describe('MaskVolume — Bounds Checking', () => {
 // =====================================================================
 //  4. Multi-channel Support
 // =====================================================================
-describe('MaskVolume — Multi-channel', () => {
+describe('MaskVolume â€” Multi-channel', () => {
   let vol: MaskVolume;
 
   beforeEach(() => {
@@ -210,9 +210,9 @@ describe('MaskVolume — Multi-channel', () => {
 });
 
 // =====================================================================
-//  5. Slice Extraction — All Axes
+//  5. Slice Extraction â€” All Axes
 // =====================================================================
-describe('MaskVolume — Slice Extraction', () => {
+describe('MaskVolume â€” Slice Extraction', () => {
   let vol: MaskVolume;
   const W = 8, H = 6, D = 4;
 
@@ -234,7 +234,7 @@ describe('MaskVolume — Slice Extraction', () => {
       expect(img.data[px]).toBe(200);     // R
       expect(img.data[px + 1]).toBe(200); // G
       expect(img.data[px + 2]).toBe(200); // B
-      expect(img.data[px + 3]).toBe(255); // A (non-zero → 255)
+      expect(img.data[px + 3]).toBe(255); // A (non-zero â†’ 255)
     });
 
     it('should have transparent pixels for zero voxels', () => {
@@ -258,7 +258,7 @@ describe('MaskVolume — Slice Extraction', () => {
     it('should read voxel values into the slice', () => {
       vol.setVoxel(2, 3, 1, 180);
       const img = vol.getSliceImageData(3, 'y');
-      // y-axis slice: i→x, j→z → pixel(2, 1)
+      // y-axis slice: iâ†’x, jâ†’z â†’ pixel(2, 1)
       const px = (1 * W + 2) * 4;
       expect(img.data[px]).toBe(180);
     });
@@ -278,7 +278,7 @@ describe('MaskVolume — Slice Extraction', () => {
     it('should read voxel values into the slice', () => {
       vol.setVoxel(4, 2, 1, 160);
       const img = vol.getSliceImageData(4, 'x');
-      // x-axis slice: i→z, j→y → pixel(1, 2)
+      // x-axis slice: iâ†’z, jâ†’y â†’ pixel(1, 2)
       const px = (2 * D + 1) * 4;
       expect(img.data[px]).toBe(160);
     });
@@ -290,9 +290,9 @@ describe('MaskVolume — Slice Extraction', () => {
 });
 
 // =====================================================================
-//  6. Slice Insertion — All Axes
+//  6. Slice Insertion â€” All Axes
 // =====================================================================
-describe('MaskVolume — Slice Insertion', () => {
+describe('MaskVolume â€” Slice Insertion', () => {
   let vol: MaskVolume;
   const W = 8, H = 6, D = 4;
 
@@ -301,7 +301,7 @@ describe('MaskVolume — Slice Insertion', () => {
   });
 
   describe('Z-axis', () => {
-    it('should round-trip a slice (extract → insert → extract)', () => {
+    it('should round-trip a slice (extract â†’ insert â†’ extract)', () => {
       // Paint some voxels
       vol.setVoxel(1, 2, 0, 100);
       vol.setVoxel(5, 4, 0, 200);
@@ -367,7 +367,7 @@ describe('MaskVolume — Slice Insertion', () => {
 // =====================================================================
 //  7. Utility Methods
 // =====================================================================
-describe('MaskVolume — Utility Methods', () => {
+describe('MaskVolume â€” Utility Methods', () => {
   describe('getRawData', () => {
     it('should return a reference to the backing buffer', () => {
       const vol = new MaskVolume(4, 4, 4);
@@ -524,9 +524,9 @@ describe('MaskVolume — Utility Methods', () => {
 });
 
 // =====================================================================
-//  8. Color Mapping — Grayscale Mode
+//  8. Color Mapping â€” Grayscale Mode
 // =====================================================================
-describe('MaskVolume — Grayscale Rendering', () => {
+describe('MaskVolume â€” Grayscale Rendering', () => {
   it('should produce correct grayscale output', () => {
     const vol = new MaskVolume(4, 4, 2);
     vol.setVoxel(1, 1, 0, 128);
@@ -537,7 +537,7 @@ describe('MaskVolume — Grayscale Rendering', () => {
     expect(img.data[px]).toBe(128);     // R
     expect(img.data[px + 1]).toBe(128); // G
     expect(img.data[px + 2]).toBe(128); // B
-    expect(img.data[px + 3]).toBe(255); // A (non-zero → 255)
+    expect(img.data[px + 3]).toBe(255); // A (non-zero â†’ 255)
   });
 
   it('should produce transparent output for zero voxels', () => {
@@ -551,9 +551,9 @@ describe('MaskVolume — Grayscale Rendering', () => {
 });
 
 // =====================================================================
-//  9. Color Mapping — Colored Single Mode
+//  9. Color Mapping â€” Colored Single Mode
 // =====================================================================
-describe('MaskVolume — Colored Single Rendering', () => {
+describe('MaskVolume â€” Colored Single Rendering', () => {
   it('should apply channel color correctly', () => {
     const vol = new MaskVolume(4, 4, 2, 2);
     vol.setVoxel(1, 1, 0, 255, 1); // full intensity channel 1
@@ -598,23 +598,23 @@ describe('MaskVolume — Colored Single Rendering', () => {
 });
 
 // =====================================================================
-// 10. Color Mapping — Colored Multi Mode
+// 10. Color Mapping â€” Colored Multi Mode
 // =====================================================================
-describe('MaskVolume — Colored Multi Rendering', () => {
+describe('MaskVolume â€” Colored Multi Rendering', () => {
   it('should show highest-index non-zero channel', () => {
     const vol = new MaskVolume(4, 4, 2, 3);
     // Channel 1 and 2 both have values at the same voxel
     vol.setVoxel(0, 0, 0, 255, 0); // ch 0
     vol.setVoxel(0, 0, 0, 255, 1); // ch 1
-    vol.setVoxel(0, 0, 0, 255, 2); // ch 2 — highest
+    vol.setVoxel(0, 0, 0, 255, 2); // ch 2 â€” highest
 
     const img = vol.getSliceImageData(0, 'z', {
       mode: RenderMode.COLORED_MULTI,
     });
 
     // Should use channel 2 color (Blue: r=0, g=0, b=255, a=153 from index 2+1=3... )
-    // Wait — channel indices map to MASK_CHANNEL_COLORS by channel index.
-    // Channel 0 → color[0] (transparent), channel 1 → color[1] (green), channel 2 → color[2] (red)
+    // Wait â€” channel indices map to MASK_CHANNEL_COLORS by channel index.
+    // Channel 0 â†’ color[0] (transparent), channel 1 â†’ color[1] (green), channel 2 â†’ color[2] (red)
     const expectedColor = MASK_CHANNEL_COLORS[2]; // Red
     expect(img.data[0]).toBe(expectedColor.r); // 255
     expect(img.data[1]).toBe(expectedColor.g); // 0
@@ -649,9 +649,9 @@ describe('MaskVolume — Colored Multi Rendering', () => {
 });
 
 // =====================================================================
-// 11. Color Mapping — Blended Mode
+// 11. Color Mapping â€” Blended Mode
 // =====================================================================
-describe('MaskVolume — Blended Rendering', () => {
+describe('MaskVolume â€” Blended Rendering', () => {
   it('should blend multiple channels additively', () => {
     const vol = new MaskVolume(4, 4, 2, 3);
     vol.setVoxel(0, 0, 0, 255, 1); // Green channel
@@ -661,8 +661,8 @@ describe('MaskVolume — Blended Rendering', () => {
       mode: RenderMode.BLENDED,
     });
 
-    // Channel 1: Green {r:0, g:255, b:0, a:255} → alpha = (255/255)*1.0*1.0 = 1.0
-    // Channel 2: Red   {r:255, g:0, b:0, a:255} → alpha = 1.0
+    // Channel 1: Green {r:0, g:255, b:0, a:255} â†’ alpha = (255/255)*1.0*1.0 = 1.0
+    // Channel 2: Red   {r:255, g:0, b:0, a:255} â†’ alpha = 1.0
     // totalR = 0*1.0 + 255*1.0 = 255
     // totalG = 255*1.0 + 0*1.0 = 255
     // totalB = 0
@@ -702,7 +702,7 @@ describe('MaskVolume — Blended Rendering', () => {
 // =====================================================================
 // 12. Custom Color Map Override
 // =====================================================================
-describe('MaskVolume — Custom Color Map', () => {
+describe('MaskVolume â€” Custom Color Map', () => {
   it('should use custom color map in rendering when passed via options', () => {
     const vol = new MaskVolume(4, 4, 2, 2);
     vol.setVoxel(0, 0, 0, 255, 1);
@@ -745,7 +745,7 @@ describe('MaskVolume — Custom Color Map', () => {
 // =====================================================================
 // 13. Channel Visibility Filtering
 // =====================================================================
-describe('MaskVolume — Channel Visibility Filtering', () => {
+describe('MaskVolume â€” Channel Visibility Filtering', () => {
   it('should render only visible channels in multi mode', () => {
     const vol = new MaskVolume(4, 4, 2, 4);
     vol.setVoxel(0, 0, 0, 255, 1); // Green
@@ -770,7 +770,7 @@ describe('MaskVolume — Channel Visibility Filtering', () => {
 
     const img = vol.getSliceImageData(0, 'z', {
       mode: RenderMode.COLORED_MULTI,
-      // no visibleChannels → all visible
+      // no visibleChannels â†’ all visible
     });
 
     const expected = MASK_CHANNEL_COLORS[2]; // Red
@@ -781,7 +781,7 @@ describe('MaskVolume — Channel Visibility Filtering', () => {
 // =====================================================================
 // 14. Opacity Multiplier
 // =====================================================================
-describe('MaskVolume — Opacity Multiplier', () => {
+describe('MaskVolume â€” Opacity Multiplier', () => {
   it('should scale alpha by opacity in colored single mode', () => {
     const vol = new MaskVolume(4, 4, 2, 2);
     vol.setVoxel(0, 0, 0, 255, 1); // full intensity
@@ -829,7 +829,7 @@ describe('MaskVolume — Opacity Multiplier', () => {
 // =====================================================================
 // 15. setChannelColor / getChannelColor
 // =====================================================================
-describe('MaskVolume — Color Map Management', () => {
+describe('MaskVolume â€” Color Map Management', () => {
   it('should update channel color via setChannelColor', () => {
     const vol = new MaskVolume(4, 4, 4, 3);
     vol.setChannelColor(2, { r: 11, g: 22, b: 33, a: 44 });
@@ -880,7 +880,7 @@ describe('MaskVolume — Color Map Management', () => {
 // =====================================================================
 //  Version counter (contour-cache invalidation key)
 // =====================================================================
-describe('MaskVolume — Version Counter', () => {
+describe('MaskVolume â€” Version Counter', () => {
   it('should start at 0 for a fresh volume', () => {
     const vol = new MaskVolume(4, 4, 4);
     expect(vol.getVersion()).toBe(0);

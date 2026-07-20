@@ -1,5 +1,5 @@
-/**
- * RenderingUtils — contour cache tests.
+﻿/**
+ * RenderingUtils â€” contour cache tests.
  *
  * Verifies that `renderSliceToCanvas` only runs the expensive marching-squares
  * extraction on a cache miss (new axis/slice/volume-version) and reuses cached
@@ -10,14 +10,14 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../core/MarchingSquares', () => ({
+vi.mock('../Utils/segmentation/core/MarchingSquares', () => ({
   findLabelsInSlice: vi.fn(() => [1]),
   extractLabelContours: vi.fn(() => ({ __dummyPath: true })),
 }));
 
-import { RenderingUtils } from '../RenderingUtils';
-import { MaskVolume } from '../core/MaskVolume';
-import { findLabelsInSlice, extractLabelContours } from '../core/MarchingSquares';
+import { RenderingUtils } from '../Utils/segmentation/RenderingUtils';
+import { MaskVolume } from '../Utils/segmentation/core/MaskVolume';
+import { findLabelsInSlice, extractLabelContours } from '../Utils/segmentation/core/MarchingSquares';
 
 function makeCtx(): CanvasRenderingContext2D {
   return {
@@ -39,7 +39,7 @@ function makeState(vol: MaskVolume) {
   } as any;
 }
 
-describe('RenderingUtils — contour cache', () => {
+describe('RenderingUtils â€” contour cache', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -50,13 +50,13 @@ describe('RenderingUtils — contour cache', () => {
     const ru = new RenderingUtils(makeState(vol));
     const ctx = makeCtx();
 
-    // First render at slice 0 — cache miss → extraction runs.
+    // First render at slice 0 â€” cache miss â†’ extraction runs.
     ru.renderSliceToCanvas('layer1', 'z', 0, null as any, ctx, 8, 8);
     expect(findLabelsInSlice).toHaveBeenCalledTimes(1);
     expect(extractLabelContours).toHaveBeenCalledTimes(1);
     expect((ctx.fill as any)).toHaveBeenCalledTimes(1);
 
-    // Re-render same slice/version (simulates a zoom frame) — cache hit →
+    // Re-render same slice/version (simulates a zoom frame) â€” cache hit â†’
     // no further extraction, but it still fills (with new transform).
     ru.renderSliceToCanvas('layer1', 'z', 0, null as any, ctx, 16, 16);
     expect(findLabelsInSlice).toHaveBeenCalledTimes(1);
@@ -73,7 +73,7 @@ describe('RenderingUtils — contour cache', () => {
     ru.renderSliceToCanvas('layer1', 'z', 0, null as any, ctx, 8, 8);
     expect(extractLabelContours).toHaveBeenCalledTimes(1);
 
-    // Editing the volume bumps its version → cache miss → re-extract.
+    // Editing the volume bumps its version â†’ cache miss â†’ re-extract.
     vol.setVoxel(2, 2, 0, 1);
     ru.renderSliceToCanvas('layer1', 'z', 0, null as any, ctx, 8, 8);
     expect(extractLabelContours).toHaveBeenCalledTimes(2);

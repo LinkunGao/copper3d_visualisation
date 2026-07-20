@@ -6,7 +6,7 @@ import {
   voxelToWorldMatrix,
   resolveRegistration,
   IDENTITY_MATRIX,
-} from "./mhdParser.ts";
+} from "../Loader/mhdParser.js";
 
 /** Byte-for-byte the real header shipped in public/heart_4d_animation/mhd/. */
 const REAL_HEADER = [

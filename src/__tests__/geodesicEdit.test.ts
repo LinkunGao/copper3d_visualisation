@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import * as THREE from "three";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils";
-import { MeshGraph } from "../MeshGraph";
-import { GeodesicContour } from "../geodesicContour";
+import { MeshGraph } from "../Utils/surfaceAnnotation/MeshGraph";
+import { GeodesicContour } from "../Utils/surfaceAnnotation/geodesicContour";
 
 function setup() {
   const geo = mergeVertices(new THREE.PlaneGeometry(4, 4, 8, 8));
@@ -63,11 +63,11 @@ describe("geodesic anchor editing", () => {
     const gc = new GeodesicContour(graph, mesh);
     gc.addAnchor(new THREE.Vector3(-2, 0, 0));
     gc.addAnchor(new THREE.Vector3(2, 0, 0)); // single edge along y=0
-    // A point on the edge is within tolerance → interval 0.
+    // A point on the edge is within tolerance â†’ interval 0.
     expect(
       gc.nearestInsertIndex(new THREE.Vector3(0, 0, 0), mesh.matrixWorld, false, 0.5)
     ).toBe(0);
-    // A point far from the edge → -1.
+    // A point far from the edge â†’ -1.
     expect(
       gc.nearestInsertIndex(new THREE.Vector3(0, 1.8, 0), mesh.matrixWorld, false, 0.2)
     ).toBe(-1);

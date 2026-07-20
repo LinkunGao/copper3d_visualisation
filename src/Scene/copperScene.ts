@@ -273,7 +273,7 @@ export class copperScene extends baseScene {
           // if (index == 7) {
           //   geometry.morphAttributes.position.push(position);
           // }
-          geometry.morphAttributes.position.push(child.attributes.position);
+          geometry.morphAttributes.position!.push(child.attributes.position);
         }
       });
       const mesh = new THREE.Mesh(geometry, vtkmaterial);

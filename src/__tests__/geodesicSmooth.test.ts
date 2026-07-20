@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import * as THREE from "three";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils";
-import { MeshGraph } from "../MeshGraph";
-import { GeodesicContour } from "../geodesicContour";
+import { MeshGraph } from "../Utils/surfaceAnnotation/MeshGraph";
+import { GeodesicContour } from "../Utils/surfaceAnnotation/geodesicContour";
 
 function setup() {
   const geo = mergeVertices(new THREE.PlaneGeometry(4, 4, 8, 8));

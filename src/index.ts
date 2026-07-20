@@ -27,6 +27,7 @@ import { GaussianSmoother } from "./Utils/segmentation/core/GaussianSmoother";
 // Phase 7: Segmentation Module - Unified exports
 
 import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls";
+import { Copper3dOrbitControls } from "./Controls/Copper3dOrbitControls";
 
 import { MeshNodeTool } from "./Utils/MeshNodeTool";
 import { removeGuiFolderChilden } from "./Utils/segmentation/coreTools/gui";
@@ -114,6 +115,7 @@ export {
   NrrdTools,
   loading,
   Copper3dTrackballControls,
+  Copper3dOrbitControls,
   createTexture2D_NRRD,
   MeshNodeTool,
   throttle,
@@ -167,3 +169,5 @@ export type {
   AnnotationMode,
   ExportOptions,
 };
+
+export type { CameraViewPreset } from "./Controls/orbitFraming";

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import * as THREE from "three";
-import { SurfaceAnnotator } from "../SurfaceAnnotator";
+import { SurfaceAnnotator } from "../Utils/surfaceAnnotation/SurfaceAnnotator";
 
 function makeAnnotator(onInteractionChange: any) {
   const geo = new THREE.PlaneGeometry(2, 2, 2, 2).toNonIndexed();

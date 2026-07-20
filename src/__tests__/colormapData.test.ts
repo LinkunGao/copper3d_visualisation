@@ -1,7 +1,7 @@
 // src/ts/Utils/colormapData.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildBlueOrangeRGBA } from "./colormapData.ts";
+import { buildBlueOrangeRGBA } from "../Utils/colormapData.js";
 
 test("returns size*4 RGBA bytes", () => {
   assert.equal(buildBlueOrangeRGBA(256).length, 256 * 4);
