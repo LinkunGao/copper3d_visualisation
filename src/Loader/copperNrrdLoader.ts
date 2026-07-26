@@ -35,6 +35,33 @@ export interface optsType {
   container?: HTMLDivElement;
 }
 
+/**
+ * Work around a three.js regression (present from r175 through at least r185).
+ *
+ * `VolumeSlice`'s constructor calls `updateGeometry()` and then `repaint()`, but
+ * *afterwards* assigns the JSDoc default values:
+ *
+ *   this.iLength = 0;
+ *   this.jLength = 0;
+ *   this.sliceAccess = null;
+ *
+ * which wipe the values `updateGeometry()` just computed. `repaint()` only
+ * recomputes them when `geometryNeedsUpdate` is true (i.e. after `index` was
+ * assigned), so any repaint that is not preceded by an index change calls
+ * `ctx.getImageData(0, 0, 0, 0)` and throws
+ * `IndexSizeError: The source width is 0`.
+ *
+ * Recomputing the geometry right after extraction restores the correct values.
+ * It is a harmless recompute on three <= r174, where the bug does not exist.
+ */
+function repairSliceGeometry(...slices: any[]): void {
+  for (const slice of slices) {
+    if (slice && slice.iLength === 0 && typeof slice.updateGeometry === "function") {
+      slice.updateGeometry();
+    }
+  }
+}
+
 export function copperNrrdLoader(
   url: string,
   loadingBar: loadingBarType,
@@ -74,6 +101,7 @@ export function copperNrrdLoader(
       const sliceY = volume.extractSlice("y", initIndexY * ratio[1]);
       //x plane
       const sliceX = volume.extractSlice("x", initIndexX * ratio[0]);
+      repairSliceGeometry(sliceZ, sliceY, sliceX);
       sliceZ.initIndex = initIndexZ;
       sliceY.initIndex = initIndexY;
       sliceX.initIndex = initIndexX;
