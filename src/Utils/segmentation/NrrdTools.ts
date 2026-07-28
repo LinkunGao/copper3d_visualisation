@@ -1410,4 +1410,21 @@ export class NrrdTools {
     // Refresh the display so all three axes reflect the new data
     this.reloadMasksFromVolume();
   }
+
+  /**
+   * Replace a layer's entire voxel buffer.
+   *
+   * This call itself does NOT fire onLayerVolumeReplaced - callers (e.g. the mask
+   * upload flow) must persist the new volume themselves. The callback fires only
+   * later, if the clinician undoes or redoes this replacement, because at that
+   * point the backend still holds the newer volume and needs to be told to fall
+   * back to the old one.
+   *
+   * @param layerId  Layer to overwrite.
+   * @param data     Voxels, exactly the layer volume's length.
+   * @param opts     `undoable: true` records one Ctrl+Z step for the whole volume.
+   */
+  replaceLayerVolume(layerId: string, data: Uint8Array, opts: { undoable?: boolean } = {}): void {
+    this.drawCore.replaceLayerVolume(layerId, data, opts);
+  }
 }

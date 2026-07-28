@@ -456,6 +456,9 @@ export class DrawToolCore {
       if (opts.onClearLayerVolume) {
         this.state.annotationCallbacks.onLayerVolumeCleared = opts.onClearLayerVolume as any;
       }
+      if (opts.onLayerVolumeReplaced) {
+        this.state.annotationCallbacks.onLayerVolumeReplaced = opts.onLayerVolumeReplaced as any;
+      }
       if (opts.getSphereData) {
         this.state.annotationCallbacks.onSphereChanged = opts.getSphereData as any;
       }
@@ -915,6 +918,13 @@ export class DrawToolCore {
 
     this.state.protectedData.isDrawing = true;
 
+    if (!Array.isArray(entry)) {
+      // VolumeSnapshot: restore the pre-replacement volume in one step.
+      this.applyVolumeSnapshot(entry.layerId, entry.oldVolume);
+      this.setIsDrawFalse(1000);
+      return;
+    }
+
     for (const delta of entry) {
       try {
         const vol = this.renderer.getVolumeForLayer(delta.layerId);
@@ -948,6 +958,13 @@ export class DrawToolCore {
     if (!entry) return;
 
     this.state.protectedData.isDrawing = true;
+
+    if (!Array.isArray(entry)) {
+      // VolumeSnapshot: re-apply the post-replacement volume in one step.
+      this.applyVolumeSnapshot(entry.layerId, entry.newVolume);
+      this.setIsDrawFalse(1000);
+      return;
+    }
 
     for (const delta of entry) {
       try {
@@ -1000,6 +1017,64 @@ export class DrawToolCore {
     }
 
     this.renderer.compositeAllLayers();
+  }
+
+  /**
+   * Restore a whole layer volume after an undo or redo of a mask upload.
+   * This is the ONLY place onLayerVolumeReplaced fires - the initial upload
+   * (replaceLayerVolume below) does not fire it, since the backend already has
+   * that data from the upload request itself.
+   *
+   * Fires onLayerVolumeReplaced ONCE instead of one onMaskChanged per slice - the
+   * app persists the volume in a single request rather than one call per slice.
+   */
+  private applyVolumeSnapshot(layerId: string, data: Uint8Array) {
+    const vol = this.renderer.getVolumeForLayer(layerId);
+    if (!vol) return;
+
+    vol.setRawData(new Uint8Array(data));
+    this.renderer.invalidateSliceBuffer();
+    this.reloadMasksFromVolume();
+
+    if (!this.state.nrrd_states.flags.loadingMaskData) {
+      this.state.annotationCallbacks.onLayerVolumeReplaced(layerId);
+    }
+  }
+
+  /**
+   * Replace a layer's entire volume, optionally recording it as one undo step.
+   *
+   * Used by the mask upload dialog. Unlike DataLoader.setMasksFromNIfTI this records
+   * undo history and does not resetZoom, so the clinician keeps their view.
+   *
+   * This call does NOT fire onLayerVolumeReplaced - the caller (the upload flow)
+   * already knows it just replaced the volume and is responsible for persisting it.
+   * The callback exists only for applyVolumeSnapshot below, so a later undo/redo of
+   * this replacement can tell the backend to fall back to the old/new volume.
+   */
+  replaceLayerVolume(layerId: string, data: Uint8Array, opts: { undoable?: boolean } = {}) {
+    const vol = this.renderer.getVolumeForLayer(layerId);
+    if (!vol) {
+      console.warn(`replaceLayerVolume: unknown layer "${layerId}"`);
+      return;
+    }
+    const expected = vol.getRawData().length;
+    if (data.length !== expected) {
+      console.warn(`replaceLayerVolume: size mismatch (${data.length} vs ${expected})`);
+      return;
+    }
+
+    if (opts.undoable) {
+      this.undoManager.pushVolumeSnapshot(
+        layerId,
+        new Uint8Array(vol.getRawData()),
+        new Uint8Array(data)
+      );
+    }
+
+    vol.setRawData(new Uint8Array(data));
+    this.renderer.invalidateSliceBuffer();
+    this.reloadMasksFromVolume();
   }
 
   /****************************Store images (delegated to ImageStoreHelper)****************************************************/

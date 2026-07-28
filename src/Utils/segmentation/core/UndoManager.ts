@@ -21,8 +21,21 @@ export interface MaskDelta {
   newSlice: Uint8Array;
 }
 
-/** A single delta or a group of deltas treated as one undo unit. */
-export type UndoEntry = MaskDelta[];
+/**
+ * A whole-layer volume replacement (mask upload), stored as before/after volumes.
+ *
+ * A MaskDelta is per-slice, so expressing an upload as a delta group would mean one
+ * entry per slice - ~84 MB and one backend request per slice on undo for a
+ * 512x512x160 case. One snapshot restores the volume in a single step instead.
+ */
+export interface VolumeSnapshot {
+  layerId: string;
+  oldVolume: Uint8Array;
+  newVolume: Uint8Array;
+}
+
+/** A slice-delta group or a whole-volume snapshot. `Array.isArray` discriminates. */
+export type UndoEntry = MaskDelta[] | VolumeSnapshot;
 
 const MAX_STACK_SIZE = 50;
 
@@ -58,6 +71,25 @@ export class UndoManager {
       stack.shift();
     }
     // Any new operation invalidates the redo history for that layer
+    const redoStack = this.redoStacks.get(layerId) ?? this.redoStacks.get("layer1")!;
+    redoStack.length = 0;
+  }
+
+  /**
+   * Push a whole-volume replacement as one undo unit.
+   *
+   * Only the newest snapshot per layer is retained: each holds two full volumes, so
+   * an unbounded stack would be hundreds of megabytes. Slice deltas below it survive.
+   */
+  pushVolumeSnapshot(layerId: string, oldVolume: Uint8Array, newVolume: Uint8Array): void {
+    const stack = this.undoStacks.get(layerId) ?? this.undoStacks.get("layer1")!;
+    for (let i = stack.length - 1; i >= 0; i--) {
+      if (!Array.isArray(stack[i])) stack.splice(i, 1);
+    }
+    stack.push({ layerId, oldVolume, newVolume });
+    if (stack.length > MAX_STACK_SIZE) {
+      stack.shift();
+    }
     const redoStack = this.redoStacks.get(layerId) ?? this.redoStacks.get("layer1")!;
     redoStack.length = 0;
   }
