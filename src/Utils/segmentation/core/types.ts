@@ -586,6 +586,12 @@ export interface IAnnotationCallbacks {
   onSphereChanged(sphereOrigin: number[], sphereRadius: number): void;
   onCalculatorPositionsChanged(tumour: ICommXYZ | null, skin: ICommXYZ | null, rib: ICommXYZ | null, nipple: ICommXYZ | null, axis: "x" | "y" | "z"): void;
   onLayerVolumeCleared(layerId: string): void;
+  /**
+   * Fired once after an undo or redo restores a whole-layer volume.
+   * NOT fired by the initial replaceLayerVolume call (the mask upload), because the
+   * backend already holds that data from the upload request that preceded it.
+   */
+  onLayerVolumeReplaced(layerId: string): void;
   onChannelColorChanged(layerId: string, channel: number, color: { r: number; g: number; b: number; a: number }): void;
 }
 
@@ -634,6 +640,7 @@ export interface IDrawOpts {
     clearFlag?: boolean
   ) => void;
   onClearLayerVolume?: (layerId: string) => void;
+  onLayerVolumeReplaced?: (layerId: string) => void;
   getSphereData?: (sphereOrigin: number[], sphereRadius: number) => void;
   getCalculateSpherePositionsData?: (tumourSphereOrigin: ICommXYZ | null, skinSphereOrigin: ICommXYZ | null, ribSphereOrigin: ICommXYZ | null, nippleSphereOrigin: ICommXYZ | null, aixs: "x" | "y" | "z") => void;
 }

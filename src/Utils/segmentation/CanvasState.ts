@@ -30,6 +30,7 @@ export class CanvasState {
         onSphereChanged: () => { },
         onCalculatorPositionsChanged: () => { },
         onLayerVolumeCleared: () => { },
+        onLayerVolumeReplaced: () => { },
         onChannelColorChanged: () => { },
     };
 
