@@ -1,6 +1,11 @@
 /**
  * Type declarations for nifti-reader-js
- * 
+ *
+ * NOTE: this is an ambient `declare module`, so it REPLACES the typings shipped in
+ * node_modules/nifti-reader-js/dist entirely — anything the package really exports but
+ * is missing here simply does not exist as far as TypeScript is concerned. Keep it in
+ * step with the installed version when adding new API surface.
+ *
  * @see https://github.com/rii-mango/NIFTI-Reader-JS
  */
 
@@ -94,4 +99,75 @@ declare module 'nifti-reader-js' {
      * Check if extension exists
      */
     export function hasExtension(header: NIFTI1Header | NIFTI2Header): boolean;
+
+    /**
+     * NIFTI-1 header class. Only the static pseudo-constants are declared: they are
+     * how callers name the datatype / transform / unit codes (`NIFTI1.TYPE_INT16`
+     * rather than a bare `4`), and the instance shape is already covered by the
+     * NIFTI1Header interface above.
+     *
+     * Values mirror node_modules/nifti-reader-js/dist/nifti1.d.ts and are fixed by the
+     * NIfTI-1 specification, so they do not drift between package versions.
+     */
+    export class NIFTI1 {
+        /*** Data type codes (header.datatypeCode) ***/
+        static readonly TYPE_NONE: 0;
+        static readonly TYPE_BINARY: 1;
+        static readonly TYPE_UINT8: 2;
+        static readonly TYPE_INT16: 4;
+        static readonly TYPE_INT32: 8;
+        static readonly TYPE_FLOAT32: 16;
+        static readonly TYPE_COMPLEX64: 32;
+        static readonly TYPE_FLOAT64: 64;
+        static readonly TYPE_RGB24: 128;
+        static readonly TYPE_INT8: 256;
+        static readonly TYPE_UINT16: 512;
+        static readonly TYPE_UINT32: 768;
+        static readonly TYPE_INT64: 1024;
+        static readonly TYPE_UINT64: 1280;
+        static readonly TYPE_FLOAT128: 1536;
+        static readonly TYPE_COMPLEX128: 1792;
+        static readonly TYPE_COMPLEX256: 2048;
+
+        /*** Coordinate transform codes (qform_code / sform_code) ***/
+        static readonly XFORM_UNKNOWN: 0;
+        static readonly XFORM_SCANNER_ANAT: 1;
+        static readonly XFORM_ALIGNED_ANAT: 2;
+        static readonly XFORM_TALAIRACH: 3;
+        static readonly XFORM_MNI_152: 4;
+
+        /*** Unit codes (xyzt_units) ***/
+        static readonly SPATIAL_UNITS_MASK: 7;
+        static readonly TEMPORAL_UNITS_MASK: 56;
+        static readonly UNITS_UNKNOWN: 0;
+        static readonly UNITS_METER: 1;
+        static readonly UNITS_MM: 2;
+        static readonly UNITS_MICRON: 3;
+        static readonly UNITS_SEC: 8;
+        static readonly UNITS_MSEC: 16;
+        static readonly UNITS_USEC: 24;
+        static readonly UNITS_HZ: 32;
+        static readonly UNITS_PPM: 40;
+        static readonly UNITS_RADS: 48;
+
+        /*** Header layout ***/
+        static readonly MAGIC_COOKIE: 348;
+        static readonly STANDARD_HEADER_SIZE: 348;
+        static readonly MAGIC_NUMBER_LOCATION: 344;
+        static readonly MAGIC_NUMBER: number[];
+        static readonly MAGIC_NUMBER2: number[];
+        static readonly EXTENSION_HEADER_SIZE: 8;
+    }
+
+    /**
+     * NIFTI-2 header class. Inherits NIFTI-1's datatype / transform / unit codes,
+     * which are identical between the two revisions.
+     *
+     * Its own MAGIC_COOKIE / STANDARD_HEADER_SIZE (540, vs NIFTI-1's 348) are
+     * deliberately NOT redeclared: narrowing an inherited static to a different
+     * literal type is a static-side conflict, and nothing in this codebase reads
+     * them. Add them by restructuring (a shared base + two siblings) if that changes.
+     */
+    export class NIFTI2 extends NIFTI1 {
+    }
 }
