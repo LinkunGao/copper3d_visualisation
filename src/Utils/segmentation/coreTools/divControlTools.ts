@@ -18,12 +18,29 @@ function createShowSliceNumberDiv() {
 }
 
 /**
+ * Whether an element accepts typed input, and therefore must not have focus taken
+ * away from it.
+ */
+function isEditableElement(element: Element | null): boolean {
+  if (!element) return false;
+  const tag = element.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return (element as HTMLElement).isContentEditable === true;
+}
+
+/**
  * set mouse to auto focus on the div
  * @param container the operate container div
  */
 function autoFocusDiv(container: HTMLDivElement) {
   container.tabIndex = 10;
   container.addEventListener("mouseover", () => {
+    // Never take focus from something the user is typing into. The container claims
+    // focus so its keyboard shortcuts work once the pointer is over the canvas, but
+    // hovering is passive: a form field anywhere else on the page would be blurred the
+    // moment the pointer drifted off it, which makes the field impossible to type in.
+    // Clicking the canvas still focuses it, so the shortcuts are unaffected.
+    if (isEditableElement(document.activeElement)) return;
     container.focus();
   });
   container.style.outline = "none";
