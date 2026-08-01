@@ -661,16 +661,16 @@ describe('MaskVolume â€” Blended Rendering', () => {
       mode: RenderMode.BLENDED,
     });
 
-    // Channel 1: Green {r:0, g:255, b:0, a:255} â†’ alpha = (255/255)*1.0*1.0 = 1.0
-    // Channel 2: Red   {r:255, g:0, b:0, a:255} â†’ alpha = 1.0
-    // totalR = 0*1.0 + 255*1.0 = 255
-    // totalG = 255*1.0 + 0*1.0 = 255
-    // totalB = 0
+    // Channel 1: Emerald {r:16,  g:185, b:129, a:255} â†’ alpha = (255/255)*1.0*1.0 = 1.0
+    // Channel 2: Rose    {r:244, g:63,  b:94,  a:255} â†’ alpha = 1.0
+    // totalR = 16*1.0 + 244*1.0 = 260 â†’ clamped to 255
+    // totalG = 185*1.0 + 63*1.0  = 248
+    // totalB = 129*1.0 + 94*1.0  = 223
     // totalA = 1.0 + 1.0 = 2.0
-    expect(img.data[0]).toBe(255); // R
-    expect(img.data[1]).toBe(255); // G
-    expect(img.data[2]).toBe(0);   // B
-    // A = min(255, round(1.2 * 255)) = 255 (clamped)
+    expect(img.data[0]).toBe(255); // R (clamped)
+    expect(img.data[1]).toBe(248); // G
+    expect(img.data[2]).toBe(223); // B
+    // A = min(255, round(2.0 * 255)) = 255 (clamped)
     expect(img.data[3]).toBe(255);
   });
 
@@ -684,9 +684,10 @@ describe('MaskVolume â€” Blended Rendering', () => {
       visibleChannels: [true, true, false], // ch 2 hidden
     });
 
-    // Only channel 1 (Green): totalR = 0, totalG = 255
-    expect(img.data[0]).toBe(0);   // R
-    expect(img.data[1]).toBe(255); // G
+    // Only channel 1 (Emerald {r:16, g:185, b:129}): the rose channel contributes nothing
+    expect(img.data[0]).toBe(16);  // R
+    expect(img.data[1]).toBe(185); // G
+    expect(img.data[2]).toBe(129); // B
   });
 
   it('should be transparent when no channels have data', () => {
