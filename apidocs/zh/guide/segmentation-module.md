@@ -29,13 +29,13 @@ NrrdTools (Facade)
 >
 > **Callback 接口统一（已完成）**: 原先 10 个 `*Callbacks` 接口已统一为单一 `ToolHost` 接口（`tools/ToolHost.ts`），每个 Tool 通过 `Pick<ToolHost, ...>` 选择所需的宿主方法子集。
 
-- [CanvasState.ts](Utils/segmentation/CanvasState.ts) — 纯状态容器
-- [RenderingUtils.ts](Utils/segmentation/RenderingUtils.ts) — 渲染工具
-- [DrawToolCore.ts](Utils/segmentation/DrawToolCore.ts) — 绘画核心（组合 CanvasState + RenderingUtils）
-- [NrrdTools.ts](Utils/segmentation/NrrdTools.ts) — 对外 API Facade（组合 CanvasState + DrawToolCore）
-- [tools/LayerChannelManager.ts](Utils/segmentation/tools/LayerChannelManager.ts) — 图层/通道管理
-- [tools/SliceRenderPipeline.ts](Utils/segmentation/tools/SliceRenderPipeline.ts) — 切片渲染管线
-- [tools/DataLoader.ts](Utils/segmentation/tools/DataLoader.ts) — 数据加载
+- [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) — 纯状态容器
+- [RenderingUtils.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/RenderingUtils.ts) — 渲染工具
+- [DrawToolCore.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/DrawToolCore.ts) — 绘画核心（组合 CanvasState + RenderingUtils）
+- [NrrdTools.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/NrrdTools.ts) — 对外 API Facade（组合 CanvasState + DrawToolCore）
+- [tools/LayerChannelManager.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/LayerChannelManager.ts) — 图层/通道管理
+- [tools/SliceRenderPipeline.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SliceRenderPipeline.ts) — 切片渲染管线
+- [tools/DataLoader.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/DataLoader.ts) — 数据加载
 
 ### 1.2 Canvas 层级结构
 
@@ -61,9 +61,9 @@ NrrdTools (Facade)
 ```
 
 **Canvas 创建位置:**
-- 系统 Canvas: [CanvasState.ts](Utils/segmentation/CanvasState.ts) `generateSystemCanvases()`
-- Layer Canvas: [CanvasState.ts](Utils/segmentation/CanvasState.ts) `generateLayerTargets(layerIds)`
-- Canvas 注释说明: [CanvasState.ts](Utils/segmentation/CanvasState.ts) constructor
+- 系统 Canvas: [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) `generateSystemCanvases()`
+- Layer Canvas: [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) `generateLayerTargets(layerIds)`
+- Canvas 注释说明: [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) constructor
 
 ### 1.3 NrrdTools Facade 内部模块
 
@@ -99,7 +99,7 @@ protectedData.maskData.volumes = {
 }
 ```
 
-- 初始化（1x1x1 占位）: [CanvasState.ts](Utils/segmentation/CanvasState.ts) constructor
+- 初始化（1x1x1 占位）: [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) constructor
 - 用实际 NRRD 尺寸重新初始化: `DataLoader.setAllSlices()` → `tools/DataLoader.ts`（已从 NrrdTools 提取）
 
 ---
@@ -409,8 +409,8 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 
 ### 3.1 nrrd_states (NrrdState)
 
-**类型**: `NrrdState` class（定义: [coreTools/NrrdState.ts](Utils/segmentation/coreTools/NrrdState.ts)）
-**接口**: `INrrdStates` extends `IImageMetadata`, `IViewState`, `IInteractionState`, `ISphereState`, `IInternalFlags`（定义: [core/types.ts](Utils/segmentation/core/types.ts)）
+**类型**: `NrrdState` class（定义: [coreTools/NrrdState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/coreTools/NrrdState.ts)）
+**接口**: `INrrdStates` extends `IImageMetadata`, `IViewState`, `IInteractionState`, `ISphereState`, `IInternalFlags`（定义: [core/types.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/types.ts)）
 
 NrrdState 将 44 个属性分组为 5 个语义子对象：
 
@@ -461,8 +461,8 @@ NrrdState 将 44 个属性分组为 5 个语义子对象：
 
 ### 3.2 gui_states (GuiState)
 
-**类型**: `GuiState` class（定义: [coreTools/GuiState.ts](Utils/segmentation/coreTools/GuiState.ts)）
-**接口**: `IGUIStates` extends `IToolModeState`, `IDrawingConfig`, `IViewConfig`, `ILayerChannelState`（定义: [core/types.ts](Utils/segmentation/core/types.ts)）
+**类型**: `GuiState` class（定义: [coreTools/GuiState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/coreTools/GuiState.ts)）
+**接口**: `IGUIStates` extends `IToolModeState`, `IDrawingConfig`, `IViewConfig`, `ILayerChannelState`（定义: [core/types.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/types.ts)）
 
 GuiState 将 20 个属性分组为 4 个语义子对象：
 
@@ -503,7 +503,7 @@ GuiState 将 20 个属性分组为 4 个语义子对象：
 
 ### 3.3 protectedData (IProtected)
 
-定义位置: [CanvasState.ts](Utils/segmentation/CanvasState.ts) constructor
+定义位置: [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) constructor
 
 | 字段 | 说明 |
 |------|------|
@@ -605,7 +605,7 @@ onCalculatorPositionsChanged: (
 
 ### 5.1 内存布局
 
-**文件**: [core/MaskVolume.ts](Utils/segmentation/core/MaskVolume.ts)
+**文件**: [core/MaskVolume.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts)
 
 ```
 内存布局: [z][y][x][channel]
@@ -617,7 +617,7 @@ bytesPerSlice = width * height * channels
 
 ### 5.2 各轴切片维度
 
-定义: [MaskVolume.ts:1117-1126](Utils/segmentation/core/MaskVolume.ts#L1117-L1126)
+定义: [MaskVolume.ts:1117-1126](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L1117-L1126)
 
 | 轴 | 切片宽度 | 切片高度 | 说明 |
 |----|---------|---------|------|
@@ -625,36 +625,36 @@ bytesPerSlice = width * height * channels
 | y (Coronal) | width | depth | 按行提取 |
 | x (Sagittal) | depth | height | 逐像素提取，最慢 |
 
-对应 emptyCanvas 尺寸设置: `SliceRenderPipeline.setEmptyCanvasSize()` → [tools/SliceRenderPipeline.ts](Utils/segmentation/tools/SliceRenderPipeline.ts)（已从 NrrdTools 提取）
+对应 emptyCanvas 尺寸设置: `SliceRenderPipeline.setEmptyCanvasSize()` → [tools/SliceRenderPipeline.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SliceRenderPipeline.ts)（已从 NrrdTools 提取）
 
 ### 5.3 切片提取 (读取 Mask)
 
-**`getSliceUint8(sliceIndex, axis)`** — [MaskVolume.ts:1019-1058](Utils/segmentation/core/MaskVolume.ts#L1019-L1058)
+**`getSliceUint8(sliceIndex, axis)`** — [MaskVolume.ts:1019-1058](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L1019-L1058)
 
 返回原始 `Uint8Array`，用于：
 - 后端同步 (`getMask` callback)
 - Undo/Redo 快照
 
 各轴实现：
-- **Z 轴** [L1032-1035](Utils/segmentation/core/MaskVolume.ts#L1032-L1035): 连续内存 `subarray` 批量复制（最快）
-- **Y 轴** [L1036-1042](Utils/segmentation/core/MaskVolume.ts#L1036-L1042): 按行迭代复制
-- **X 轴** [L1043-1055](Utils/segmentation/core/MaskVolume.ts#L1043-L1055): 逐像素提取（最慢）
+- **Z 轴** [L1032-1035](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L1032-L1035): 连续内存 `subarray` 批量复制（最快）
+- **Y 轴** [L1036-1042](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L1036-L1042): 按行迭代复制
+- **X 轴** [L1043-1055](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L1043-L1055): 逐像素提取（最慢）
 
 ### 5.4 切片写入
 
-**`setSliceUint8(sliceIndex, data, axis)`** — [MaskVolume.ts:1072-1108](Utils/segmentation/core/MaskVolume.ts#L1072-L1108)
+**`setSliceUint8(sliceIndex, data, axis)`** — [MaskVolume.ts:1072-1108](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L1072-L1108)
 
 `getSliceUint8` 的逆操作，用于 Undo/Redo 恢复。
 
-**`setSliceLabelsFromImageData(sliceIndex, imageData, axis, activeChannel, channelVisible?)`** — [MaskVolume.ts:575-661](Utils/segmentation/core/MaskVolume.ts#L575-L661)
+**`setSliceLabelsFromImageData(sliceIndex, imageData, axis, activeChannel, channelVisible?)`** — [MaskVolume.ts:575-661](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L575-L661)
 
 Canvas→Volume 写入，将 RGBA 像素转换为 channel label (1-8)。
-- 构建 RGB→Channel 映射 [L593](Utils/segmentation/core/MaskVolume.ts#L593)
-- ALPHA_THRESHOLD = 128 [L601](Utils/segmentation/core/MaskVolume.ts#L601) 避免抗锯齿边缘
+- 构建 RGB→Channel 映射 [L593](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L593)
+- ALPHA_THRESHOLD = 128 [L601](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L601) 避免抗锯齿边缘
 
 ### 5.5 渲染到 Canvas
 
-**核心渲染方法: `renderLabelSliceInto()`** — [MaskVolume.ts:695-770](Utils/segmentation/core/MaskVolume.ts#L695-L770)
+**核心渲染方法: `renderLabelSliceInto()`** — [MaskVolume.ts:695-770](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L695-L770)
 
 ```ts
 renderLabelSliceInto(
@@ -676,7 +676,7 @@ renderLabelSliceInto(
 
 ### 5.6 渲染管线完整流程
 
-**入口: `reloadMasksFromVolume()`** — `SliceRenderPipeline.reloadMasksFromVolume()` → [tools/SliceRenderPipeline.ts](Utils/segmentation/tools/SliceRenderPipeline.ts)（已从 NrrdTools 提取，NrrdTools 中为 private 委托）
+**入口: `reloadMasksFromVolume()`** — `SliceRenderPipeline.reloadMasksFromVolume()` → [tools/SliceRenderPipeline.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SliceRenderPipeline.ts)（已从 NrrdTools 提取，NrrdTools 中为 private 委托）
 
 ```
 reloadMasksFromVolume()
@@ -719,7 +719,7 @@ reloadMasksFromVolume()
 
 ### 6.1 Display 翻转（仅 CT/MRI 图像）
 
-**`flipDisplayImageByAxis()`** — `SliceRenderPipeline.flipDisplayImageByAxis()` → [tools/SliceRenderPipeline.ts](Utils/segmentation/tools/SliceRenderPipeline.ts)（已从 NrrdTools 提取）
+**`flipDisplayImageByAxis()`** — `SliceRenderPipeline.flipDisplayImageByAxis()` → [tools/SliceRenderPipeline.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SliceRenderPipeline.ts)（已从 NrrdTools 提取）
 
 因为 Three.js 渲染的切片不在正确的 2D 位置，需要翻转 displayCanvas：
 
@@ -768,7 +768,7 @@ if (axis === 'y') {
 
 所有 Tool / 模块继承自 `BaseTool`:
 
-**BaseTool** — [tools/BaseTool.ts](Utils/segmentation/tools/BaseTool.ts)
+**BaseTool** — [tools/BaseTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/BaseTool.ts)
 
 ```ts
 interface ToolContext {
@@ -794,9 +794,9 @@ abstract class BaseTool {
 
 | 模块 | 文件 | 行数 | HostDeps 类型 |
 |------|------|------|---------------|
-| **LayerChannelManager** | [tools/LayerChannelManager.ts](Utils/segmentation/tools/LayerChannelManager.ts) | 211 | `LayerChannelHostDeps` (3 methods: `reloadMasksFromVolume`, `getVolumeForLayer`, `onChannelColorChanged`) |
-| **SliceRenderPipeline** | [tools/SliceRenderPipeline.ts](Utils/segmentation/tools/SliceRenderPipeline.ts) | 453 | `SliceRenderHostDeps` (10 methods) |
-| **DataLoader** | [tools/DataLoader.ts](Utils/segmentation/tools/DataLoader.ts) | 222 | `DataLoaderHostDeps` (7 methods) |
+| **LayerChannelManager** | [tools/LayerChannelManager.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/LayerChannelManager.ts) | 211 | `LayerChannelHostDeps` (3 methods: `reloadMasksFromVolume`, `getVolumeForLayer`, `onChannelColorChanged`) |
+| **SliceRenderPipeline** | [tools/SliceRenderPipeline.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SliceRenderPipeline.ts) | 453 | `SliceRenderHostDeps` (10 methods) |
+| **DataLoader** | [tools/DataLoader.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/DataLoader.ts) | 222 | `DataLoaderHostDeps` (7 methods) |
 
 #### DrawToolCore 管理的 Tool（事件处理）
 
@@ -804,22 +804,22 @@ abstract class BaseTool {
 
 | Tool | 文件 | HostDeps 类型 | 说明 |
 |------|------|---------------|------|
-| **SphereTool** | [tools/SphereTool.ts](Utils/segmentation/tools/SphereTool.ts) | `SphereHostDeps` | 3D 球形标注工具，支持 4 种类型 (tumour/skin/ribcage/nipple)，包含点击放置 (`onSphereClick`) 和松开完成 (`onSpherePointerUp`) |
-| **CrosshairTool** | [tools/CrosshairTool.ts](Utils/segmentation/tools/CrosshairTool.ts) | —（无 callbacks） | 十字准星位置标记、坐标转换、crosshair 渲染 (`renderCrosshair`) |
-| **ContrastTool** | [tools/ContrastTool.ts](Utils/segmentation/tools/ContrastTool.ts) | `ContrastHostDeps` | 窗位/窗宽调节 |
-| **ZoomTool** | [tools/ZoomTool.ts](Utils/segmentation/tools/ZoomTool.ts) | `ZoomHostDeps` | 缩放/平移 |
-| **EraserTool** | [tools/EraserTool.ts](Utils/segmentation/tools/EraserTool.ts) | —（无 callbacks） | 橡皮擦 |
-| **PanTool** | [tools/PanTool.ts](Utils/segmentation/tools/PanTool.ts) | `PanHostDeps` | 右键拖拽平移画布 |
-| **DrawingTool** | [tools/DrawingTool.ts](Utils/segmentation/tools/DrawingTool.ts) | `DrawingHostDeps` | 铅笔/画笔/橡皮擦绘画逻辑，含笔刷 hover 追踪 (`createBrushTrackingHandler`) 和圆圈预览 (`renderBrushPreview`) |
-| **SphereBrushTool** | [tools/SphereBrushTool.ts](Utils/segmentation/tools/SphereBrushTool.ts) | `SphereBrushHostDeps` | 3D 球形体积绘画 (sphereBrush) 和擦除 (sphereEraser)；拖动擦除；分组多切片 undo |
-| **ImageStoreHelper** | [tools/ImageStoreHelper.ts](Utils/segmentation/tools/ImageStoreHelper.ts) | `ImageStoreHostDeps` | Canvas↔Volume 同步 |
-| **DragSliceTool** | [tools/DragSliceTool.ts](Utils/segmentation/tools/DragSliceTool.ts) | `DragSliceHostDeps` | 拖拽切换切片 |
+| **SphereTool** | [tools/SphereTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SphereTool.ts) | `SphereHostDeps` | 3D 球形标注工具，支持 4 种类型 (tumour/skin/ribcage/nipple)，包含点击放置 (`onSphereClick`) 和松开完成 (`onSpherePointerUp`) |
+| **CrosshairTool** | [tools/CrosshairTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/CrosshairTool.ts) | —（无 callbacks） | 十字准星位置标记、坐标转换、crosshair 渲染 (`renderCrosshair`) |
+| **ContrastTool** | [tools/ContrastTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/ContrastTool.ts) | `ContrastHostDeps` | 窗位/窗宽调节 |
+| **ZoomTool** | [tools/ZoomTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/ZoomTool.ts) | `ZoomHostDeps` | 缩放/平移 |
+| **EraserTool** | [tools/EraserTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/EraserTool.ts) | —（无 callbacks） | 橡皮擦 |
+| **PanTool** | [tools/PanTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/PanTool.ts) | `PanHostDeps` | 右键拖拽平移画布 |
+| **DrawingTool** | [tools/DrawingTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/DrawingTool.ts) | `DrawingHostDeps` | 铅笔/画笔/橡皮擦绘画逻辑，含笔刷 hover 追踪 (`createBrushTrackingHandler`) 和圆圈预览 (`renderBrushPreview`) |
+| **SphereBrushTool** | [tools/SphereBrushTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SphereBrushTool.ts) | `SphereBrushHostDeps` | 3D 球形体积绘画 (sphereBrush) 和擦除 (sphereEraser)；拖动擦除；分组多切片 undo |
+| **ImageStoreHelper** | [tools/ImageStoreHelper.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/ImageStoreHelper.ts) | `ImageStoreHostDeps` | Canvas↔Volume 同步 |
+| **DragSliceTool** | [tools/DragSliceTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/DragSliceTool.ts) | `DragSliceHostDeps` | 拖拽切换切片 |
 
-Tool 初始化: [DrawToolCore.ts](Utils/segmentation/DrawToolCore.ts) `initTools()` 方法
+Tool 初始化: [DrawToolCore.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/DrawToolCore.ts) `initTools()` 方法
 
 ### 7.2 ImageStoreHelper（关键工具）
 
-**`storeAllImages(index, layer)`** — [ImageStoreHelper.ts:116-178](Utils/segmentation/tools/ImageStoreHelper.ts#L116-L178)
+**`storeAllImages(index, layer)`** — [ImageStoreHelper.ts:116-178](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/ImageStoreHelper.ts#L116-L178)
 
 Canvas → Volume 同步流程:
 1. 将 layer canvas 绘制到 emptyCanvas [L124]
@@ -827,13 +827,13 @@ Canvas → Volume 同步流程:
 3. 调用 `volume.setSliceLabelsFromImageData()` [L142-148] 写入 MaskVolume
 4. 提取切片通知后端 [L161]
 
-**`filterDrawedImage(axis, sliceIndex)`** — [ImageStoreHelper.ts:85-107](Utils/segmentation/tools/ImageStoreHelper.ts#L85-L107)
+**`filterDrawedImage(axis, sliceIndex)`** — [ImageStoreHelper.ts:85-107](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/ImageStoreHelper.ts#L85-L107)
 
 Volume → Canvas 读取，调用 `volume.renderLabelSliceInto()`.
 
 ### 7.3 SphereTool（球形标注工具）
 
-**文件**: [tools/SphereTool.ts](Utils/segmentation/tools/SphereTool.ts)
+**文件**: [tools/SphereTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SphereTool.ts)
 
 #### 类型与常量
 
@@ -898,7 +898,7 @@ Sphere 模式激活时：
 
 ### 7.4 PanTool（右键平移工具）
 
-**文件**: [tools/PanTool.ts](Utils/segmentation/tools/PanTool.ts) — 124 lines
+**文件**: [tools/PanTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/PanTool.ts) — 124 lines
 
 从 `DrawToolCore.paintOnCanvas()` 提取（Phase 2, 2026-02-26）。处理所有右键拖拽平移逻辑。
 
@@ -946,7 +946,7 @@ this.panTool.onPointerLeave();
 
 ### 7.5 SphereBrushTool（球形画笔/橡皮擦工具）
 
-**文件**: [tools/SphereBrushTool.ts](Utils/segmentation/tools/SphereBrushTool.ts) — 584 lines
+**文件**: [tools/SphereBrushTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SphereBrushTool.ts) — 584 lines
 
 处理 3D 球形体积绘画（SphereBrush 模式）和 3D 球形体积擦除（SphereEraser 模式），包含拖动擦除和分组多切片 undo。
 
@@ -1015,7 +1015,7 @@ SphereBrush/SphereEraser 模式激活时：
 
 ### 7.6 DrawingTool（绘画工具）
 
-**文件**: [tools/DrawingTool.ts](Utils/segmentation/tools/DrawingTool.ts) — 284 lines
+**文件**: [tools/DrawingTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/DrawingTool.ts) — 284 lines
 
 从 `DrawToolCore.paintOnCanvas()` 提取（Phase 3, 2026-02-26）。处理铅笔、画笔、橡皮擦的所有绘画逻辑，包含 Undo 快照。
 
@@ -1099,7 +1099,7 @@ mouseup → pushUndoDelta()
 
 ## 8. EventRouter（事件路由）
 
-**文件**: [eventRouter/EventRouter.ts](Utils/segmentation/eventRouter/EventRouter.ts)
+**文件**: [eventRouter/EventRouter.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/eventRouter/EventRouter.ts)
 
 ### 8.1 交互模式
 
@@ -1140,7 +1140,7 @@ DrawToolCore 新增 `activeWheelMode: 'zoom' | 'sphere' | 'sphereBrush' | 'none'
 
 ### 8.3 默认键盘设置
 
-定义: [CanvasState.ts](Utils/segmentation/CanvasState.ts) `keyboardSettings` 字段
+定义: [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) `keyboardSettings` 字段
 
 ```ts
 IKeyBoardSettings = {
@@ -1162,7 +1162,7 @@ IKeyBoardSettings = {
 
 ## 9. Undo/Redo 系统
 
-**文件**: [core/UndoManager.ts](Utils/segmentation/core/UndoManager.ts)
+**文件**: [core/UndoManager.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/UndoManager.ts)
 
 ### Delta 结构
 
@@ -1196,7 +1196,7 @@ DrawToolCore.undoLastPainting()
 
 ## 10. DragOperator
 
-**文件**: [DragOperator.ts](Utils/segmentation/DragOperator.ts)
+**文件**: [DragOperator.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/DragOperator.ts)
 
 负责拖拽交互（切片导航）。
 
@@ -1214,7 +1214,7 @@ DrawToolCore.undoLastPainting()
 
 ## 11. Channel 颜色定义
 
-**文件**: [core/types.ts](Utils/segmentation/core/types.ts)
+**文件**: [core/types.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/types.ts)
 
 ### 11.1 默认颜色（全局常量）
 
@@ -1260,7 +1260,7 @@ volume.colorMap[channel]
 
 ## 12. GaussianSmoother（高斯平滑）
 
-**文件**: [core/GaussianSmoother.ts](Utils/segmentation/core/GaussianSmoother.ts)
+**文件**: [core/GaussianSmoother.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/GaussianSmoother.ts)
 
 纯静态工具类，用于分割 mask 的 3D 高斯平滑。无 DOM/Canvas/GUI 依赖。包含直接数组访问和去分支卷积两项性能优化。
 

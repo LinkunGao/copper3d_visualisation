@@ -1,7 +1,7 @@
 # copper3d — 相机取景与位姿过渡
 
 把相机对准它要展示的内容，以及让它从一个位姿移动到另一个。全部从包入口导出
-（`copper3d_visualisation` / `../ts/index`）。
+（`copper3d`）。
 
 ::: tip 3.8.0 新增
 纯新增。`computeFraming`、`resolveViewPose`、`resolveFarPlane`、`Copper3dOrbitControls`、
@@ -59,7 +59,7 @@ fitDistance(bounds: FitBounds, aspect: number, fovDeg: number, margin?: number):
 // 自由函数
 fitView(
   scene: FitViewScene,
-  preset: CameraViewPoint,
+  preset: CameraViewPreset,
   aspect: number,
   bounds: FitBounds,
   margin?: number
@@ -125,7 +125,7 @@ interface Pose {
 | 函数 | 签名 | 用途 |
 |---|---|---|
 | `easeInOutCubic` | `(t: number) => number` | 标准缓动，超出范围的输入会被钳制。 |
-| `viewPointToPose` | `(vp: CameraViewPoint) => Pose` | 把视图预设读成 `Pose`。 |
+| `viewPointToPose` | `(vp: CameraViewPreset) => Pose` | 把视图预设读成 `Pose`。 |
 | `interpolateFlightPose` | `(from: Pose, to: Pose, t: number) => Pose` | 在两个位姿之间插值。`t` 应当已经缓动过。 |
 | `orbitStepPose` | `(pose: Pose, yawRad: number, pitchRad: number) => Pose` | 绕自身旋转中心转动一步。 |
 | `zoomPose` | `(pose: Pose, factor: number, minDistance?: number) => Pose` | 缩放到旋转中心的距离。 |

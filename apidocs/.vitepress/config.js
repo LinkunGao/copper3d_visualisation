@@ -2,7 +2,7 @@
 import apidocConfig from "../apidocConfig.json";
 
 export default {
-  ignoreDeadLinks: true,
+  ignoreDeadLinks: false,
   title: "Copper3d API",
   base: "/copper3d_visualisation/",
   locales: {

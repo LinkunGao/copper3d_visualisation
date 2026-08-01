@@ -1,8 +1,7 @@
 # copper3d — Scene Resources
 
 Freeing what a scene holds, bounding how much stays resident, and crossfading one model
-into another. All exported from the package entry (`copper3d_visualisation` /
-`../ts/index`).
+into another. All exported from the package entry (`copper3d`).
 
 ::: tip New in 3.8.0
 Additive only. The residency budget is **off by default** — nothing is evicted unless you

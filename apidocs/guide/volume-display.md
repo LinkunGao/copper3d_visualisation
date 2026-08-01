@@ -3,7 +3,7 @@
 Two functions for the greyscale a volume slice actually comes out as: one that makes
 scrubbing cheap, one that makes dark studies readable.
 
-Both are exported from the package entry (`copper3d_visualisation` / `../ts/index`).
+Both are exported from the package entry (`copper3d`).
 Both are **opt-in** — `loadNrrd` does not call either, so existing code is unaffected.
 
 ::: tip New in 3.8.0

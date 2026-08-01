@@ -1,7 +1,7 @@
 # copper3d — Camera Framing & Transitions
 
 Framing a camera on its content, and moving it from one pose to another. All exported from
-the package entry (`copper3d_visualisation` / `../ts/index`).
+the package entry (`copper3d`).
 
 ::: tip New in 3.8.0
 Additive only. `computeFraming`, `resolveViewPose`, `resolveFarPlane`,
@@ -65,7 +65,7 @@ Re-frames a scene on its content, keeping the view preset's direction.
 // free function
 fitView(
   scene: FitViewScene,
-  preset: CameraViewPoint,
+  preset: CameraViewPreset,
   aspect: number,
   bounds: FitBounds,
   margin?: number
@@ -138,7 +138,7 @@ interface Pose {
 | function | signature | purpose |
 |---|---|---|
 | `easeInOutCubic` | `(t: number) => number` | Standard ease. Clamps out-of-range input. |
-| `viewPointToPose` | `(vp: CameraViewPoint) => Pose` | Reads a view preset as a `Pose`. |
+| `viewPointToPose` | `(vp: CameraViewPreset) => Pose` | Reads a view preset as a `Pose`. |
 | `interpolateFlightPose` | `(from: Pose, to: Pose, t: number) => Pose` | Interpolates a camera between two poses. `t` is expected already eased. |
 | `orbitStepPose` | `(pose: Pose, yawRad: number, pitchRad: number) => Pose` | Orbits around the pose's own pivot. |
 | `zoomPose` | `(pose: Pose, factor: number, minDistance?: number) => Pose` | Scales the distance from the pivot. |
