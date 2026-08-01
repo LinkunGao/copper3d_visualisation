@@ -9,6 +9,18 @@ import {
   OrthographicCamera,
 } from "three";
 
+/**
+ * The events this class dispatches. Without it `EventDispatcher` defaults to an
+ * empty map, so `keyof` it is `never` and `addEventListener("change", ...)` is a
+ * type error for every caller -- which is why the dispatches below still need
+ * their `as never` casts.
+ */
+export interface Copper3dTrackballControlsEventMap {
+  change: {};
+  start: {};
+  end: {};
+}
+
 const _changeEvent = { type: "change" };
 const _startEvent = { type: "start" };
 const _endEvent = { type: "end" };
@@ -24,7 +36,7 @@ type IState = {
   TOUCH_ZOOM_PAN: 6;
 };
 
-class Copper3dTrackballControls extends EventDispatcher {
+class Copper3dTrackballControls extends EventDispatcher<Copper3dTrackballControlsEventMap> {
   object: PerspectiveCamera | OrthographicCamera;
   domElement: HTMLElement;
   enabled: boolean;

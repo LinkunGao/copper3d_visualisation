@@ -29,26 +29,40 @@ async function main() {
     // Controls
     rootPath("src/Controls/copperControls.ts"),
     rootPath("src/Controls/Copper3dTrackballControls.ts"),
+    rootPath("src/Controls/Copper3dOrbitControls.ts"),
     rootPath("src/Controls/orbitFraming.ts"),
     rootPath("src/Controls/fitView.ts"),
     rootPath("src/Controls/cameraTransitions.ts"),
+    rootPath("src/Controls/controlsAxes.ts"),
+    rootPath("src/Controls/gestureGate.ts"),
+    rootPath("src/Controls/setCameraPose.ts"),
     // Loader
     rootPath("src/Loader/copperNrrdLoader.ts"),
+    rootPath("src/Loader/copperGltfLoader.ts"),
     rootPath("src/Loader/fastSliceRepaint.ts"),
+    rootPath("src/Loader/volumeBoundingBox.ts"),
     // Utils
     rootPath("src/Utils/MeshNodeTool.ts"),
     rootPath("src/Utils/utils.ts"),
+    rootPath("src/Utils/add3DLabel.ts"),
+    rootPath("src/Utils/texture2d.ts"),
     rootPath("src/Utils/dispose.ts"),
     rootPath("src/Utils/modelCrossfade.ts"),
     rootPath("src/Utils/volumeExposure.ts"),
+    rootPath("src/Utils/kiwrious/configKiwrious.ts"),
+    rootPath("src/lib/environment/index.ts"),
     // Segmentation — public facade
     rootPath("src/Utils/segmentation/NrrdTools.ts"),
     // Segmentation — core storage & state
     rootPath("src/Utils/segmentation/core/MaskVolume.ts"),
+    rootPath("src/Utils/segmentation/core/GaussianSmoother.ts"),
+    rootPath("src/Utils/segmentation/core/types.ts"),
     rootPath("src/Utils/segmentation/coreTools/GuiState.ts"),
     rootPath("src/Utils/segmentation/coreTools/NrrdState.ts"),
+    rootPath("src/Utils/segmentation/coreTools/gui.ts"),
     // Segmentation — key tools
     rootPath("src/Utils/segmentation/tools/SphereTool.ts"),
+    rootPath("src/Utils/segmentation/tools/AiAssistTool.ts"),
   ];
   const app = await TypeDoc.Application.bootstrapWithPlugins({
     entryPoints: entries,

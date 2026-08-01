@@ -50,6 +50,13 @@ const tsPlugin = ts({
 const commonConf = {
   // Entry file
   input: getPath("./src/index.ts"),
+  // Kept out of the bundle on purpose. `Utils/kiwrious/configKiwrious.ts` loads
+  // it with a dynamic `import()` so that merely importing copper3d no longer
+  // evaluates its nested webpack runtime -- which reads `document.currentScript`
+  // and threw under native ESM. Bundling it would hoist that evaluation back to
+  // load time and undo the fix; splitting it into a chunk is not an option
+  // either, since both targets emit a single file.
+  external: ["copper3d_plugin_heart_k"],
   plugins: [
     replace({
       preventAssignment: true,

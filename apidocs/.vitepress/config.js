@@ -5,6 +5,14 @@ export default {
   ignoreDeadLinks: false,
   title: "Copper3d API",
   base: "/copper3d_visualisation/",
+  markdown: {
+    // markdown-it-attrs turns a trailing `{ ... }` into HTML attributes, so a
+    // JSDoc line such as `visibility: { layer1: true, layer2: true }` becomes
+    // `<p layer1:="" true,="" layer2:="" true,="">` -- and the repeated `true,`
+    // fails the whole build with "Duplicate attribute". No page here uses the
+    // `{.class}` syntax, so the feature only costs us.
+    attrs: { disable: true },
+  },
   locales: {
     root: {
       label: 'English',
