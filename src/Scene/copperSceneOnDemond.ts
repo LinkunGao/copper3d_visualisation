@@ -3,6 +3,10 @@ import { baseScene } from "./baseScene";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { CameraViewPoint } from "../Controls/copperControls";
+import { fitView as fitViewOn } from "../Controls/fitView";
+import type { FitViewScene } from "../Controls/fitView";
+import type { FitBounds } from "../Controls/orbitFraming";
 
 export class copperSceneOnDemond extends baseScene {
   controls: OrbitControls;
@@ -52,6 +56,35 @@ export class copperSceneOnDemond extends baseScene {
       (error) => {
         // console.log(error);
       }
+    );
+  }
+
+  /**
+   * Re-frames the camera on `bounds`, keeping the preset's view direction and
+   * up and replacing only its distance. Returns false when there is nothing
+   * to do -- an orthographic camera (no field of view to fit against), or a
+   * preset whose eye sits exactly on its target.
+   *
+   * Does not render: the caller decides when to draw, which matters here
+   * because this scene renders on demand.
+   */
+  fitView(
+    preset: CameraViewPoint,
+    aspect: number,
+    bounds: FitBounds,
+    margin?: number
+  ): boolean {
+    if (!(this.camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
+      return false;
+    }
+    // `controls` is a union of three classes; only some declare
+    // `handleResize`, and `fitView` already treats it as optional.
+    return fitViewOn(
+      this as unknown as FitViewScene,
+      preset,
+      aspect,
+      bounds,
+      margin
     );
   }
 

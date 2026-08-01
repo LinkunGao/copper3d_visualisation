@@ -107,6 +107,7 @@
     "dist",
     "**/__tests__/**",
     "**/*.test.ts",
-    "**/*.bench.ts"
+    "**/*.bench.ts",
+    "vitest.config.mts"
   ]
 }

@@ -2,15 +2,31 @@ import * as THREE from "three";
 import { baseRenderer } from "./baseRenderer";
 import { ICopperRenderOpt, SceneMapType } from "../types/types";
 import { copperSceneOnDemond } from "../Scene/copperSceneOnDemond";
+import { disposeScene as disposeSceneFrom } from "./disposeScene";
+import type { SceneDisposalHost } from "./disposeScene";
 
 export class copperRendererOnDemond extends baseRenderer {
-  private sceneMap: SceneMapType = {};
+  /** Public so `disposeScene` can unregister an entry. Nothing else removes
+   *  one, so a long-lived renderer otherwise accumulates every scene it has
+   *  ever built, decoded volumes included. */
+  sceneMap: SceneMapType = {};
   constructor(container: HTMLDivElement, options?: ICopperRenderOpt) {
     super(container, options);
   }
 
   getSceneByName(name: string) {
     return this.sceneMap[name];
+  }
+
+  /**
+   * Unregisters a scene and frees its geometries, materials and textures.
+   * Returns the scene that was disposed, or undefined if there was none.
+   */
+  disposeScene(name: string) {
+    // `SceneMapType` predates `copperSceneOnDemond` and does not list it, so
+    // its element type has no `controls`/`requestRenderIfNotRequested`. The
+    // map this renderer actually fills only ever holds `copperSceneOnDemond`.
+    return disposeSceneFrom(this as unknown as SceneDisposalHost, name);
   }
 
   setCurrentScene(sceneIn: copperSceneOnDemond) {

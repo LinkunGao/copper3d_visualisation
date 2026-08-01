@@ -2,7 +2,7 @@
 import apidocConfig from "../apidocConfig.json";
 
 export default {
-  ignoreDeadLinks: true,
+  ignoreDeadLinks: false,
   title: "Copper3d API",
   base: "/copper3d_visualisation/",
   locales: {
@@ -39,6 +39,19 @@ export default {
               text: "渲染",
               items: [
                 { text: "Copper3d 渲染", link: "/zh/guide/copper3d-rendering-optimization" },
+                { text: "体数据切片显示", link: "/zh/guide/volume-display" },
+              ],
+            },
+            {
+              text: "相机",
+              items: [
+                { text: "相机取景与位姿过渡", link: "/zh/guide/camera-framing" },
+              ],
+            },
+            {
+              text: "资源管理",
+              items: [
+                { text: "场景资源管理", link: "/zh/guide/scene-resources" },
               ],
             },
             {
@@ -80,6 +93,19 @@ export default {
           text: "Rendering",
           items: [
             { text: "Copper3d Rendering", link: "/guide/copper3d-rendering-optimization" },
+            { text: "Volume Slice Display", link: "/guide/volume-display" },
+          ],
+        },
+        {
+          text: "Camera",
+          items: [
+            { text: "Camera Framing & Transitions", link: "/guide/camera-framing" },
+          ],
+        },
+        {
+          text: "Resources",
+          items: [
+            { text: "Scene Resources", link: "/guide/scene-resources" },
           ],
         },
         {

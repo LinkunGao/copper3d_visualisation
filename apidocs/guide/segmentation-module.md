@@ -29,13 +29,13 @@ NrrdTools (Facade)
 >
 > **Callback interface unification (complete)**: The original 10 separate `*Callbacks` interfaces have been unified into a single `ToolHost` interface (`tools/ToolHost.ts`). Each Tool selects its required host method subset via `Pick<ToolHost, ...>`.
 
-- [CanvasState.ts](Utils/segmentation/CanvasState.ts) — Pure state container
-- [RenderingUtils.ts](Utils/segmentation/RenderingUtils.ts) — Rendering utilities
-- [DrawToolCore.ts](Utils/segmentation/DrawToolCore.ts) — Drawing core (composes CanvasState + RenderingUtils)
-- [NrrdTools.ts](Utils/segmentation/NrrdTools.ts) — Public API Facade (composes CanvasState + DrawToolCore)
-- [tools/LayerChannelManager.ts](Utils/segmentation/tools/LayerChannelManager.ts) — Layer/Channel management
-- [tools/SliceRenderPipeline.ts](Utils/segmentation/tools/SliceRenderPipeline.ts) — Slice rendering pipeline
-- [tools/DataLoader.ts](Utils/segmentation/tools/DataLoader.ts) — Data loading
+- [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) — Pure state container
+- [RenderingUtils.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/RenderingUtils.ts) — Rendering utilities
+- [DrawToolCore.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/DrawToolCore.ts) — Drawing core (composes CanvasState + RenderingUtils)
+- [NrrdTools.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/NrrdTools.ts) — Public API Facade (composes CanvasState + DrawToolCore)
+- [tools/LayerChannelManager.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/LayerChannelManager.ts) — Layer/Channel management
+- [tools/SliceRenderPipeline.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SliceRenderPipeline.ts) — Slice rendering pipeline
+- [tools/DataLoader.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/DataLoader.ts) — Data loading
 
 ### 1.2 Canvas Layer Structure
 
