@@ -32,6 +32,34 @@ import { Copper3dOrbitControls } from "./Controls/Copper3dOrbitControls";
 import { MeshNodeTool } from "./Utils/MeshNodeTool";
 import { removeGuiFolderChilden } from "./Utils/segmentation/coreTools/gui";
 
+import { exposureExponent, DEFAULT_TARGET_GREY } from "./Utils/volumeExposure";
+import type { ExposureVolume } from "./Utils/volumeExposure";
+import { disposeObject3D, disposeMaterial } from "./Utils/dispose";
+import {
+  collectFadeTargets,
+  setFade,
+  restoreFade,
+} from "./Utils/modelCrossfade";
+import type { FadeTarget } from "./Utils/modelCrossfade";
+import { createSceneBudget, defaultBudgetBytes } from "./Renderer/sceneBudget";
+import type { SceneBudget } from "./Renderer/sceneBudget";
+import { disposeScene, removeSceneFromMap } from "./Renderer/disposeScene";
+import { fitDistance } from "./Controls/orbitFraming";
+import type { FitBounds } from "./Controls/orbitFraming";
+import { fitView } from "./Controls/fitView";
+import {
+  easeInOutCubic,
+  viewPointToPose,
+  rotateAroundAxis,
+  interpolateFlightPose,
+  poseDistance,
+  orbitStepPose,
+  zoomPose,
+  orbitSwingAngle,
+} from "./Controls/cameraTransitions";
+import type { Pose } from "./Controls/cameraTransitions";
+import { installFastSliceRepaint } from "./Loader/fastSliceRepaint";
+
 import { SurfaceAnnotator } from "./Utils/surfaceAnnotation";
 import type {
   SurfaceAnnotatorOptions,
@@ -128,6 +156,28 @@ export {
   rgbaToCss,
   GaussianSmoother,
   SurfaceAnnotator,
+  exposureExponent,
+  DEFAULT_TARGET_GREY,
+  disposeObject3D,
+  disposeMaterial,
+  collectFadeTargets,
+  setFade,
+  restoreFade,
+  createSceneBudget,
+  defaultBudgetBytes,
+  disposeScene,
+  removeSceneFromMap,
+  fitDistance,
+  fitView,
+  easeInOutCubic,
+  viewPointToPose,
+  rotateAroundAxis,
+  interpolateFlightPose,
+  poseDistance,
+  orbitStepPose,
+  zoomPose,
+  orbitSwingAngle,
+  installFastSliceRepaint,
 };
 
 export type {
@@ -168,6 +218,11 @@ export type {
   Annotation,
   AnnotationMode,
   ExportOptions,
+  ExposureVolume,
+  FadeTarget,
+  SceneBudget,
+  FitBounds,
+  Pose,
 };
 
 export type { CameraViewPreset } from "./Controls/orbitFraming";

@@ -120,6 +120,64 @@ export function resolveFarPlane(
   return Math.max(presetFar, zoomOutFar)
 }
 
+export interface FitBounds {
+  width: number
+  height: number
+  depth: number
+  /** The box's centre in scene units. `[0, 0, 0]` for an NRRD volume, whose
+   *  RAS dimensions describe a box centred on the origin; a GLB's is not,
+   *  so framing one from the origin leaves part of it out of frame. Not read
+   *  by `fitDistance`, which only needs the extents. */
+  center: [number, number, number]
+}
+
+/** Nothing smaller than this, so a degenerate or not-yet-measured box can
+ *  never put the camera at the origin looking at itself. */
+const MIN_FIT_DISTANCE = 1e-3
+
+/**
+ * How far a perspective camera must sit from an object's centre for the whole
+ * object to fit in frame.
+ *
+ * Unlike `computeFraming` above this takes the viewport's ASPECT into
+ * account: below aspect 1 the horizontal field is the narrower of the two,
+ * and it is the narrower one that has to contain the object. A camera framed
+ * on vertical FOV alone under-frames every tall, narrow viewport.
+ *
+ * It also fits the bounding SPHERE rather than the box. Fitting the facing
+ * box face plus half the depth frames each object by whichever dimension
+ * happens to point at the camera, so a thin slab and a near-cubic volume of
+ * similar overall extent come out at wildly different sizes on screen. A
+ * sphere has no orientation, so comparable objects get comparable screen
+ * size -- and orbiting can no longer push a corner out of frame.
+ *
+ * @param aspect Viewport width / height. Zero or non-finite is treated as 1:
+ *               a viewport mid-collapse measures 0 for a frame, and NaN in a
+ *               projection matrix is unrecoverable.
+ * @param fovDeg The camera's VERTICAL field of view, in degrees.
+ * @param margin Multiplier applied at the end, and deliberately BELOW 1. A
+ *               bounding sphere circumscribes the object -- a cube's has
+ *               1.73x its half-side -- so fitting the sphere exactly leaves
+ *               the object filling well under half the frame. Letting the
+ *               sphere overflow is what makes the object read at a sensible
+ *               size. A tuning knob, not a correctness threshold: smaller
+ *               means larger on screen.
+ */
+export function fitDistance(
+  bounds: FitBounds,
+  aspect: number,
+  fovDeg: number,
+  margin = 0.85,
+): number {
+  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1
+  const vHalf = (fovDeg * Math.PI) / 360
+  const hHalf = Math.atan(Math.tan(vHalf) * safeAspect)
+  const half = Math.min(vHalf, hHalf)
+
+  const radius = Math.hypot(bounds.width, bounds.height, bounds.depth) / 2
+  return Math.max((radius / Math.sin(half)) * margin, MIN_FIT_DISTANCE)
+}
+
 /** Project up onto the plane perpendicular to dir; fall back to any perpendicular axis when degenerate. */
 function orthogonalize(up: THREE.Vector3, dir: THREE.Vector3): THREE.Vector3 {
   const d = up.dot(dir)

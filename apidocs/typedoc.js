@@ -18,6 +18,8 @@ async function main() {
     rootPath("src/Renderer/copperMSceneRenderer.ts"),
     rootPath("src/Renderer/copperRenderer.ts"),
     rootPath("src/Renderer/copperRendererOnDemond.ts"),
+    rootPath("src/Renderer/sceneBudget.ts"),
+    rootPath("src/Renderer/disposeScene.ts"),
     // Scene
     rootPath("src/Scene/baseScene.ts"),
     rootPath("src/Scene/commonSceneMethod.ts"),
@@ -27,11 +29,18 @@ async function main() {
     // Controls
     rootPath("src/Controls/copperControls.ts"),
     rootPath("src/Controls/Copper3dTrackballControls.ts"),
+    rootPath("src/Controls/orbitFraming.ts"),
+    rootPath("src/Controls/fitView.ts"),
+    rootPath("src/Controls/cameraTransitions.ts"),
     // Loader
     rootPath("src/Loader/copperNrrdLoader.ts"),
+    rootPath("src/Loader/fastSliceRepaint.ts"),
     // Utils
     rootPath("src/Utils/MeshNodeTool.ts"),
     rootPath("src/Utils/utils.ts"),
+    rootPath("src/Utils/dispose.ts"),
+    rootPath("src/Utils/modelCrossfade.ts"),
+    rootPath("src/Utils/volumeExposure.ts"),
     // Segmentation — public facade
     rootPath("src/Utils/segmentation/NrrdTools.ts"),
     // Segmentation — core storage & state
