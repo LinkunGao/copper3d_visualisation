@@ -4,6 +4,7 @@ import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls
 import { CameraViewPoint } from "../Controls/copperControls";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
+import type { GltfLoadOpts } from "../Loader/copperGltfLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { copperNrrdTexture3dLoader } from "../Loader/copperNrrdLoader";
 import { loadRaw4DVolume as loadRaw4DVolumeImpl } from "../Loader/copperRaw4DVolumeLoader";
@@ -63,7 +64,11 @@ export class copperScene extends baseScene {
     window.addEventListener("resize", this.onWindowResize, false);
   }
 
-  loadGltf(url: string, callback?: (content: THREE.Group) => void) {
+  loadGltf(
+    url: string,
+    callback?: (content: THREE.Group) => void,
+    opts?: GltfLoadOpts
+  ) {
     const loader = copperGltfLoader(this.renderer);
 
     loader.load(
@@ -101,9 +106,11 @@ export class copperScene extends baseScene {
         this.modelReady = true;
         callback && callback(gltf.scene);
       },
-      (error) => {
-        // console.log(error);
-      }
+      // Slots three and four, in that order -- see `GltfLoadOpts`.
+      // `loadPureGLB` below has always got this right; this one was left
+      // behind, with an empty `error` function in the onProgress slot.
+      opts?.onProgress,
+      opts?.onError
     );
   }
   loadPureGLB(

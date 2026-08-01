@@ -121,6 +121,46 @@ slices.z.repaint.call(slices.z);
 
 ---
 
+## 3. `addVolumeBoundingBox()` <Badge type="tip" text="3.9.0" />
+
+```ts
+addVolumeBoundingBox(
+  scene: BoundingBoxHost,
+  rasDimensions: ArrayLike<number>,
+  opts?: { color?: ColorRepresentation; name?: string }
+): THREE.BoxHelper | undefined
+```
+
+体数据外面那个线框盒子。它是唯一能给一个孤零零的切片面提供空间参照的东西 —— 没有它，切片
+面就悬在一片没有边界的虚空里，读者完全不知道自己滚到体数据的哪个位置了。
+
+```ts
+scene.loadNrrd(url, loadingBar, false, (volume, meshes) => {
+  scene.addObject(meshes.z);
+  Copper.addVolumeBoundingBox(scene, volume.RASDimensions, { color: 0x8a7f84 });
+});
+```
+
+返回这个 helper，方便你隐藏、移动或释放它；体数据退化时返回 `undefined` —— 任何一个轴上
+的尺寸为 0，画出来的都不是盒子而是一个压平的东西。默认名字是 `"volume-bounds"`，这样后续
+遍历子对象清理时能像场景里其他东西一样找到并释放它。
+
+`color` 默认白色 —— 那是在深色 viewer 上能看清的颜色。浅色背景请传一个深一点的色值，白线
+在那上面是看不见的。
+
+### 它替代 `addBoxHelper()`
+
+`addBoxHelper` 从 3.9.0 起标记为 **deprecated**，代码原样保留 —— 传了第三个可选参数的调用
+方，它现在是能用的。而两参数的形式不能用，而且从来就没能用过：
+
+- 不传 `boxCube` 时，它包的是一个模块级的 `cube`，而 `copperNrrdLoader` 只声明了它、从没
+  赋过值，也就是 `new THREE.BoxHelper(undefined)`
+- 它的类型写的是收 `copperScene`，所以 `copperSceneOnDemond`（是兄弟子类，不是后代）过不了
+  类型检查 —— 尽管它有这里真正需要的那个 `addObject`
+- 它用 `volume.matrix` 而不是体数据的 RAS 尺寸来定盒子大小，那不是读者期望的那个盒子
+
+---
+
 ## 类型
 
 ```ts

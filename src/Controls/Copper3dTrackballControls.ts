@@ -41,6 +41,20 @@ class Copper3dTrackballControls extends EventDispatcher {
   staticMoving: boolean;
   dynamicDampingFactor: number;
 
+  /**
+   * Drive the camera from the input handlers as well as from `update()`.
+   *
+   * Off by default, which is the historical behaviour: input handlers only
+   * record positions, and nothing moves until something calls `update()`.
+   * That is fine under a continuous `requestAnimationFrame` loop and a
+   * deadlock without one -- see the note on `update()`.
+   *
+   * Turn it on for on-demand rendering. Leave it off with
+   * `staticMoving = false`: each extra `update()` advances the damping decay
+   * by one step, so input-driven updates make the glide shorter.
+   */
+  updateOnInput: boolean;
+
   minDistance: number;
   maxDistance: number;
 
@@ -114,6 +128,7 @@ class Copper3dTrackballControls extends EventDispatcher {
 
     this.staticMoving = false;
     this.dynamicDampingFactor = 0.2;
+    this.updateOnInput = false;
 
     this.minDistance = 0;
     this.maxDistance = Infinity;
@@ -361,6 +376,14 @@ class Copper3dTrackballControls extends EventDispatcher {
       }
     };
 
+    /**
+     * Applies whatever the input handlers recorded and dispatches `change`.
+     *
+     * This is the ONLY place `change` comes from during a drag, which closes
+     * a deadlock under on-demand rendering: no render, so no `update()`, so
+     * the camera never moves, so no `change`, so nothing requests a render --
+     * the viewer goes dead to the mouse. Set `updateOnInput` to break it.
+     */
     this.update = function () {
       _eye.subVectors(scope.object.position, scope.target);
 
@@ -552,6 +575,8 @@ class Copper3dTrackballControls extends EventDispatcher {
       } else if (state === STATE.PAN && !scope.noPan) {
         _panEnd.copy(getMouseOnScreen(event.pageX, event.pageY));
       }
+
+      if (scope.updateOnInput) scope.update();
     }
 
     function onMouseUp() {
@@ -585,6 +610,10 @@ class Copper3dTrackballControls extends EventDispatcher {
       }
 
       scope.dispatchEvent(_startEvent as never);
+      // Between start and end: a wheel notch is a whole gesture, and without
+      // this the zoom sits in `_zoomEnd` waiting for a frame that on-demand
+      // rendering has no reason to schedule.
+      if (scope.updateOnInput) scope.update();
       scope.dispatchEvent(_endEvent as never);
     }
 
@@ -666,6 +695,10 @@ class Copper3dTrackballControls extends EventDispatcher {
           _panEnd.copy(getMouseOnScreen(centerX, centerY));
           break;
       }
+
+      // After the switch, so the `_state` mismatch guards inside it still
+      // return without moving anything.
+      if (scope.updateOnInput) scope.update();
     }
 
     function onTouchEnd(event: PointerEvent) {

@@ -136,6 +136,51 @@ distribution.
 
 ---
 
+## 3. `addVolumeBoundingBox()` <Badge type="tip" text="3.9.0" />
+
+```ts
+addVolumeBoundingBox(
+  scene: BoundingBoxHost,
+  rasDimensions: ArrayLike<number>,
+  opts?: { color?: ColorRepresentation; name?: string }
+): THREE.BoxHelper | undefined
+```
+
+The wireframe box around a volume. It is the only thing that gives a lone slice
+plane spatial context — without it the plane floats in an unbounded void and
+nothing tells the reader how far through the volume they have scrubbed.
+
+```ts
+scene.loadNrrd(url, loadingBar, false, (volume, meshes) => {
+  scene.addObject(meshes.z);
+  Copper.addVolumeBoundingBox(scene, volume.RASDimensions, { color: 0x8a7f84 });
+});
+```
+
+Returns the helper so you can hide, move or dispose it, and `undefined` for a
+degenerate volume — a zero extent on any axis would produce a flat helper
+rather than a box. It is named `"volume-bounds"` by default, so a later
+children sweep can find and dispose it like anything else in the scene.
+
+`color` defaults to white, which is what reads against a dark viewer. Pass a
+darker tone for a light background, where white lines vanish.
+
+### It replaces `addBoxHelper()`
+
+`addBoxHelper` is **deprecated** as of 3.9.0 and unchanged — a caller passing
+its optional third argument gets working behaviour from it. The two-argument
+form does not work, and never did:
+
+- Without `boxCube` it wraps a module-level `cube` that `copperNrrdLoader`
+  declares and never assigns, i.e. `new THREE.BoxHelper(undefined)`.
+- It is typed to take a `copperScene`, so `copperSceneOnDemond` — a sibling
+  subclass, not a descendant — does not type-check even though it has the
+  `addObject` this needs.
+- It sizes the box from `volume.matrix` rather than the volume's RAS
+  dimensions, which is not the box a reader expects around the data.
+
+---
+
 ## Types
 
 ```ts

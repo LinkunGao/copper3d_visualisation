@@ -107,6 +107,42 @@ renderer.render();
 
 ---
 
+## 2a. `setCameraPose()` <Badge type="tip" text="3.9.0" />
+
+```ts
+setCameraPose(scene: PosableScene, pose: Pose): void
+
+// 或者用方法形式
+copperSceneOnDemond.setCameraPose(pose)
+```
+
+`fitView` 是"根据内容重新取景"。这个是通用情况：你**已经有**的一个位姿 ——
+`interpolateFlightPose` 飞行的终点、一个保存下来的书签、`viewPointToPose(preset)` ——
+把它写到相机上。
+
+```ts
+scene.setCameraPose(Copper.viewPointToPose(preset));
+renderer.render();
+```
+
+它是四个赋值，而第四个是所有人都会漏的那个：
+
+```ts
+camera.position.set(...)
+camera.up.set(...)       // 要在 lookAt 之前，lookAt 是用 up 建基的
+camera.lookAt(...)
+controls.target.set(...) // <- 这一行
+```
+
+漏掉最后一行，一切看起来都对，直到用户碰鼠标：第一次拖拽会调 `controls.update()`，把相机
+重新对准那个没更新的 `target`。而症状 ——"我一拖相机就跳回去了"—— 指向的是控制器，而不是
+真正导致它的那段代码。
+
+**不**渲染。什么时候画由调用方决定 —— 在按需渲染下这尤其重要，因为它可能只是一帧里的若干
+变更之一。
+
+---
+
 ## 3. 位姿插值 —— `Controls/cameraTransitions`
 
 一组用于移动相机的纯数值工具。**零依赖**：进出都是普通数字和 `[x, y, z]` 元组，不涉及任何

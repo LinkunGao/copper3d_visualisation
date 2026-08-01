@@ -9,6 +9,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
+import type { GltfLoadOpts } from "../Loader/copperGltfLoader";
 import { objLoader } from "../Loader/copperOBJLoader";
 import { isPickedModel } from "../Utils/raycaster";
 import { throttle } from "../Utils/utils";
@@ -129,7 +130,11 @@ export class copperMScene extends commonScene {
     }
   }
 
-  loadGltf(url: string, callback?: (content: THREE.Group) => void) {
+  loadGltf(
+    url: string,
+    callback?: (content: THREE.Group) => void,
+    opts?: GltfLoadOpts
+  ) {
     const loader = copperGltfLoader(this.renderer);
 
     loader.load(
@@ -177,9 +182,9 @@ export class copperMScene extends commonScene {
         // this.modelReady = true;
         callback && callback(gltf.scene);
       },
-      (error) => {
-        // console.log(error);
-      }
+      // Slots three and four, in that order -- see `GltfLoadOpts`.
+      opts?.onProgress,
+      opts?.onError
     );
   }
 

@@ -91,6 +91,33 @@ canvas**，而 `OrbitControls.dispose()` 会调 `disconnect()`，后者的最后
 
 ---
 
+## 2a. `copperSceneOnDemond.dispose()` <Badge type="tip" text="3.9.0" />
+
+```ts
+scene.dispose(): void
+```
+
+释放场景挂在**自己之外**的东西 —— 具体说就是构造函数往 `window` 上挂的那个 `resize` 监听。
+
+3.9.0 之前这个监听没有任何对应的摘除动作。每一个创建过的场景都会在整个页面生命周期里
+保持订阅，被闭包吊着不放，并且在它早已不再显示之后，仍然继续调用
+`requestRenderIfNotRequested` —— 进而调用 `onWindowResize`，而那会去改**共享的**
+renderer 尺寸。一个"每个病例建一个场景"的 app，就会每个病例泄漏一个，而且它们在每次窗口
+resize 时全部触发。
+
+`disposeScene()` 现在会替你调它，所以逐出这条路已经是完整的。只有当你不经过 renderer 的
+map 直接丢弃一个场景时，才需要自己调：
+
+```ts
+scene.dispose();
+```
+
+它不碰场景图，也不碰 renderer。场景里的东西值不值得留是调用方的决定，而 renderer 是和
+其他所有场景共享的 —— 拆内容是 `disposeScene` 的活。可以重复调用；场景类没有这个方法也
+没关系（`disposeScene` 是可选调用）。
+
+---
+
 ## 3. 驻留预算
 
 ```ts

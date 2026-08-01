@@ -23,6 +23,7 @@ function fakeScene(children: unknown[] = []) {
     },
     controls: { enabled: true, removeEventListener: vi.fn(), dispose: vi.fn() },
     requestRenderIfNotRequested: vi.fn(),
+    dispose: vi.fn(),
   }
   return scene
 }
@@ -70,6 +71,23 @@ describe('disposeScene', () => {
 
   it('is a no-op for a name that was never registered', () => {
     expect(disposeScene(fakeHost({}), 'nope')).toBeUndefined()
+  })
+
+  /**
+   * `copperSceneOnDemond` puts a `resize` listener on `window` that nothing
+   * outside the scene can reach, so evicting without this leaves one live
+   * listener per scene ever created, each still driving the shared renderer.
+   */
+  it("calls the scene's own dispose, which is what releases the window listener", () => {
+    const scene = fakeScene()
+    disposeScene(fakeHost({ a: scene }), 'a')
+    expect(scene.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('works on a scene class that has no dispose of its own', () => {
+    const scene = fakeScene()
+    delete (scene as Partial<typeof scene>).dispose
+    expect(() => disposeScene(fakeHost({ a: scene }), 'a')).not.toThrow()
   })
 
   /**
