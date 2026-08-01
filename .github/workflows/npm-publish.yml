@@ -21,11 +21,13 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      # 必须与本地写 lock 的 npm 版本一致：11.6.1 起不再把可选传递依赖
-      # (@napi-rs/wasm-runtime) 的 auto-install peer (@emnapi/*) 写入 lock，
-      # 而旧版 npm 要求它们存在，会以 EUSAGE 拒绝该 lock。
-      # 注意：npm/cli#8699 (provenance 422) 目前仍 open，若发布再次触发该 bug，
-      # 可回退到 11.5.1，但届时 lock 需用 `npx npm@10.8.2 install --package-lock-only` 生成。
+      # Must match the npm that writes the lock file locally. From 11.6.1 npm no
+      # longer records the auto-install peers (@emnapi/*) of an optional transitive
+      # dependency (@napi-rs/wasm-runtime); older npm demands them and rejects the
+      # lock file with EUSAGE.
+      # Note: npm/cli#8699 (provenance 422) is still open. If publishing hits that
+      # bug again, roll back to 11.5.1 -- but then the lock must be generated with
+      # `npx npm@10.8.2 install --package-lock-only`.
       - run: npm install -g npm@11.6.1
       - run: npm ci
       - run: npm run build --if-present
