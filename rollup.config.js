@@ -39,6 +39,10 @@ const rawPlugin = () => ({
 const tsPlugin = ts({
   tsconfig: getPath("./tsconfig.json"),
   tsconfigOverride: { extensions },
+  // 显式列出，不用 rpt2 的默认 `*.ts+(|x)`：该 extglob 的空分支在
+  // picomatch >= 2.3.2 下不再匹配，会让插件过滤掉所有源文件，
+  // rollup 于是拿自带的 JS 解析器去读 .ts 并报 "Unexpected token"。
+  include: ["*.ts", "**/*.ts", "*.tsx", "**/*.tsx"],
 });
 
 // 基础配置

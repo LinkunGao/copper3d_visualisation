@@ -29,16 +29,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Not needed if lastUpdated is not enabled
       # - uses: pnpm/action-setup@v2 # Uncomment this if you're using pnpm
       # - uses: oven-sh/setup-bun@v1 # Uncomment this if you're using Bun
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          # 20+ required by the test toolchain in devDependencies (vitest 4 / vite 8 / jsdom 29).
+          node-version: 22
           cache: npm # or pnpm / yarn
+      # npm >= 11.6.1 omits the auto-install peer deps of optional transitive packages
+      # (@napi-rs/wasm-runtime -> @emnapi/*). Older npm demands them and rejects the lock
+      # file with EUSAGE, so CI must run the same npm that writes it locally.
+      - run: npm install -g npm@11.6.1
       # - name: Setup Pages
       #   uses: actions/configure-pages@v3
       # - name: Change directory to apidocs
