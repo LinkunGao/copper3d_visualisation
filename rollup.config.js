@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
-import resolve from "rollup-plugin-node-resolve"; // 依赖引用插件
-import commonjs from "rollup-plugin-commonjs"; // commonjs模块转换插件
+import resolve from "rollup-plugin-node-resolve"; // dependency resolution plugin
+import commonjs from "rollup-plugin-commonjs"; // commonjs module conversion plugin
 import image from "@rollup/plugin-image";
 import glslify from "rollup-plugin-glslify";
 import ts from "rollup-plugin-typescript2";
@@ -12,7 +12,7 @@ import packageJSON from "./package.json";
 
 const extensions = [".js", ".ts", ".tsx"];
 
-// 处理 Vite 风格的 `?raw` 导入：把文件内容作为原始字符串引入
+// Handle Vite-style `?raw` imports: pull the file in as a raw string
 const rawPlugin = () => ({
   name: "raw-loader",
   resolveId(source, importer) {
@@ -35,15 +35,20 @@ const rawPlugin = () => ({
   },
 });
 
-// 导入本地ts配置
+// Load the local ts config
 const tsPlugin = ts({
   tsconfig: getPath("./tsconfig.json"),
   tsconfigOverride: { extensions },
+  // Listed explicitly instead of relying on rpt2's default `*.ts+(|x)`: the empty
+  // branch of that extglob no longer matches under picomatch >= 2.3.2, which makes
+  // the plugin filter out every source file. Rollup then parses .ts with its own
+  // JS parser and fails with "Unexpected token".
+  include: ["*.ts", "**/*.ts", "*.tsx", "**/*.tsx"],
 });
 
-// 基础配置
+// Base config
 const commonConf = {
-  // 入口文件
+  // Entry file
   input: getPath("./src/index.ts"),
   plugins: [
     replace({
@@ -62,7 +67,7 @@ const commonConf = {
   ],
 };
 
-// 需要导出的模块类型
+// Module formats to emit
 const outputMap = [
   {
     file: "dist/bundle.esm.js",

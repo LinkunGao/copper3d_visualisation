@@ -21,7 +21,14 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install -g npm@11.5.1   # 固定 npm 版本，绕开 provenance 回归 bug (npm/cli#8699)
+      # Must match the npm that writes the lock file locally. From 11.6.1 npm no
+      # longer records the auto-install peers (@emnapi/*) of an optional transitive
+      # dependency (@napi-rs/wasm-runtime); older npm demands them and rejects the
+      # lock file with EUSAGE.
+      # Note: npm/cli#8699 (provenance 422) is still open. If publishing hits that
+      # bug again, roll back to 11.5.1 -- but then the lock must be generated with
+      # `npx npm@10.8.2 install --package-lock-only`.
+      - run: npm install -g npm@11.6.1
       - run: npm ci
       - run: npm run build --if-present
       - run: npm publish --provenance
