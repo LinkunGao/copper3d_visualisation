@@ -5,6 +5,14 @@ export default {
   ignoreDeadLinks: false,
   title: "Copper3d API",
   base: "/copper3d_visualisation/",
+  markdown: {
+    // markdown-it-attrs turns a trailing `{ ... }` into HTML attributes, so a
+    // JSDoc line such as `visibility: { layer1: true, layer2: true }` becomes
+    // `<p layer1:="" true,="" layer2:="" true,="">` -- and the repeated `true,`
+    // fails the whole build with "Duplicate attribute". No page here uses the
+    // `{.class}` syntax, so the feature only costs us.
+    attrs: { disable: true },
+  },
   locales: {
     root: {
       label: 'English',
@@ -43,15 +51,30 @@ export default {
               ],
             },
             {
-              text: "相机",
+              text: "加载",
+              items: [
+                { text: "加载进度与错误", link: "/zh/guide/load-callbacks" },
+                { text: "GLB 解码器（Draco / KTX2）", link: "/zh/guide/gltf-decoders" },
+              ],
+            },
+            {
+              text: "相机与控制器",
               items: [
                 { text: "相机取景与位姿过渡", link: "/zh/guide/camera-framing" },
+                { text: "按需渲染与轨迹球控制器", link: "/zh/guide/on-demand-controls" },
+                { text: "控制器轴开关与手势门控", link: "/zh/guide/control-axes" },
               ],
             },
             {
               text: "资源管理",
               items: [
                 { text: "场景资源管理", link: "/zh/guide/scene-resources" },
+              ],
+            },
+            {
+              text: "传感器",
+              items: [
+                { text: "心率传感器（Kiwrious）", link: "/zh/guide/heart-sensor" },
               ],
             },
             {
@@ -97,15 +120,30 @@ export default {
           ],
         },
         {
-          text: "Camera",
+          text: "Loading",
+          items: [
+            { text: "Load Progress & Errors", link: "/guide/load-callbacks" },
+            { text: "GLB Decoders (Draco / KTX2)", link: "/guide/gltf-decoders" },
+          ],
+        },
+        {
+          text: "Camera & Controls",
           items: [
             { text: "Camera Framing & Transitions", link: "/guide/camera-framing" },
+            { text: "On-Demand Rendering & Controls", link: "/guide/on-demand-controls" },
+            { text: "Control Axes & Gesture Gating", link: "/guide/control-axes" },
           ],
         },
         {
           text: "Resources",
           items: [
             { text: "Scene Resources", link: "/guide/scene-resources" },
+          ],
+        },
+        {
+          text: "Sensors",
+          items: [
+            { text: "Heart Sensor (Kiwrious)", link: "/guide/heart-sensor" },
           ],
         },
         {

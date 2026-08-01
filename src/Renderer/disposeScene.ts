@@ -27,6 +27,10 @@ export interface DisposableScene {
     removeEventListener?: (type: 'change', listener: () => void) => void
   }
   requestRenderIfNotRequested: () => void
+  /** `copperSceneOnDemond.dispose()`, which releases the `window` resize
+   *  listener the scene registered on itself. Optional: scene classes that
+   *  attach nothing outside themselves do not have one. */
+  dispose?: () => void
 }
 
 export interface SceneDisposalHost<S extends DisposableScene = DisposableScene> {
@@ -75,6 +79,12 @@ export function disposeScene<S extends DisposableScene>(
   // for whichever scene is actually on screen, for the rest of the session.
   // The listener is the reference chain that matters here anyway.
   victim.controls.removeEventListener?.('change', victim.requestRenderIfNotRequested)
+
+  // Whatever the scene attached outside itself -- `copperSceneOnDemond` puts
+  // a `resize` listener on `window` that nothing else can reach. Called after
+  // the two lines above, which it repeats harmlessly, so a scene class
+  // without one is no worse off.
+  victim.dispose?.()
 
   // Iterating the children rather than removing objects by name: a name list
   // silently misses anything added under a name nobody thought to list.

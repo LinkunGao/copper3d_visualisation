@@ -30,9 +30,49 @@ let CircleMaterial = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
 });
 
+/** A slice axis, in the sense `Volume.extractSlice` uses. */
+export type NrrdAxis = "x" | "y" | "z";
+
+/** All three, which is what `loadNrrd` has always extracted. */
+export const DEFAULT_AXES: readonly NrrdAxis[] = ["x", "y", "z"];
+
 export interface optsType {
   openGui: boolean;
   container?: HTMLDivElement;
+  /**
+   * Which slice planes to extract. Defaults to all three, i.e. exactly what
+   * previous versions did.
+   *
+   * Narrow it when you display fewer. `extractSlice` walks the whole volume
+   * per call and the result is retained on `volume.sliceList` for the volume's
+   * lifetime, so an axis you never show costs a full pass over a 50MB buffer
+   * plus a geometry, a material and a canvas-backed texture that nothing ever
+   * frees.
+   *
+   * ::: warning
+   * The omitted axes are `undefined` on the `nrrdMeshes` / `nrrdSlices` the
+   * callback receives. Their types still declare all three present -- widening
+   * them to optional would break every existing caller's compile -- so a
+   * caller that narrows `axes` is responsible for only reading what it asked
+   * for.
+   * :::
+   */
+  axes?: readonly NrrdAxis[];
+  /**
+   * Download progress, in ADDITION to the built-in loading bar -- that keeps
+   * writing its percentage into `loadingBar.progress` exactly as before.
+   *
+   * New in 3.9.0. Until then the loading bar's text was the only progress
+   * signal copper3d exposed, so a caller that needed to know a large download
+   * was still alive had to watch that DOM node for mutations.
+   */
+  onProgress?: (event: ProgressEvent) => void;
+  /**
+   * Fetch or parse failure. New in 3.9.0; there was no error channel at all
+   * before, so a failed volume was indistinguishable from a slow one and the
+   * `callback` simply never fired.
+   */
+  onError?: (error: unknown) => void;
 }
 
 /**
@@ -93,32 +133,51 @@ export function copperNrrdLoader(
 
       const ratio = volume.spacing;
 
+      // Axis order matters: `extractSlice` is O(voxels) per call, so on a
+      // 50MB volume each one the caller does not need is a second of main
+      // thread and a full slice's worth of geometry, material and canvas
+      // texture retained on `volume.sliceList` for the volume's lifetime.
+      const axes = opts?.axes ?? DEFAULT_AXES;
+      const wanted = { x: axes.includes("x"), y: axes.includes("y"), z: axes.includes("z") };
+
       const initIndexZ = Math.floor(dimensions[2] / 2);
       const initIndexY = Math.floor(dimensions[1] / 2);
       const initIndexX = Math.floor(dimensions[0] / 2);
 
-      const sliceZ = volume.extractSlice("z", initIndexZ * ratio[2]);
-      const sliceY = volume.extractSlice("y", initIndexY * ratio[1]);
+      const sliceZ = wanted.z
+        ? volume.extractSlice("z", initIndexZ * ratio[2])
+        : undefined;
+      const sliceY = wanted.y
+        ? volume.extractSlice("y", initIndexY * ratio[1])
+        : undefined;
       //x plane
-      const sliceX = volume.extractSlice("x", initIndexX * ratio[0]);
+      const sliceX = wanted.x
+        ? volume.extractSlice("x", initIndexX * ratio[0])
+        : undefined;
       repairSliceGeometry(sliceZ, sliceY, sliceX);
-      sliceZ.initIndex = initIndexZ;
-      sliceY.initIndex = initIndexY;
-      sliceX.initIndex = initIndexX;
-      sliceZ.MaxIndex = dimensions[2] - 1;
-      sliceY.MaxIndex = dimensions[1] - 1;
-      sliceX.MaxIndex = dimensions[0] - 1;
-      sliceZ.RSARatio = ratio[2];
-      sliceY.RSARatio = ratio[1];
-      sliceX.RSARatio = ratio[0];
-      sliceZ.RSAMaxIndex = rasdimensions[2] - 1;
-      sliceY.RSAMaxIndex = rasdimensions[1] - 1;
-      sliceX.RSAMaxIndex = rasdimensions[0] - 1;
+      if (sliceZ) {
+        sliceZ.initIndex = initIndexZ;
+        sliceZ.MaxIndex = dimensions[2] - 1;
+        sliceZ.RSARatio = ratio[2];
+        sliceZ.RSAMaxIndex = rasdimensions[2] - 1;
+      }
+      if (sliceY) {
+        sliceY.initIndex = initIndexY;
+        sliceY.MaxIndex = dimensions[1] - 1;
+        sliceY.RSARatio = ratio[1];
+        sliceY.RSAMaxIndex = rasdimensions[1] - 1;
+      }
+      if (sliceX) {
+        sliceX.initIndex = initIndexX;
+        sliceX.MaxIndex = dimensions[0] - 1;
+        sliceX.RSARatio = ratio[0];
+        sliceX.RSAMaxIndex = rasdimensions[0] - 1;
+      }
 
       nrrdMeshes = {
-        x: sliceX.mesh,
-        y: sliceY.mesh,
-        z: sliceZ.mesh,
+        x: sliceX?.mesh,
+        y: sliceY?.mesh,
+        z: sliceZ?.mesh,
       };
       nrrdSlices = {
         x: sliceX,
@@ -133,30 +192,36 @@ export function copperNrrdLoader(
       };
 
       if (gui) {
-        gui
-          .add(state, "indexX", 0, volume.dimensions[0] - 1)
-          .step(1)
-          .name("indexX")
-          .onChange(function (val) {
-            sliceX.index = val * sliceX.RSARatio;
-            sliceX.repaint.call(sliceX);
-          });
-        gui
-          .add(state, "indexY", 0, volume.dimensions[1] - 1)
-          .step(1)
-          .name("indexY")
-          .onChange(function (val) {
-            sliceY.index = val * sliceY.RSARatio;
-            sliceY.repaint.call(sliceY);
-          });
-        gui
-          .add(state, "indexZ", 0, volume.dimensions[2] - 1)
-          .step(1)
-          .name("indexZ")
-          .onChange(function (val) {
-            sliceZ.index = val * sliceZ.RSARatio;
-            sliceZ.repaint.call(sliceZ);
-          });
+        if (sliceX) {
+          gui
+            .add(state, "indexX", 0, volume.dimensions[0] - 1)
+            .step(1)
+            .name("indexX")
+            .onChange(function (val) {
+              sliceX.index = val * sliceX.RSARatio;
+              sliceX.repaint.call(sliceX);
+            });
+        }
+        if (sliceY) {
+          gui
+            .add(state, "indexY", 0, volume.dimensions[1] - 1)
+            .step(1)
+            .name("indexY")
+            .onChange(function (val) {
+              sliceY.index = val * sliceY.RSARatio;
+              sliceY.repaint.call(sliceY);
+            });
+        }
+        if (sliceZ) {
+          gui
+            .add(state, "indexZ", 0, volume.dimensions[2] - 1)
+            .step(1)
+            .name("indexZ")
+            .onChange(function (val) {
+              sliceZ.index = val * sliceZ.RSARatio;
+              sliceZ.repaint.call(sliceZ);
+            });
+        }
 
         gui
           .add(volume, "lowerThreshold", volume.min, volume.max, 1)
@@ -198,6 +263,15 @@ export function copperNrrdLoader(
       if (xhr.loaded / xhr.total === 1) {
         loadingContainer.style.display = "none";
       }
+      // After the built-in bar, so a throwing callback cannot leave the bar
+      // stuck showing a stale percentage.
+      opts?.onProgress?.(xhr);
+    },
+    function (error: unknown) {
+      // The loading bar has no failure state of its own; leaving it up
+      // forever is what made a failed volume look like a slow one.
+      loadingContainer.style.display = "none";
+      opts?.onError?.(error);
     }
   );
 }
@@ -460,6 +534,15 @@ export function getWholeSlices(
   gui.add(controls as any, "enabled").name("controls");
 }
 
+/**
+ * @deprecated Since 3.9.0, use `addVolumeBoundingBox(scene, rasDimensions)`.
+ *
+ * Kept unchanged for callers passing their own `boxCube`, which works. The
+ * two-argument form does not: `cube` is declared in this module and never
+ * assigned, so it reaches `new THREE.BoxHelper(undefined)`. This also cannot
+ * take a `copperSceneOnDemond` -- a sibling of `copperScene`, not a descendant
+ * -- and sizes the box from `volume.matrix` rather than its RAS dimensions.
+ */
 export function addBoxHelper(
   scene: copperScene,
   volume: any,

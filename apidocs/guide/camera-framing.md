@@ -119,6 +119,43 @@ the canvas's page box.
 
 ---
 
+## 2a. `setCameraPose()` <Badge type="tip" text="3.9.0" />
+
+```ts
+setCameraPose(scene: PosableScene, pose: Pose): void
+
+// or as a method
+copperSceneOnDemond.setCameraPose(pose)
+```
+
+`fitView` re-frames on content. This is the general case: a pose you already
+have — the end of a flight from `interpolateFlightPose`, a saved bookmark, a
+`viewPointToPose(preset)` — written onto the camera.
+
+```ts
+scene.setCameraPose(Copper.viewPointToPose(preset));
+renderer.render();
+```
+
+It is four assignments, and the fourth is the one everybody forgets:
+
+```ts
+camera.position.set(...)
+camera.up.set(...)       // before lookAt, which builds the basis from it
+camera.lookAt(...)
+controls.target.set(...) // <- this one
+```
+
+Leave the last line out and everything looks right until the user touches the
+mouse: the first drag calls `controls.update()`, which re-aims the camera at
+the stale `target`. The symptom — "the camera jumps back the moment I drag" —
+points at the controls rather than at the code that caused it.
+
+Does **not** render. The caller decides when to draw, which matters under
+on-demand rendering where this may be one of several changes in a frame.
+
+---
+
 ## 3. Pose interpolation — `Controls/cameraTransitions`
 
 Pure numeric helpers for moving a camera. **Dependency-free**: plain numbers and

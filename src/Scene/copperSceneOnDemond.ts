@@ -2,27 +2,76 @@ import * as THREE from "three";
 import { baseScene } from "./baseScene";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
+import type { GltfLoadOpts } from "../Loader/copperGltfLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 import { CameraViewPoint } from "../Controls/copperControls";
 import { fitView as fitViewOn } from "../Controls/fitView";
 import type { FitViewScene } from "../Controls/fitView";
 import type { FitBounds } from "../Controls/orbitFraming";
+import { setCameraPose as setCameraPoseOn } from "../Controls/setCameraPose";
+import type { PosableScene } from "../Controls/setCameraPose";
+import type { Pose } from "../Controls/cameraTransitions";
+import { ICopperSceneOpts } from "../types/types";
 
 export class copperSceneOnDemond extends baseScene {
-  controls: OrbitControls;
+  controls: OrbitControls | Copper3dTrackballControls | TrackballControls;
   renderRequested: boolean | undefined = false;
   isResize: boolean = false;
 
-  constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
-    super(container, renderer);
-    this.controls = new OrbitControls(this.camera, renderer.domElement);
+  /**
+   * `opt.controls` picks the controls class, as it already did on
+   * `copperScene`. New in 3.9.0 -- this class hardcoded `OrbitControls`
+   * before, so passing the option produced no error and no effect.
+   *
+   * The DEFAULT stays `OrbitControls`, which is what this class has always
+   * built. It differs from `copperScene`'s default (`Copper3dTrackballControls`)
+   * on purpose: changing it would silently swap the controls under every
+   * existing on-demand viewer.
+   *
+   * Note that the renderer's own `options.controls` is deliberately NOT
+   * consulted. It has never had any effect here, so honouring it now would
+   * change behaviour for anyone who set it and never noticed.
+   */
+  constructor(
+    container: HTMLDivElement,
+    renderer: THREE.WebGLRenderer,
+    opt?: ICopperSceneOpts
+  ) {
+    super(container, renderer, opt);
+
+    if (opt?.controls === "copper3d") {
+      const trackball = new Copper3dTrackballControls(
+        this.camera,
+        renderer.domElement
+      );
+      // Without this the viewer is dead to the mouse: the trackball
+      // dispatches `change` only from inside `update()`, and `update()` only
+      // runs inside `render()` -- which nothing schedules until a `change`
+      // arrives. See `Copper3dTrackballControls.updateOnInput`.
+      trackball.updateOnInput = true;
+      this.controls = trackball;
+    } else if (opt?.controls === "trackball") {
+      // three's own TrackballControls has the same "change only from
+      // update()" shape and no equivalent flag, so this combination needs the
+      // caller to pump a frame from its own input listeners. Prefer
+      // "copper3d" under on-demand rendering.
+      this.controls = new TrackballControls(this.camera, renderer.domElement);
+    } else {
+      this.controls = new OrbitControls(this.camera, renderer.domElement);
+    }
 
     this.controls.addEventListener("change", this.requestRenderIfNotRequested);
     window.addEventListener("resize", this.confirmResize, false);
     requestAnimationFrame(this.render);
   }
 
-  loadGltf(url: string, callback?: (content: THREE.Group) => void) {
+  loadGltf(
+    url: string,
+    callback?: (content: THREE.Group) => void,
+    opts?: GltfLoadOpts
+  ) {
     const loader = copperGltfLoader(this.renderer);
 
     loader.load(
@@ -53,9 +102,11 @@ export class copperSceneOnDemond extends baseScene {
         this.scene.add(gltf.scene);
         callback && callback(gltf.scene);
       },
-      (error) => {
-        // console.log(error);
-      }
+      // Slots three and four, in that order. Before 3.9.0 an empty function
+      // named `error` sat in the onProgress slot and there was no fourth
+      // argument at all, so a failed load invoked nothing.
+      opts?.onProgress,
+      opts?.onError
     );
   }
 
@@ -88,10 +139,56 @@ export class copperSceneOnDemond extends baseScene {
     );
   }
 
+  /**
+   * Moves the camera to `pose` and syncs the controls' orbit pivot with it.
+   * Without that last part the next drag silently undoes the move -- see
+   * `Controls/setCameraPose.ts`.
+   *
+   * Does not render; the caller decides when to draw.
+   */
+  setCameraPose(pose: Pose) {
+    setCameraPoseOn(this as unknown as PosableScene, pose);
+  }
+
   confirmResize = () => {
     this.isResize = true;
     this.requestRenderIfNotRequested();
   };
+
+  /**
+   * Releases what this scene attached OUTSIDE itself.
+   *
+   * The `resize` listener the constructor puts on `window` used to have no
+   * counterpart: every scene ever created stayed subscribed for the life of
+   * the page, kept alive by the closure, and went on calling
+   * `requestRenderIfNotRequested` -- and so `onWindowResize`, which resizes
+   * the SHARED renderer -- long after it stopped being displayed. An app that
+   * creates a scene per case leaks one of those per case.
+   *
+   * Does not touch the scene graph or the renderer: what a scene's contents
+   * are worth keeping is the caller's decision, and the renderer is shared
+   * with every other scene. `disposeScene(renderer, name)` is the one that
+   * tears the contents down.
+   *
+   * Deliberately NOT `controls.dispose()`. That path ends in
+   * `domElement.style.touchAction = ""`, and every scene here shares one
+   * canvas -- only `connect()` sets it back to `"none"`. Disposing one
+   * scene's controls would kill touch rotation on the canvas for the rest of
+   * the session. Disabling them is enough.
+   *
+   * Safe to call twice.
+   */
+  dispose() {
+    window.removeEventListener("resize", this.confirmResize);
+    this.controls.enabled = false;
+    this.controls.removeEventListener(
+      "change",
+      this.requestRenderIfNotRequested
+    );
+    // Nothing in flight can arrive after this: `render` clears the flag, and
+    // an already-scheduled frame only draws.
+    this.renderRequested = false;
+  }
 
   render = () => {
     this.renderRequested = undefined;

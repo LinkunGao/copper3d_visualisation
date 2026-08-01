@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { baseRenderer } from "./baseRenderer";
-import { ICopperRenderOpt, SceneMapType } from "../types/types";
+import { ICopperRenderOpt, ICopperSceneOpts, SceneMapType } from "../types/types";
 import { copperSceneOnDemond } from "../Scene/copperSceneOnDemond";
 import { disposeScene as disposeSceneFrom } from "./disposeScene";
 import type { SceneDisposalHost } from "./disposeScene";
@@ -38,11 +38,25 @@ export class copperRendererOnDemond extends baseRenderer {
     }
   }
 
-  createScene(name: string) {
+  /**
+   * `opt` is per-scene and new in 3.9.0 -- `{ controls: "copper3d" }` builds
+   * the scene with `Copper3dTrackballControls` instead of the default
+   * `OrbitControls`. Omit it for exactly the previous behaviour.
+   *
+   * Deliberately a parameter rather than a read of this renderer's own
+   * `options.controls`: that option has never had any effect on on-demand
+   * scenes, so honouring it now would swap the controls under anyone who set
+   * it and never noticed.
+   */
+  createScene(name: string, opt?: ICopperSceneOpts) {
     if (this.sceneMap[name] != undefined) {
       return undefined;
     } else {
-      const new_scene = new copperSceneOnDemond(this.container, this.renderer);
+      const new_scene = new copperSceneOnDemond(
+        this.container,
+        this.renderer,
+        opt
+      );
       new_scene.sceneName = name;
       this.updateEnvironment(new_scene.vignette);
       this.sceneMap[name] = new_scene;

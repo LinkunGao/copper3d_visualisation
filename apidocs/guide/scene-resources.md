@@ -101,6 +101,35 @@ list silently misses anything added under a name nobody thought to list.
 
 ---
 
+## 2a. `copperSceneOnDemond.dispose()` <Badge type="tip" text="3.9.0" />
+
+```ts
+scene.dispose(): void
+```
+
+Releases what the scene attached **outside itself** — specifically the `resize` listener
+its constructor puts on `window`.
+
+Before 3.9.0 that listener had no counterpart. Every scene ever created stayed subscribed
+for the life of the page, kept alive by the closure, and went on calling
+`requestRenderIfNotRequested` — and so `onWindowResize`, which resizes the **shared**
+renderer — long after it stopped being displayed. An app that builds a scene per case
+leaks one per case, and they all fire on every window resize.
+
+`disposeScene()` now calls it for you, so eviction is complete on its own. Call it
+directly only when you are dropping a scene without going through the renderer's map:
+
+```ts
+scene.dispose();
+```
+
+It does not touch the scene graph or the renderer. What a scene's contents are worth
+keeping is the caller's decision, and the renderer is shared with every other scene —
+`disposeScene` is the one that tears contents down. Safe to call twice, and safe on a
+scene class that has none (`disposeScene` calls it optionally).
+
+---
+
 ## 3. Residency budget
 
 ```ts

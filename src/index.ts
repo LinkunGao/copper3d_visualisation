@@ -12,6 +12,12 @@ import {
   convertScreenPosto3DPos,
 } from "./Utils/add3DLabel";
 import { addBoxHelper, optsType } from "./Loader/copperNrrdLoader";
+import {
+  copperGltfLoader,
+  setDracoDecoderPath,
+  setKTX2TranscoderPath,
+} from "./Loader/copperGltfLoader";
+import type { GltfLoadOpts } from "./Loader/copperGltfLoader";
 import { fullScreenListenner, loading, throttle } from "./Utils/utils";
 import { copperRendererOnDemond } from "./Renderer/copperRendererOnDemond";
 import { copperSceneOnDemond } from "./Scene/copperSceneOnDemond";
@@ -20,7 +26,10 @@ import { copperMScene } from "./Scene/copperMScene";
 
 import { createTexture2D_NRRD } from "./Utils/texture2d";
 
-import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
+import {
+  configKiwriousHeart,
+  loadKiwrious,
+} from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
 import { NrrdTools } from "./Utils/segmentation/NrrdTools";
 import { GaussianSmoother } from "./Utils/segmentation/core/GaussianSmoother";
@@ -53,6 +62,29 @@ import { fitDistance } from "./Controls/orbitFraming";
 import type { FitBounds } from "./Controls/orbitFraming";
 import { fitView } from "./Controls/fitView";
 import type { FitViewScene } from "./Controls/fitView";
+import {
+  isRotateEnabled,
+  setRotateEnabled,
+  isPanEnabled,
+  setPanEnabled,
+  isZoomEnabled,
+  setZoomEnabled,
+} from "./Controls/controlsAxes";
+import type { AxisGatedControls } from "./Controls/controlsAxes";
+import { beginGesture, isGestureActive } from "./Controls/gestureGate";
+import type { GestureAxes } from "./Controls/gestureGate";
+import { setCameraPose } from "./Controls/setCameraPose";
+import type { PosableScene } from "./Controls/setCameraPose";
+import {
+  addVolumeBoundingBox,
+  VOLUME_BOUNDS_NAME,
+} from "./Loader/volumeBoundingBox";
+import type {
+  BoundingBoxHost,
+  VolumeBoundingBoxOpts,
+} from "./Loader/volumeBoundingBox";
+import { DEFAULT_AXES } from "./Loader/copperNrrdLoader";
+import type { NrrdAxis } from "./Loader/copperNrrdLoader";
 import {
   easeInOutCubic,
   viewPointToPose,
@@ -146,6 +178,7 @@ export {
   copperMScene,
   CameraViewPoint,
   kiwrious,
+  loadKiwrious,
   NrrdTools,
   loading,
   Copper3dTrackballControls,
@@ -175,6 +208,21 @@ export {
   removeSceneFromMap,
   fitDistance,
   fitView,
+  isRotateEnabled,
+  setRotateEnabled,
+  isPanEnabled,
+  setPanEnabled,
+  isZoomEnabled,
+  setZoomEnabled,
+  beginGesture,
+  isGestureActive,
+  setCameraPose,
+  addVolumeBoundingBox,
+  VOLUME_BOUNDS_NAME,
+  DEFAULT_AXES,
+  copperGltfLoader,
+  setDracoDecoderPath,
+  setKTX2TranscoderPath,
   easeInOutCubic,
   viewPointToPose,
   rotateAroundAxis,
@@ -190,6 +238,7 @@ export type {
   positionType,
   screenPosType,
   optsType,
+  GltfLoadOpts,
   nrrdMeshesType,
   nrrdSliceType,
   SensorDecodedValue_kiwrious,
@@ -234,6 +283,12 @@ export type {
   SceneDisposalHost,
   FitBounds,
   FitViewScene,
+  AxisGatedControls,
+  GestureAxes,
+  PosableScene,
+  BoundingBoxHost,
+  VolumeBoundingBoxOpts,
+  NrrdAxis,
   Pose,
 };
 
