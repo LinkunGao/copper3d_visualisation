@@ -67,6 +67,33 @@ class Copper3dTrackballControls extends EventDispatcher<Copper3dTrackballControl
    */
   updateOnInput: boolean;
 
+  /**
+   * A world-space point that rotation orbits INSTEAD of `target`.
+   *
+   * `panCamera` translates `target` along with the camera, so once the reader
+   * has panned, `target` is wherever they dragged it to and a rotate swings the
+   * content through an arc around that empty point rather than turning it on
+   * the spot. Snapping `target` back to the content's centre fixes the axis but
+   * throws the pan away, because the camera re-aims at the new target.
+   *
+   * With a pivot set, the same rotation is applied to BOTH `_eye` and
+   * `target - rotationPivot`, which is what keeps the pan. Writing
+   * `q` for the frame's rotation and `C` for the pivot:
+   *
+   *   target'   = C + q(target - C)
+   *   eye'      = q(eye)
+   *   position' = target' + eye' = C + q(position - C)
+   *
+   * i.e. the whole camera rig rotates rigidly about `C`. The content turns
+   * about its own centre and stays exactly where it was panned to, because the
+   * pivot's projection on screen does not move.
+   *
+   * `null` (the default) is the historical behaviour: rotation orbits `target`.
+   * Setting it equal to `target` is also a no-op, so a viewer that never pans
+   * cannot tell the difference.
+   */
+  rotationPivot: Vector3 | null;
+
   minDistance: number;
   maxDistance: number;
 
@@ -141,6 +168,7 @@ class Copper3dTrackballControls extends EventDispatcher<Copper3dTrackballControl
     this.staticMoving = false;
     this.dynamicDampingFactor = 0.2;
     this.updateOnInput = false;
+    this.rotationPivot = null;
 
     this.minDistance = 0;
     this.maxDistance = Infinity;
@@ -237,6 +265,18 @@ class Copper3dTrackballControls extends EventDispatcher<Copper3dTrackballControl
         objectSidewaysDirection: Vector3 = new Vector3(),
         moveDirection: Vector3 = new Vector3();
 
+      /** Carries the frame's rotation over to `target`, so the whole camera rig
+       *  turns rigidly about `rotationPivot`. A no-op when no pivot is set, and
+       *  when the pivot IS the target (nothing has panned): the offset being
+       *  rotated is then the zero vector. */
+      const rotateTargetAboutPivot = function (quaternion: Quaternion) {
+        if (!scope.rotationPivot) return;
+        scope.target
+          .sub(scope.rotationPivot)
+          .applyQuaternion(quaternion)
+          .add(scope.rotationPivot);
+      };
+
       return function rotateCamera() {
         moveDirection.set(
           _moveCurr.x - _movePrev.x,
@@ -266,6 +306,7 @@ class Copper3dTrackballControls extends EventDispatcher<Copper3dTrackballControl
 
           _eye.applyQuaternion(quaternion);
           scope.object.up.applyQuaternion(quaternion);
+          rotateTargetAboutPivot(quaternion);
 
           _lastAxis.copy(axis);
           _lastAngle = angle;
@@ -275,6 +316,9 @@ class Copper3dTrackballControls extends EventDispatcher<Copper3dTrackballControl
           quaternion.setFromAxisAngle(_lastAxis, _lastAngle);
           _eye.applyQuaternion(quaternion);
           scope.object.up.applyQuaternion(quaternion);
+          // The damped glide has to carry the target too, or the rig would come
+          // apart over the frames after the pointer is released.
+          rotateTargetAboutPivot(quaternion);
         }
 
         _movePrev.copy(_moveCurr);
