@@ -25,9 +25,25 @@ export default {
       themeConfig: {
         nav: [
           { text: "指南", link: "/zh/guide/nrrd-tools" },
+          { text: "示例", link: "/zh/examples/camera-controls-nrrd" },
           { text: "API", link: "/apidist/modules" },
         ],
         sidebar: {
+          "/zh/examples/": [
+            {
+              text: "实战示例",
+              items: [
+                {
+                  text: "相机取景、控制器配置、NRRD 单切片拖动",
+                  link: "/zh/examples/camera-controls-nrrd",
+                },
+                {
+                  text: "切换 pan 之后的旋转行为",
+                  link: "/zh/examples/rotation-pivot-switch",
+                },
+              ],
+            },
+          ],
           "/zh/guide/": [
             {
               text: "使用指南",
@@ -62,6 +78,7 @@ export default {
               items: [
                 { text: "相机取景与位姿过渡", link: "/zh/guide/camera-framing" },
                 { text: "按需渲染与轨迹球控制器", link: "/zh/guide/on-demand-controls" },
+                { text: "旋转中心与 pan", link: "/zh/guide/rotation-pivot" },
                 { text: "控制器轴开关与手势门控", link: "/zh/guide/control-axes" },
               ],
             },
@@ -94,9 +111,25 @@ export default {
     repo: "LinkunGao/copper3d_visualisation",
     nav: [
       { text: "Guide", link: "/guide/nrrd-tools" },
+      { text: "Examples", link: "/examples/camera-controls-nrrd" },
       { text: "API", link: "/apidist/modules" },
     ],
     sidebar: {
+      "/examples/": [
+        {
+          text: "Worked Examples",
+          items: [
+            {
+              text: "Camera Framing, Controls & NRRD Slice Dragging",
+              link: "/examples/camera-controls-nrrd",
+            },
+            {
+              text: "Switching Rotation Behaviour After a Pan",
+              link: "/examples/rotation-pivot-switch",
+            },
+          ],
+        },
+      ],
       "/guide/": [
         {
           text: "Usage Guide",
@@ -131,6 +164,7 @@ export default {
           items: [
             { text: "Camera Framing & Transitions", link: "/guide/camera-framing" },
             { text: "On-Demand Rendering & Controls", link: "/guide/on-demand-controls" },
+            { text: "Rotation Pivot & Panning", link: "/guide/rotation-pivot" },
             { text: "Control Axes & Gesture Gating", link: "/guide/control-axes" },
           ],
         },
