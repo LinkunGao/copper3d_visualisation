@@ -93,6 +93,7 @@ export class EventRouter {
     private boundPointerLeave: PointerHandler;
     private boundWheel: WheelHandler;
     private boundContextMenu: (e: Event) => void;
+    private boundWindowBlur: () => void;
 
     // === Binding state ===
     private isBound: boolean = false;
@@ -111,6 +112,7 @@ export class EventRouter {
         this.boundPointerLeave = this.handlePointerLeave.bind(this);
         this.boundWheel = this.handleWheel.bind(this);
         this.boundContextMenu = (e: Event) => e.preventDefault();
+        this.boundWindowBlur = this.handleWindowBlur.bind(this);
     }
 
     // ========================================
@@ -143,6 +145,10 @@ export class EventRouter {
         // Disable right-click context menu
         this.canvas.addEventListener('contextmenu', this.boundContextMenu);
 
+        // Alt-tabbing away swallows the keyup, so held modifiers would stay
+        // latched until the key is pressed and released again.
+        window.addEventListener('blur', this.boundWindowBlur);
+
         this.isBound = true;
     }
 
@@ -170,6 +176,8 @@ export class EventRouter {
 
         // Context menu
         this.canvas.removeEventListener('contextmenu', this.boundContextMenu);
+
+        window.removeEventListener('blur', this.boundWindowBlur);
 
         this.isBound = false;
     }
@@ -426,23 +434,86 @@ export class EventRouter {
     // Internal Event Handlers
     // ========================================
 
-    private handleKeyDown(ev: KeyboardEvent): void {
-        // Update state based on modifier keys
-        if (ev.key === this.keyboardSettings.draw) {
-            this.state.shiftHeld = true;
-            // Block draw mode when crosshair or contrast is active (mutual exclusion)
-            // Also block when sphereBrush or sphereEraser is active
-            if (DRAWING_TOOLS.has(this.guiTool) && !this.state.ctrlHeld && !this.state.crosshairEnabled) {
-                this.setMode('draw');
+    /**
+     * Apply the draw modifier going down. Shared by the keydown listener and
+     * the pointer-event reconciliation below.
+     */
+    private applyDrawKeyDown(): void {
+        this.state.shiftHeld = true;
+        // Block draw mode when crosshair or contrast is active (mutual exclusion)
+        // Also block when sphereBrush or sphereEraser is active
+        if (DRAWING_TOOLS.has(this.guiTool) && !this.state.ctrlHeld && !this.state.crosshairEnabled) {
+            this.setMode('draw');
+        }
+    }
+
+    /** Apply the draw modifier going up. */
+    private applyDrawKeyUp(): void {
+        this.state.shiftHeld = false;
+        if (this.mode === 'draw') {
+            this.setMode('idle');
+        }
+    }
+
+    /** Apply the contrast modifier going down. */
+    private applyContrastKeyDown(): void {
+        if (!this.contrastEnabled) return;
+        // Block contrast state when crosshair, draw, aiAssist, or any sphere-family tool is active (mutual exclusion)
+        if (!this.state.crosshairEnabled && this.mode !== 'draw' && this.mode !== 'aiAssist'
+            && !SPHERE_TOOLS.has(this.guiTool)) {
+            this.state.ctrlHeld = true;
+        }
+    }
+
+    /**
+     * Correct the tracked modifier state from a mouse/wheel event.
+     *
+     * Keyboard listeners are bound to the container, so they only fire while it
+     * holds focus. Clicking a panel input moves focus away, and the container
+     * then never sees the Shift keydown: `shiftHeld` stays false, the mode stays
+     * `idle`, and the next left-drag scrubs slices instead of painting. Mouse
+     * events carry the true OS modifier state on every dispatch no matter where
+     * focus sits, which makes them the authoritative correction.
+     *
+     * Contrast is only ever cleared here, never toggled — the Ctrl toggle lives
+     * on keyup in DrawToolCore, and driving it from pointer movement would flip
+     * contrast on gestures the user never aimed at the canvas.
+     */
+    private syncModifiersFromPointer(ev: MouseEvent): void {
+        if (ev.shiftKey !== this.state.shiftHeld) {
+            if (ev.shiftKey) {
+                this.applyDrawKeyDown();
+            } else {
+                this.applyDrawKeyUp();
             }
         }
 
-        if (this.contrastEnabled && this.keyboardSettings.contrast.includes(ev.key)) {
-            // Block contrast state when crosshair, draw, aiAssist, or any sphere-family tool is active (mutual exclusion)
-            if (!this.state.crosshairEnabled && this.mode !== 'draw' && this.mode !== 'aiAssist'
-                && !SPHERE_TOOLS.has(this.guiTool)) {
-                this.state.ctrlHeld = true;
+        const ctrlDown = ev.ctrlKey || ev.metaKey;
+        if (ctrlDown !== this.state.ctrlHeld) {
+            if (ctrlDown) {
+                this.applyContrastKeyDown();
+            } else {
+                this.state.ctrlHeld = false;
             }
+        }
+    }
+
+    /** Drop latched modifiers when the window loses focus. */
+    private handleWindowBlur(): void {
+        if (this.state.shiftHeld) {
+            this.applyDrawKeyUp();
+        }
+        this.state.ctrlHeld = false;
+    }
+
+    private handleKeyDown(ev: KeyboardEvent): void {
+        // Update state based on modifier keys
+        if (ev.key === this.keyboardSettings.draw) {
+            this.applyDrawKeyDown();
+        }
+
+        if (this.contrastEnabled && this.keyboardSettings.contrast.includes(ev.key)) {
+            this.applyContrastKeyDown();
         }
 
         // Route to external handler
@@ -454,10 +525,7 @@ export class EventRouter {
     private handleKeyUp(ev: KeyboardEvent): void {
         // Update state based on modifier keys
         if (ev.key === this.keyboardSettings.draw) {
-            this.state.shiftHeld = false;
-            if (this.mode === 'draw') {
-                this.setMode('idle');
-            }
+            this.applyDrawKeyUp();
         }
 
         if (this.keyboardSettings.contrast.includes(ev.key)) {
@@ -476,6 +544,10 @@ export class EventRouter {
     }
 
     private handlePointerDown(ev: PointerEvent): void {
+        // Must run before the mode is read below: a Shift press the container
+        // never received would otherwise leave this reading as a slice-drag.
+        this.syncModifiersFromPointer(ev);
+
         if (ev.button === 0) {
             this.state.leftButtonDown = true;
         } else if (ev.button === 2) {
@@ -493,6 +565,10 @@ export class EventRouter {
     }
 
     private handlePointerMove(ev: PointerEvent): void {
+        // Hovering back over the canvas is the first chance to notice a Shift
+        // that was pressed or released while focus sat in a panel field.
+        this.syncModifiersFromPointer(ev);
+
         // Route to external handler
         if (this.pointerMoveHandler) {
             this.pointerMoveHandler(ev);
@@ -516,6 +592,11 @@ export class EventRouter {
         if (this.pointerUpHandler) {
             this.pointerUpHandler(ev);
         }
+
+        // Reconciled last on release so an in-progress stroke finalises under
+        // the mode it started in, rather than being cut short by a Shift the
+        // user let go of a moment before the button.
+        this.syncModifiersFromPointer(ev);
     }
 
     private handlePointerLeave(ev: PointerEvent): void {
@@ -526,6 +607,8 @@ export class EventRouter {
     }
 
     private handleWheel(ev: WheelEvent): void {
+        this.syncModifiersFromPointer(ev);
+
         if (this.wheelHandler) {
             this.wheelHandler(ev);
         }

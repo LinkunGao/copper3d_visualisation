@@ -260,6 +260,15 @@ export class DragOperator {
       this.dragPrameters.handleOnDragMouseUp,
       true
     );
+    // A drag already in flight keeps its pointermove binding, and pointerup —
+    // the only thing that detaches it — has just been removed. Without this the
+    // listener survives the button release and slices keep scrubbing on hover
+    // until the next click happens to land while drag mode is configured again.
+    this.container.removeEventListener(
+      "pointermove",
+      this.dragPrameters.handleOnDragMouseMove,
+      false
+    );
     this.setIsDrawFalse(1000);
   };
 
