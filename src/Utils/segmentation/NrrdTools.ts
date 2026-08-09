@@ -808,6 +808,20 @@ export class NrrdTools {
     this.sliceRenderPipeline.resetDisplaySlicesStatus();
   }
 
+  /**
+   * Move to a specific contrast without moving the slice.
+   *
+   * `index` addresses `displaySlices` — the SELECTED subset — not the full contrast list.
+   * With three of five phases selected, valid values are 0..2. Callers that think in phase
+   * names must convert first.
+   */
+  setContrastIndex(index: number) {
+    const last = this.state.protectedData.displaySlices.length - 1;
+    if (last < 0) return;
+    this.state.nrrd_states.view.contrastNum = Math.min(Math.max(index, 0), last);
+    this.sliceRenderPipeline.resetDisplaySlicesStatus();
+  }
+
   setSliceMoving(step: number) {
     if (this.state.protectedData.mainPreSlices) {
       this._pendingSliceStep += step;
