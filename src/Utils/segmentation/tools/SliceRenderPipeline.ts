@@ -50,6 +50,11 @@ export class SliceRenderPipeline extends BaseTool {
       });
     } else {
       remainSlices.forEach((slice: any, index: number) => {
+        // skipSlicesDic is keyed by index and persists across switchSlicesPreservingView,
+        // which does not reconcile it against the new array's length. Switching to a series
+        // with fewer contrasts leaves indices with no backing slice; without this guard they
+        // push undefined into displaySlices and the canvas goes blank.
+        if (!this.ctx.protectedData.backUpDisplaySlices[index]) return;
         if (!!slice) {
           this.ctx.protectedData.displaySlices.push(
             this.ctx.protectedData.backUpDisplaySlices[index]
@@ -75,6 +80,13 @@ export class SliceRenderPipeline extends BaseTool {
   switchPreservingView(): void {
     // Rebuild displaySlices from the new allSlicesArray
     this.setDisplaySlicesBaseOnAxis();
+
+    // The previous series may have had more contrasts than this one.
+    const lastContrast = this.ctx.protectedData.displaySlices.length - 1;
+    if (this.ctx.nrrd_states.view.contrastNum > lastContrast) {
+      this.ctx.nrrd_states.view.contrastNum = Math.max(0, lastContrast);
+    }
+
     // Update mainPreSlices reference
     this.setMainPreSlice();
     this.updateMaxIndex();
