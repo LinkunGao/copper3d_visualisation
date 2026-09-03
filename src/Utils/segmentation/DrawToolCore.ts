@@ -87,6 +87,83 @@ export class DrawToolCore {
   /** Slice index recorded when paintOnCanvas() starts, guards stale-click */
   private paintSliceIndex = 0;
 
+  /**
+   * While true, no input may modify a mask: the pencil, brush, eraser, sphere and
+   * sphere-brush branches below all no-op. Slice scrubbing, zoom, pan and the crosshair
+   * stay live, because this exists for the window while a case's images are still
+   * arriving -- the reader may look, but must not annotate.
+   *
+   * A UI that merely greys its own buttons does not achieve this: a tool selected before
+   * the load began stays armed, and `afterLoadSlice` clears the undo stack every time a
+   * slice lands, so a stroke made during loading cannot be taken back.
+   */
+  private annotationSuspended = false;
+
+  setAnnotationSuspended(suspended: boolean): void {
+    this.annotationSuspended = suspended;
+  }
+
+  isAnnotationSuspended(): boolean {
+    return this.annotationSuspended;
+  }
+
+  /**
+   * Left/right button press on the drawing canvas.
+   *
+   * Named rather than inlined into `draw()` so the suspension gate below can be exercised
+   * directly: it is the single point that decides whether an input may modify a mask.
+   */
+  onCanvasPointerDown(e: MouseEvent): void {
+      if (this.drawingTool.isActive || this.panTool.isActive) {
+        this.state.protectedData.ctxes.drawingLayerMasterCtx.closePath();
+        return;
+      }
+
+      if (this.paintSliceIndex !== this.state.protectedData.mainPreSlices.index) {
+        this.paintSliceIndex = this.state.protectedData.mainPreSlices.index;
+      }
+
+      // Suppress wheel only when starting a draw operation
+      if (this.eventRouter.getMode() === 'draw') {
+        this.activeWheelMode = 'none';
+      }
+
+      if (e.button === 0) {
+        // Every branch that can write into a mask is gated; the crosshair below is a
+        // read-only probe and stays available, as do pan (button 2) and the wheel.
+        if (this.annotationSuspended && !this.eventRouter.isCrosshairEnabled()) {
+          return;
+        }
+
+        if (this.eventRouter.getMode() === 'aiAssist') {
+          this.aiAssistTool.onPointerDown(e);
+        } else if (this.eventRouter.getMode() === 'draw') {
+          this.drawingTool.onPointerDown(e);
+        } else if (this.eventRouter.isCrosshairEnabled()) {
+          this.state.nrrd_states.interaction.cursorPageX =
+            e.offsetX / this.state.nrrd_states.view.sizeFactor;
+          this.state.nrrd_states.interaction.cursorPageY =
+            e.offsetY / this.state.nrrd_states.view.sizeFactor;
+
+          this.enableCrosshair();
+        } else if (this.state.gui_states.mode.sphereBrush && !this.eventRouter.isCrosshairEnabled()) {
+          // SphereBrush: direct click (no Shift needed)
+          this.activeWheelMode = 'sphereBrush';
+          this.sphereBrushTool.onSphereBrushClick(e);
+        } else if (this.state.gui_states.mode.sphereEraser && !this.eventRouter.isCrosshairEnabled()) {
+          // SphereEraser: direct click (Shift handled at mode level)
+          this.activeWheelMode = 'sphereBrush';
+          this.sphereBrushTool.onSphereEraserClick(e);
+        } else if (this.state.gui_states.mode.sphere && !this.eventRouter.isCrosshairEnabled()) {
+          this.handleSphereClick(e)
+        }
+      } else if (e.button === 2) {
+        this.panTool.onPointerDown(e);
+      } else {
+        return;
+      }
+  }
+
   /** Wheel event dispatch mode — replaces manual wheel add/remove (Phase 2) */
   private activeWheelMode: 'zoom' | 'sphere' | 'sphereBrush' | 'none' = 'zoom';
 
@@ -513,52 +590,11 @@ export class DrawToolCore {
 
     // drawing move — delegated to DrawingTool
     this.drawingPrameters.handleOnDrawingMouseMove = (e: MouseEvent) => {
+      if (this.annotationSuspended) return;
       this.drawingTool.onPointerMove(e);
     };
-    this.drawingPrameters.handleOnDrawingMouseDown = (e: MouseEvent) => {
-      if (this.drawingTool.isActive || this.panTool.isActive) {
-        this.state.protectedData.ctxes.drawingLayerMasterCtx.closePath();
-        return;
-      }
-
-      if (this.paintSliceIndex !== this.state.protectedData.mainPreSlices.index) {
-        this.paintSliceIndex = this.state.protectedData.mainPreSlices.index;
-      }
-
-      // Suppress wheel only when starting a draw operation
-      if (this.eventRouter.getMode() === 'draw') {
-        this.activeWheelMode = 'none';
-      }
-
-      if (e.button === 0) {
-        if (this.eventRouter.getMode() === 'aiAssist') {
-          this.aiAssistTool.onPointerDown(e);
-        } else if (this.eventRouter.getMode() === 'draw') {
-          this.drawingTool.onPointerDown(e);
-        } else if (this.eventRouter.isCrosshairEnabled()) {
-          this.state.nrrd_states.interaction.cursorPageX =
-            e.offsetX / this.state.nrrd_states.view.sizeFactor;
-          this.state.nrrd_states.interaction.cursorPageY =
-            e.offsetY / this.state.nrrd_states.view.sizeFactor;
-
-          this.enableCrosshair();
-        } else if (this.state.gui_states.mode.sphereBrush && !this.eventRouter.isCrosshairEnabled()) {
-          // SphereBrush: direct click (no Shift needed)
-          this.activeWheelMode = 'sphereBrush';
-          this.sphereBrushTool.onSphereBrushClick(e);
-        } else if (this.state.gui_states.mode.sphereEraser && !this.eventRouter.isCrosshairEnabled()) {
-          // SphereEraser: direct click (Shift handled at mode level)
-          this.activeWheelMode = 'sphereBrush';
-          this.sphereBrushTool.onSphereEraserClick(e);
-        } else if (this.state.gui_states.mode.sphere && !this.eventRouter.isCrosshairEnabled()) {
-          this.handleSphereClick(e)
-        }
-      } else if (e.button === 2) {
-        this.panTool.onPointerDown(e);
-      } else {
-        return;
-      }
-    };
+    this.drawingPrameters.handleOnDrawingMouseDown = (e: MouseEvent) =>
+      this.onCanvasPointerDown(e);
     // Route pointerdown through EventRouter
     this.eventRouter.setPointerDownHandler((e: PointerEvent) => {
       // On slice-drag start, temporarily borrow the wheel as Scroll:Slice

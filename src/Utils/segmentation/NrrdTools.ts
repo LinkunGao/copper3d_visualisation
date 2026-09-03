@@ -1181,6 +1181,24 @@ export class NrrdTools {
   isAiAssistActive(): boolean { return this._aiAssistActive; }
 
   /**
+   * Suspend or resume annotation input.
+   *
+   * While suspended the reader may still scrub slices, zoom, pan and place the crosshair,
+   * but no input can write into a mask. This is the enforcement behind "during loading you
+   * may preview, not annotate": greying the Operation panel's buttons does not achieve it,
+   * because a tool selected before the load began stays armed on the canvas -- and a stroke
+   * made then cannot even be undone, since `afterLoadSlice` clears the undo stack each time
+   * a slice arrives.
+   */
+  setAnnotationSuspended(suspended: boolean): void {
+    this.drawCore.setAnnotationSuspended(suspended);
+  }
+
+  isAnnotationSuspended(): boolean {
+    return this.drawCore.isAnnotationSuspended();
+  }
+
+  /**
    * Enter AI-assist mode (sandbox): hides the existing layer masks so ONLY the
    * AI overlay is shown, takes canvas ownership (left-click = prompt), and creates
    * the scratch volume. Right-drag still pans; wheel/slider still scrub slices.

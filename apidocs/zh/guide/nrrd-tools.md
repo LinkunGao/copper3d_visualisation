@@ -510,6 +510,43 @@ nrrdTools.enableContrastDragEvents((step: number, towards: 'horizental' | 'verti
 });
 ```
 
+### 5.6 暂停标注 —— 只读预览 <Badge type="tip" text="3.10.0" />
+
+```typescript
+nrrdTools.setAnnotationSuspended(true);   // 仅可预览
+nrrdTools.setAnnotationSuspended(false);  // 恢复标注
+const suspended = nrrdTools.isAnnotationSuspended();
+```
+
+暂停期间，**任何输入都无法写入 mask**。所有只读的操作照常可用，病例仍然可以完整浏览：
+
+| 仍然可用 | 被拦截 |
+|----------|--------|
+| 切片浏览（拖动、滚轮、`setSliceMoving`） | 铅笔 / 画笔 / 橡皮擦 |
+| 缩放与平移（右键拖动） | 放置 sphere |
+| 放置十字准线 | SphereBrush / SphereEraser |
+| 窗宽 / 窗位 | AI-assist 提示点 |
+
+典型场景是"病例图像还在陆续到达"的那段时间：
+
+```typescript
+nrrdTools.setAnnotationSuspended(true);
+await loadAllContrasts(caseId);
+nrrdTools.commitSeriesLoad(allSlices, skipEntries, 0);
+nrrdTools.setAnnotationSuspended(false);
+```
+
+::: warning 把自己的工具栏按钮置灰并不等价
+必须在引擎内部拦截，有两个原因：
+
+1. 在加载**开始之前**就已经选中的工具，在画布上仍然是激活的 —— 按钮是灰的，但左键拖动照样画得上去。
+2. 加载期间画下的笔画撤不回来。每有一个切片到达，`afterLoadSlice` 都会清空 undo 栈，于是 mask
+   留下了这一笔，而能撤销它的历史却被下一个到达的切片丢掉了。
+:::
+
+拦截点只有一处 —— `DrawToolCore.onCanvasPointerDown` —— 而不是分散在各个工具里，所以以后新增的
+工具默认就被覆盖到。
+
 ---
 
 ## 6. 图层与通道管理
@@ -1092,6 +1129,8 @@ function onChannelColorPicked(hex: string) {
 | **笔具模式** | `setMode(mode)` | 切换工具模式: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
 | | `getMode()` | 获取当前工具模式 |
 | | `isCalculatorActive()` | 检查是否在 calculator 模式 |
+| | `setAnnotationSuspended(bool)` | 拦截所有会写入 mask 的输入；切片浏览、缩放、平移、十字准线仍然可用 |
+| | `isAnnotationSuspended()` | 查询当前是否处于暂停标注状态 |
 | **球形画笔** | `setSphereBrushRadius(radius)` | 设置球形画笔/橡皮擦半径 [1, 50] |
 | | `getSphereBrushRadius()` | 获取当前球形画笔/橡皮擦半径 |
 | **注绘操作** | `setOpacity(value)` | 给那个透明盖图层罩薄厚度下注定义设 [ 从0.1 透明最清至 1 完全厚填实实底 ] 之间的范数 |

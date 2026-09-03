@@ -447,6 +447,8 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | Method | Description |
 |--------|-------------|
 | `drag(opts?)` | Enable drag-to-scroll slice navigation |
+| `setAnnotationSuspended(bool)` | Block every input that can write into a mask, at `DrawToolCore.onCanvasPointerDown`. Slice scrubbing, zoom, pan and the crosshair stay live (see 7.1) |
+| `isAnnotationSuspended()` | Query the suspension state |
 | `setSliceOrientation(axis)` | Switch viewing axis. Calls `ensureAxisExtracted` for every loaded contrast first, so a narrowed-axes load can still switch planes |
 | `addSkip(index)` / `removeSkip(index)` | Hide / show one contrast. `index` addresses the **full** contrast list |
 | `setSkips(entries)` | Batched `addSkip`/`removeSkip`: writes every `skipSlicesDic` entry, then one `resetDisplaySlicesStatus()` |
@@ -882,6 +884,44 @@ abstract class BaseTool {
 | **DragSliceTool** | `tools/DragSliceTool.ts` | Drag to scroll through slices |
 
 Tool initialization: `DrawToolCore.ts` → `initTools()`
+
+#### Annotation suspension gate
+
+`DrawToolCore.onCanvasPointerDown(e)` is the single point at which an input is allowed to
+modify a mask. It exists as a named method rather than an inline closure in `draw()` so the
+gate can be exercised directly in tests.
+
+```
+onCanvasPointerDown(e)
+  │
+  ├─ drawingTool.isActive || panTool.isActive?  → closePath, return
+  ├─ sync paintSliceIndex to the current slice
+  ├─ mode === 'draw'?                           → activeWheelMode = 'none'
+  │
+  ├─ e.button === 0
+  │   ├─ annotationSuspended && !crosshairEnabled?  → return  ◀ the gate
+  │   ├─ mode 'aiAssist'  → aiAssistTool.onPointerDown
+  │   ├─ mode 'draw'      → drawingTool.onPointerDown
+  │   ├─ crosshair on     → enableCrosshair            (read-only, survives the gate)
+  │   ├─ sphereBrush      → sphereBrushTool.onSphereBrushClick
+  │   ├─ sphereEraser     → sphereBrushTool.onSphereEraserClick
+  │   └─ sphere           → handleSphereClick
+  │
+  └─ e.button === 2       → panTool.onPointerDown      (pan survives the gate)
+```
+
+`handleOnDrawingMouseMove` carries the same early return, so a drag that began before
+suspension cannot continue painting through it.
+
+Two consequences of gating here rather than per tool:
+
+- A tool added later is covered without being told about suspension.
+- The `!crosshairEnabled` escape applies only to a read-only probe. It cannot leak a stroke
+  through, because `EventRouter` makes crosshair and `draw` mutually exclusive:
+  `applyDrawKeyDown` refuses to enter `draw` while the crosshair is on, and `toggleCrosshair`
+  refuses to turn it on while the mode is `draw`.
+
+Exposed on the facade as `NrrdTools.setAnnotationSuspended()` / `isAnnotationSuspended()`.
 
 ### 7.2 ImageStoreHelper (key tool)
 

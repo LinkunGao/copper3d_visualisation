@@ -451,6 +451,8 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | 方法 | 说明 |
 |------|------|
 | `drag(opts?)` | 启用拖拽切片功能 |
+| `setAnnotationSuspended(bool)` | 在 `DrawToolCore.onCanvasPointerDown` 处拦截所有会写入 mask 的输入。切片浏览、缩放、平移和十字准线仍然可用（见 7.1） |
+| `isAnnotationSuspended()` | 查询当前是否处于暂停标注状态 |
 | `setSliceOrientation(axis)` | 切换观察轴。会先为每个已加载的对比度调用 `ensureAxisExtracted`，所以只抽了部分轴的加载仍然可以切面 |
 | `addSkip(index)` / `removeSkip(index)` | 隐藏 / 显示一个对比度。`index` 指向**完整**对比度列表 |
 | `setSkips(entries)` | `addSkip`/`removeSkip` 的批量形式：写完所有 `skipSlicesDic` 条目后，只调一次 `resetDisplaySlicesStatus()` |
@@ -888,6 +890,42 @@ abstract class BaseTool {
 | **DragSliceTool** | [tools/DragSliceTool.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/DragSliceTool.ts) | `DragSliceHostDeps` | 拖拽切换切片 |
 
 Tool 初始化: [DrawToolCore.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/DrawToolCore.ts) `initTools()` 方法
+
+#### 标注暂停闸门
+
+`DrawToolCore.onCanvasPointerDown(e)` 是唯一一处决定"这次输入是否允许修改 mask"的地方。它被写成
+一个具名方法而不是 `draw()` 里的内联闭包，就是为了让这个闸门可以在测试里被直接驱动。
+
+```
+onCanvasPointerDown(e)
+  │
+  ├─ drawingTool.isActive || panTool.isActive？ → closePath，return
+  ├─ 把 paintSliceIndex 同步到当前切片
+  ├─ mode === 'draw'？                          → activeWheelMode = 'none'
+  │
+  ├─ e.button === 0
+  │   ├─ annotationSuspended && !crosshairEnabled？ → return  ◀ 闸门
+  │   ├─ mode 'aiAssist'  → aiAssistTool.onPointerDown
+  │   ├─ mode 'draw'      → drawingTool.onPointerDown
+  │   ├─ 十字准线开启      → enableCrosshair            （只读，可穿过闸门）
+  │   ├─ sphereBrush      → sphereBrushTool.onSphereBrushClick
+  │   ├─ sphereEraser     → sphereBrushTool.onSphereEraserClick
+  │   └─ sphere           → handleSphereClick
+  │
+  └─ e.button === 2       → panTool.onPointerDown      （平移可穿过闸门）
+```
+
+`handleOnDrawingMouseMove` 里也有同样的提前返回，所以在暂停之前就已经按下的拖动，无法穿过暂停
+继续绘制。
+
+在这里统一拦截（而不是每个工具各拦一次）带来两个结果：
+
+- 以后新增的工具不需要知道"暂停"这回事，也自动被覆盖。
+- `!crosshairEnabled` 这个放行口只对一个只读探针生效，不会漏出一笔绘制：`EventRouter` 保证了
+  十字准线和 `draw` 互斥 —— `applyDrawKeyDown` 在十字准线开启时拒绝进入 `draw`，而
+  `toggleCrosshair` 在 mode 为 `draw` 时拒绝开启十字准线。
+
+在 Facade 上暴露为 `NrrdTools.setAnnotationSuspended()` / `isAnnotationSuspended()`。
 
 ### 7.2 ImageStoreHelper（关键工具）
 

@@ -640,6 +640,46 @@ nrrdTools.enableContrastDragEvents((step: number, towards: 'horizental' | 'verti
 });
 ```
 
+#### 5.6 Suspending annotation — read-only preview <Badge type="tip" text="3.10.0" />
+
+```typescript
+nrrdTools.setAnnotationSuspended(true);   // preview only
+nrrdTools.setAnnotationSuspended(false);  // annotation live again
+const suspended = nrrdTools.isAnnotationSuspended();
+```
+
+While suspended, **no input can write into a mask**. Everything that only reads stays live,
+so the case remains fully reviewable:
+
+| Still works | Blocked |
+|-------------|---------|
+| Slice scrubbing (drag, wheel, `setSliceMoving`) | Pencil / brush / eraser strokes |
+| Zoom and pan (right-drag) | Sphere placement |
+| Crosshair placement | SphereBrush / SphereEraser |
+| Window / level | AI-assist prompts |
+
+The typical use is the window while a case's images are still arriving:
+
+```typescript
+nrrdTools.setAnnotationSuspended(true);
+await loadAllContrasts(caseId);
+nrrdTools.commitSeriesLoad(allSlices, skipEntries, 0);
+nrrdTools.setAnnotationSuspended(false);
+```
+
+::: warning Greying out your own toolbar is not equivalent
+Two reasons this has to be enforced inside the engine:
+
+1. A tool selected **before** the load began stays armed on the canvas — the buttons are
+   disabled, but a left-drag still paints.
+2. A stroke made during loading cannot be undone. `afterLoadSlice` clears the undo stack
+   every time a slice lands, so the mask keeps the paint while the history that would
+   reverse it is thrown away by the next arrival.
+:::
+
+The gate sits at a single point — `DrawToolCore.onCanvasPointerDown` — rather than in each
+tool, so a tool added later is covered by default.
+
 ---
 
 ### 6. Layer & Channel Management
@@ -1519,6 +1559,8 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | **Tool Mode** | `setMode(mode)` | Switch tool mode: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
 | | `getMode()` | Read current tool mode |
 | | `isCalculatorActive()` | Check if calculator (distance) mode is active |
+| | `setAnnotationSuspended(bool)` | Block all mask-writing input; scrubbing, zoom, pan and crosshair stay live |
+| | `isAnnotationSuspended()` | Query the suspension state |
 | **Sphere Brush** | `setSphereBrushRadius(radius)` | Set sphere brush/eraser radius [1, 50] |
 | | `getSphereBrushRadius()` | Read current sphere brush/eraser radius |
 | **Drawing** | `setOpacity(value)` | Set mask overlay opacity [0.1, 1] |
