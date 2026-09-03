@@ -235,6 +235,22 @@ nrrdTools.commitSkipsAndContrast(skipEntries, 0);        // skips + contrast, on
 nrrdTools.commitSeriesLoad(allSlices, skipEntries, 0);   // whole case load, one refresh
 ```
 
+**Read-only preview while loading**
+
+`setAnnotationSuspended(true)` blocks every input that can write into a mask, while slice
+scrubbing, zoom, pan and the crosshair stay live:
+
+```typescript
+nrrdTools.setAnnotationSuspended(true);
+await loadAllContrasts(caseId);
+nrrdTools.commitSeriesLoad(allSlices, skipEntries, 0);
+nrrdTools.setAnnotationSuspended(false);
+```
+
+Disabling your own toolbar is not equivalent: a tool selected before the load began stays
+armed on the canvas, and a stroke made during loading cannot be undone — `afterLoadSlice`
+clears the undo stack each time a slice arrives.
+
 ---
 
 ### 4. Render Loop Integration
@@ -475,6 +491,8 @@ nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoa
 | **Tool Mode** | `setMode(mode)` | Switch tool: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
 | | `getMode()` | Read current tool mode |
 | | `isCalculatorActive()` | Check if calculator (distance) mode is active |
+| | `setAnnotationSuspended(bool)` | Block all mask-writing input; scrubbing, zoom, pan and crosshair stay live |
+| | `isAnnotationSuspended()` | Query the suspension state |
 | **Sphere Brush** | `setSphereBrushRadius(radius)` | Set sphere brush/eraser radius [1, 50] |
 | | `getSphereBrushRadius()` | Read current sphere brush/eraser radius |
 | **Drawing** | `setOpacity(value)` | Set mask overlay opacity [0.1, 1] |
