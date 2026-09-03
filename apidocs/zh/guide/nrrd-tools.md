@@ -126,6 +126,12 @@ nrrdTools.setAllSlices(allSlices);
 如果在 `setAllSlices()` 之**前**调用颜色 API，操作将被静默忽略（因为此时 MaskVolume 尚未创建完成）。
 :::
 
+::: tip 支持只抽部分轴的加载 <Badge type="tip" text="3.10.0" />
+`setAllSlices` 的几何信息（维度、spacing、space origin）是从**已经存在**的那个面背后的共享
+`Volume` 上读的，所以用 [`axes: ["z"]`](./load-callbacks) 加载出来的切片在这里同样可用。
+缺的面会在 `setSliceOrientation()` 第一次需要它们时按需抽取。
+:::
+
 ### 3.2 加载已有的掩膜数据 (NIfTI)
 
 ```typescript
@@ -140,26 +146,139 @@ const loadingBar = { value: 0 }; // 必需是包含 .value 属性的响应式对
 nrrdTools.setMasksFromNIfTI(layerVoxels, loadingBar);
 ```
 
+#### 网格校验 —— `registerNiftiMaskGrid()` <Badge type="tip" text="3.10.0" />
+
+`setMasksFromNIfTI` 以前会把任何 buffer 硬塞进去：长的截断，短的补零。两种情况下，来自错误
+网格的 mask 都会**静默地画到错误的体素上**，而且哪里都不报错。被拒绝的 mask 是可以补救的，
+放错位置的不行。
+
+现在 buffer 会和已加载图像的体素网格做比对，不匹配就**拒绝加载**。这个校验需要 buffer 自己的
+NIfTI 网格，而 `setMasksFromNIfTI` 没有第二个参数可以接 —— 所以要在带外注册，以 buffer 本身为键：
+
+```typescript
+import { registerNiftiMaskGrid } from 'copper3d';
+
+const { voxels, dims } = await fetchNiftiVoxels(path); // dims = header 的 [x, y, z]
+registerNiftiMaskGrid(voxels, dims);                   // 必须在 setMasksFromNIfTI 之前
+
+layerVoxels.set('layer1', voxels);
+nrrdTools.setMasksFromNIfTI(layerVoxels);
+```
+
+::: warning 没注册过网格的 buffer 一律拒绝
+不会"假定它匹配"。每一个要传给 `setMasksFromNIfTI` 的 buffer 都必须先调用一次
+`registerNiftiMaskGrid`，否则该图层会被跳过。解码出来就顺手注册 —— 注册表是按 buffer 身份
+索引的，所以你可以先解码好几个图层，再统一调用 `setMasksFromNIfTI`。
+:::
+
+被拒绝的图层会带着两个网格打印 `console.error`、调用 `notifyUser`（见下），然后被跳过；同一个
+`Map` 里的其他图层照常加载。
+
+#### `notifyUser` —— 把引擎的消息接到你的 UI 上 <Badge type="tip" text="3.10.0" />
+
+本包自身不带 UI，也不会去引用你应用里的 UI。`NrrdTools.notifyUser` 就是这个接缝：它默认写
+console，宿主如果有 toast 或 banner，在构造之后把自己的实现赋上去即可。
+
+```typescript
+nrrdTools.notifyUser = (message, level) => {
+  // level: 'error' | 'warning' | 'info'
+  toast[level](message);
+};
+```
+
+目前只有"mask 被拒绝"这一件事会用到它。
+
 **加载保存的病例：**
 
 ```typescript
+import { registerNiftiMaskGrid } from 'copper3d';
+
 async function loadCase(caseDetail: ICaseDetail) {
   const layerVoxels = new Map<string, Uint8Array>();
 
   if (Number(caseDetail.output.mask_layer1_nii_size) > 0) {
-    const voxels = await fetchNiftiVoxels(caseDetail.output.mask_layer1_nii_path!);
-    if (voxels) layerVoxels.set('layer1', voxels);
+    const { voxels, dims } = await fetchNiftiVoxels(caseDetail.output.mask_layer1_nii_path!);
+    if (voxels) {
+      registerNiftiMaskGrid(voxels, dims);
+      layerVoxels.set('layer1', voxels);
+    }
   }
 
   if (Number(caseDetail.output.mask_layer2_nii_size) > 0) {
-    const voxels = await fetchNiftiVoxels(caseDetail.output.mask_layer2_nii_path!);
-    if (voxels) layerVoxels.set('layer2', voxels);
+    const { voxels, dims } = await fetchNiftiVoxels(caseDetail.output.mask_layer2_nii_path!);
+    if (voxels) {
+      registerNiftiMaskGrid(voxels, dims);
+      layerVoxels.set('layer2', voxels);
+    }
   }
 
   if (layerVoxels.size > 0) {
     nrrdTools.setMasksFromNIfTI(layerVoxels);
   }
 }
+```
+
+### 3.3 对比度序列：skip、contrast 索引与批量提交
+
+一个加载好的病例是一串对比度（phase）序列。`allSlicesArray` 存全部对比度，`displaySlices` 存
+真正显示的那个子集（由 skip 列表推出来）。由此产生了**两套索引空间**，混用它们是这里最常见的 bug：
+
+| 名称 | 指向 | 说明 |
+|------|------|------|
+| skip `index` | **完整**对比度列表中的位置 | `addSkip` / `removeSkip` / `setSkips` 收的就是它 |
+| `contrastIndex` | **`displaySlices`** 中的位置，即被选中的子集 | `setContrastIndex` 收的是它 |
+
+5 个 phase 里选了 3 个时，合法的 `contrastIndex` 是 `0..2`。按 phase 名字思考的调用方必须先做转换。
+
+```typescript
+nrrdTools.addSkip(2);          // 隐藏第 2 个对比度
+nrrdTools.removeSkip(2);       // 再显示出来
+nrrdTools.setContrastIndex(1); // 跳到第 2 个**被显示的**对比度
+```
+
+#### 批量形式 <Badge type="tip" text="3.10.0" />
+
+上面每一个调用最后都会走一次完整的 display/canvas/mask 刷新。放在循环里 —— 比如病例加载时一次性
+对齐整套 phase 选择 —— 除最后一次之外的每次刷新都会立刻被覆盖掉，而这个开销是实打实的（5 个 phase
+的序列实测超过 1 秒主线程时间）。批量形式做同样的事，只刷新**一次**：
+
+```typescript
+// 多次 skip 变更，一次刷新
+nrrdTools.setSkips([
+  { index: 0, skip: false },
+  { index: 1, skip: true },
+  { index: 2, skip: true },
+]);
+
+// skip 变更 + 落到某个对比度，一次刷新
+nrrdTools.commitSkipsAndContrast(
+  [{ index: 1, skip: true }, { index: 3, skip: true }],
+  0
+);
+
+// 整个病例加载收尾：换序列 + 对齐 skip + 落到目标对比度
+nrrdTools.commitSeriesLoad(allSlices, skipEntries, 0);
+```
+
+`commitSeriesLoad` 取代了 `switchAllSlicesArrayData` + `setSkips` + `setContrastIndex` 这一串
+—— 原来要付三次完整刷新，其实一次就够。`contrastIndex` 会被夹取到重建后的 `displaySlices` 范围内，
+和 `setContrastIndex` 自己的边界检查一致。
+
+::: tip 该用哪一个
+- 用户点一下的单次切换 → `addSkip` / `removeSkip`
+- 同一轮里多次 skip 变更 → `setSkips`
+- skip 变更再加一个目标对比度 → `commitSkipsAndContrast`
+- 完整的病例 / 序列加载 → `commitSeriesLoad`
+:::
+
+#### 换序列时保留视图
+
+```typescript
+// 会重置切片索引 / 缩放 / 平移
+nrrdTools.switchAllSlicesArrayData(allSlices);
+
+// 保留当前切片索引、缩放和平移 —— 用于 register/origin 图像切换
+nrrdTools.switchSlicesPreservingView(allSlices);
 ```
 
 ---
@@ -934,7 +1053,17 @@ function onChannelColorPicked(hex: string) {
 | | `clearActiveLayer()` | 专干抹除净身指定的现正在活层的整体全方面三阶图集记录加所有重制项历史 |
 | | `clearActiveSlice()` | 止抹在视角当前那一小局部单一层的视图绘画历史内容（可进行使用推回救转挽回） |
 | | `setAllSlices(slices)` | 传输入 NRRD 片帧并开起创办出 MaskVolume 及相关的一切后项基要 |
-| | `setMasksFromNIfTI(map, bar?)` | 接收下载取回解包裹出的所有层 NIfTI 形式的三阶位像素块存组重返到屏幕显示面上 |
+| | `setMasksFromNIfTI(map, bar?)` | 接收下载取回解包裹出的所有层 NIfTI 形式的三阶位像素块存组重返到屏幕显示面上（每个 buffer 必须先经 `registerNiftiMaskGrid` 注册，否则会被拒绝） |
+| | `registerNiftiMaskGrid(data, dims)` | *（模块导出，不是实例方法）* 记录 mask buffer 的 NIfTI 体素网格，供 `setMasksFromNIfTI` 校验 |
+| | `notifyUser` | *（可赋值属性）* 引擎消息如何呈现给用户；默认写 console |
+| **对比度序列** | `addSkip(index)` | 隐藏一个对比度（索引指向完整对比度列表） |
+| | `removeSkip(index)` | 重新显示一个被隐藏的对比度 |
+| | `setSkips(entries)` | `addSkip`/`removeSkip` 的批量形式 —— 多次变更只刷新一次 |
+| | `setContrastIndex(index)` | 在 **`displaySlices`** 内切换对比度，不移动切片 |
+| | `commitSkipsAndContrast(entries, i)` | `setSkips` + `setContrastIndex` 的批量形式 —— 只刷新一次 |
+| | `commitSeriesLoad(slices, entries, i)` | 病例加载收尾：换序列 + 对齐 skip + 落到目标对比度，只刷新一次 |
+| | `switchAllSlicesArrayData(slices)` | 替换已加载的序列（会重置切片索引 / 缩放 / 平移） |
+| | `switchSlicesPreservingView(slices)` | 替换已加载的序列，保留切片索引、缩放和平移 |
 | **渲染部分** | `start` | 一组用去刷新重现覆盖表里的挂帧刷绘画层动作钩件方法函数 —— 它用来投入至全局循动描渲周期系统当中 |
 | **图层** | `setActiveLayer(id)` | 指令调切换过去另至另一块为被作为画改作用焦聚的图层中去 |
 | | `getActiveLayer()` | 查证核检取回当下现在被聚焦中用来修改活动所在的图层代号 |
@@ -978,7 +1107,9 @@ function onChannelColorPicked(hex: string) {
 | **动作操作** | `executeAction(action)` | 送指令执跑启动这套: 单次的撤退`"undo"` / 或一次追回`"redo"` / 清这当下一副全图`"clearActiveSliceMask"` / 扫去扫清那整一本满册所有的卷层包`"clearActiveLayerMask"` / 大视角回定复原`"resetZoom"` / 去直接给向外提取拉带载出去现今这个截页面遮版图图去留做别保存用 `"downloadCurrentMask"` / 高斯平滑 `"gaussianSmooth"` |
 | **高斯平滑** | `GaussianSmoother.gaussianSmooth3D(volume, channel, sigma?, spacing?)` | 对 MaskVolume 中指定 channel 的 mask 执行 3D 高斯平滑 |
 | | `GaussianSmoother.generateKernel1D(sigma)` | 生成归一化 1D 高斯核 |
-| **浏览导向** | `setSliceOrientation(axis)` | 让向直接转视角把当前被从这正平的视图里向给拨轮变作去转从别如头看过去切口样 `"x"` 或另向侧看 `"y"` 或者在切俯望底 `"z"`这各样的面向转去 |
+| **浏览导向** | `setSliceOrientation(axis)` | 切换观察轴 `"x"` / `"y"` / `"z"`；若加载时跳过了该切片面，会在此按需抽取 |
+| | `setSliceMoving(step)` | 按 `step` 移动当前切片（合并进一次 `requestAnimationFrame`） |
+| | `setMainAreaSize(factor)` | 设置主区域缩放系数 [1, 8] 并重新摆放绘制区域 |
 | **历史倒推** | `undo()` / `redo()` | 退一步倒先推走下撤销走上次这一笔一划，亦或直接叫返追着刚补弄错返回上才取消去的那补回来重做这步骤嘛 |
 | **键盘按键** | `setKeyboardSettings(partial)` | 供入进个重新配置并分配那几项有变动的特殊专键改替原键键名去变替原版绑位 |
 | | `getKeyboardSettings()` | 要求交取出现版所实带运行中绑的那些配全字典全包集合组 |

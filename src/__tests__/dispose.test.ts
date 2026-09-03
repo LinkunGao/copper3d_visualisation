@@ -25,7 +25,7 @@ describe('disposeMaterial', () => {
     disposeMaterial(material)
     expect(material.dispose).toHaveBeenCalledTimes(1)
     expect(material.map.dispose).toHaveBeenCalledTimes(1)
-    expect((material.normalMap as any).dispose).toHaveBeenCalledTimes(1)
+    expect((material as any).normalMap.dispose).toHaveBeenCalledTimes(1)
   })
 
   /** `Material.dispose()` does not cascade into its maps, so a canvas-backed

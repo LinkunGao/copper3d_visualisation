@@ -321,8 +321,74 @@ The `a` (alpha) field determines the base mask opacity. Usually set to `255`; ac
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `setAllSlices` | `(allSlices: Array<nrrdSliceType>): void` | **Entry point**: Load NRRD slices and initialize all MaskVolumes to the correct dimensions |
+| `initFromHeader` | `(header: NrrdHeaderLike): void` | Size image metadata and MaskVolumes from volume geometry alone, before any pixel data exists. `allSlicesArray` is untouched |
+| `appendSlice` | `(slice: nrrdSliceType, order: number): void` | Append one already-loaded slice to the contrast series and refresh display slices / undo state |
 | `setMasksData` | `(masksData, loadingBar?): void` | Legacy loading method (deprecated, pending removal) |
-| `setMasksFromNIfTI` | `(layerVoxels: Map<string, Uint8Array>, loadingBar?): void` | Load mask data from NIfTI files into MaskVolume |
+| `setMasksFromNIfTI` | `(layerVoxels: Map<string, Uint8Array>, loadingBar?): void` | Load mask data from NIfTI files into MaskVolume, validating each buffer's grid |
+| `registerNiftiMaskGrid` | `(data: Uint8Array, dims: number[]): void` *(module export)* | Record a mask buffer's NIfTI voxel grid, keyed by buffer identity, for `setMasksFromNIfTI` to check |
+
+#### Bulk vs. progressive loading
+
+`setAllSlices` is the bulk path and is still what almost every caller wants. Internally it is
+now a composition of two smaller pieces, which are also usable on their own:
+
+```
+setAllSlices(allSlices)
+  │
+  ├─ initFromHeader(headerFromSlice(allSlices[0]))   → image metadata + MaskVolume sizing
+  │    └─ headerFromSlice reads dimensions/spacing/space_origin off the shared Volume
+  │
+  ├─ allSlicesArray.length = 0                       → replace, not append
+  └─ setContrastOrder(slice, i) for each slice       → stamp contrastOrder on x/y/z
+```
+
+The split exists so a progressive loader can size everything from a backend headers response
+(`{ dimensions, spacing, space_origin }` as JSON — the same `NrrdHeaderLike` shape) and then
+feed slices in one at a time with `appendSlice` as they arrive.
+
+::: warning `appendSlice` is not a loop-friendly substitute for `setAllSlices`
+It calls `setDisplaySlicesBaseOnAxis()` per slice, which rebuilds the display-slice list from
+a still-growing `allSlicesArray`, and whose `skipSlicesDic` bookkeeping assumes it is seeing
+the final array. For N slices already in hand, use `setAllSlices`.
+:::
+
+**Why `nrrd_x_mm` is derivable without a canvas.** The mm extents used to be read off
+`slice.z.canvas.width/height` and `slice.x.canvas.width` — the physical size of the plane
+`VolumeSlice` extracted. Those canvases are always sized to `dimensions[axis] * spacing[axis]`
+(`Volume.extractPerpendicularPlane` sets `planeWidth`/`planeHeight` to the voxel counts times
+spacing), so the same values follow from dimensions and spacing alone. `canvas.width` is an
+HTML `unsigned long`, so a non-integer product truncates (44.8 → 44); `initFromHeader`
+reproduces that with `Math.floor`, which agrees with the DOM because spacing is a magnitude
+and never negative.
+
+**Narrowed-axes tolerance.** `headerFromSlice` and `setContrastOrder` read and stamp
+`slice.x ?? slice.y ?? slice.z` rather than assuming `.x`, because a
+[narrowed-axes load](./load-callbacks) may only have `z` extracted at this point. A plane
+extracted later by `ensureAxisExtracted` inherits `contrastOrder` from its siblings, so it
+ends up indistinguishable from one extracted at load time.
+
+#### Mask grid validation
+
+`setMasksFromNIfTI` used to truncate a longer buffer and zero-pad a shorter one, which
+rendered a wrong-grid mask silently offset onto the wrong voxels. It now compares the
+buffer's registered grid against `nrrd_states.image.dimensions` and refuses on mismatch:
+
+```
+for each [layerId, rawData] of layerVoxels
+  ├─ volume missing?              → console.warn, skip layer
+  ├─ maskGridByBuffer.get(rawData) → undefined, or dims !== image dims?
+  │     → console.error + notifyUser, skip layer   (never truncate, never pad)
+  └─ volume.setRawData(rawData)
+```
+
+`notifyUser(message, level)` is a `ToolHost` dependency backed by the public
+`NrrdTools.notifyUser` property. It defaults to a console write: this engine has no UI of its
+own, and importing the host application's is exactly what made the package unbuildable on its
+own. A host with a toast or a banner assigns its own implementation after construction.
+
+A buffer with **no** registered grid is refused rather than assumed to match. The registry is
+a `WeakMap` keyed by buffer identity — not by layer id — so a caller may decode several layers
+before `setMasksFromNIfTI` is consulted, and entries are collected with the buffers.
 
 ### 2.5 Display & Rendering
 
@@ -381,6 +447,16 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | Method | Description |
 |--------|-------------|
 | `drag(opts?)` | Enable drag-to-scroll slice navigation |
+| `setSliceOrientation(axis)` | Switch viewing axis. Calls `ensureAxisExtracted` for every loaded contrast first, so a narrowed-axes load can still switch planes |
+| `addSkip(index)` / `removeSkip(index)` | Hide / show one contrast. `index` addresses the **full** contrast list |
+| `setSkips(entries)` | Batched `addSkip`/`removeSkip`: writes every `skipSlicesDic` entry, then one `resetDisplaySlicesStatus()` |
+| `setContrastIndex(index)` | Move to a contrast **within `displaySlices`** (the selected subset), clamped to its bounds |
+| `commitSkipsAndContrast(entries, i)` | `setSkips` + `setContrastIndex` in one refresh. `contrastNum` is written *before* the refresh so its callbacks paint the target contrast directly; the clamp runs after, against the rebuilt `displaySlices` |
+| `commitSeriesLoad(slices, entries, i)` | Case-load completion: replaces `allSlicesArray`, then delegates to `commitSkipsAndContrast` — one refresh instead of three |
+| `switchAllSlicesArrayData(slices)` | Swap the loaded series and rebuild the display (resets view state) |
+| `switchSlicesPreservingView(slices)` | Swap the loaded series via `switchPreservingView()`, keeping slice index, zoom and pan |
+| `setSliceMoving(step)` | Step the current slice; steps are accumulated and applied in one `requestAnimationFrame` |
+| `setMainAreaSize(factor)` | Clamp the zoom factor to [1, 8], resize the paint area and reset its UI position |
 | `setBaseDrawDisplayCanvasesSize(size)` | Set canvas base size multiplier (1–8) |
 | `setupGUI(gui)` | Set up the dat.GUI panel |
 | `enableContrastDragEvents(callback)` | Enable contrast drag (window/level) events |

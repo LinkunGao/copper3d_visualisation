@@ -32,6 +32,8 @@ import {
 } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
 import { NrrdTools } from "./Utils/segmentation/NrrdTools";
+import { registerNiftiMaskGrid } from "./Utils/segmentation/tools/DataLoader";
+import type { NrrdHeaderLike } from "./Utils/segmentation/tools/DataLoader";
 import { GaussianSmoother } from "./Utils/segmentation/core/GaussianSmoother";
 // Phase 7: Segmentation Module - Unified exports
 
@@ -83,7 +85,7 @@ import type {
   BoundingBoxHost,
   VolumeBoundingBoxOpts,
 } from "./Loader/volumeBoundingBox";
-import { DEFAULT_AXES } from "./Loader/copperNrrdLoader";
+import { DEFAULT_AXES, ensureAxisExtracted } from "./Loader/copperNrrdLoader";
 import type { NrrdAxis } from "./Loader/copperNrrdLoader";
 import {
   easeInOutCubic,
@@ -180,6 +182,7 @@ export {
   kiwrious,
   loadKiwrious,
   NrrdTools,
+  registerNiftiMaskGrid,
   loading,
   Copper3dTrackballControls,
   Copper3dOrbitControls,
@@ -220,6 +223,7 @@ export {
   addVolumeBoundingBox,
   VOLUME_BOUNDS_NAME,
   DEFAULT_AXES,
+  ensureAxisExtracted,
   copperGltfLoader,
   setDracoDecoderPath,
   setKTX2TranscoderPath,
@@ -238,6 +242,7 @@ export type {
   positionType,
   screenPosType,
   optsType,
+  NrrdHeaderLike,
   GltfLoadOpts,
   nrrdMeshesType,
   nrrdSliceType,

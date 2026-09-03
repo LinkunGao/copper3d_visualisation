@@ -78,6 +78,43 @@ CameraViewPoint {
 
 ---
 
+### Loading NRRD volumes
+
+`scene.loadNrrd(url, loadingBar, segmentation, callback, opts?)` fetches, gunzips and parses
+the volume **in a shared Web Worker**; the pixel buffer comes back as a transferable and the
+main thread only rehydrates a `Volume` around it. Two concurrent loads of the same URL share
+one network transfer. The worker is inlined into the bundle, so there is no second asset file
+to serve.
+
+```ts
+const controller = new AbortController();
+
+scene.loadNrrd(url, loadingBar, false, (volume, meshes, slices) => { /* ... */ }, {
+  openGui: false,
+  axes: ["z"],                  // extract only the planes you show
+  knownMinMax: [min, max],      // skip three's whole-volume intensity scan
+  signal: controller.signal,    // cancel a superseded load
+  onProgress: (e) => setProgress(e.total > 0 ? e.loaded / e.total : null),
+  onError: (err) => showFailure(err),
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `openGui` | `boolean` | Show the built-in volume GUI |
+| `container` | `HTMLDivElement` | Host element for that GUI |
+| `axes` | `readonly ("x"\|"y"\|"z")[]` | Which slice planes to extract. Default `["x","y","z"]`. Omitted axes are `undefined` on the callback's `meshes` / `slices` |
+| `knownMinMax` | `[number, number]` | Volume intensity range, if already known (e.g. from a backend headers endpoint). Skips `Volume.computeMinMax()`'s full voxel scan |
+| `signal` | `AbortSignal` | Aborts the in-flight fetch. `onError` fires with a `DOMException` whose `name` is `"AbortError"` |
+| `onProgress` | `(e: ProgressEvent) => void` | Download progress, in addition to the built-in loading bar |
+| `onError` | `(error: unknown) => void` | Fetch or parse failure |
+
+Skipped a plane and need it later? `ensureAxisExtracted(slices, axis, meshes?)` extracts it on
+demand, mutating `slices` (and `meshes`) in place. `NrrdTools.setSliceOrientation()` already
+calls it for you, so an axial-only load can still switch to sagittal or coronal.
+
+---
+
 ## NrrdTools Usage Guide
 
 > Copper3D `NrrdTools` — Medical Image Segmentation Annotation Engine
@@ -153,8 +190,21 @@ nrrdTools.setupGUI(new GUI() as any);
 // Reset state then load new slices
 nrrdTools.reset();
 nrrdTools.setAllSlices(allSlices);
+```
 
-// Load existing NIfTI mask data
+**Loading existing NIfTI mask data**
+
+Each buffer must have its own NIfTI voxel grid registered first. A buffer whose grid does not
+match the loaded image — or that was never registered — is **refused**, not truncated or
+zero-padded, because a wrong-grid mask would otherwise render silently offset onto the wrong
+voxels. Other layers in the same map still load.
+
+```typescript
+import { registerNiftiMaskGrid } from 'copper3d';
+
+registerNiftiMaskGrid(layer1Uint8Array, layer1Dims); // dims = NIfTI header [x, y, z]
+registerNiftiMaskGrid(layer2Uint8Array, layer2Dims);
+
 const layerVoxels = new Map<string, Uint8Array>([
   ['layer1', layer1Uint8Array],
   ['layer2', layer2Uint8Array],
@@ -164,6 +214,25 @@ nrrdTools.setMasksFromNIfTI(layerVoxels);
 // With loading progress bar
 const loadingBar = { value: 0 };
 nrrdTools.setMasksFromNIfTI(layerVoxels, loadingBar);
+```
+
+A refused layer is logged and reported through `notifyUser`, which defaults to a console
+write — the package ships without a UI and does not reach into yours. Point it at your own:
+
+```typescript
+nrrdTools.notifyUser = (message, level) => toast[level](message); // 'error' | 'warning' | 'info'
+```
+
+**Contrast series**
+
+A case is a series of contrasts. `addSkip` / `removeSkip` index the **full** contrast list;
+`setContrastIndex` indexes `displaySlices`, the displayed subset. Each of those ends in a full
+display refresh, so use the batched forms when changing several at once:
+
+```typescript
+nrrdTools.setSkips([{ index: 1, skip: true }, { index: 2, skip: true }]);
+nrrdTools.commitSkipsAndContrast(skipEntries, 0);        // skips + contrast, one refresh
+nrrdTools.commitSeriesLoad(allSlices, skipEntries, 0);   // whole case load, one refresh
 ```
 
 ---
@@ -368,7 +437,16 @@ nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoa
 | | `clearActiveLayer()` | Clear active layer volume + undo history |
 | | `clearActiveSlice()` | Clear current slice (undoable) |
 | | `setAllSlices(slices)` | Load NRRD slices, init MaskVolumes |
-| | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data |
+| | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data (grids must be registered first) |
+| | `registerNiftiMaskGrid(data, dims)` | *(module export)* Record a mask buffer's NIfTI grid for validation |
+| | `notifyUser` | *(assignable property)* How engine messages reach the reader; defaults to a console write |
+| **Contrast Series** | `addSkip(i)` / `removeSkip(i)` | Hide / show one contrast (full-list index) |
+| | `setSkips(entries)` | Batched skip changes — one display refresh |
+| | `setContrastIndex(i)` | Move to a contrast within `displaySlices` |
+| | `commitSkipsAndContrast(entries, i)` | Batched skips + contrast — one refresh |
+| | `commitSeriesLoad(slices, entries, i)` | Case-load completion — one refresh |
+| | `switchAllSlicesArrayData(slices)` | Swap the series (resets view state) |
+| | `switchSlicesPreservingView(slices)` | Swap the series, keep slice index / zoom / pan |
 | **Render** | `start` | Frame callback — pass to render loop |
 | **Layer** | `setActiveLayer(id)` | Switch drawing target layer |
 | | `getActiveLayer()` | Read current layer |
@@ -376,6 +454,9 @@ nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoa
 | | `isLayerVisible(id)` | Query layer visibility |
 | | `getLayerVisibility()` | All layer visibility map |
 | | `hasLayerData(id)` | Check if layer has non-zero voxels |
+| | `setLayerOpacity(id, opacity)` | Set per-layer opacity (0.1–1.0), triggers re-render |
+| | `getLayerOpacity(id)` | Read one layer's opacity |
+| | `getLayerOpacityMap()` | All per-layer opacity values |
 | **Sphere** | `setActiveSphereType(type)` | Set active sphere type, updates brush color |
 | | `getActiveSphereType()` | Read current sphere type |
 | | `setCalculateDistanceSphere(x, y, slice, type)` | Programmatically place a calculator sphere |
@@ -391,17 +472,26 @@ nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoa
 | | `getChannelHexColor(id, ch)` | Read Hex string |
 | | `getChannelCssColor(id, ch)` | Read CSS rgba() string |
 | | `resetChannelColors(id?, ch?)` | Reset to defaults |
-| **Tool Mode** | `setMode(mode)` | Switch tool: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` |
+| **Tool Mode** | `setMode(mode)` | Switch tool: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
 | | `getMode()` | Read current tool mode |
+| | `isCalculatorActive()` | Check if calculator (distance) mode is active |
+| **Sphere Brush** | `setSphereBrushRadius(radius)` | Set sphere brush/eraser radius [1, 50] |
+| | `getSphereBrushRadius()` | Read current sphere brush/eraser radius |
 | **Drawing** | `setOpacity(value)` | Set mask overlay opacity [0.1, 1] |
 | | `getOpacity()` | Read current opacity |
 | | `setBrushSize(size)` | Set brush/eraser size [5, 50] |
 | | `getBrushSize()` | Read current brush size |
+| | `setPencilColor(hex)` | Set pencil stroke color (hex string) |
+| | `getPencilColor()` | Read current pencil color |
 | **Contrast** | `setWindowHigh(value)` | Set window high |
 | | `setWindowLow(value)` | Set window low |
 | | `finishWindowAdjustment()` | Repaint all contrast slices after drag ends |
-| **Actions** | `executeAction(action)` | Run: `"undo"` / `"redo"` / `"clearActiveSliceMask"` / `"clearActiveLayerMask"` / `"resetZoom"` / `"downloadCurrentMask"` |
-| **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"` |
+| | `adjustContrast(type, delta)` | Nudge `"windowHigh"` / `"windowLow"` by a delta |
+| | `getSliderMeta(key)` | Slider min/max/step/value for UI config (`"globalAlpha"`, `"layerAlpha"`, `"brushAndEraserSize"`, …) |
+| **Actions** | `executeAction(action, opts?)` | Run: `"undo"` / `"redo"` / `"clearActiveSliceMask"` / `"clearActiveLayerMask"` / `"resetZoom"` / `"downloadCurrentMask"` / `"gaussianSmooth"` (takes `{ sigma? }`) |
+| **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"`; extracts the plane on demand if the load skipped it |
+| | `setSliceMoving(step)` | Step the current slice (coalesced per animation frame) |
+| | `setMainAreaSize(factor)` | Set the main-area zoom factor [1, 8] |
 | **History** | `undo()` / `redo()` | Undo / redo last stroke |
 | **Keyboard** | `setKeyboardSettings(partial)` | Remap shortcuts |
 | | `getKeyboardSettings()` | Read current bindings |

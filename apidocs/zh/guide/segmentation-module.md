@@ -328,8 +328,70 @@ Channel `a`（alpha）决定 mask 的不透明度基准值。通常设为 `255`�
 | 方法 | 签名 | 说明 |
 |------|------|------|
 | `setAllSlices` | `(allSlices: Array<nrrdSliceType>): void` | **入口函数**：加载 NRRD 切片，初始化所有 MaskVolume 到正确尺寸 |
+| `initFromHeader` | `(header: NrrdHeaderLike): void` | 仅凭体数据几何信息就把图像元数据和 MaskVolume 尺寸定下来，此时还没有任何像素数据。不动 `allSlicesArray` |
+| `appendSlice` | `(slice: nrrdSliceType, order: number): void` | 把一个已加载的切片追加进对比度序列，并刷新 display slices / undo 状态 |
 | `setMasksData` | `(masksData, loadingBar?): void` | 旧版加载方法（Legacy，待移除） |
-| `setMasksFromNIfTI` | `(layerVoxels: Map<string, Uint8Array>, loadingBar?): void` | 从 NIfTI 文件加载 mask 到 MaskVolume |
+| `setMasksFromNIfTI` | `(layerVoxels: Map<string, Uint8Array>, loadingBar?): void` | 从 NIfTI 文件加载 mask 到 MaskVolume，并校验每个 buffer 的网格 |
+| `registerNiftiMaskGrid` | `(data: Uint8Array, dims: number[]): void` *（模块导出）* | 以 buffer 身份为键记录其 NIfTI 体素网格，供 `setMasksFromNIfTI` 校验 |
+
+#### 批量加载 vs. 渐进式加载
+
+`setAllSlices` 是批量路径，仍然是绝大多数调用方要用的那个。它内部现在由两块更小的部分组合而成，
+这两块也可以单独使用：
+
+```
+setAllSlices(allSlices)
+  │
+  ├─ initFromHeader(headerFromSlice(allSlices[0]))   → 图像元数据 + MaskVolume 尺寸
+  │    └─ headerFromSlice 从共享 Volume 上读 dimensions/spacing/space_origin
+  │
+  ├─ allSlicesArray.length = 0                       → 替换，而不是追加
+  └─ 对每个 slice 调 setContrastOrder(slice, i)      → 给 x/y/z 打上 contrastOrder
+```
+
+拆开是为了让渐进式加载可以先用后端 headers 响应（JSON 形式的
+`{ dimensions, spacing, space_origin }`，即同一个 `NrrdHeaderLike` 形状）把尺寸定下来，
+再用 `appendSlice` 随着切片陆续到达一个一个喂进去。
+
+::: warning `appendSlice` 不是 `setAllSlices` 的循环替代品
+它每个切片都会调一次 `setDisplaySlicesBaseOnAxis()`，而后者是从一个还在增长的 `allSlicesArray`
+上重建 display slice 列表的，它的 `skipSlicesDic` 记账逻辑假定自己看到的是最终数组。
+如果 N 个切片已经全在手上，请用 `setAllSlices`。
+:::
+
+**为什么 `nrrd_x_mm` 不需要 canvas 也能算出来。** 这几个 mm 尺寸原来是从
+`slice.z.canvas.width/height` 和 `slice.x.canvas.width` 上读的 —— 也就是 `VolumeSlice` 抽出来
+那个平面的物理尺寸。这些 canvas 的尺寸恒等于 `dimensions[axis] * spacing[axis]`
+（`Volume.extractPerpendicularPlane` 把 `planeWidth`/`planeHeight` 设成体素数乘 spacing），
+所以同样的值仅凭 dimensions 和 spacing 就能推出来。`canvas.width` 是 HTML 的 `unsigned long`，
+非整数乘积会被截断（44.8 → 44）；`initFromHeader` 用 `Math.floor` 复现了这一点 —— 因为 spacing
+是一个模长、永远非负，所以 floor 和 DOM 的截断结果一致。
+
+**对"只抽部分轴"的容忍。** `headerFromSlice` 和 `setContrastOrder` 读/写的是
+`slice.x ?? slice.y ?? slice.z`，而不是直接假定 `.x` 存在 —— 因为
+[只抽部分轴的加载](./load-callbacks)在这一步可能只抽了 `z`。之后由 `ensureAxisExtracted`
+补抽出来的面会从兄弟面继承 `contrastOrder`，因此和加载时就抽出来的面没有区别。
+
+#### Mask 网格校验
+
+`setMasksFromNIfTI` 以前是长的截断、短的补零，结果是错误网格的 mask 被静默地画到了错误的体素上。
+现在它会把 buffer 注册的网格和 `nrrd_states.image.dimensions` 比对，不匹配就拒绝：
+
+```
+对 layerVoxels 中每个 [layerId, rawData]
+  ├─ volume 不存在？               → console.warn，跳过该层
+  ├─ maskGridByBuffer.get(rawData) → undefined，或维度与图像维度不一致？
+  │     → console.error + notifyUser，跳过该层   （绝不截断，绝不补零）
+  └─ volume.setRawData(rawData)
+```
+
+`notifyUser(message, level)` 是一个 `ToolHost` 依赖，背后是公开的 `NrrdTools.notifyUser` 属性。
+它默认写 console：本引擎自身不带 UI，而去 import 宿主应用的 UI 正是让这个包无法独立构建的原因。
+宿主如果有 toast 或 banner，在构造之后把自己的实现赋上去即可。
+
+**没有**注册过网格的 buffer 一律拒绝，而不是假定它匹配。这个注册表是一个按 buffer 身份索引的
+`WeakMap` —— 不是按 layer id —— 所以调用方可以先解码好几个图层再调 `setMasksFromNIfTI`，
+而且表项会随 buffer 一起被回收。
 
 ### 2.5 Display & Rendering
 
@@ -389,6 +451,16 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | 方法 | 说明 |
 |------|------|
 | `drag(opts?)` | 启用拖拽切片功能 |
+| `setSliceOrientation(axis)` | 切换观察轴。会先为每个已加载的对比度调用 `ensureAxisExtracted`，所以只抽了部分轴的加载仍然可以切面 |
+| `addSkip(index)` / `removeSkip(index)` | 隐藏 / 显示一个对比度。`index` 指向**完整**对比度列表 |
+| `setSkips(entries)` | `addSkip`/`removeSkip` 的批量形式：写完所有 `skipSlicesDic` 条目后，只调一次 `resetDisplaySlicesStatus()` |
+| `setContrastIndex(index)` | 在 **`displaySlices`**（被选中的子集）内切换对比度，并夹取到其边界内 |
+| `commitSkipsAndContrast(entries, i)` | `setSkips` + `setContrastIndex` 合并为一次刷新。`contrastNum` 在刷新**之前**写入，使这次刷新的回调直接画出目标对比度；夹取在之后针对重建好的 `displaySlices` 执行 |
+| `commitSeriesLoad(slices, entries, i)` | 病例加载收尾：替换 `allSlicesArray`，再委托给 `commitSkipsAndContrast` —— 一次刷新代替三次 |
+| `switchAllSlicesArrayData(slices)` | 替换已加载的序列并重建显示（会重置视图状态） |
+| `switchSlicesPreservingView(slices)` | 通过 `switchPreservingView()` 替换序列，保留切片索引、缩放和平移 |
+| `setSliceMoving(step)` | 移动当前切片；多次步进会被累加并在一次 `requestAnimationFrame` 中应用 |
+| `setMainAreaSize(factor)` | 把缩放系数夹取到 [1, 8]，调整绘制区域大小并重置其 UI 位置 |
 | `setBaseDrawDisplayCanvasesSize(size)` | 设置 Canvas 基础尺寸 (1-8) |
 | `setupGUI(gui)` | 设置 dat.gui 面板 |
 | `enableContrastDragEvents(callback)` | 启用 contrast 拖拽事件 |
