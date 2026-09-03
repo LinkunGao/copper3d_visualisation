@@ -30,6 +30,7 @@ import { LayerChannelManager } from "./tools/LayerChannelManager";
 import { SliceRenderPipeline } from "./tools/SliceRenderPipeline";
 import { DataLoader } from "./tools/DataLoader";
 import type { ToolContext } from "./tools/BaseTool";
+import { ensureAxisExtracted } from "../../Loader/copperNrrdLoader";
 
 /**
  * Core NRRD annotation tool for medical image segmentation.
@@ -786,6 +787,15 @@ export class NrrdTools {
       }
     }
 
+    // A narrowed-axes case load (see copperNrrdLoader's `axes` option) only extracts "z" up
+    // front; switching to sagittal/coronal is the first time anything needs the other planes.
+    // Extract them here, for every loaded contrast, before the display pipeline reads
+    // `slices[axisTo]` (SliceRenderPipeline.setDisplaySlicesBaseOnAxis) -- a no-op per slice
+    // that already has this axis.
+    for (const slice of this.state.protectedData.allSlicesArray as unknown as nrrdSliceType[]) {
+      ensureAxisExtracted(slice, axisTo);
+    }
+
     this.state.protectedData.axis = axisTo;
     this.sliceRenderPipeline.resetDisplaySlicesStatus();
   }
@@ -805,6 +815,36 @@ export class NrrdTools {
   removeSkip(index: number) {
     this.state.protectedData.skipSlicesDic[index] = undefined;
     this.state.nrrd_states.view.contrastNum = 0;
+    this.sliceRenderPipeline.resetDisplaySlicesStatus();
+  }
+
+  /**
+   * Batched form of `addSkip`/`removeSkip` for reconciling many positions at once (e.g. a
+   * case load's initial phase selection, see `useCaseManagement.reconcileSkips`) without
+   * paying `resetDisplaySlicesStatus()`'s full display/canvas/mask refresh once per position.
+   *
+   * Calling `addSkip`/`removeSkip` in a loop is correct but wasteful here: every entry but
+   * the last is immediately superseded (this always runs synchronously, with nothing reading
+   * the display in between, and the caller's own follow-up -- `landOn`'s `setContrastIndex`
+   * -- overwrites `contrastNum` again right after). Measured at over 1 second of main-thread
+   * time for a 5-phase series once per-volume extraction stopped dominating the case-load
+   * block (narrower `axes`, see copperNrrdLoader) -- this was always there, just smaller than
+   * the cost it used to sit next to.
+   */
+  setSkips(entries: Array<{ index: number; skip: boolean }>) {
+    for (const { index, skip } of entries) {
+      if (skip) {
+        this.state.protectedData.skipSlicesDic[index] =
+          this.state.protectedData.backUpDisplaySlices[index];
+        this.state.nrrd_states.view.contrastNum =
+          index >= this.state.protectedData.displaySlices.length
+            ? this.state.protectedData.displaySlices.length
+            : index;
+      } else {
+        this.state.protectedData.skipSlicesDic[index] = undefined;
+        this.state.nrrd_states.view.contrastNum = 0;
+      }
+    }
     this.sliceRenderPipeline.resetDisplaySlicesStatus();
   }
 
@@ -857,6 +897,56 @@ export class NrrdTools {
     this.state.protectedData.allSlicesArray.length = 0;
     this.state.protectedData.allSlicesArray = [...allSlices];
     this.sliceRenderPipeline.resetDisplaySlicesStatus();
+  }
+
+  /**
+   * Batched form of `setSkips` + `setContrastIndex` for a load that ends by reconciling skip
+   * state and landing on a phase in the same turn (see
+   * `useCaseManagement.handleAllImagesLoaded`). Calling them separately is correct but
+   * wasteful: each pays `resetDisplaySlicesStatus()`'s full display/canvas/mask refresh, and
+   * with nothing reading the display in between, only the second call's paint was ever
+   * visible -- measured at two ~300ms refreshes back-to-back once `setSkips` had already
+   * absorbed the earlier per-phase `addSkip`/`removeSkip` loop cost.
+   *
+   * `contrastIndex` is set before the single `resetDisplaySlicesStatus()` call, not after:
+   * the resulting `displaySlices` length/order depends only on `skipSlicesDic`, which is
+   * already written by the time it runs, so the callbacks inside that one refresh
+   * (`repraintCurrentContrastSlice` etc.) paint the target contrast directly. The clamp
+   * below still runs after, against the freshly rebuilt `displaySlices`, for parity with
+   * `setContrastIndex`'s own bounds check.
+   */
+  commitSkipsAndContrast(
+    skipEntries: Array<{ index: number; skip: boolean }>,
+    contrastIndex: number
+  ) {
+    for (const { index, skip } of skipEntries) {
+      this.state.protectedData.skipSlicesDic[index] = skip
+        ? this.state.protectedData.backUpDisplaySlices[index]
+        : undefined;
+    }
+    this.state.nrrd_states.view.contrastNum = Math.max(contrastIndex, 0);
+    this.sliceRenderPipeline.resetDisplaySlicesStatus();
+    const last = this.state.protectedData.displaySlices.length - 1;
+    if (this.state.nrrd_states.view.contrastNum > last) {
+      this.state.nrrd_states.view.contrastNum = Math.max(0, last);
+    }
+  }
+
+  /**
+   * Case-load completion, fully batched: swap in the acquisition-ordered slice array,
+   * reconcile skip state, and land on the target contrast -- one `resetDisplaySlicesStatus()`
+   * instead of three (`switchAllSlicesArrayData` + `setSkips` + `setContrastIndex` used to
+   * each pay their own full refresh here; see `commitSkipsAndContrast` above for why only
+   * the batched form's single refresh is needed).
+   */
+  commitSeriesLoad(
+    allSlices: Array<nrrdSliceType>,
+    skipEntries: Array<{ index: number; skip: boolean }>,
+    contrastIndex: number
+  ) {
+    this.state.protectedData.allSlicesArray.length = 0;
+    this.state.protectedData.allSlicesArray = [...allSlices];
+    this.commitSkipsAndContrast(skipEntries, contrastIndex);
   }
 
   /**

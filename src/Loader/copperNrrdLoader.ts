@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
 // import { NRRDLoader } from "copper3d_plugin_nrrd";
+import { Volume } from "three/examples/jsm/misc/Volume.js";
 
 import { copperScene } from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
@@ -13,12 +14,171 @@ import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
 import { resize3dnrrd } from "../Utils/convet";
+// `?worker&inline` bundles the worker's own code as an inline blob URL, not a separate
+// emitted file -- required for the plugin (UMD) build, whose bundle is uploaded as one
+// `code/` tree and mounted at a base path unknown at build time (see vite.config.ts).
+import NrrdWorkerCtor from "./nrrdWorker?worker&inline";
 
-let loader: any;
+/**
+ * Real worker in production; a test double can be substituted via
+ * `__setNrrdWorkerFactoryForTests` (see that function's doc comment).
+ */
+type NrrdWorkerLike = {
+  postMessage(message: unknown, transfer?: Transferable[]): void;
+  onmessage: ((event: MessageEvent) => void) | null;
+};
 
-loader = new NRRDLoader();
+function createRealNrrdWorker(): NrrdWorkerLike {
+  return new NrrdWorkerCtor() as unknown as NrrdWorkerLike;
+}
 
-// loader.setSegmentationn(true);
+let workerFactory: () => NrrdWorkerLike = createRealNrrdWorker;
+let sharedWorker: NrrdWorkerLike | undefined;
+
+/**
+ * Test-only seam. Production code always goes through `createRealNrrdWorker`, which
+ * constructs a real `Worker` (`?worker&inline`, so the plugin build never needs a second
+ * asset file at an unpredictable base path). jsdom (this repo's test environment) has no
+ * `Worker` implementation at all, so tests substitute an in-process double that drives the
+ * exact same `nrrdWorkerCore.ts` logic the real worker entry uses -- see
+ * `__tests__/helpers/fakeNrrdWorker.ts`. Passing `null` restores the real worker factory.
+ */
+export function __setNrrdWorkerFactoryForTests(factory: (() => NrrdWorkerLike) | null): void {
+  workerFactory = factory ?? createRealNrrdWorker;
+  sharedWorker = undefined;
+}
+
+function getSharedWorker(): NrrdWorkerLike {
+  if (!sharedWorker) {
+    sharedWorker = workerFactory();
+    sharedWorker.onmessage = (event: MessageEvent) => {
+      const msg = event.data as
+        | { id: string; type: "progress"; loaded: number; total: number }
+        | { id: string; type: "loaded"; payload: any }
+        | { id: string; type: "error"; name: string; message: string };
+      const pending = pendingRequests.get(msg.id);
+      if (!pending) return;
+      if (msg.type === "progress") {
+        pending.onProgress?.(msg.loaded, msg.total);
+      } else if (msg.type === "loaded") {
+        pendingRequests.delete(msg.id);
+        pending.onLoaded(msg.payload);
+      } else {
+        pendingRequests.delete(msg.id);
+        const err = new Error(msg.message);
+        err.name = msg.name;
+        pending.onError(err);
+      }
+    };
+  }
+  return sharedWorker;
+}
+
+interface PendingRequest {
+  onProgress?: (loaded: number, total: number) => void;
+  onLoaded: (payload: any) => void;
+  onError: (err: unknown) => void;
+}
+
+/** Keyed by a per-call request id, not by URL -- the worker owns the URL-level fetch dedup
+ *  (see `nrrdWorkerCore.ts`'s `handleLoadMessage`); this map only correlates each caller's own
+ *  reply. */
+const pendingRequests = new Map<string, PendingRequest>();
+let requestSeq = 0;
+
+/**
+ * Sends one `{cmd: "load"}` request to the shared NRRD worker and resolves with the
+ * rehydrated `Volume` (or rejects). Replaces the old `sharedFetchNrrdArrayBuffer` +
+ * per-caller `loader.parse()` pair -- the fetch dedup and per-caller parse both now happen
+ * inside the worker (`nrrdWorkerCore.ts`), off the main thread.
+ *
+ * Cancellation mirrors the old behavior exactly: a caller's own `AbortSignal` firing rejects
+ * only THIS promise, immediately, without waiting for the worker -- the worker is only
+ * notified (fire-and-forget `{cmd: "abort"}`) so it can update its own attached-count
+ * bookkeeping and stop the real network transfer once nobody is left attached.
+ */
+function loadViaWorker(
+  url: string,
+  segmentation: boolean,
+  knownMinMax: [number, number] | undefined,
+  onProgress: ((event: ProgressEvent) => void) | undefined,
+  signal: AbortSignal | undefined
+): Promise<any> {
+  const worker = getSharedWorker();
+  const id = `nrrd-${++requestSeq}`;
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      pendingRequests.delete(id);
+      worker.postMessage({ cmd: "abort", id });
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+
+    pendingRequests.set(id, {
+      onProgress: (loaded, total) => {
+        onProgress?.(new ProgressEvent("progress", { loaded, total, lengthComputable: total > 0 }));
+      },
+      onLoaded: (payload) => {
+        if (settled) return;
+        settled = true;
+        if (signal) signal.removeEventListener("abort", onAbort);
+        try {
+          resolve(rehydrateVolume(payload));
+        } catch (err) {
+          reject(err);
+        }
+      },
+      onError: (err) => {
+        if (settled) return;
+        settled = true;
+        if (signal) signal.removeEventListener("abort", onAbort);
+        reject(err);
+      },
+    });
+
+    worker.postMessage({ cmd: "load", id, url, segmentation, knownMinMax });
+  });
+}
+
+/**
+ * Reconstructs a real `Volume` (real `Matrix4`s, a real typed-array view over the
+ * transferred buffer) from the worker's payload. Every value was already computed by the
+ * real `NRRDLoader.parse()` inside the worker (see `nrrdWorkerCore.ts`'s `buildPayload`) --
+ * this only puts real class instances back around values that cannot cross a `postMessage`
+ * boundary as-is (a `Volume`/`Matrix4` instance loses its prototype in structured clone).
+ * `new Volume(xLength, yLength, zLength, type, buffer)` wraps `buffer` in a typed-array view
+ * without copying, so this is microseconds regardless of volume size.
+ */
+function rehydrateVolume(payload: any): any {
+  const volume = new Volume(payload.xLength, payload.yLength, payload.zLength, payload.type, payload.buffer);
+  volume.header = payload.header;
+  volume.segmentation = payload.segmentation;
+  volume.dimensions = [payload.xLength, payload.yLength, payload.zLength];
+  volume.axisOrder = payload.axisOrder;
+  volume.spacing = payload.spacing;
+  volume.matrix = new THREE.Matrix4().fromArray(payload.matrixElements);
+  volume.inverseMatrix = new THREE.Matrix4().fromArray(payload.inverseMatrixElements);
+  volume.RASDimensions = payload.RASDimensions;
+  volume.min = payload.min;
+  volume.max = payload.max;
+  volume.windowLow = payload.windowLow;
+  volume.windowHigh = payload.windowHigh;
+  volume.lowerThreshold = payload.lowerThreshold;
+  volume.upperThreshold = payload.upperThreshold;
+  return volume;
+}
 
 let cube!: THREE.Mesh;
 let gui: GUI | undefined;
@@ -73,6 +233,23 @@ export interface optsType {
    * `callback` simply never fired.
    */
   onError?: (error: unknown) => void;
+  /**
+   * The volume's whole-intensity `[min, max]`, already known (e.g. from the backend's
+   * `/files/{case_id}/headers`, which reads it once from the same bytes the backend already
+   * decompresses). When supplied, `Volume.computeMinMax()` uses it instead of scanning every
+   * voxel in the browser -- the single largest function in a case-load CPU profile. Omit it
+   * (or pass a stale/wrong-looking one) and behaviour is exactly as before: three's own scan
+   * runs and the image comes out identical, just slower.
+   */
+  knownMinMax?: [number, number];
+  /**
+   * Aborts the in-flight fetch. A superseded load (case switch, series switch) can now stop
+   * its transfer instead of only having its eventual result discarded -- see `abandonLoad` in
+   * `LeftPanelCore.vue`. `onError` still fires for an aborted fetch (the browser rejects it
+   * like any other failed fetch); callers that already ignore errors from a stale load need no
+   * further change.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -102,6 +279,49 @@ function repairSliceGeometry(...slices: any[]): void {
   }
 }
 
+/**
+ * Extracts a slice plane a narrower `axes` load skipped, the first time something asks for
+ * it (see `NrrdTools.setSliceOrientation`). Mutates `slices` (and `meshes`, if given) in
+ * place so every existing reference to the same object -- there is exactly one per volume --
+ * picks up the new plane; callers do not need to replace anything. A no-op if the axis is
+ * already present.
+ *
+ * All three axes' slices share one `Volume` instance (see `onLoad` below), so whichever axis
+ * IS already extracted is where the volume, dimensions, spacing and RAS dimensions are read
+ * from -- there is no separate "the volume" reference kept around for this.
+ */
+export function ensureAxisExtracted(
+  slices: nrrdSliceType,
+  axis: NrrdAxis,
+  meshes?: nrrdMeshesType
+): any {
+  const existing = slices[axis];
+  if (existing) return existing;
+
+  const anySlice = slices.x ?? slices.y ?? slices.z;
+  const volume = anySlice.volume;
+  const dimensions = volume.dimensions;
+  const rasdimensions = volume.RASDimensions;
+  const ratio = volume.spacing;
+  const axisIndex = axis === "x" ? 0 : axis === "y" ? 1 : 2;
+
+  const initIndex = Math.floor(dimensions[axisIndex] / 2);
+  const slice = volume.extractSlice(axis, initIndex * ratio[axisIndex]);
+  repairSliceGeometry(slice);
+  slice.initIndex = initIndex;
+  slice.MaxIndex = dimensions[axisIndex] - 1;
+  slice.RSARatio = ratio[axisIndex];
+  slice.RSAMaxIndex = rasdimensions[axisIndex] - 1;
+  // Match whatever per-contrast bookkeeping the already-extracted axes carry (see
+  // DataLoader.setContrastOrder), so a plane extracted late is indistinguishable from one
+  // extracted at load time.
+  if (anySlice.contrastOrder !== undefined) slice.contrastOrder = anySlice.contrastOrder;
+
+  slices[axis] = slice;
+  if (meshes) meshes[axis] = slice.mesh;
+  return slice;
+}
+
 export function copperNrrdLoader(
   url: string,
   loadingBar: loadingBarType,
@@ -121,11 +341,7 @@ export function copperNrrdLoader(
 
   let name: string = url.split("/").pop() as string;
 
-  loader.setSegmentation(segmentation);
-
-  loader.load(
-    url,
-    function (volume: any) {
+  const onLoad = (volume: any) => {
       configGui(opts);
 
       const rasdimensions = volume.RASDimensions;
@@ -254,26 +470,31 @@ export function copperNrrdLoader(
         callback && callback(volume, nrrdMeshes, nrrdSlices);
       }
       gui = undefined;
-    },
-    function (xhr: ProgressEvent<EventTarget>) {
-      loadingContainer.style.display = "flex";
-      progress.innerText = `File: ${name} ${Math.ceil(
-        (xhr.loaded / xhr.total) * 100
-      )} % loaded`;
-      if (xhr.loaded / xhr.total === 1) {
-        loadingContainer.style.display = "none";
-      }
-      // After the built-in bar, so a throwing callback cannot leave the bar
-      // stuck showing a stale percentage.
-      opts?.onProgress?.(xhr);
-    },
-    function (error: unknown) {
-      // The loading bar has no failure state of its own; leaving it up
-      // forever is what made a failed volume look like a slow one.
+  };
+
+  const onXhrProgress = (xhr: ProgressEvent<EventTarget>) => {
+    loadingContainer.style.display = "flex";
+    progress.innerText = `File: ${name} ${Math.ceil(
+      (xhr.loaded / xhr.total) * 100
+    )} % loaded`;
+    if (xhr.loaded / xhr.total === 1) {
       loadingContainer.style.display = "none";
-      opts?.onError?.(error);
     }
-  );
+    // After the built-in bar, so a throwing callback cannot leave the bar
+    // stuck showing a stale percentage.
+    opts?.onProgress?.(xhr);
+  };
+
+  const onLoadError = (error: unknown) => {
+    // The loading bar has no failure state of its own; leaving it up
+    // forever is what made a failed volume look like a slow one.
+    loadingContainer.style.display = "none";
+    opts?.onError?.(error);
+  };
+
+  loadViaWorker(url, segmentation, opts?.knownMinMax, onXhrProgress, opts?.signal)
+    .then(onLoad)
+    .catch(onLoadError);
 }
 
 export function copperNrrdTexture3dLoader(

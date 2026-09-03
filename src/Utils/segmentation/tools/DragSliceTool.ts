@@ -105,9 +105,16 @@ export class DragSliceTool extends BaseTool {
         }
 
         const needToUpdateSlice = this.updateCurrentContrastSlice();
-        needToUpdateSlice.repaint.call(needToUpdateSlice);
-        view.currentSliceIndex = newIndex;
-        this.drawDragSlice(needToUpdateSlice.canvas);
+        // A move can be scheduled (setSliceMoving's requestAnimationFrame deferral) and then
+        // reach here after something else -- an axis switch, a contrast toggle -- has
+        // rebuilt `displaySlices` out from under `contrastNum`. Skip the stale move rather
+        // than crash on a `displaySlices[contrastNum]` that no longer exists; the next real
+        // move (or the rebuild's own repaint) puts the correct slice on screen.
+        if (needToUpdateSlice) {
+          needToUpdateSlice.repaint.call(needToUpdateSlice);
+          view.currentSliceIndex = newIndex;
+          this.drawDragSlice(needToUpdateSlice.canvas);
+        }
       }
 
       view.preSliceIndex = newIndex * image.RSARatio;
