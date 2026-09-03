@@ -381,9 +381,13 @@ setAllSlices(allSlices)
 对 layerVoxels 中每个 [layerId, rawData]
   ├─ volume 不存在？               → console.warn，跳过该层
   ├─ maskGridByBuffer.get(rawData) → undefined，或维度与图像维度不一致？
-  │     → console.error + toast，跳过该层   （绝不截断，绝不补零）
+  │     → console.error + notifyUser，跳过该层   （绝不截断，绝不补零）
   └─ volume.setRawData(rawData)
 ```
+
+`notifyUser(message, level)` 是一个 `ToolHost` 依赖，背后是公开的 `NrrdTools.notifyUser` 属性。
+它默认写 console：本引擎自身不带 UI，而去 import 宿主应用的 UI 正是让这个包无法独立构建的原因。
+宿主如果有 toast 或 banner，在构造之后把自己的实现赋上去即可。
 
 **没有**注册过网格的 buffer 一律拒绝，而不是假定它匹配。这个注册表是一个按 buffer 身份索引的
 `WeakMap` —— 不是按 layer id —— 所以调用方可以先解码好几个图层再调 `setMasksFromNIfTI`，

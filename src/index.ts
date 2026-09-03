@@ -32,6 +32,8 @@ import {
 } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
 import { NrrdTools } from "./Utils/segmentation/NrrdTools";
+import { registerNiftiMaskGrid } from "./Utils/segmentation/tools/DataLoader";
+import type { NrrdHeaderLike } from "./Utils/segmentation/tools/DataLoader";
 import { GaussianSmoother } from "./Utils/segmentation/core/GaussianSmoother";
 // Phase 7: Segmentation Module - Unified exports
 
@@ -180,6 +182,7 @@ export {
   kiwrious,
   loadKiwrious,
   NrrdTools,
+  registerNiftiMaskGrid,
   loading,
   Copper3dTrackballControls,
   Copper3dOrbitControls,
@@ -239,6 +242,7 @@ export type {
   positionType,
   screenPosType,
   optsType,
+  NrrdHeaderLike,
   GltfLoadOpts,
   nrrdMeshesType,
   nrrdSliceType,

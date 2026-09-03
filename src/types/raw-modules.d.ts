@@ -25,3 +25,16 @@ declare module "*.glsl?raw" {
   const content: string;
   export default content;
 }
+
+/**
+ * Type declaration for Vite-style `?worker&inline` imports.
+ *
+ * The suffix asks the bundler to build the module as a Worker and inline its code,
+ * so the default export is a `Worker` constructor rather than the module itself.
+ * `tsc` does not understand the suffix; rollup is taught it by the `inline-worker`
+ * plugin in `rollup.config.js`.
+ */
+declare module "*?worker&inline" {
+  const WorkerConstructor: new (options?: WorkerOptions) => Worker;
+  export default WorkerConstructor;
+}

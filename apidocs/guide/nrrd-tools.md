@@ -194,8 +194,23 @@ decode it — the registry is keyed by buffer identity, so you can decode severa
 before `setMasksFromNIfTI` is ever called.
 :::
 
-A refused layer logs to `console.error` with both grids, raises a user-facing toast, and is
-skipped; the other layers in the same `Map` still load.
+A refused layer logs to `console.error` with both grids, calls `notifyUser` (see below), and
+is skipped; the other layers in the same `Map` still load.
+
+##### `notifyUser` — surfacing engine messages in your UI <Badge type="tip" text="3.10.0" />
+
+This package ships without a UI of its own, so it will not reach into your application's.
+`NrrdTools.notifyUser` is the seam: it defaults to a console write, and a host with a toast
+or a banner assigns its own after construction.
+
+```typescript
+nrrdTools.notifyUser = (message, level) => {
+  // level: 'error' | 'warning' | 'info'
+  toast[level](message);
+};
+```
+
+A refused mask is currently the only thing that uses it.
 
 #### Scenario: Loading a saved case
 
@@ -1468,6 +1483,7 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | | `setAllSlices(slices)` | Load NRRD slices, init MaskVolumes |
 | | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data (each buffer must be registered via `registerNiftiMaskGrid` first, or it is refused) |
 | | `registerNiftiMaskGrid(data, dims)` | *(module export, not a method)* Record a mask buffer's NIfTI voxel grid so `setMasksFromNIfTI` can validate it |
+| | `notifyUser` | *(assignable property)* How engine messages reach the reader; defaults to a console write |
 | **Contrast Series** | `addSkip(index)` | Hide one contrast (index into the full contrast list) |
 | | `removeSkip(index)` | Show a previously hidden contrast |
 | | `setSkips(entries)` | Batched `addSkip`/`removeSkip` — one refresh for many changes |

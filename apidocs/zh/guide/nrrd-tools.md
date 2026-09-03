@@ -171,8 +171,22 @@ nrrdTools.setMasksFromNIfTI(layerVoxels);
 索引的，所以你可以先解码好几个图层，再统一调用 `setMasksFromNIfTI`。
 :::
 
-被拒绝的图层会带着两个网格打印 `console.error`、弹出一条面向用户的 toast，然后被跳过；同一个
+被拒绝的图层会带着两个网格打印 `console.error`、调用 `notifyUser`（见下），然后被跳过；同一个
 `Map` 里的其他图层照常加载。
+
+#### `notifyUser` —— 把引擎的消息接到你的 UI 上 <Badge type="tip" text="3.10.0" />
+
+本包自身不带 UI，也不会去引用你应用里的 UI。`NrrdTools.notifyUser` 就是这个接缝：它默认写
+console，宿主如果有 toast 或 banner，在构造之后把自己的实现赋上去即可。
+
+```typescript
+nrrdTools.notifyUser = (message, level) => {
+  // level: 'error' | 'warning' | 'info'
+  toast[level](message);
+};
+```
+
+目前只有"mask 被拒绝"这一件事会用到它。
 
 **加载保存的病例：**
 
@@ -1041,6 +1055,7 @@ function onChannelColorPicked(hex: string) {
 | | `setAllSlices(slices)` | 传输入 NRRD 片帧并开起创办出 MaskVolume 及相关的一切后项基要 |
 | | `setMasksFromNIfTI(map, bar?)` | 接收下载取回解包裹出的所有层 NIfTI 形式的三阶位像素块存组重返到屏幕显示面上（每个 buffer 必须先经 `registerNiftiMaskGrid` 注册，否则会被拒绝） |
 | | `registerNiftiMaskGrid(data, dims)` | *（模块导出，不是实例方法）* 记录 mask buffer 的 NIfTI 体素网格，供 `setMasksFromNIfTI` 校验 |
+| | `notifyUser` | *（可赋值属性）* 引擎消息如何呈现给用户；默认写 console |
 | **对比度序列** | `addSkip(index)` | 隐藏一个对比度（索引指向完整对比度列表） |
 | | `removeSkip(index)` | 重新显示一个被隐藏的对比度 |
 | | `setSkips(entries)` | `addSkip`/`removeSkip` 的批量形式 —— 多次变更只刷新一次 |

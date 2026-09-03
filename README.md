@@ -216,6 +216,13 @@ const loadingBar = { value: 0 };
 nrrdTools.setMasksFromNIfTI(layerVoxels, loadingBar);
 ```
 
+A refused layer is logged and reported through `notifyUser`, which defaults to a console
+write — the package ships without a UI and does not reach into yours. Point it at your own:
+
+```typescript
+nrrdTools.notifyUser = (message, level) => toast[level](message); // 'error' | 'warning' | 'info'
+```
+
 **Contrast series**
 
 A case is a series of contrasts. `addSkip` / `removeSkip` index the **full** contrast list;
@@ -432,6 +439,7 @@ nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoa
 | | `setAllSlices(slices)` | Load NRRD slices, init MaskVolumes |
 | | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data (grids must be registered first) |
 | | `registerNiftiMaskGrid(data, dims)` | *(module export)* Record a mask buffer's NIfTI grid for validation |
+| | `notifyUser` | *(assignable property)* How engine messages reach the reader; defaults to a console write |
 | **Contrast Series** | `addSkip(i)` / `removeSkip(i)` | Hide / show one contrast (full-list index) |
 | | `setSkips(entries)` | Batched skip changes — one display refresh |
 | | `setContrastIndex(i)` | Move to a contrast within `displaySlices` |

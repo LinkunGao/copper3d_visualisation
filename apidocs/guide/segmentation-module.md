@@ -377,9 +377,14 @@ buffer's registered grid against `nrrd_states.image.dimensions` and refuses on m
 for each [layerId, rawData] of layerVoxels
   ├─ volume missing?              → console.warn, skip layer
   ├─ maskGridByBuffer.get(rawData) → undefined, or dims !== image dims?
-  │     → console.error + toast, skip layer   (never truncate, never pad)
+  │     → console.error + notifyUser, skip layer   (never truncate, never pad)
   └─ volume.setRawData(rawData)
 ```
+
+`notifyUser(message, level)` is a `ToolHost` dependency backed by the public
+`NrrdTools.notifyUser` property. It defaults to a console write: this engine has no UI of its
+own, and importing the host application's is exactly what made the package unbuildable on its
+own. A host with a toast or a banner assigns its own implementation after construction.
 
 A buffer with **no** registered grid is refused rather than assumed to match. The registry is
 a `WeakMap` keyed by buffer identity — not by layer id — so a caller may decode several layers
