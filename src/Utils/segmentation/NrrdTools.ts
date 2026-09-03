@@ -80,6 +80,20 @@ export class NrrdTools {
   /** Data loading (extracted module) */
   private dataLoader!: DataLoader;
 
+  /**
+   * How a message reaches the reader. Defaults to the console: this package ships without
+   * a UI and must not import the host application's, or it cannot be built on its own.
+   * A host that has a toast or a banner assigns this after construction.
+   */
+  public notifyUser: (message: string, level: "error" | "warning" | "info") => void = (
+    message,
+    level
+  ) => {
+    if (level === "error") console.error(message);
+    else if (level === "warning") console.warn(message);
+    else console.info(message);
+  };
+
   /** Stored closure callbacks from gui.ts setupGui() */
   private guiCallbacks: {
     updatePencilState: () => void;
@@ -208,6 +222,7 @@ export class NrrdTools {
       syncLayerSliceData: (index, mode) => this.drawCore.syncLayerSliceData(index, mode),
       reloadMasksFromVolume: () => this.reloadMasksFromVolume(),
       resetZoom: () => this.executeAction("resetZoom"),
+      notifyUser: (message, level) => this.notifyUser(message, level),
     });
   }
 

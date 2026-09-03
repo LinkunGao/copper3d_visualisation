@@ -1,3 +1,6 @@
+/// <reference lib="webworker" />
+// Without this, `self` resolves to `Window` under the project's DOM lib and the
+// two-argument `postMessage(message, transfer)` overload does not exist.
 import {
   createNrrdWorkerState,
   handleLoadMessage,

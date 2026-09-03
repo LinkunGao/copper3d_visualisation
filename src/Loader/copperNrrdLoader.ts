@@ -161,8 +161,28 @@ function loadViaWorker(
  * `new Volume(xLength, yLength, zLength, type, buffer)` wraps `buffer` in a typed-array view
  * without copying, so this is microseconds regardless of volume size.
  */
-function rehydrateVolume(payload: any): any {
-  const volume = new Volume(payload.xLength, payload.yLength, payload.zLength, payload.type, payload.buffer);
+/**
+ * The NRRD volume this engine passes around: three.js's `Volume` plus the fields
+ * `NRRDLoader.parse()` attaches to it, with `matrix` widened to the 4x4 affine an NRRD
+ * actually carries -- three declares that member as a `Matrix3`.
+ */
+export interface NrrdVolume extends Omit<Volume, "matrix"> {
+  header: any;
+  segmentation: boolean;
+  dimensions: number[];
+  matrix: THREE.Matrix4;
+  inverseMatrix: THREE.Matrix4;
+  RASDimensions: number[];
+  min: number;
+  max: number;
+  windowLow: number;
+  windowHigh: number;
+}
+
+function rehydrateVolume(payload: any): NrrdVolume {
+  // three's constructor is typed for its own narrower shape; the assignments below are
+  // exactly the fields NRRDLoader.parse() adds, so the instance does carry them.
+  const volume = new Volume(payload.xLength, payload.yLength, payload.zLength, payload.type, payload.buffer) as unknown as NrrdVolume;
   volume.header = payload.header;
   volume.segmentation = payload.segmentation;
   volume.dimensions = [payload.xLength, payload.yLength, payload.zLength];

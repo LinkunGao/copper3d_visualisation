@@ -31,6 +31,15 @@ export interface ToolHost {
     refreshSphereOverlay(): void;
     reloadMasksFromVolume(): void;
 
+    /**
+     * Surfaces a message to the reader.
+     *
+     * This engine has no UI of its own and must not reach for the host application's --
+     * importing an app toast here is what makes the package unbuildable on its own. The
+     * host decides how a message is shown; the default is a console write.
+     */
+    notifyUser(message: string, level: "error" | "warning" | "info"): void;
+
     // ── Volume ─────────────────────────────────────────────────────
     getVolumeForLayer(layer: string): MaskVolume;
 
@@ -125,6 +134,7 @@ export type SliceRenderHostDeps = Pick<ToolHost,
 export type DataLoaderHostDeps = Pick<ToolHost,
     'invalidateSliceBuffer' | 'setDisplaySlicesBaseOnAxis' | 'afterLoadSlice'
     | 'setEmptyCanvasSize' | 'syncLayerSliceData' | 'reloadMasksFromVolume' | 'resetZoom'
+    | 'notifyUser'
 >;
 
 /** SphereBrushTool host dependencies */

@@ -10,7 +10,6 @@ import type {
   loadingBarType,
 } from "../../../types/types";
 import type { DataLoaderHostDeps } from "./ToolHost";
-import { useToast } from "@/composables/useToast";
 
 /**
  * NrrdTools.setMasksFromNIfTI forwards its `Map<string, Uint8Array>` argument
@@ -310,8 +309,9 @@ export class DataLoader extends BaseTool {
           console.error(
             `setMasksFromNIfTI: layer "${layerId}" grid [${maskGridLabel}] does not match the image grid [${nrrdGridLabel}]; refusing to load`
           );
-          useToast().error(
-            `Mask for ${layerId} (grid ${maskGridLabel}) does not match the image grid (${nrrdGridLabel}). Mask was not loaded.`
+          this.callbacks.notifyUser(
+            `Mask for ${layerId} (grid ${maskGridLabel}) does not match the image grid (${nrrdGridLabel}). Mask was not loaded.`,
+            "error"
           );
           continue;
         }

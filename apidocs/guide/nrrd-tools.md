@@ -138,6 +138,14 @@ nrrdTools.setAllSlices(allSlices);
 > After `setAllSlices()` returns, you may safely call all layer/channel/color APIs.
 > Calling color APIs **before** `setAllSlices()` will silently fail (no MaskVolume exists yet).
 
+::: tip Narrowed-axes loads are supported <Badge type="tip" text="3.10.0" />
+`setAllSlices` reads its geometry (dimensions, spacing, space origin) from the shared
+`Volume` behind whichever plane *is* present, so slices loaded with
+[`axes: ["z"]`](./load-callbacks) work here
+too. The missing planes are extracted on demand the first time
+`setSliceOrientation()` asks for them.
+:::
+
 #### 3.2 Loading existing mask data (NIfTI)
 
 If the user has previously saved annotations, reload them into the volumes:
@@ -159,28 +167,132 @@ const loadingBar = { value: 0 }; // must be a reactive object with .value
 nrrdTools.setMasksFromNIfTI(layerVoxels, loadingBar);
 ```
 
+##### Grid validation — `registerNiftiMaskGrid()` <Badge type="tip" text="3.10.0" />
+
+`setMasksFromNIfTI` used to make any buffer fit: a longer one was truncated, a shorter one
+zero-padded. Either way a mask from the wrong grid rendered **silently offset onto the wrong
+voxels**, with no error anywhere. A refused mask is recoverable; a misplaced one is not.
+
+A buffer is now checked against the loaded image's voxel grid, and **refused** when it does
+not match. The check needs the buffer's own NIfTI grid, which `setMasksFromNIfTI` has no
+second parameter to receive — so register it out of band, keyed by the buffer itself:
+
+```typescript
+import { registerNiftiMaskGrid } from 'copper3d';
+
+const { voxels, dims } = await fetchNiftiVoxels(path); // dims = header [x, y, z]
+registerNiftiMaskGrid(voxels, dims);                   // before setMasksFromNIfTI
+
+layerVoxels.set('layer1', voxels);
+nrrdTools.setMasksFromNIfTI(layerVoxels);
+```
+
+::: warning A buffer with no registered grid is refused
+Not assumed to match. Every buffer you pass to `setMasksFromNIfTI` needs a
+`registerNiftiMaskGrid` call first, or that layer is skipped. Register each buffer as you
+decode it — the registry is keyed by buffer identity, so you can decode several layers
+before `setMasksFromNIfTI` is ever called.
+:::
+
+A refused layer logs to `console.error` with both grids, raises a user-facing toast, and is
+skipped; the other layers in the same `Map` still load.
+
 #### Scenario: Loading a saved case
 
 ```typescript
+import { registerNiftiMaskGrid } from 'copper3d';
+
 async function loadCase(caseDetail: ICaseDetail) {
   const layerVoxels = new Map<string, Uint8Array>();
 
   // layer1 — always load from NIfTI if it exists
   if (Number(caseDetail.output.mask_layer1_nii_size) > 0) {
-    const voxels = await fetchNiftiVoxels(caseDetail.output.mask_layer1_nii_path!);
-    if (voxels) layerVoxels.set('layer1', voxels);
+    const { voxels, dims } = await fetchNiftiVoxels(caseDetail.output.mask_layer1_nii_path!);
+    if (voxels) {
+      registerNiftiMaskGrid(voxels, dims);
+      layerVoxels.set('layer1', voxels);
+    }
   }
 
   // layer2 — same pattern
   if (Number(caseDetail.output.mask_layer2_nii_size) > 0) {
-    const voxels = await fetchNiftiVoxels(caseDetail.output.mask_layer2_nii_path!);
-    if (voxels) layerVoxels.set('layer2', voxels);
+    const { voxels, dims } = await fetchNiftiVoxels(caseDetail.output.mask_layer2_nii_path!);
+    if (voxels) {
+      registerNiftiMaskGrid(voxels, dims);
+      layerVoxels.set('layer2', voxels);
+    }
   }
 
   if (layerVoxels.size > 0) {
     nrrdTools.setMasksFromNIfTI(layerVoxels);
   }
 }
+```
+
+#### 3.3 Contrast series: skips, contrast index, and batched commits
+
+A loaded case is a *series* of contrasts (phases). `allSlicesArray` holds every contrast;
+`displaySlices` holds the subset actually shown, built from the skip list. Two index spaces
+follow from that, and mixing them up is the usual bug here:
+
+| Term | Addresses | Note |
+|------|-----------|------|
+| skip `index` | position in the **full** contrast list | what `addSkip` / `removeSkip` / `setSkips` take |
+| `contrastIndex` | position in **`displaySlices`** — the selected subset | what `setContrastIndex` takes |
+
+With three of five phases selected, valid `contrastIndex` values are `0..2`. Callers that
+think in phase names must convert first.
+
+```typescript
+nrrdTools.addSkip(2);          // hide contrast 2
+nrrdTools.removeSkip(2);       // show it again
+nrrdTools.setContrastIndex(1); // jump to the 2nd *displayed* contrast
+```
+
+##### Batched forms <Badge type="tip" text="3.10.0" />
+
+Each of the calls above ends in a full display/canvas/mask refresh. In a loop — reconciling
+a whole phase selection at case-load time — every refresh but the last is immediately
+superseded, and the cost is real (measured at over a second of main-thread time for a
+five-phase series). The batched forms do the same work with **one** refresh:
+
+```typescript
+// Many skip changes, one refresh
+nrrdTools.setSkips([
+  { index: 0, skip: false },
+  { index: 1, skip: true },
+  { index: 2, skip: true },
+]);
+
+// Skip changes + land on a contrast, one refresh
+nrrdTools.commitSkipsAndContrast(
+  [{ index: 1, skip: true }, { index: 3, skip: true }],
+  0
+);
+
+// Whole case-load completion: swap the series, reconcile skips, land on a contrast
+nrrdTools.commitSeriesLoad(allSlices, skipEntries, 0);
+```
+
+`commitSeriesLoad` replaces the `switchAllSlicesArrayData` + `setSkips` + `setContrastIndex`
+sequence, which used to pay three full refreshes where one is enough. `contrastIndex` is
+clamped to the freshly rebuilt `displaySlices`, exactly like `setContrastIndex` does.
+
+::: tip Which one to use
+- A single user-driven toggle → `addSkip` / `removeSkip`.
+- Several skip changes in one turn → `setSkips`.
+- Skip changes plus a target contrast → `commitSkipsAndContrast`.
+- A complete case/series load → `commitSeriesLoad`.
+:::
+
+##### Swapping the series without losing the view
+
+```typescript
+// Resets slice index / zoom / pan
+nrrdTools.switchAllSlicesArrayData(allSlices);
+
+// Keeps current slice index, zoom and pan — for register/origin image switching
+nrrdTools.switchSlicesPreservingView(allSlices);
 ```
 
 ---
@@ -1354,7 +1466,16 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | | `clearActiveLayer()` | Clear annotations and undo history for the *currently active layer* |
 | | `clearActiveSlice()` | Clear annotations exclusively on the *currently viewed slice* of the active layer |
 | | `setAllSlices(slices)` | Load NRRD slices, init MaskVolumes |
-| | `setMasksFromNIfTI(map)` | Load saved NIfTI voxel data |
+| | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data (each buffer must be registered via `registerNiftiMaskGrid` first, or it is refused) |
+| | `registerNiftiMaskGrid(data, dims)` | *(module export, not a method)* Record a mask buffer's NIfTI voxel grid so `setMasksFromNIfTI` can validate it |
+| **Contrast Series** | `addSkip(index)` | Hide one contrast (index into the full contrast list) |
+| | `removeSkip(index)` | Show a previously hidden contrast |
+| | `setSkips(entries)` | Batched `addSkip`/`removeSkip` — one refresh for many changes |
+| | `setContrastIndex(index)` | Move to a contrast **within `displaySlices`**, without moving the slice |
+| | `commitSkipsAndContrast(entries, i)` | Batched `setSkips` + `setContrastIndex` — one refresh |
+| | `commitSeriesLoad(slices, entries, i)` | Case-load completion: swap series + reconcile skips + land on contrast, one refresh |
+| | `switchAllSlicesArrayData(slices)` | Swap the loaded series (resets slice index / zoom / pan) |
+| | `switchSlicesPreservingView(slices)` | Swap the loaded series, keeping slice index, zoom and pan |
 | **Render** | `start` | Frame callback — pass to render loop |
 | **Layer** | `setActiveLayer(id)` | Switch drawing target layer |
 | | `getActiveLayer()` | Read current layer |
@@ -1397,7 +1518,9 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | **Actions** | `executeAction(action)` | Run named action: `"undo"`, `"redo"`, `"clearActiveSliceMask"`, `"clearActiveLayerMask"`, `"resetZoom"`, `"downloadCurrentMask"`, `"gaussianSmooth"` |
 | **Gaussian Smoothing** | `GaussianSmoother.gaussianSmooth3D(volume, channel, sigma?, spacing?)` | Apply 3D Gaussian smoothing to a MaskVolume channel |
 | | `GaussianSmoother.generateKernel1D(sigma)` | Generate a normalized 1D Gaussian kernel |
-| **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"` |
+| **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"`; extracts the plane on demand if the load skipped it |
+| | `setSliceMoving(step)` | Step the current slice by `step` (coalesced into one `requestAnimationFrame`) |
+| | `setMainAreaSize(factor)` | Set the main-area zoom factor [1, 8] and reposition the paint area |
 | | `setCalculateDistanceSphere(x, y, slice, type)` | Programmatically place a calculator sphere (simulates full click flow: record origin → draw → write to volume) |
 | **History** | `undo()` | Undo last stroke |
 | | `redo()` | Redo last undone stroke |

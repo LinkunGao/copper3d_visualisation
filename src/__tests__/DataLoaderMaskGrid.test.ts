@@ -10,17 +10,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const toastSpies = vi.hoisted(() => ({
-  error: vi.fn(),
-  success: vi.fn(),
-  warning: vi.fn(),
-  info: vi.fn(),
-  show: vi.fn(),
-}));
-vi.mock("@/composables/useToast", () => ({
-  useToast: () => toastSpies,
-}));
-
 import { DataLoader, registerNiftiMaskGrid } from "../Utils/segmentation/tools/DataLoader";
 import type { DataLoaderHostDeps } from "../Utils/segmentation/tools/ToolHost";
 
@@ -61,6 +50,7 @@ function makeCallbacks(): DataLoaderHostDeps {
     syncLayerSliceData: vi.fn(),
     reloadMasksFromVolume: vi.fn(),
     resetZoom: vi.fn(),
+    notifyUser: vi.fn(),
   } as unknown as DataLoaderHostDeps;
 }
 
@@ -78,8 +68,8 @@ function makeLoader() {
 beforeEach(() => vi.clearAllMocks());
 
 describe("setMasksFromNIfTI grid validation", () => {
-  it("refuses a mask whose own grid disagrees with the NRRD grid: no data copied, toast names both grids", () => {
-    const { ctx, loader } = makeLoader();
+  it("refuses a mask whose own grid disagrees with the NRRD grid: no data copied, the host is told both grids", () => {
+    const { ctx, loader, callbacks } = makeLoader();
     const volume = ctx.protectedData.maskData.volumes["layer1"];
     const before = new Uint8Array(volume.getRawData());
 
@@ -93,14 +83,15 @@ describe("setMasksFromNIfTI grid validation", () => {
     // The old truncate/pad behaviour always overwrote the buffer; refusing means
     // it is untouched.
     expect(volume.getRawData()).toEqual(before);
-    expect(toastSpies.error).toHaveBeenCalledTimes(1);
-    const message = toastSpies.error.mock.calls[0][0] as string;
+    expect(callbacks.notifyUser).toHaveBeenCalledTimes(1);
+    const [message, level] = vi.mocked(callbacks.notifyUser).mock.calls[0];
+    expect(level).toBe("error");
     expect(message).toContain("4x4x5"); // the mask's own grid
     expect(message).toContain("4x4x4"); // the NRRD grid it was checked against
   });
 
   it("refuses a mask with no registered grid at all, rather than assuming it matches", () => {
-    const { ctx, loader } = makeLoader();
+    const { ctx, loader, callbacks } = makeLoader();
     const volume = ctx.protectedData.maskData.volumes["layer2"];
     const before = new Uint8Array(volume.getRawData());
 
@@ -111,7 +102,7 @@ describe("setMasksFromNIfTI grid validation", () => {
     loader.setMasksFromNIfTI(new Map([["layer2", unregistered]]));
 
     expect(volume.getRawData()).toEqual(before);
-    expect(toastSpies.error).toHaveBeenCalledTimes(1);
+    expect(callbacks.notifyUser).toHaveBeenCalledTimes(1);
   });
 
   it("loads a mask whose grid matches the NRRD grid, and fires no toast", () => {
@@ -124,7 +115,7 @@ describe("setMasksFromNIfTI grid validation", () => {
     loader.setMasksFromNIfTI(new Map([["layer3", matched]]));
 
     expect(volume.getRawData()).toEqual(matched);
-    expect(toastSpies.error).not.toHaveBeenCalled();
+    expect(callbacks.notifyUser).not.toHaveBeenCalled();
     expect(callbacks.reloadMasksFromVolume).toHaveBeenCalledTimes(1);
   });
 });

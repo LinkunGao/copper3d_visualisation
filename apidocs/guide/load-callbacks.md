@@ -83,6 +83,105 @@ optional would break every existing caller's compile — so if you narrow
 `axes`, only read what you asked for.
 :::
 
+### Extracting a skipped axis later <Badge type="tip" text="3.10.0" />
+
+Narrowing `axes` is only safe if you never show the other planes. `ensureAxisExtracted`
+lifts that restriction: it extracts a plane the load skipped, on demand, the first time
+something asks for it.
+
+```ts
+import { ensureAxisExtracted } from "copper3d";
+
+// slices came from loadNrrd with axes: ["z"] — no sagittal plane yet
+ensureAxisExtracted(slices, "x");        // extracts it now
+ensureAxisExtracted(slices, "x", meshes); // also fills meshes.x
+```
+
+It **mutates `slices` (and `meshes`, when given) in place**, so every existing reference
+to the same object picks up the new plane — you do not replace anything. It is a no-op
+when the axis is already present, so calling it unconditionally is fine.
+
+All three axes share one `Volume` instance, so whichever axis *is* already extracted is
+where the dimensions, spacing and RAS dimensions come from. A plane extracted late also
+inherits the `contrastOrder` stamped on its siblings, making it indistinguishable from
+one extracted at load time.
+
+::: tip You usually do not need to call it yourself
+`NrrdTools.setSliceOrientation(axis)` already calls `ensureAxisExtracted` for every
+loaded contrast before the display pipeline reads the new plane. So an axial-only load
+(`axes: ["z"]`) that later switches to sagittal or coronal just works — you pay the
+extraction cost at switch time instead of at load time.
+:::
+
+## `opts.knownMinMax`: skip the whole-volume intensity scan <Badge type="tip" text="3.10.0" />
+
+After parsing, three's `Volume.computeMinMax()` walks every voxel to find the intensity
+range. On a large MRI that single function is typically the largest block in a case-load
+CPU profile — and the answer is usually already known server-side, because the backend
+decompressed the same bytes to write its headers.
+
+```ts
+const { min, max } = await fetch(`/files/${caseId}/headers`).then((r) => r.json());
+
+scene.loadNrrd(url, loadingBar, false, callback, {
+  openGui: false,
+  knownMinMax: [min, max],
+});
+```
+
+Omit it — or pass a stale value — and behaviour is exactly as before: three's own scan
+runs, and the image comes out identical, just slower.
+
+## `opts.signal`: cancel a superseded load <Badge type="tip" text="3.10.0" />
+
+A case switch or series switch used to leave the old transfer running to completion and
+merely discard its result. Pass an `AbortSignal` and the transfer itself stops.
+
+```ts
+let inflight: AbortController | undefined;
+
+function loadCase(url: string) {
+  inflight?.abort();               // stop the previous download
+  inflight = new AbortController();
+
+  scene.loadNrrd(url, loadingBar, false, onLoaded, {
+    openGui: false,
+    signal: inflight.signal,
+    onError: (error) => {
+      if ((error as DOMException).name === "AbortError") return; // expected
+      showFailure(error);
+    },
+  });
+}
+```
+
+`onError` still fires for an aborted load — the rejection reason is a `DOMException` with
+`name === "AbortError"`. Callers that already ignore errors from a stale load need no
+further change.
+
+Aborting rejects **your** promise immediately; it does not wait for the worker. The
+worker is notified separately so it can drop its own attached-count for that URL and stop
+the real network transfer once nobody is left waiting on it.
+
+## NRRD parsing runs in a Web Worker <Badge type="tip" text="3.10.0" />
+
+`loadNrrd` no longer fetches and parses on the main thread. The fetch, the gunzip and the
+NRRD header/typed-array parse all happen in a shared Web Worker
+(`Loader/nrrdWorker.ts`, whose logic lives in `Loader/nrrdWorkerCore.ts`); the volume's
+pixel buffer comes back as a **transferable**, and the main thread only rehydrates a real
+`Volume` around it — microseconds regardless of volume size.
+
+Nothing about the public API changes. `onProgress`, `onError`, the built-in loading bar
+and the `callback` signature all behave exactly as documented above.
+
+Two consequences worth knowing:
+
+- **URL-level fetch dedup lives in the worker.** Two concurrent `loadNrrd` calls for the
+  same URL share one network transfer, and each still gets its own parsed `Volume`.
+- **The worker is inlined into the bundle** (`?worker&inline`), so there is no second
+  asset file to serve. A UMD bundle mounted at a base path unknown at build time still
+  works.
+
 ## Detecting a stalled download
 
 A flat timeout is the wrong instrument for a large volume: a 53MB NRRD on a
@@ -133,3 +232,13 @@ onProgress: (event) => {
 
 Purely additive apart from the loading-bar note above. Every argument is
 optional and every default is what happened before.
+
+## Upgrading from 3.9.x
+
+Also purely additive. `knownMinMax`, `signal` and `ensureAxisExtracted` are all opt-in,
+and the move to a worker is invisible from the outside — same callbacks, same loading
+bar, same `Volume`.
+
+The one thing to check is any code that was reaching into `copperNrrdLoader`'s internals
+rather than going through `loadNrrd`: the old `sharedFetchNrrdArrayBuffer` + per-caller
+`loader.parse()` pair is gone, replaced by the worker's own fetch dedup and parse.

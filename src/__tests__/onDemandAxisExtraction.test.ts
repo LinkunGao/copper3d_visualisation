@@ -46,7 +46,10 @@ const SPACE_ORIGIN = [-22.4, -26, -37.5];
  *  same way `axes: ["z"]` leaves it: only "z" extracted, "x"/"y" left `undefined`. */
 function makeZOnlySlices(dims = DIMS, spacing = SPACING, spaceOrigin = SPACE_ORIGIN) {
   const voxelCount = dims[0] * dims[1] * dims[2];
-  const volume: any = new Volume(dims[0], dims[1], dims[2], "uint8", new Uint8Array(voxelCount).buffer);
+  const volume: any = new Volume(dims[0], dims[1], dims[2], "uint8", new Uint8Array(voxelCount).buffer as unknown as ArrayLike<number>);
+  // three declares that parameter as ArrayLike<number>, but Volume wraps a raw
+  // ArrayBuffer in a typed-array view -- which is exactly what rehydrateVolume does
+  // in production, so the test builds its volume the same way.
   volume.dimensions = dims;
   volume.spacing = spacing;
   volume.axisOrder = ["x", "y", "z"];
