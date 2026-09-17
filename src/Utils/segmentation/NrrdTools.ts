@@ -593,6 +593,77 @@ export class NrrdTools {
     }
   }
 
+  /**
+   * Erase one channel's mask on one layer, undoably.
+   *
+   * The missing third of the clear family that `executeAction` exposes:
+   * `clearActiveSliceMask` takes one slice, `clearActiveLayerMask` takes a whole layer,
+   * and neither can take a single label. Deleting one annotation needs exactly that —
+   * its mask is one label inside a volume shared with every other annotation on the
+   * layer.
+   *
+   * Not folded into `executeAction`: that signature is an action name plus an options
+   * bag, and this needs two required arguments.
+   *
+   * Deltas go onto the engine's own undo stack, so a mistaken clear is recoverable for
+   * as long as the case stays open. That is the whole reason this lives here rather
+   * than in the app: writing zeros from outside and forcing a repaint by stepping the
+   * slice would bypass the stack, and an accidental clear would be permanent.
+   *
+   * Only slices that actually carry the label are touched, so a small annotation in a
+   * deep volume costs a scan and a handful of callbacks rather than one per slice.
+   *
+   * @param layerId Layer whose mask to edit.
+   * @param channel Label to erase, 1-255.
+   * @throws {Error} If `layerId` names no layer. Deliberately NOT routed through
+   *   `getVolumeForLayer`, which warns and falls back to the first layer — for a
+   *   destructive call that would quietly erase a different layer's annotation.
+   * @throws {RangeError} If `channel` is outside [1, 255] (from `MaskVolume`).
+   */
+  clearChannel(layerId: string, channel: number): void {
+    const volume = this.state.protectedData.maskData.volumes[layerId];
+    if (!volume) {
+      const known = this.state.nrrd_states.image.layers.join(", ");
+      throw new Error(
+        `clearChannel: unknown layer "${layerId}" (known layers: ${known})`
+      );
+    }
+
+    const { depth } = volume.getDimensions();
+
+    // Snapshot before mutating: `oldSlice` is what undo restores.
+    const deltas: MaskDelta[] = [];
+    for (let z = 0; z < depth; z++) {
+      const slice = volume.getSliceUint8(z, "z").data;
+      if (!slice.some((v) => v === channel)) continue;
+      deltas.push({
+        layerId,
+        axis: "z",
+        sliceIndex: z,
+        oldSlice: slice.slice(),
+        newSlice: new Uint8Array(0), // filled below, once the clear has run
+      });
+    }
+
+    if (deltas.length === 0) return; // nothing drawn on this channel
+
+    volume.clearChannel(channel);
+
+    for (const delta of deltas) {
+      delta.newSlice = volume.getSliceUint8(delta.sliceIndex, "z").data.slice();
+    }
+    this.drawCore.undoManager.pushGroup(deltas);
+
+    for (const delta of deltas) {
+      const { data, width, height } = volume.getSliceUint8(delta.sliceIndex, "z");
+      this.state.annotationCallbacks.onMaskChanged(
+        data, layerId, channel, delta.sliceIndex, "z", width, height, false
+      );
+    }
+
+    this.reloadMasksFromVolume();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 4. Public API — Keyboard & History
   // ═══════════════════════════════════════════════════════════════════════════

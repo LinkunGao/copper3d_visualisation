@@ -37,7 +37,7 @@ import type {
   ChannelColorMap,
   SliceRenderOptions,
 } from './types';
-import { RenderMode, MASK_CHANNEL_COLORS } from './types';
+import { RenderMode, MASK_CHANNEL_COLORS, MAX_ENGINE_CHANNEL } from './types';
 
 export class MaskVolume {
   // ── Private state ──────────────────────────────────────────────────
@@ -219,17 +219,17 @@ export class MaskVolume {
    * Update the color for a specific label/channel in the color map.
    *
    * For label-based volumes (1-channel), the channel parameter refers to
-   * the label value (0-8), not the storage channel index.
+   * the label value, not the storage channel index.
    *
-   * @param channel Label/channel index to update (0-8).
+   * @param channel Label/channel index to update (0-`MAX_ENGINE_CHANNEL`).
    * @param color   New RGBA color.
    *
-   * @throws {RangeError} If channel is outside valid label range [0, 8].
+   * @throws {RangeError} If channel is outside the storable label range.
    */
   setChannelColor(channel: number, color: RGBAColor): void {
-    if (channel < 0 || channel > 8) {
+    if (channel < 0 || channel > MAX_ENGINE_CHANNEL) {
       throw new RangeError(
-        `Invalid channel/label: ${channel} (valid range: 0-8)`
+        `Invalid channel/label: ${channel} (valid range: 0-${MAX_ENGINE_CHANNEL})`
       );
     }
     this.colorMap[channel] = { r: color.r, g: color.g, b: color.b, a: color.a };
@@ -491,7 +491,8 @@ export class MaskVolume {
    * @param sliceIndex     Index along the specified axis.
    * @param imageData      Canvas ImageData (RGBA) to convert.
    * @param axis           `'x'`, `'y'`, or `'z'`.
-   * @param activeChannel  Fallback label for pixels whose RGB doesn't match any channel (1-8).
+   * @param activeChannel  Fallback label for pixels whose RGB matches no channel exactly,
+   *                       and one of the candidates the nearest-colour search considers.
    * @param channelVisible Optional map of visible channels (true=visible, false=hidden).
    *                       If provided, data for hidden channels will be preserved
    *                       when the canvas pixel is transparent.
@@ -553,6 +554,30 @@ export class MaskVolume {
         break;
     }
 
+    // Candidates for the nearest-colour fallback below: the labels already on this slice,
+    // plus the one being committed. One cheap pass to collect them, in place of running the
+    // fallback over the whole palette.
+    //
+    // Widening it to all 255 would not just be 255 distance computations per anti-aliased
+    // edge pixel. It would be wrong: the more colours the guess can choose from, the more
+    // readily a fringe resolves to a label that is nowhere on the slice, which puts voxels
+    // into another finding's mask with nothing to show for it.
+    const candidates: number[] = [activeChannel];
+    {
+      const seen = new Set<number>([activeChannel]);
+      for (let j = 0; j < expectedH; j++) {
+        let idx = baseIndex + j * jStride;
+        for (let i = 0; i < expectedW; i++) {
+          const label = volData[idx];
+          if (label !== 0 && !seen.has(label)) {
+            seen.add(label);
+            candidates.push(label);
+          }
+          idx += iStride;
+        }
+      }
+    }
+
     let px = 0;
     for (let j = 0; j < expectedH; j++) {
       let idx = baseIndex + j * jStride;
@@ -583,8 +608,10 @@ export class MaskVolume {
             let minDist = Infinity;
             let bestChannel = activeChannel;
 
-            // Find the nearest channel color (1-8) to handle Canvas anti-aliased edge pixels
-            for (let ch = 1; ch <= 8; ch++) {
+            // Nearest among the labels that can legitimately be here (see `candidates`),
+            // to handle Canvas anti-aliased edge pixels.
+            for (let ci = 0; ci < candidates.length; ci++) {
+              const ch = candidates[ci];
               const c = this.colorMap[ch] ?? MASK_CHANNEL_COLORS[ch];
               if (!c) continue;
 
@@ -612,18 +639,23 @@ export class MaskVolume {
 
   /**
    * Build a Map from RGB packed integer to channel label for reverse lookup.
-   * Uses this instance's colorMap (channels 1-8, skips 0 = transparent).
+   * Covers every label this instance has a colour for, skipping 0 (transparent).
    *
    * Instance method ensures custom per-layer colors are correctly reverse-mapped.
    */
   private buildRgbToChannelMap(): Map<number, number> {
     const map = new Map<number, number>();
-    for (let ch = 1; ch <= 8; ch++) {
-      const color = this.colorMap[ch] ?? MASK_CHANNEL_COLORS[ch];
-      if (color) {
-        const key = (color.r << 16) | (color.g << 8) | color.b;
-        map.set(key, ch);
-      }
+    // Every label this volume has a colour for, not a fixed 1-8. A pixel painted in
+    // channel 12's colour used to miss this table entirely and fall through to the
+    // nearest-colour guess, which could only ever answer 1-8 -- so the channel could be
+    // drawn and could never be read back. Size is not a cost here: it is built once per
+    // readback and every lookup against it is O(1).
+    for (const key of Object.keys(this.colorMap)) {
+      const ch = Number(key);
+      if (ch < 1) continue; // 0 is "empty", and it is transparent rather than a colour
+      const color = this.colorMap[ch];
+      if (!color) continue;
+      map.set((color.r << 16) | (color.g << 8) | color.b, ch);
     }
     return map;
   }
@@ -702,7 +734,10 @@ export class MaskVolume {
           pixels[px + 1] = 0;
           pixels[px + 2] = 0;
           pixels[px + 3] = 0;
-        } else if (channelVisible && !channelVisible[label]) {
+        // `=== false`, not falsy: the map records what has been HIDDEN and never covers
+        // every label. `setSliceLabelsFromImageData` already reads it this way; reading it
+        // as falsy here made any label the map did not mention render as invisible.
+        } else if (channelVisible?.[label] === false) {
           pixels[px] = 0;
           pixels[px + 1] = 0;
           pixels[px + 2] = 0;
@@ -860,6 +895,52 @@ export class MaskVolume {
   clear(): void {
     this.data.fill(0);
     this.version++;
+  }
+
+  /**
+   * Zero every voxel carrying one label, leaving every other label in place.
+   *
+   * The third member of the clear family: `clear()` takes the whole volume and
+   * `clearSlice()` takes one slice, both regardless of label. Deleting a single
+   * annotation needs neither — its mask is one label inside a volume it shares with
+   * every other annotation on that layer, so anything coarser takes the neighbours
+   * with it.
+   *
+   * Label-based volumes only, which is what `numChannels === 1` means here: the voxel
+   * value IS the label. A multi-plane volume stores channels as separate planes and
+   * would need a different sweep.
+   *
+   * The version is bumped only when a voxel actually changed. Every derived cache keyed
+   * on it — the contour cache above all — is invalidated by a bump, so bumping for a
+   * clear that found nothing would redraw the layer for no reason.
+   *
+   * @param channel Label to erase, 1-255. Zero is "empty", not a channel.
+   * @throws {RangeError} If `channel` is outside [1, 255].
+   *
+   * @example
+   * ```ts
+   * vol.clearChannel(3); // finding 3's voxels go; 1, 2 and 4 stay
+   * ```
+   */
+  clearChannel(channel: number): void {
+    // Upper bound is what a Uint8 label can hold. Task 5 of the channel-cap work
+    // replaces both this and setChannelColor's guard with one MAX_ENGINE_CHANNEL.
+    if (!Number.isInteger(channel) || channel < 1 || channel > 255) {
+      throw new RangeError(
+        `Invalid channel to clear: ${channel} (valid range: 1-255; 0 is empty)`
+      );
+    }
+
+    const data = this.data;
+    let changed = false;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] === channel) {
+        data[i] = 0;
+        changed = true;
+      }
+    }
+
+    if (changed) this.version++;
   }
 
   /**

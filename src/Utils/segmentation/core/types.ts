@@ -91,7 +91,75 @@ export interface SliceRenderOptions {
  * | 7       | Auxiliary annotation       | Orange   |
  * | 8       | Extended annotation        | Purple   |
  */
-export const MASK_CHANNEL_COLORS: Readonly<ChannelColorMap> = {
+/**
+ * The largest label a mask voxel can carry. `MaskVolume` stores one byte per voxel and the
+ * value IS the label, so 0 is empty and 1-255 are annotation channels.
+ */
+export const MAX_ENGINE_CHANNEL = 255;
+
+/** Highest channel whose colour is delivered rather than generated. */
+const SEEDED_CHANNELS = 8;
+
+/**
+ * Successive hues this far apart never revisit an earlier one, which is the whole reason to
+ * use it: any prefix of the sequence is about as spread out as that many hues can be.
+ */
+const GOLDEN_ANGLE_DEGREES = 137.508;
+
+/**
+ * The colour for a channel past the delivered eight.
+ *
+ * Saturation and lightness are fixed so the only thing that varies is hue: these sit on
+ * greyscale MRI, where a mask that changes brightness between channels reads as a difference
+ * in the image rather than in the annotation.
+ *
+ * Distinct is not the same as distinguishable. Past roughly twenty, neighbouring hues stop
+ * being tellable apart by eye on a greyscale background; that is a limit on how many findings
+ * a product should offer at once, not on what this function will return.
+ */
+function generatedChannelColor(channel: number): RGBAColor {
+  const hue = ((channel - SEEDED_CHANNELS - 1) * GOLDEN_ANGLE_DEGREES) % 360;
+  return hslToRgba(hue, 0.68, 0.55);
+}
+
+/** HSL (h in degrees, s and l in 0-1) to the 0-255 RGBA this module stores. */
+function hslToRgba(h: number, s: number, l: number): RGBAColor {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] =
+    h < 60 ? [c, x, 0] :
+    h < 120 ? [x, c, 0] :
+    h < 180 ? [0, c, x] :
+    h < 240 ? [0, x, c] :
+    h < 300 ? [x, 0, c] :
+    [c, 0, x];
+  const to255 = (v: number) => Math.round((v + m) * 255);
+  return { r: to255(r), g: to255(g), b: to255(b), a: 255 };
+}
+
+/**
+ * A delivered 0-8 table, continued to 255 with generated colours.
+ *
+ * The seeds are kept verbatim rather than regenerated: every delivered case's chips, 3D
+ * overlay tints and printed report outlines are keyed on them, so a formula that happened to
+ * produce different values would silently recolour work already read and signed off.
+ *
+ * Built eagerly rather than behind a Proxy. `applyLayerChannelColors` walks these with
+ * `Object.entries`, which a Proxy's `get` trap would not serve.
+ */
+function extendPalette<T>(
+  seed: Readonly<Record<number, T>>,
+  from: (color: RGBAColor) => T
+): Readonly<Record<number, T>> {
+  const table: Record<number, T> = { ...seed };
+  for (let channel = SEEDED_CHANNELS + 1; channel <= MAX_ENGINE_CHANNEL; channel++) {
+    table[channel] = from(generatedChannelColor(channel));
+  }
+  return table;
+}
+
+const MASK_CHANNEL_COLORS_SEED: Readonly<ChannelColorMap> = {
   0: { r: 0, g: 0, b: 0, a: 0 },     // Background (transparent)
   1: { r: 16, g: 185, b: 129, a: 255 },  // Emerald / Soft Green — Primary / Tumor
   2: { r: 244, g: 63, b: 94, a: 255 },   // Rose / Soft Red      — Secondary / Edema
@@ -106,7 +174,7 @@ export const MASK_CHANNEL_COLORS: Readonly<ChannelColorMap> = {
 /**
  * CSS color strings for the default channel palette (for reference / UI).
  */
-export const MASK_CHANNEL_CSS_COLORS: Readonly<Record<number, string>> = {
+const MASK_CHANNEL_CSS_COLORS_SEED: Readonly<Record<number, string>> = {
   0: 'rgba(0,0,0,0)',
   1: 'rgba(16,185,129,1)',       // Emerald
   2: 'rgba(244,63,94,1)',        // Rose
@@ -126,20 +194,21 @@ export const MASK_CHANNEL_CSS_COLORS: Readonly<Record<number, string>> = {
 export type LayerId = string;
 
 /**
- * Channel value (0 = transparent/erased, 1-8 = annotation channels).
+ * Channel value: 0 is transparent/erased, 1..`MAX_ENGINE_CHANNEL` are annotation channels.
+ *
+ * A bare `number`, not a union. The union held while there were eight of them and cannot be
+ * written for 255; what it bought — a compile error on a bad literal — is now a runtime
+ * `RangeError` from `MaskVolume` instead. That is a real loss, and it is the price of the
+ * range: the storage is one byte per voxel whose value IS the label, so the engine has no
+ * standing to cap it lower than the byte does. A product's own limit is the product's
+ * business.
  */
-export type ChannelValue = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-
-/**
- * Convenience alias for MASK_CHANNEL_CSS_COLORS.
- * Used by Vue components via `Copper.CHANNEL_COLORS[channel]`.
- */
-export const CHANNEL_COLORS: Readonly<Record<number, string>> = MASK_CHANNEL_CSS_COLORS;
+export type ChannelValue = number;
 
 /**
  * Hex color strings for each channel (no alpha), used for fillColor/brushColor.
  */
-export const CHANNEL_HEX_COLORS: Readonly<Record<number, string>> = {
+const CHANNEL_HEX_COLORS_SEED: Readonly<Record<number, string>> = {
   0: '#000000',
   1: '#10b981',   // Emerald
   2: '#f43f5e',   // Rose
@@ -159,7 +228,7 @@ export const CHANNEL_HEX_COLORS: Readonly<Record<number, string>> = {
  * Applied ONLY to the AI scratch layer (set per-volume in AiAssistTool.enter) —
  * the global palette above is untouched, so the clinician mask stays emerald.
  */
-export const AI_MASK_CHANNEL_COLORS: Readonly<ChannelColorMap> = {
+const AI_MASK_CHANNEL_COLORS_SEED: Readonly<ChannelColorMap> = {
   0: { r: 0, g: 0, b: 0, a: 0 },
   1: { r: 94, g: 200, b: 255, a: 255 },  // Cyan (#5ec8ff) — AI accent (was emerald)
   2: { r: 244, g: 63, b: 94, a: 255 },   // Rose
@@ -171,7 +240,7 @@ export const AI_MASK_CHANNEL_COLORS: Readonly<ChannelColorMap> = {
   8: { r: 139, g: 92, b: 246, a: 255 },  // Violet
 };
 
-export const AI_CHANNEL_HEX_COLORS: Readonly<Record<number, string>> = {
+const AI_CHANNEL_HEX_COLORS_SEED: Readonly<Record<number, string>> = {
   0: '#000000',
   1: '#5ec8ff',   // Cyan — AI accent
   2: '#f43f5e',   // Rose
@@ -182,6 +251,24 @@ export const AI_CHANNEL_HEX_COLORS: Readonly<Record<number, string>> = {
   7: '#f97316',   // Orange
   8: '#8b5cf6',   // Violet
 };
+
+
+// ── The four palettes, delivered through channel 8 and generated past it ──────
+
+export const MASK_CHANNEL_COLORS = extendPalette(MASK_CHANNEL_COLORS_SEED, (c) => c);
+export const MASK_CHANNEL_CSS_COLORS = extendPalette(MASK_CHANNEL_CSS_COLORS_SEED, rgbaToCss);
+export const CHANNEL_HEX_COLORS = extendPalette(CHANNEL_HEX_COLORS_SEED, rgbaToHex);
+export const AI_MASK_CHANNEL_COLORS = extendPalette(AI_MASK_CHANNEL_COLORS_SEED, (c) => c);
+export const AI_CHANNEL_HEX_COLORS = extendPalette(AI_CHANNEL_HEX_COLORS_SEED, rgbaToHex);
+
+/**
+ * Convenience alias for MASK_CHANNEL_CSS_COLORS.
+ * Used by Vue components via `Copper.CHANNEL_COLORS[channel]`.
+ *
+ * Declared here, with the tables it aliases. It used to sit further up, which was fine while
+ * those were object literals and is a temporal-dead-zone error now that they are built.
+ */
+export const CHANNEL_COLORS: Readonly<Record<number, string>> = MASK_CHANNEL_CSS_COLORS;
 
 // ── Color Conversion Utilities ──────────────────────────────────────────
 
@@ -382,11 +469,11 @@ export interface IViewConfig {
 /** Layer/channel state — active layer, channel, and visibility */
 export interface ILayerChannelState {
   layer: string;
-  /** Currently active channel (1-8). Channel 0 is transparent/erased. */
+  /** Currently active channel. 0 is transparent/erased. */
   activeChannel: number;
   /** Layer visibility state: { layer1: true, layer2: true, layer3: true } */
   layerVisibility: Record<string, boolean>;
-  /** Per-layer channel visibility: { layer1: { 1: true, ..., 8: true }, ... } */
+  /** Per-layer channel visibility: { layer1: { 1: true, 2: false, ... }, ... } */
   channelVisibility: Record<string, Record<number, boolean>>;
   /** Per-layer opacity: { layer1: 1.0, layer2: 0.6, ... }. Range [0.1, 1.0]. */
   layerOpacity: Record<string, number>;
