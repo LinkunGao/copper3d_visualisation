@@ -117,7 +117,8 @@ protectedData.maskData.volumes = {
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `setActiveLayer` | `(layerId: string): void` | Set the active Layer; also updates fillColor/brushColor |
-| `setActiveChannel` | `(channel: ChannelValue): void` | Set the active Channel (1–8); updates brush color |
+| `setActiveChannel` | `(channel: ChannelValue): void` | Set the active Channel (1–`MAX_ENGINE_CHANNEL`); updates brush color |
+| `clearChannel` | `(layerId: string, channel: number): void` | Erase one label across a whole layer, undoably. Throws on an unknown layer (deliberately not via `getVolumeForLayer`, whose fallback would erase a different layer) or a channel outside [1, 255] |
 | `getActiveLayer` | `(): string` | Get the current Layer ID |
 | `getActiveChannel` | `(): number` | Get the current Channel value |
 | `setLayerVisible` | `(layerId, visible): void` | Set Layer visibility, triggers `reloadMasksFromVolume()` |
@@ -577,7 +578,7 @@ GuiState groups 20 properties into 4 semantic sub-objects:
 | Field | Type | Description |
 |-------|------|-------------|
 | `layer` | `string` | Currently active Layer (default `"layer1"`) |
-| `activeChannel` | `number` | Currently active Channel (1–8) |
+| `activeChannel` | `number` | Currently active Channel (1–255; 0 = empty/erased) |
 | `layerVisibility` | `Record<string, boolean>` | Layer visibility map |
 | `channelVisibility` | `Record<string, Record<number, boolean>>` | Channel visibility map |
 | `layerOpacity` | `Record<string, number>` | Per-layer opacity map (0.1–1.0, default 1.0) |
@@ -728,7 +729,13 @@ Per-axis implementation:
 
 **`setSliceUint8(sliceIndex, data, axis)`** — Inverse of `getSliceUint8`, used for Undo/Redo restoration.
 
-**`setSliceLabelsFromImageData(sliceIndex, imageData, axis, activeChannel, channelVisible?)`** — Canvas → Volume write: converts RGBA pixels into channel labels (1–8). Uses `ALPHA_THRESHOLD = 128` to avoid anti-aliasing edge artifacts.
+**`setSliceLabelsFromImageData(sliceIndex, imageData, axis, activeChannel, channelVisible?)`** — Canvas → Volume write: converts RGBA pixels into channel labels. Uses `ALPHA_THRESHOLD = 128` to avoid anti-aliasing edge artifacts.
+
+An exact RGB match is resolved through `buildRgbToChannelMap()`. A pixel that matches nothing — an anti-aliased edge — falls through to a nearest-colour search, and **that search is restricted to candidate labels**: the labels already present on this slice, plus `activeChannel`. One cheap pass collects them.
+
+Widening the search to all 255 would not merely be 255 distance computations per fringe pixel. It would be wrong: the more colours the guess can choose from, the more readily a fringe resolves to a label that is nowhere on the slice, which puts voxels into another finding's mask with nothing on screen to show for it.
+
+**`clearChannel(channel)`** — Zero every voxel carrying one label, leaving the others in place. Label-based volumes only (`numChannels === 1`, i.e. the voxel value *is* the label); a multi-plane volume stores channels as separate planes and would need a different sweep. Throws `RangeError` outside [1, 255]. The `version` counter is bumped **only if a voxel actually changed** — every derived cache keyed on it (the contour cache above all) is invalidated by a bump, so bumping for a clear that found nothing would redraw the layer for no reason.
 
 ### 5.5 Rendering to Canvas
 
@@ -745,13 +752,26 @@ renderLabelSliceInto(
 ```
 
 Rendering logic:
-1. Read label value (0–8)
+1. Read label value (0–255)
 2. `label === 0` → transparent (RGBA all zero)
-3. `channelVisible && !channelVisible[label]` → hidden channel → transparent
+3. `channelVisible?.[label] === false` → hidden channel → transparent
 4. Otherwise → read color from volume's `colorMap` (supports per-layer custom colors), apply opacity
 
 ::: tip
 **Phase B change**: Color source changed from global `MASK_CHANNEL_COLORS` to each volume instance's `this.colorMap`. `buildRgbToChannelMap()` is also now an instance method, ensuring correct custom color mapping during canvas → volume write-back.
+:::
+
+::: warning Two readback rules that changed with the 255-channel range
+**`=== false`, not falsy** (step 3). `channelVisible` records what has been *hidden* and never
+covers every label. `setSliceLabelsFromImageData` already read it that way; reading it as
+falsy here made any label the map did not mention render as invisible — which was harmless
+while eight channels were always listed, and is not once a label can be any of 255.
+
+**`buildRgbToChannelMap()` covers every label the instance has a colour for**, not a fixed
+1–8. A pixel painted in channel 12's colour used to miss the table entirely and fall through
+to the nearest-colour guess, which could only ever answer 1–8 — so a high channel could be
+drawn and could never be read back. Size is not a cost: the map is built once per readback
+and every lookup against it is O(1).
 :::
 
 ### 5.6 Full Rendering Pipeline
@@ -1201,6 +1221,38 @@ DrawToolCore.undoLastPainting()
 | 8 | Violet (Extended) | `#8b5cf6` | `(139,92,246,255)` |
 
 Exported as: `MASK_CHANNEL_COLORS` (RGBA), `MASK_CHANNEL_CSS_COLORS` (CSS), `CHANNEL_HEX_COLORS` (Hex)
+
+#### Channels 9–255 (generated)
+
+`MAX_ENGINE_CHANNEL = 255` — one byte per voxel, the value *is* the label, so 0 is empty and
+1–255 are channels. The engine does not cap below what the byte allows; a smaller product
+limit is the product's business.
+
+Each palette is built by `extendPalette(seed, from)`, which copies the 0–8 table verbatim and
+fills 9–255 from `generatedChannelColor(channel)`:
+
+```
+hue        = ((channel - 8 - 1) * 137.508) % 360     // golden angle
+saturation = 0.68                                    // fixed
+lightness  = 0.55                                    // fixed
+```
+
+Two decisions worth knowing:
+
+- **Only hue varies.** These sit on greyscale MRI; a mask whose *brightness* changes between
+  channels reads as a difference in the image rather than in the annotation.
+- **The seeds are not regenerated.** Delivered cases' chips, 3D overlay tints and printed
+  report outlines are keyed on the eight literals, so a formula that happened to produce
+  different values would silently recolour work already read and signed off.
+
+Built eagerly rather than behind a `Proxy`: `applyLayerChannelColors` walks these with
+`Object.entries`, which a `Proxy`'s `get` trap would not serve.
+
+::: warning
+`CHANNEL_COLORS` is declared *after* the tables it aliases. It used to sit above them, which
+was fine while they were object literals and is a temporal-dead-zone error now that they are
+built.
+:::
 
 ### 11.2 Color Conversion Utilities
 

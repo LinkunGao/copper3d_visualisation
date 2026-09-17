@@ -117,7 +117,8 @@ protectedData.maskData.volumes = {
 | 方法 | 签名 | 说明 |
 |------|------|------|
 | `setActiveLayer` | `(layerId: string): void` | 设置当前活跃 Layer，同时更新 fillColor/brushColor |
-| `setActiveChannel` | `(channel: ChannelValue): void` | 设置当前活跃 Channel (1-8)，更新画笔颜色 |
+| `setActiveChannel` | `(channel: ChannelValue): void` | 设置当前活跃 Channel (1–`MAX_ENGINE_CHANNEL`)，更新画笔颜色 |
+| `clearChannel` | `(layerId: string, channel: number): void` | 跨整个图层擦除单个 label，可撤销。图层不存在时抛错（刻意不走 `getVolumeForLayer`，否则它的回退会擦掉另一个图层），通道超出 [1, 255] 时抛 `RangeError` |
 | `getActiveLayer` | `(): string` | 获取当前 Layer ID |
 | `getActiveChannel` | `(): number` | 获取当前 Channel 值 |
 | `setLayerVisible` | `(layerId, visible): void` | 设置 Layer 可见性，触发 `reloadMasksFromVolume()` |
@@ -570,7 +571,7 @@ GuiState 将 20 个属性分组为 4 个语义子对象：
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `layer` | `string` | 当前活跃 Layer (默认 `"layer1"`) |
-| `activeChannel` | `number` | 当前活跃 Channel (1-8) |
+| `activeChannel` | `number` | 当前活跃 Channel (1-255；0 = 空/已擦除) |
 | `layerVisibility` | `Record<string, boolean>` | Layer 可见性 |
 | `channelVisibility` | `Record<string, Record<number, boolean>>` | Channel 可见性 |
 | `layerOpacity` | `Record<string, number>` | Per-layer 透明度 (0.1–1.0，默认 1.0) |
@@ -722,9 +723,23 @@ bytesPerSlice = width * height * channels
 
 **`setSliceLabelsFromImageData(sliceIndex, imageData, axis, activeChannel, channelVisible?)`** — [MaskVolume.ts:575-661](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L575-L661)
 
-Canvas→Volume 写入，将 RGBA 像素转换为 channel label (1-8)。
+Canvas→Volume 写入，将 RGBA 像素转换为 channel label。
 - 构建 RGB→Channel 映射 [L593](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L593)
 - ALPHA_THRESHOLD = 128 [L601](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/core/MaskVolume.ts#L601) 避免抗锯齿边缘
+
+RGB 精确匹配走 `buildRgbToChannelMap()`。匹配不上的像素（抗锯齿边缘）会落到"最近颜色"搜索，
+而**这个搜索被限制在候选 label 内**：当前切片上已经存在的那些 label，加上 `activeChannel`。
+用一趟廉价的扫描收集出来。
+
+把搜索范围放宽到全部 255 个，不只是每个边缘像素多算 255 次距离，而且是**错的**：可供猜测的
+颜色越多，边缘越容易被判成一个切片上根本不存在的 label，于是体素被塞进了另一个 finding 的
+mask，而画面上什么都看不出来。
+
+**`clearChannel(channel)`** — 把携带某一个 label 的体素全部清零，其他 label 原样保留。仅适用于
+label 型 volume（`numChannels === 1`，即体素值**就是** label）；多平面 volume 把 channel 存成
+独立平面，需要另一套扫描方式。超出 [1, 255] 抛 `RangeError`。`version` 计数器**只在确实有体素
+被改动时**才递增 —— 所有以它为键的派生缓存（首当其冲是 contour 缓存）都会因递增而失效，所以
+为一次什么都没找到的清除而递增，等于白白重绘整个图层。
 
 ### 5.5 渲染到 Canvas
 
@@ -741,12 +756,24 @@ renderLabelSliceInto(
 ```
 
 渲染逻辑:
-1. 读取 label 值 (0-8)
+1. 读取 label 值 (0-255)
 2. `label === 0` → 透明 (RGBA 全 0)
-3. `channelVisible && !channelVisible[label]` → 隐藏该 Channel → 透明
+3. `channelVisible?.[label] === false` → 隐藏该 Channel → 透明
 4. 否则 → 从 volume 的 `colorMap` 取颜色（支持 per-layer 自定义颜色），应用 opacity
 
 > **Phase B 变更**: 颜色来源从全局 `MASK_CHANNEL_COLORS` 改为每个 volume 实例的 `this.colorMap`。`buildRgbToChannelMap()` 也改为 instance 方法，确保 canvas→volume 写回时使用正确的自定义颜色映射。
+
+::: warning 随 255 通道一起改掉的两条读回规则
+**是 `=== false`，不是 falsy**（第 3 步）。`channelVisible` 记录的是哪些**被隐藏了**，它从来
+不会覆盖全部 label。`setSliceLabelsFromImageData` 本来就是这么读的；而这里按 falsy 读，会让
+任何该映射没提到的 label 渲染成不可见 —— 在只有 8 个通道、且总是被完整列出时这没有危害，
+一旦 label 可以是 255 个中的任意一个就不成立了。
+
+**`buildRgbToChannelMap()` 覆盖该实例所有有颜色的 label**，而不是固定的 1-8。用 12 号通道的
+颜色画下的像素，以前完全匹配不进这张表，只能落到"最近颜色"猜测，而那个猜测只可能回答 1-8 ——
+于是高编号通道画得上去、却永远读不回来。体积不是问题：这张表每次读回只构建一次，之后每次查找
+都是 O(1)。
+:::
 
 ### 5.6 渲染管线完整流程
 
@@ -1344,6 +1371,35 @@ DrawToolCore.undoLastPainting()
 - RGBA: `MASK_CHANNEL_COLORS`
 - CSS: `MASK_CHANNEL_CSS_COLORS`
 - Hex: `CHANNEL_HEX_COLORS`
+
+#### 通道 9–255（自动生成）
+
+`MAX_ENGINE_CHANNEL = 255` —— 每体素一个字节，值**本身就是** label，因此 0 表示空、1–255 是
+通道。引擎不会把上限卡得比字节更低；要设更小的产品级上限，是产品自己的事。
+
+每套调色板由 `extendPalette(seed, from)` 构建：原样复制 0–8 的表，再用
+`generatedChannelColor(channel)` 填满 9–255：
+
+```
+hue        = ((channel - 8 - 1) * 137.508) % 360     // 黄金角
+saturation = 0.68                                    // 固定
+lightness  = 0.55                                    // 固定
+```
+
+两个值得知道的决定：
+
+- **只有色相在变。** 这些 mask 叠在灰度 MRI 上；如果不同通道之间**明度**也在变，读片者会把它
+  当成图像本身的差异，而不是标注的差异。
+- **种子色不重新生成。** 已交付病例的色块、3D overlay 配色和打印报告的轮廓色都绑定在这 8 个
+  字面值上，一个碰巧算出不同数值的公式，会悄悄把已经被读过、签发过的工作重新上色。
+
+是**预先构建**的，而不是套一层 `Proxy`：`applyLayerChannelColors` 用 `Object.entries` 遍历
+它们，而 `Proxy` 的 `get` 陷阱是伺候不了 `Object.entries` 的。
+
+::: warning
+`CHANNEL_COLORS` 声明在它所别名的那些表**之后**。它原本在上面，在那些表还是对象字面量时没问题，
+而现在它们是构建出来的，放在上面就是暂时性死区错误。
+:::
 
 ### 11.2 颜色转换工具函数（Phase B 新增）
 

@@ -362,6 +362,17 @@ if (nrrdTools.hasLayerData('layer1')) await saveLayer('layer1');
 | 7 | Orange | `#f97316` |
 | 8 | Violet | `#8b5cf6` |
 
+Channels **9–255** are generated from a golden-angle hue walk (137.508° per step) at fixed
+saturation and lightness — only hue varies, because a mask that changes brightness between
+channels reads as a difference in the greyscale image rather than in the annotation. The eight
+seeds above are kept verbatim, so cases annotated before this keep the colours they were
+signed off with. `Copper.MAX_ENGINE_CHANNEL` is the ceiling (`255` — one byte per voxel, and
+the value *is* the label).
+
+> Distinct is not the same as distinguishable: past roughly twenty channels, neighbouring hues
+> stop being tellable apart by eye on a greyscale background. All 255 are addressable; how many
+> your product should offer at once is a separate question.
+
 ```typescript
 // Set one channel color (RGBAColor: { r, g, b, a } — 0-255)
 nrrdTools.setChannelColor('layer1', 3, { r: 255, g: 128, b: 0, a: 255 });
@@ -431,10 +442,17 @@ inputEl.addEventListener('blur',  () => nrrdTools.exitKeyboardConfig());
 ### 10. Clearing Annotations
 
 ```typescript
-nrrdTools.reset();           // Reset ALL layers, volumes, undo histories, canvases (use when switching cases)
+nrrdTools.reset();            // Reset ALL layers, volumes, undo histories, canvases (use when switching cases)
 nrrdTools.clearActiveLayer(); // Clear active layer's entire 3D volume + undo history, fire onClearLayerVolume
 nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoable)
+nrrdTools.clearChannel('layer1', 3); // Erase ONE channel across the whole layer (undoable)
 ```
+
+`clearChannel` is the only one of these that can delete a single annotation: a finding's mask
+is one label inside a volume it shares with every other annotation on the layer, so anything
+coarser takes the neighbours with it. Its deltas go on the undo stack, so `undo()` brings the
+channel back — which is why you should use it rather than writing zeros into the volume
+yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 
 ---
 
@@ -452,6 +470,7 @@ nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoa
 | **Data** | `reset()` | Reset all volumes, undo histories, canvases, sphere data |
 | | `clearActiveLayer()` | Clear active layer volume + undo history |
 | | `clearActiveSlice()` | Clear current slice (undoable) |
+| | `clearChannel(id, ch)` | Erase one channel across a whole layer (undoable); throws on unknown layer or channel outside [1, 255] |
 | | `setAllSlices(slices)` | Load NRRD slices, init MaskVolumes |
 | | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data (grids must be registered first) |
 | | `registerNiftiMaskGrid(data, dims)` | *(module export)* Record a mask buffer's NIfTI grid for validation |
@@ -488,6 +507,7 @@ nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoa
 | | `getChannelHexColor(id, ch)` | Read Hex string |
 | | `getChannelCssColor(id, ch)` | Read CSS rgba() string |
 | | `resetChannelColors(id?, ch?)` | Reset to defaults |
+| | `MAX_ENGINE_CHANNEL` | *(module export)* Highest storable label, `255` |
 | **Tool Mode** | `setMode(mode)` | Switch tool: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
 | | `getMode()` | Read current tool mode |
 | | `isCalculatorActive()` | Check if calculator (distance) mode is active |
@@ -532,7 +552,7 @@ nrrdTools.clearActiveSlice(); // Clear only the currently viewed 2D slice (undoa
 ```typescript
 interface RGBAColor { r: number; g: number; b: number; a: number; } // 0-255
 
-type ChannelColorMap = Record<number, RGBAColor>; // key = channel 1-8
+type ChannelColorMap = Record<number, RGBAColor>; // key = channel number, 1-255
 
 interface IDrawOpts {
   getMaskData?: (
@@ -567,7 +587,7 @@ interface IKeyBoardSettings {
 interface ICommXYZ { x: number; y: number; z: number; }
 
 type LayerId      = 'layer1' | 'layer2' | 'layer3' | 'layer4'; // or any string
-type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type ChannelValue = number; // 0 = empty/erased, 1..MAX_ENGINE_CHANNEL (255)
 ```
 
 ---
