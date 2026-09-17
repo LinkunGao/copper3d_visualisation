@@ -131,6 +131,8 @@ import { GuiState } from "./Utils/segmentation/coreTools/GuiState";
 import type { ToolMode, IAnnotationCallbacks } from "./Utils/segmentation/core/types";
 import { CHANNEL_COLORS, CHANNEL_HEX_COLORS, AI_MASK_CHANNEL_COLORS, AI_CHANNEL_HEX_COLORS, rgbaToHex, rgbaToCss } from "./Utils/segmentation/core/index";
 import type { LayerId, ChannelValue } from "./Utils/segmentation/core/index";
+import { MAX_ENGINE_CHANNEL } from "./Utils/segmentation/core/index";
+
 import type {
   AiPromptTool,
   AiPromptPoint,
@@ -190,6 +192,7 @@ export {
   MeshNodeTool,
   throttle,
   removeGuiFolderChilden,
+  MAX_ENGINE_CHANNEL,
   CHANNEL_COLORS,
   CHANNEL_HEX_COLORS,
   AI_MASK_CHANNEL_COLORS,
@@ -270,6 +273,7 @@ export type {
   IAnnotationCallbacks,
   LayerId,
   ChannelValue,
+
   AiPromptTool,
   AiPromptPoint,
   AiPromptPayload,

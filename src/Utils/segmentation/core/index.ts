@@ -114,6 +114,7 @@ export type {
 
 export {
   RenderMode,
+  MAX_ENGINE_CHANNEL,
   MASK_CHANNEL_COLORS,
   MASK_CHANNEL_CSS_COLORS,
   CHANNEL_COLORS,

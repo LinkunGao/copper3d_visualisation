@@ -365,7 +365,7 @@ nrrdTools.draw({
   getMaskData: (
     sliceData: Uint8Array,   // Raw voxel data for this slice (label values 0-8)
     layerId: string,          // Which layer was modified, e.g. "layer1"
-    channelId: number,        // Active channel (1-8)
+    channelId: number,        // Active channel (1-255)
     sliceIndex: number,       // Index along the current axis
     axis: 'x' | 'y' | 'z',  // Current viewing axis
     width: number,            // Slice width in voxels
@@ -814,6 +814,50 @@ const meta = nrrdTools.getSliderMeta('layerAlpha');
 
 This is used by `OperationCtl.vue`’s "Layer Alpha" slider radio option.
 
+#### 6.6 Erasing one channel — `clearChannel()` <Badge type="tip" text="3.10.2" />
+
+```typescript
+nrrdTools.clearChannel('layer1', 3);  // finding 3 goes; 1, 2 and 4 stay
+```
+
+This is the third member of the clear family. `executeAction("clearActiveSliceMask")` takes
+one slice and `executeAction("clearActiveLayerMask")` takes a whole layer — neither can take
+a single label. Deleting one annotation needs exactly that, because its mask is one label
+inside a volume it shares with every other annotation on the layer.
+
+| Method | Scope |
+|--------|-------|
+| `clearActiveSlice()` | One slice, every channel |
+| `clearChannel(id, ch)` | One channel, every slice |
+| `clearActiveLayer()` | One layer, everything |
+| `reset()` | Every layer, everything |
+
+**It is undoable.** The deltas go onto the engine's own undo stack, so a mistaken clear is
+recoverable for as long as the case stays open:
+
+```typescript
+nrrdTools.clearChannel('layer1', 3);
+nrrdTools.undo();   // finding 3 is back
+```
+
+That is the reason to use it rather than writing zeros into the volume yourself and forcing
+a repaint — an outside write bypasses the stack, and the clear becomes permanent.
+
+Only slices that actually carry the label are touched, so a small annotation in a deep volume
+costs one scan and a handful of `getMaskData` callbacks rather than one callback per slice.
+If the channel is empty, nothing is pushed and nothing fires.
+
+::: warning Errors are thrown, not swallowed
+- Unknown `layerId` → `Error` listing the known layers. It deliberately does **not** go
+  through `getVolumeForLayer`, which warns and falls back to the first layer; for a
+  destructive call that would quietly erase a different layer's annotation.
+- `channel` outside `[1, 255]` → `RangeError` from `MaskVolume`. `0` means empty, so it is
+  not a channel you can clear.
+:::
+
+It is not part of `executeAction` because that signature is an action name plus an options
+bag, and this needs two required arguments.
+
 ---
 
 ### 7. Channel Color Customization
@@ -855,6 +899,8 @@ if (!volume) {
 
 #### Default Channel Colors
 
+Channels **1–8** ship with a fixed, hand-picked palette:
+
 | Channel | Color | Hex |
 |---------|-------|-----|
 | 1 | Emerald (Tumour) | `#10b981` |
@@ -865,6 +911,38 @@ if (!volume) {
 | 6 | Cyan (Additional) | `#06b6d4` |
 | 7 | Orange (Auxiliary) | `#f97316` |
 | 8 | Violet (Extended) | `#8b5cf6` |
+
+##### Channels 9–255 are generated <Badge type="tip" text="3.10.2" />
+
+`MaskVolume` stores one byte per voxel and the value *is* the label, so the engine supports
+**255 annotation channels** (`0` means empty). `Copper.MAX_ENGINE_CHANNEL` is that ceiling.
+
+Channels past 8 get a colour from a golden-angle hue walk (137.508° per step) at fixed
+saturation and lightness. Only the hue varies, deliberately: these sit on greyscale MRI,
+where a mask that changes *brightness* between channels reads as a difference in the image
+rather than in the annotation.
+
+The eight seeds above are kept verbatim rather than regenerated, so a case annotated before
+this change keeps exactly the colours it was read and signed off with.
+
+::: warning Distinct is not the same as distinguishable
+Past roughly twenty channels, neighbouring hues stop being tellable apart by eye on a
+greyscale background. That is a limit on how many findings your product should offer at
+once — not on what the engine will hand back. All 255 are addressable; only the first ~20
+are comfortably readable.
+:::
+
+```typescript
+import { MAX_ENGINE_CHANNEL, CHANNEL_HEX_COLORS } from 'copper3d';
+
+MAX_ENGINE_CHANNEL;          // → 255
+CHANNEL_HEX_COLORS[3];       // → '#3b82f6'  (delivered)
+CHANNEL_HEX_COLORS[42];      // → generated, stable across runs
+```
+
+All four palettes — `MASK_CHANNEL_COLORS`, `MASK_CHANNEL_CSS_COLORS` / `CHANNEL_COLORS`,
+`CHANNEL_HEX_COLORS`, and the AI-scratch pair — are extended the same way and are built
+eagerly, so `Object.entries` over them works as it always did.
 
 #### 7.1 Set a single channel color
 
@@ -1444,7 +1522,7 @@ interface RGBAColor {
 }
 
 // Batch color map for setChannelColors()
-type ChannelColorMap = Record<number, RGBAColor>; // key = channel number 1-8
+type ChannelColorMap = Record<number, RGBAColor>; // key = channel number, 1-255
 
 // draw() options
 interface IDrawOpts {
@@ -1501,8 +1579,16 @@ interface ICommXYZ {
 
 ```typescript
 type LayerId     = 'layer1' | 'layer2' | 'layer3' | 'layer4'; // or any string
-type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type ChannelValue = number; // 0 = empty/erased, 1..MAX_ENGINE_CHANNEL (255)
 ```
+
+::: tip `ChannelValue` is a bare `number` since 3.10.2
+It used to be the union `1 | 2 | ... | 8`. That union cannot be written for 255 members, so
+the compile-time error on a bad literal is gone — you now get a `RangeError` from
+`MaskVolume` at runtime instead. That is a genuine loss and it is the price of the range:
+storage is one byte per voxel whose value *is* the label, so the engine has no standing to
+cap it below what the byte allows. Capping it lower is your product's call, not the engine's.
+:::
 
 ---
 
@@ -1520,6 +1606,7 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | **Data** | `reset()` | Reset all volumes, undo histories, canvases, and sphere data |
 | | `clearActiveLayer()` | Clear annotations and undo history for the *currently active layer* |
 | | `clearActiveSlice()` | Clear annotations exclusively on the *currently viewed slice* of the active layer |
+| | `clearChannel(id, ch)` | Erase one channel across a whole layer, undoably. Throws on an unknown layer or a channel outside [1, 255] |
 | | `setAllSlices(slices)` | Load NRRD slices, init MaskVolumes |
 | | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data (each buffer must be registered via `registerNiftiMaskGrid` first, or it is refused) |
 | | `registerNiftiMaskGrid(data, dims)` | *(module export, not a method)* Record a mask buffer's NIfTI voxel grid so `setMasksFromNIfTI` can validate it |
@@ -1556,6 +1643,7 @@ type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 | | `getChannelHexColor(id, ch)` | Read Hex string |
 | | `getChannelCssColor(id, ch)` | Read CSS rgba() string |
 | | `resetChannelColors(id?, ch?)` | Reset to defaults |
+| | `MAX_ENGINE_CHANNEL` | *(module export)* Highest storable label, `255` |
 | **Tool Mode** | `setMode(mode)` | Switch tool mode: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
 | | `getMode()` | Read current tool mode |
 | | `isCalculatorActive()` | Check if calculator (distance) mode is active |

@@ -849,15 +849,19 @@ describe('MaskVolume â€” Color Map Management', () => {
 
   it('should throw on setChannelColor with out-of-range channel', () => {
     const vol = new MaskVolume(4, 4, 4, 2);
-    // Channel range is 0-8 (label-based), so 9 and -1 should throw
-    expect(() => vol.setChannelColor(9, { r: 0, g: 0, b: 0, a: 0 })).toThrow(RangeError);
+    // Label range is 0-255: the voxel value IS the label and it is one byte. 9 is a real
+    // channel now; only past the byte, and below zero, is out of range.
+    expect(() => vol.setChannelColor(9, { r: 0, g: 0, b: 0, a: 0 })).not.toThrow();
+    expect(() => vol.setChannelColor(255, { r: 0, g: 0, b: 0, a: 0 })).not.toThrow();
+    expect(() => vol.setChannelColor(256, { r: 0, g: 0, b: 0, a: 0 })).toThrow(RangeError);
     expect(() => vol.setChannelColor(-1, { r: 0, g: 0, b: 0, a: 0 })).toThrow(RangeError);
   });
 
   it('should fall back to transparent for undefined channel colors', () => {
     const vol = new MaskVolume(4, 4, 4, 2);
-    // Channel 99 doesn't exist in color map
-    const fallback = vol.getChannelColor(99);
+    // 256, not 99: the palette is generated up to MAX_ENGINE_CHANNEL now, so 99 is a real
+    // colour. Past the Uint8 label range is the only place a channel genuinely has none.
+    const fallback = vol.getChannelColor(256);
     expect(fallback).toEqual(MASK_CHANNEL_COLORS[0]); // transparent
   });
 

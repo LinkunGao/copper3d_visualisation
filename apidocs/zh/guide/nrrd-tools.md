@@ -654,6 +654,45 @@ const meta = nrrdTools.getSliderMeta('layerAlpha');
 
 用于 `OperationCtl.vue` 的 "Layer Alpha" slider radio 选项。
 
+### 6.6 擦除单个通道 —— `clearChannel()` <Badge type="tip" text="3.10.2" />
+
+```typescript
+nrrdTools.clearChannel('layer1', 3);  // 3 号 finding 被清除；1、2、4 保留
+```
+
+这是 clear 家族的第三个成员。`executeAction("clearActiveSliceMask")` 作用于一个切片，
+`executeAction("clearActiveLayerMask")` 作用于整个图层 —— 两者都无法只针对一个 label。
+而删除**某一个标注**恰恰需要这种粒度：它的 mask 只是一个 label，和该图层上所有其他标注共享
+同一个 volume。
+
+| 方法 | 作用范围 |
+|------|----------|
+| `clearActiveSlice()` | 一个切片，所有通道 |
+| `clearChannel(id, ch)` | 一个通道，所有切片 |
+| `clearActiveLayer()` | 一个图层，全部内容 |
+| `reset()` | 所有图层，全部内容 |
+
+**它可以撤销。** 产生的 delta 会进入引擎自己的 undo 栈，所以只要病例还开着，误操作就能救回来：
+
+```typescript
+nrrdTools.clearChannel('layer1', 3);
+nrrdTools.undo();   // 3 号 finding 回来了
+```
+
+这正是要用它、而不是自己往 volume 里写 0 再强制重绘的原因 —— 从外部写入会绕过 undo 栈，
+误清除就变成不可逆的了。
+
+只有**确实带有该 label** 的切片才会被触碰，所以深体数据里的一个小标注，代价是一次扫描加少量
+`getMaskData` 回调，而不是每个切片一次回调。如果该通道本来就是空的，既不会入栈也不会触发回调。
+
+::: warning 错误是抛出的，不是吞掉的
+- `layerId` 不存在 → 抛 `Error`，并列出已知图层。它**刻意**不走 `getVolumeForLayer` ——
+  后者只会 warn 然后回退到第一个图层，而对一个破坏性操作来说，那等于悄悄擦掉了另一个图层的标注。
+- `channel` 超出 `[1, 255]` → 由 `MaskVolume` 抛 `RangeError`。`0` 表示"空"，不是一个可以清除的通道。
+:::
+
+它没有并入 `executeAction`：后者的签名是"动作名 + 可选参数包"，而这个方法需要两个必填参数。
+
 ---
 
 ## 7. 通道颜色自定义
@@ -694,6 +733,8 @@ if (!volume) {
 
 ### 默认通道颜色表
 
+通道 **1–8** 自带一套固定的、人工挑选的配色：
+
 | 通道 | 颜色 | Hex 编码 |
 |---------|-------|-----|
 | 1 | 翠绿 | `#10b981` |
@@ -704,6 +745,35 @@ if (!volume) {
 | 6 | 蓝绿 | `#06b6d4` |
 | 7 | 橘黄 | `#f97316` |
 | 8 | 蓝紫 | `#8b5cf6` |
+
+#### 通道 9–255 为自动生成 <Badge type="tip" text="3.10.2" />
+
+`MaskVolume` 每个体素存一个字节，而这个值**本身就是** label，因此引擎支持 **255 个标注通道**
+（`0` 表示空）。这个上限通过 `Copper.MAX_ENGINE_CHANNEL` 暴露。
+
+8 号之后的通道，颜色由黄金角色相步进（每步 137.508°）生成，饱和度和亮度固定。只让**色相**变化
+是刻意的：这些 mask 叠在灰度 MRI 上，如果不同通道之间**明度**也在变，读片者会把它当成图像本身的
+差异，而不是标注的差异。
+
+上面这 8 个种子色是原样保留的，不参与生成，所以在此改动之前标注并已签发的病例，颜色和当初读到的
+完全一致。
+
+::: warning "互不相同"不等于"能分辨"
+超过大约 20 个通道之后，相邻色相在灰度背景上就无法用肉眼区分了。这是对"你的产品一次应该提供多少
+个 finding"的限制，而不是对引擎返回什么的限制 —— 255 个都可寻址，但只有前 ~20 个是真正易读的。
+:::
+
+```typescript
+import { MAX_ENGINE_CHANNEL, CHANNEL_HEX_COLORS } from 'copper3d';
+
+MAX_ENGINE_CHANNEL;          // → 255
+CHANNEL_HEX_COLORS[3];       // → '#3b82f6'（内置）
+CHANNEL_HEX_COLORS[42];      // → 自动生成，多次运行结果稳定
+```
+
+四套调色板 —— `MASK_CHANNEL_COLORS`、`MASK_CHANNEL_CSS_COLORS` / `CHANNEL_COLORS`、
+`CHANNEL_HEX_COLORS`，以及 AI scratch 的那一对 —— 都按同样方式扩展，并且是**预先构建**好的，
+所以对它们用 `Object.entries` 遍历和以前一样可用。
 
 ### 设置颜色
 
@@ -1089,6 +1159,7 @@ function onChannelColorPicked(hex: string) {
 | **数据部分** | `reset()` | 重塑整理清除各全卷记录，重新退原回归初源, 包括所有层、球或者撤图回推所有 |
 | | `clearActiveLayer()` | 专干抹除净身指定的现正在活层的整体全方面三阶图集记录加所有重制项历史 |
 | | `clearActiveSlice()` | 止抹在视角当前那一小局部单一层的视图绘画历史内容（可进行使用推回救转挽回） |
+| | `clearChannel(id, ch)` | 跨整个图层擦除单个通道，可撤销。图层不存在或通道超出 [1, 255] 时抛错 |
 | | `setAllSlices(slices)` | 传输入 NRRD 片帧并开起创办出 MaskVolume 及相关的一切后项基要 |
 | | `setMasksFromNIfTI(map, bar?)` | 接收下载取回解包裹出的所有层 NIfTI 形式的三阶位像素块存组重返到屏幕显示面上（每个 buffer 必须先经 `registerNiftiMaskGrid` 注册，否则会被拒绝） |
 | | `registerNiftiMaskGrid(data, dims)` | *（模块导出，不是实例方法）* 记录 mask buffer 的 NIfTI 体素网格，供 `setMasksFromNIfTI` 校验 |
@@ -1126,6 +1197,7 @@ function onChannelColorPicked(hex: string) {
 | | `getChannelHexColor(id, ch)` | 直接转换将其那项直接改型产出并吐给做呈现能做出的具有 Hex 那十六位形式文字传带给你 |
 | | `getChannelCssColor(id, ch)` | 直接就将可以马上用来能放在 css 去引作带式表达项 `rgba()` 字串句子传递给交赋与去你处 |
 | | `resetChannelColors(id?, ch?)` | 直接一把扫灭并还原把那些原本预存定设有的色彩初模色卡项全都还原变回复至归宗本最初期底色里头去 |
+| | `MAX_ENGINE_CHANNEL` | *（模块导出）* 可存储的最大 label 值，`255` |
 | **笔具模式** | `setMode(mode)` | 切换工具模式: `"pencil"` / `"brush"` / `"eraser"` / `"sphere"` / `"calculator"` / `"sphereBrush"` / `"sphereEraser"` |
 | | `getMode()` | 获取当前工具模式 |
 | | `isCalculatorActive()` | 检查是否在 calculator 模式 |
@@ -1179,7 +1251,7 @@ interface RGBAColor {
 }
 
 // 供拿以去做一全套大批全替换覆盖使用的颜色指派所专用于集合打包它这定义配置表类型的在对调用 setChannelColors()的它内部用传交用等时候使用这的图颜色字典类型的构架式
-type ChannelColorMap = Record<number, RGBAColor>; // key 这个即指代表为这正是那这这所处属于那对应的具体哪个那个它特定的所属第指的对应着的是为这个的这那一轨道单编号数值区间数为为这的在第这由从1 到为至它的上限数值也就是极极至于最上限最多止到那到这极限到这的这只在8 以里数为这内的在内的这个以从1起直到那的这8只只在只到它内的编号数值数字（区间 1-8） 
+type ChannelColorMap = Record<number, RGBAColor>; // key = 通道编号，1-255
 
 // 定义传赋予这画制行为它此的给画调传供带各项这回调设定选项等去定义它的这一包供用于的调选项那它等定义它的等这些全定义类型的表也就是对在 draw()方法选项中等传等的配置包的它的结构类型表
 interface IDrawOpts {
@@ -1232,8 +1304,15 @@ interface ICommXYZ {
 }
 
 type LayerId      = 'layer1' | 'layer2' | 'layer3' | 'layer4'; // 或许或者是可能为别的任一一这的那随其它意的其它那它的任何字元字串项
-type ChannelValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type ChannelValue = number; // 0 = 空/已擦除，1..MAX_ENGINE_CHANNEL (255)
 ```
+
+::: tip 从 3.10.2 起，`ChannelValue` 是裸 `number`
+它原本是联合类型 `1 | 2 | ... | 8`。255 个成员的联合类型写不出来，所以"字面量写错时的编译期报错"
+这一层保护没有了 —— 现在改为运行时由 `MaskVolume` 抛 `RangeError`。这确实是一项损失，也是换取
+这个取值范围的代价：存储是每体素一个字节、值本身就是 label，引擎没有立场把上限卡得比字节更低。
+要不要卡到更小的范围，是产品自己的事。
+:::
 
 ---
 
