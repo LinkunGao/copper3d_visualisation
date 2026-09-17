@@ -1,7 +1,16 @@
 import type { INewMaskData } from "./core/types";
 import type { MaskVolume } from "./core/index";
 import type { CanvasState } from "./CanvasState";
-import { extractLabelContours, findLabelsInSlice } from "./core/MarchingSquares";
+import { extractLabelContours, extractLabelOutline, findLabelsInSlice } from "./core/MarchingSquares";
+
+/**
+ * Outline stroke width, in screen pixels.
+ *
+ * Screen pixels rather than voxels so magnifying the image does not thicken the line over the
+ * boundary the clinician magnified it to see. Thin enough to sit on an edge, thick enough to
+ * stay visible against bright tissue.
+ */
+const OUTLINE_WIDTH_PX = 1.5;
 
 /**
  * RenderingUtils — Rendering / slice-buffer helper methods.
@@ -37,6 +46,12 @@ export class RenderingUtils {
      * applied at fill time and intentionally *not* cached, so toggling them
      * needs no recompute.
      *
+     * The render mode is not in the key either. Fill paths and outline paths
+     * are built lazily and side by side under the same entry, so switching
+     * mode costs one extraction per visible label the first time and is a
+     * cache hit every time after — and a session that never leaves fill mode
+     * never builds an outline.
+     *
      * One entry per layer (the current slice). Switching slice/axis or
      * editing overwrites it.
      */
@@ -45,7 +60,10 @@ export class RenderingUtils {
         W: number;
         H: number;
         labels: number[];
-        paths: Map<number, Path2D>;
+        /** Silhouettes, to fill. Built on first use of fill mode for this slice. */
+        fills: Map<number, Path2D>;
+        /** Boundaries, to stroke. Built on first use of outline mode for this slice. */
+        outlines: Map<number, Path2D>;
     }>();
 
     constructor(state: CanvasState) {
@@ -145,6 +163,31 @@ export class RenderingUtils {
     }
 
     /**
+     * Populate one cache entry's paths for one render mode.
+     *
+     * Split out because the two modes are built at different times: whichever is in use when
+     * a slice is first drawn, and the other one only if the clinician switches while still on
+     * that slice. Building both eagerly would make every slice scrub pay for a mode most
+     * sessions never turn on.
+     */
+    private buildPaths(
+        entry: { W: number; H: number; labels: number[]; fills: Map<number, Path2D>; outlines: Map<number, Path2D> },
+        data: Uint8Array,
+        stride: number,
+        outline: boolean,
+    ): void {
+        const target = outline ? entry.outlines : entry.fills;
+        for (const lbl of entry.labels) {
+            target.set(
+                lbl,
+                outline
+                    ? extractLabelOutline(data, entry.W, entry.H, lbl, stride, 0)
+                    : extractLabelContours(data, entry.W, entry.H, lbl, stride, 0),
+            );
+        }
+    }
+
+    /**
      * Render a layer's slice onto the target canvas as vector contours.
      *
      * Uses marching-squares to extract voxel-truthful Path2D contours per
@@ -164,6 +207,47 @@ export class RenderingUtils {
         scaledWidth: number,
         scaledHeight: number,
     ): void {
+        this.drawSlice(
+            layer, axis, sliceIndex, targetCtx, scaledWidth, scaledHeight,
+            this.state.gui_states.drawing.maskRenderMode === "outline",
+        );
+    }
+
+    /**
+     * Render a layer's slice FILLED, whatever the clinician is currently looking at.
+     *
+     * For the tools that bake (`syncLayerSliceData` — pencil and eraser) the layer canvas is
+     * not a picture of the mask, it is the input the mask is rebuilt from: the bake replaces
+     * the whole slice in `MaskVolume` with whatever pixels it finds there.
+     *
+     * An outline is a lossy picture — it says where a mask ends, not what it contains — so
+     * baking one back writes rings and erases every interior on that slice, taking every other
+     * finding on the layer with it. One pencil stroke was enough.
+     *
+     * Hence a separate entry point rather than a flag threaded through the display path: a
+     * render that is about to be read back has a different requirement from one that is about
+     * to be looked at, and the two only coincided while there was one way to draw a mask.
+     */
+    renderSliceForBake(
+        layer: string,
+        axis: "x" | "y" | "z",
+        sliceIndex: number,
+        targetCtx: CanvasRenderingContext2D,
+        scaledWidth: number,
+        scaledHeight: number,
+    ): void {
+        this.drawSlice(layer, axis, sliceIndex, targetCtx, scaledWidth, scaledHeight, false);
+    }
+
+    private drawSlice(
+        layer: string,
+        axis: "x" | "y" | "z",
+        sliceIndex: number,
+        targetCtx: CanvasRenderingContext2D,
+        scaledWidth: number,
+        scaledHeight: number,
+        outline: boolean,
+    ): void {
         try {
             const volume = this.getVolumeForLayer(layer);
             if (!volume) return;
@@ -172,30 +256,75 @@ export class RenderingUtils {
             const cacheKey = `${axis}:${sliceIndex}:${volume.getVersion()}`;
 
             // Cache miss → run the expensive extraction once. Hits (zoom,
-            // recomposite, contrast toggle) skip straight to the fill below.
+            // recomposite, contrast toggle) skip straight to the draw below.
             let entry = this._contourCache.get(layer);
             if (!entry || entry.key !== cacheKey) {
                 const slice = volume.getSliceUint8(sliceIndex, axis);
-                const W = slice.width;
-                const H = slice.height;
-                const labels = findLabelsInSlice(slice.data, W, H, stride, 0);
-                const paths = new Map<number, Path2D>();
-                for (const lbl of labels) {
-                    paths.set(lbl, extractLabelContours(slice.data, W, H, lbl, stride, 0));
-                }
-                entry = { key: cacheKey, W, H, labels, paths };
+                entry = {
+                    key: cacheKey,
+                    W: slice.width,
+                    H: slice.height,
+                    labels: findLabelsInSlice(slice.data, slice.width, slice.height, stride, 0),
+                    fills: new Map(),
+                    outlines: new Map(),
+                };
                 this._contourCache.set(layer, entry);
+                this.buildPaths(entry, slice.data, stride, outline);
+            } else if ((outline ? entry.outlines : entry.fills).size !== entry.labels.length) {
+                // The mode changed since this slice was last drawn, so the other set of
+                // paths is cached and this one is not. Re-read the slice and build it; from
+                // here on both are present and toggling is a pure cache hit.
+                const slice = volume.getSliceUint8(sliceIndex, axis);
+                this.buildPaths(entry, slice.data, stride, outline);
             }
 
             if (entry.labels.length === 0) return;
 
-            const { W, H, labels, paths } = entry;
+            const { W, H, labels } = entry;
+            const paths = outline ? entry.outlines : entry.fills;
             const channelVis = this.state.gui_states.layerChannel.channelVisibility[layer];
 
             targetCtx.save();
-            // Vector fill — imageSmoothingEnabled is irrelevant here, but keep
+            // Vector drawing — imageSmoothingEnabled is irrelevant here, but keep
             // it off to match the rest of the pipeline.
             targetCtx.imageSmoothingEnabled = false;
+
+            if (outline) {
+                // Stroke on an UNTRANSFORMED context, with the voxel→display mapping carried
+                // in the path instead. `lineWidth` is then measured in screen pixels, which
+                // is what the other two options get wrong: stroking under `ctx.scale(sx, sy)`
+                // thickens the line with the zoom, exactly when the clinician has magnified
+                // the image to look at the boundary — and because voxels are rarely isotropic
+                // (sx !== sy), it also comes out thicker in one axis than the other.
+                const matrix = new DOMMatrix();
+                if (axis === 'y') {
+                    matrix.scaleSelf(1, -1);
+                    matrix.translateSelf(0, -scaledHeight);
+                }
+                matrix.scaleSelf(scaledWidth / W, scaledHeight / H);
+
+                targetCtx.lineWidth = OUTLINE_WIDTH_PX;
+                // Segments are emitted per cell and meet at shared endpoints; round caps
+                // close those joins. Canvas composites a whole Path2D in one pass, so the
+                // overlap costs no doubled alpha.
+                targetCtx.lineJoin = 'round';
+                targetCtx.lineCap = 'round';
+
+                for (const lbl of labels) {
+                    if (channelVis && channelVis[lbl] === false) continue;
+                    const path = paths.get(lbl);
+                    if (!path) continue;
+                    const color = volume.getChannelColor(lbl);
+                    targetCtx.strokeStyle =
+                        `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a / 255})`;
+                    const display = new Path2D();
+                    display.addPath(path, matrix);
+                    targetCtx.stroke(display);
+                }
+
+                targetCtx.restore();
+                return;
+            }
 
             // Coronal (axis='y') Z-flip: mirrors the flip applied by the write
             // path (syncLayerSliceData). Apply BEFORE the voxel→display scale

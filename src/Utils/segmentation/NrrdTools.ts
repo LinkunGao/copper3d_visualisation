@@ -16,6 +16,7 @@ import {
   ToolMode,
   IGuiMeta,
   IDownloadImageConfig,
+  MaskRenderMode,
 } from "./core/types";
 import { DragOperator } from "./DragOperator";
 import { DrawToolCore } from "./DrawToolCore";
@@ -1143,6 +1144,23 @@ export class NrrdTools {
   setLayerOpacity(layerId: string, opacity: number): void { this.layerChannelManager.setLayerOpacity(layerId, opacity); }
   getLayerOpacity(layerId: string): number { return this.layerChannelManager.getLayerOpacity(layerId); }
   getLayerOpacityMap(): Record<string, number> { return this.layerChannelManager.getLayerOpacityMap(); }
+
+  /**
+   * Fill every mask, or stroke only its boundary — for every layer and channel at once.
+   *
+   * A display decision, and nothing but: `MaskVolume` is not read differently and not written
+   * at all, so what is stored, uploaded, exported and undone is the complete mask either way.
+   *
+   * Repaints immediately, the same way `setChannelVisible` does, because there is no other
+   * event that would bring the change to the screen — a clinician who switched the mode and
+   * then had to scrub a slice to see it would reasonably call that broken.
+   */
+  setMaskRenderMode(mode: MaskRenderMode): void {
+    this.state.gui_states.drawing.maskRenderMode = mode;
+    this.reloadMasksFromVolume();
+  }
+
+  getMaskRenderMode(): MaskRenderMode { return this.state.gui_states.drawing.maskRenderMode; }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 8. Delegated — SliceRenderPipeline

@@ -447,6 +447,15 @@ export interface IToolModeState {
 }
 
 /** Drawing configuration — brush/pencil appearance and behavior */
+/**
+ * How a mask is drawn onto the slice.
+ *
+ * `"fill"` paints the silhouette; `"outline"` strokes only its edge, leaving the interior
+ * clear so the image underneath stays readable. Purely a render-time choice — the mask stored
+ * in `MaskVolume`, uploaded, exported and undone is the same either way.
+ */
+export type MaskRenderMode = "fill" | "outline";
+
 export interface IDrawingConfig {
   globalAlpha: number;
   lineWidth: number;
@@ -454,6 +463,8 @@ export interface IDrawingConfig {
   fillColor: string;
   brushColor: string;
   brushAndEraserSize: number;
+  /** Fill the mask or stroke only its boundary. Applies to every layer and channel at once. */
+  maskRenderMode: MaskRenderMode;
 }
 
 /** View configuration — UI layout and interaction parameters */

@@ -46,6 +46,8 @@ export class GuiState {
       fillColor: opts.defaultFillColor ?? "#f50a33",
       brushColor: opts.defaultBrushColor ?? "#f50a33",
       brushAndEraserSize: 10,
+      // Filled is what every existing caller already gets; outline is opt-in.
+      maskRenderMode: "fill",
     };
 
     this.viewConfig = {

@@ -63,6 +63,51 @@ const CELL_POLYGONS: readonly (readonly Vertex[])[][] = [
   /* 15 (full)  */              [[[0, 0], [1, 0], [1, 1], [0, 1]]],
 ];
 
+/**
+ * Per-cell boundary segments for the same 16 cases — the region's edge, without the region.
+ *
+ * Each entry is the cut line of the corresponding `CELL_POLYGONS` entry: the one edge of that
+ * polygon which does not lie on the cell's border. Filling the polygons and stroking these
+ * therefore describe the same silhouette, which is what lets the renderer swap fill for
+ * outline without the mask's edge appearing to move.
+ *
+ * Endpoints are the midpoints of the cell's sides —
+ *   T = (0.5, 0)   R = (1, 0.5)   B = (0.5, 1)   L = (0, 0.5)
+ * — in the same cell-local 0..1 space as `CELL_POLYGONS`, so the caller adds (i, j) + SHIFT
+ * identically for both.
+ *
+ * Cases 0 and 15 emit nothing. 15 is the whole reason an outline is cheap: solid interior has
+ * no boundary, so the segment count follows the perimeter rather than the area.
+ *
+ * Saddles (5 and 10) follow `CELL_POLYGONS`' convention — the two in-corners are disconnected
+ * (4-connectivity) — because the other reading would run a boundary straight through mask the
+ * fill considers solid.
+ */
+const CELL_SEGMENTS: readonly (readonly [Vertex, Vertex])[][] = [
+  /* 0  (empty) */              [],
+  /* 1  (BL)    */              [[[0, 0.5], [0.5, 1]]],
+  /* 2  (BR)    */              [[[0.5, 1], [1, 0.5]]],
+  /* 3  (BR+BL) */              [[[0, 0.5], [1, 0.5]]],
+  /* 4  (TR)    */              [[[0.5, 0], [1, 0.5]]],
+  /* 5  (TR+BL saddle) */       [
+    [[0.5, 0], [1, 0.5]],
+    [[0, 0.5], [0.5, 1]],
+  ],
+  /* 6  (TR+BR) */              [[[0.5, 0], [0.5, 1]]],
+  /* 7  (TR+BR+BL, !TL) */      [[[0.5, 0], [0, 0.5]]],
+  /* 8  (TL)    */              [[[0.5, 0], [0, 0.5]]],
+  /* 9  (TL+BL) */              [[[0.5, 0], [0.5, 1]]],
+  /* 10 (TL+BR saddle) */       [
+    [[0.5, 0], [0, 0.5]],
+    [[0.5, 1], [1, 0.5]],
+  ],
+  /* 11 (TL+BR+BL, !TR) */      [[[0.5, 0], [1, 0.5]]],
+  /* 12 (TL+TR) */              [[[1, 0.5], [0, 0.5]]],
+  /* 13 (TL+TR+BL, !BR) */      [[[1, 0.5], [0.5, 1]]],
+  /* 14 (TL+TR+BR, !BL) */      [[[0.5, 1], [0, 0.5]]],
+  /* 15 (full)  */              [],
+];
+
 export interface ContourBBox {
   /** Inclusive left voxel (0 ≤ x0 ≤ width). */
   x0: number;
@@ -224,6 +269,100 @@ export function extractLabelContours(
       path.lineTo(poly[k][0], poly[k][1]);
     }
     path.closePath();
+  }
+  return path;
+}
+
+/**
+ * Emit the boundary of the region where `labels === targetLabel`, as open two-point segments.
+ *
+ * The counterpart to {@link extractLabelPolygons}: that one covers the region, this one traces
+ * its edge. Both walk the same cells with the same sampling, the same out-of-bounds rule and
+ * the same `+0.5` shift, so a renderer can fill one and stroke the other and have the mask end
+ * in exactly the same place either way.
+ *
+ * Segments are emitted per cell and left unjoined. Canvas rasterises a whole `Path2D` in one
+ * compositing pass, so segments meeting at a shared endpoint produce no seam and no doubled
+ * alpha where their round caps overlap — joining them into polylines would buy nothing and
+ * cost a chaining pass.
+ *
+ * Cost follows the perimeter, not the area: solid interior is case 15, which has no boundary.
+ *
+ * Parameters match {@link extractLabelContours}.
+ */
+export function extractLabelBoundarySegments(
+  labels: Uint8Array,
+  width: number,
+  height: number,
+  targetLabel: number,
+  stride: number = 1,
+  channelOffset: number = 0,
+  bbox?: ContourBBox,
+): ContourPolygon[] {
+  const out: ContourPolygon[] = [];
+
+  const i0 = Math.max(-1, (bbox?.x0 ?? 0) - 1);
+  const j0 = Math.max(-1, (bbox?.y0 ?? 0) - 1);
+  const i1 = Math.min(width, bbox?.x1 ?? width);
+  const j1 = Math.min(height, bbox?.y1 ?? height);
+
+  const sample = (x: number, y: number): boolean => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return false;
+    return labels[(y * width + x) * stride + channelOffset] === targetLabel;
+  };
+
+  // Same convention as extractLabelPolygons: samples sit at voxel centres.
+  const SHIFT = 0.5;
+
+  for (let j = j0; j < j1; j++) {
+    for (let i = i0; i < i1; i++) {
+      const code =
+        (sample(i, j) ? 8 : 0) |
+        (sample(i + 1, j) ? 4 : 0) |
+        (sample(i + 1, j + 1) ? 2 : 0) |
+        (sample(i, j + 1) ? 1 : 0);
+
+      // Nothing here, or nothing but mask: neither has an edge in this cell.
+      if (code === 0 || code === 15) continue;
+
+      const segments = CELL_SEGMENTS[code];
+      for (let s = 0; s < segments.length; s++) {
+        const [a, b] = segments[s];
+        out.push([
+          [i + a[0] + SHIFT, j + a[1] + SHIFT],
+          [i + b[0] + SHIFT, j + b[1] + SHIFT],
+        ]);
+      }
+    }
+  }
+
+  return out;
+}
+
+/**
+ * {@link extractLabelBoundarySegments} as a `Path2D`, ready to stroke.
+ *
+ * The outline counterpart to {@link extractLabelContours}. Stroke this; do not stroke the
+ * contour path — that one is per-cell polygons whose union is the silhouette, and stroking it
+ * draws every internal cell edge as well, covering the mask in a grid.
+ */
+export function extractLabelOutline(
+  labels: Uint8Array,
+  width: number,
+  height: number,
+  targetLabel: number,
+  stride: number = 1,
+  channelOffset: number = 0,
+  bbox?: ContourBBox,
+): Path2D {
+  const segments = extractLabelBoundarySegments(
+    labels, width, height, targetLabel, stride, channelOffset, bbox,
+  );
+  const path = new Path2D();
+  for (let s = 0; s < segments.length; s++) {
+    const [a, b] = segments[s];
+    path.moveTo(a[0], a[1]);
+    path.lineTo(b[0], b[1]);
   }
   return path;
 }
