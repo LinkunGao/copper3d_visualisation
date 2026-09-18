@@ -405,6 +405,79 @@ setAllSlices(allSlices)
 | `flipDisplayImageByAxis` | `(): void` | 翻转 CT 图像以正确显示 |
 | `redrawDisplayCanvas` | `(): void` | 重绘 contrast 图像到 displayCanvas |
 | `setEmptyCanvasSize` | `(axis?): void` | 根据 axis 设置 emptyCanvas 尺寸 |
+| `setMaskRenderMode` | `(mode: MaskRenderMode): void` | 全局设置 `"fill"` / `"outline"`，然后 `reloadMasksFromVolume()`。立即重绘，因为没有别的事件会把这个变化带到屏幕上 |
+| `getMaskRenderMode` | `(): MaskRenderMode` | 读取当前模式 |
+
+#### 填充 vs. 描边渲染
+
+两条渲染路径，同一个轮廓。`extractLabelPolygons` / `extractLabelContours` 覆盖区域本身；
+`extractLabelBoundarySegments` / `extractLabelOutline` 描出它的边缘。两者走同样的 cell、同样的
+采样、同样的越界规则、同样的 `+0.5` 位移，所以不管画哪一种，mask 的边落在完全相同的位置 ——
+切换模式时边缘不会"看起来移动了"。
+
+```
+RenderingUtils
+  │
+  ├─ renderSliceToCanvas(...)   → drawSlice(..., outline = maskRenderMode === "outline")
+  └─ renderSliceForBake(...)    → drawSlice(..., outline = false)      ◀ 永远是实心
+```
+
+**`renderSliceForBake` 不是优化，而是正确性要求。** 对于要烘焙的工具（`syncLayerSliceData` ——
+铅笔和橡皮擦）来说，图层画布不是 mask 的一张图片，而是**重建 mask 所依据的输入**：烘焙会用画布
+上找到的像素替换掉 `MaskVolume` 里的整个切片。而 outline 是一张**有损**的图片 —— 它说明 mask 在
+哪里结束，而不是它包含什么 —— 所以把它烘焙回去写入的是一圈圈环，并抹掉该切片上每一个 mask 的
+内部，连带该图层上所有其他 finding 一起。一笔铅笔就够了。
+
+它被做成独立入口，而不是在显示路径上穿一个 flag，是因为"即将被读回去的渲染"和"即将被人看的渲染"
+需求本来就不同；这两者只在"画 mask 只有一种方式"的年代恰好重合。
+
+`DrawingTool` 在两个地方用到它：
+
+| 方法 | 时机 | 原因 |
+|------|------|------|
+| `redrawPreviousImageToLayerCtx` | 铅笔填充之前 | 落在这里的东西马上会被 `syncLayerSliceData` 原样读回去 |
+| `solidifyLayerForErase` | pointer-down 时，若橡皮擦处于激活状态 | 橡皮擦擦除的是与当前通道颜色匹配的像素；对着一个 outline，mask **内部**没有任何东西可匹配，所以在病灶上拖一遍什么都擦不掉 —— 而随后的烘焙还会把那圈环写回去 |
+
+`solidifyLayerForErase` 是无条件执行的，而不是去判断当前显示模式：在 fill 模式下它重绘的就是屏幕
+上已有的东西，而在这里加一个依赖模式的分支，就等于多一个可能和渲染器脱节的地方。显示模式会在
+pointer-up 时经由 `refreshLayerFromVolume` 恢复。
+
+##### 路径缓存
+
+渲染模式**不在**缓存 key 里。每个条目持有两张惰性构建的 map：
+
+```ts
+{
+  key: `${axis}:${sliceIndex}:${volume.getVersion()}`,
+  W, H,
+  labels:   number[],
+  fills:    Map<number, Path2D>,   // 该切片第一次用 fill 模式时构建
+  outlines: Map<number, Path2D>,   // 该切片第一次用 outline 模式时构建
+}
+```
+
+命中缓存时，`drawSlice` 会检查它需要的那张 map 是否已填满（`size !== labels.length`），没满就
+构建。因此切换模式时每个可见 label 只在第一次付一次提取，之后都是纯缓存命中；而一个从不离开
+fill 模式的会话永远不会构建 outline。两种都预先构建的话，会让每一次切片滚动都为一个大多数会话
+根本不会打开的模式买单。
+
+##### 在未变换的 context 上描边
+
+outline 模式**不**在 `ctx.scale(sx, sy)` 之下描边。体素→显示的映射被放进一个 `DOMMatrix`、
+作用在路径上（`display.addPath(path, matrix)`），context 保持未变换，于是 `lineWidth` 是按
+**屏幕像素**度量的（`OUTLINE_WIDTH_PX = 1.5`）。
+
+在缩放之下描边会错两次：线宽会随放大而变粗 —— 而放大恰恰是读片者为了看清边界才做的；并且由于体素
+很少是各向同性的（`sx !== sy`），线在一个轴上还会比另一个轴更粗。
+
+冠状面（`axis === 'y'`）的 Z 翻转也被折进同一个矩阵，而不是作用在 context 上。
+
+::: tip 为什么线段不做连接
+`extractLabelBoundarySegments` 按 cell 逐个吐出开放的两点线段，并不把它们串成折线。Canvas 会在
+一个合成 pass 里栅格化整个 `Path2D`，所以共享端点相接的线段既不会出现接缝，圆头端帽重叠处也不会
+出现 alpha 叠加 —— 串成折线什么也换不来，还要多一趟 chaining。`lineJoin` / `lineCap` 设为
+`'round'` 来闭合这些接点。
+:::
 
 ### 2.6 Programmatic Sphere Placement
 
@@ -558,6 +631,7 @@ GuiState 将 20 个属性分组为 4 个语义子对象：
 | `lineWidth` | `number` | 线宽 |
 | `color` / `fillColor` / `brushColor` | `string` | 画笔颜色 (Hex) |
 | `brushAndEraserSize` | `number` | 画笔/橡皮擦大小 |
+| `maskRenderMode` | `MaskRenderMode` | `"fill"`（默认）或 `"outline"`。对所有图层和通道同时生效；只被渲染路径读取，写入路径从不读它 |
 
 #### gui_states.viewConfig (IViewConfig)
 | 字段 | 类型 | 说明 |
@@ -788,17 +862,17 @@ reloadMasksFromVolume()
   ├─ FOR EACH layer:
   │   ├─ target.ctx.clearRect(...)         → 清空 layer canvas
   │   └─ renderSliceToCanvas(layerId, axis, sliceIndex, buffer, target.ctx, w, h)
-  │       [RenderingUtils.ts]
+  │       [RenderingUtils.ts] → drawSlice(..., outline = maskRenderMode === "outline")
   │       │
-  │       ├─ volume.renderLabelSliceInto(sliceIndex, axis, buffer, channelVis)
-  │       │   [MaskVolume.ts]              → 渲染体素到 buffer
+  │       ├─ 缓存未命中？volume.getSliceUint8 → findLabelsInSlice → buildPaths
+  │       │   fill:    extractLabelContours(...)  → 每个 label 一个 Path2D
+  │       │   outline: extractLabelOutline(...)   → 每个 label 一个 Path2D
   │       │
-  │       ├─ emptyCtx.putImageData(buffer) → 放到 emptyCanvas
-  │       │   [RenderingUtils.ts]
-  │       │
-  │       └─ targetCtx.drawImage(emptyCanvas, ...) → 绘制到 layer canvas
-  │           [RenderingUtils.ts]
-  │           ⚠️ 注意：冠状面（axis='y'）会做 scale(1,-1) 垂直翻转（详见 §6.2）
+  │       └─ FOR EACH 可见 label：从 volume.getChannelColor(lbl) 取填充/描边色
+  │           fill:    ctx.scale(sw/W, sh/H) 之后 ctx.fill(path, 'nonzero')
+  │           outline: DOMMatrix 作用在 PATH 上，ctx 不做变换，ctx.stroke(...)
+  │           ⚠️ 注意：冠状面（axis='y'）会做 scale(1,-1) 垂直翻转（详见 §6.2）——
+  │              fill 模式作用在 context 上，outline 模式折进矩阵里
   │
   └─ compositeAllLayers()                  → 合成到 master canvas
       [RenderingUtils.ts]
@@ -813,6 +887,37 @@ reloadMasksFromVolume()
 ```
 
 > **Per-Layer Alpha 渲染机制**: 每个 layer 的 canvas 在合成时通过 `masterCtx.globalAlpha` 应用其独立的 `layerOpacity` 值。现有的 `globalAlpha`（来自 `gui_states.drawing`）控制整体 mask 透明度，而 `layerOpacity` 提供逐层独立控制。最终透明度 = `globalAlpha × layerOpacity[layerId]`。
+
+### 5.7 Marching Squares (`core/MarchingSquares.ts`)
+
+两种渲染模式背后的矢量提取。四个函数都从包根导出。
+
+| 函数 | 返回 | 说明 |
+|------|------|------|
+| `findLabelsInSlice(labels, w, h, stride?, offset?, bbox?)` | `number[]` | 该区域内出现过的所有非零 label |
+| `extractLabelPolygons(...)` | `ContourPolygon[]` | 覆盖该区域的逐 cell 多边形 |
+| `extractLabelContours(...)` | `Path2D` | 上者的 Path2D 形式 —— 用来**填充** |
+| `extractLabelBoundarySegments(...)` | `ContourPolygon[]` | 该区域的边缘，以开放的两点线段表示 |
+| `extractLabelOutline(...)` | `Path2D` | 上者的 Path2D 形式 —— 用来**描边** |
+
+参数都是 `(labels, width, height, targetLabel, stride = 1, channelOffset = 0, bbox?)`。
+
+::: danger 不要去描 contour 路径
+`extractLabelContours` 是一组逐 cell 的多边形，它们的**并集**才是那个轮廓。描它会把每一条内部
+cell 边也画出来，整个 mask 会被一层网格盖住。要描边请用 `extractLabelOutline`。
+:::
+
+**两张表的关系。** `CELL_SEGMENTS` 对 16 种 marching-squares 情形各有一项，而每一项正是对应
+`CELL_POLYGONS` 那一项的切割线 —— 即那个多边形中唯一**不**落在 cell 边界上的那条边。因此填充多边形
+和描线段所描述的是同一个轮廓，这正是渲染器可以把填充换成描边、而 mask 的边缘看起来不会移动的原因。
+端点都是 cell 各边的中点，处在和 `CELL_POLYGONS` 相同的 cell 局部 0..1 空间里，所以调用方对两者
+加的都是同一个 `(i, j) + 0.5`。
+
+情形 0 和 15 不吐出任何线段。**15 正是 outline 便宜的根本原因**：实心内部没有边界，于是线段数量
+随周长增长，而不是随面积。
+
+鞍点（5 和 10）沿用 `CELL_POLYGONS` 的约定 —— 两个对角 in-corner 视为不连通（4-连通）——
+因为另一种读法会让边界直接穿过填充认为是实心的 mask。
 
 ---
 
@@ -1095,7 +1200,7 @@ this.panTool.onPointerLeave();
 type SphereBrushHostDeps = Pick<ToolHost,
   'getVolumeForLayer' | 'compositeAllLayers' | 'pushUndoGroup'
   | 'renderSliceToCanvas' | 'getOrCreateSliceBuffer' | 'setEmptyCanvasSize'
-  | 'reloadMasksFromVolume' | 'getEraserUrls'
+  | 'reloadMasksFromVolume'
 >;
 ```
 
@@ -1162,7 +1267,8 @@ SphereBrush/SphereEraser 模式激活时：
 // tools/ToolHost.ts
 type DrawingHostDeps = Pick<ToolHost,
   'setCurrentLayer' | 'compositeAllLayers' | 'syncLayerSliceData'
-  | 'filterDrawedImage' | 'getVolumeForLayer' | 'pushUndoDelta' | 'getEraserUrls'
+  | 'filterDrawedImage' | 'getVolumeForLayer' | 'pushUndoDelta'
+  | 'renderSliceToCanvas' | 'renderSliceForBake' | 'getOrCreateSliceBuffer'
 >;
 ```
 
