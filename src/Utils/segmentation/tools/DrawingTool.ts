@@ -86,6 +86,11 @@ export class DrawingTool extends BaseTool {
     // Capture pre-draw slice snapshot for undo
     this.capturePreDrawSnapshot();
 
+    // The eraser works on canvas pixels and then bakes the canvas back into the volume, so
+    // it needs the layer solid rather than outlined for the length of the stroke. The display
+    // mode comes back at pointerup, via refreshLayerFromVolume.
+    if (this.ctx.gui_states.mode.eraser) this.solidifyLayerForErase();
+
     // Brush mode: initialize voxel tracking and write first dot
     if (!this.ctx.gui_states.mode.pencil && !this.ctx.gui_states.mode.eraser) {
       const voxel = this.canvasToVoxel3D(e.offsetX, e.offsetY);
@@ -548,24 +553,51 @@ export class DrawingTool extends BaseTool {
   }
 
   /**
-   * Redraws persisted layer data onto ctx before new pencil fill.
-   * Delegates to the host's vector renderSliceToCanvas for consistency.
+   * Redraws persisted layer data onto ctx before the new pencil fill.
+   *
+   * Uses the BAKE renderer, not the display one. What lands on this canvas is about to be
+   * read straight back into the MaskVolume by `syncLayerSliceData`, which replaces the whole
+   * slice -- so this render is the data, not a picture of it. Drawing outlines here would
+   * bake rings and erase the interior of every mask on the layer.
    */
   private redrawPreviousImageToLayerCtx(ctx: CanvasRenderingContext2D): void {
     const axis = this.ctx.protectedData.axis;
     const W = this.ctx.nrrd_states.view.changedWidth;
     const H = this.ctx.nrrd_states.view.changedHeight;
-    const buffer = this.callbacks.getOrCreateSliceBuffer(axis);
-    if (!buffer) return;
-    this.callbacks.renderSliceToCanvas(
+    this.callbacks.renderSliceForBake(
       this.ctx.gui_states.layerChannel.layer,
       axis,
       this.ctx.nrrd_states.view.currentSliceIndex,
-      buffer,
       ctx,
       W,
       H,
     );
+  }
+
+  /**
+   * Put the active layer's canvas into the solid state the eraser and the bake both need.
+   *
+   * The eraser removes pixels matching the active channel's colour, and `syncLayerSliceData`
+   * then rebuilds the whole slice from what is left on the canvas. Against an outline there
+   * is nothing to match inside a mask, so a drag over a lesion erases nothing -- and the bake
+   * that follows writes the ring back and loses every interior on the layer.
+   *
+   * Unconditional rather than checked against the display mode: in fill mode this redraws
+   * what is already on screen, and a mode-dependent branch here is one more thing that can
+   * fall out of step with the renderer.
+   */
+  private solidifyLayerForErase(): void {
+    const target = this.callbacks.setCurrentLayer();
+    target.canvas.width = target.canvas.width; // clear
+    this.callbacks.renderSliceForBake(
+      this.ctx.gui_states.layerChannel.layer,
+      this.ctx.protectedData.axis,
+      this.ctx.nrrd_states.view.currentSliceIndex,
+      target.ctx,
+      this.ctx.nrrd_states.view.changedWidth,
+      this.ctx.nrrd_states.view.changedHeight,
+    );
+    this.callbacks.compositeAllLayers();
   }
 
   /** Draw a line segment on a layer canvas (pencil mode only) */

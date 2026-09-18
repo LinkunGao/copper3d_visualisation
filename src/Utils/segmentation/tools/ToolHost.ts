@@ -25,6 +25,16 @@ export interface ToolHost {
         buffer: ImageData, targetCtx: CanvasRenderingContext2D,
         scaledWidth: number, scaledHeight: number,
     ): void;
+    /**
+     * Render a layer's slice filled, whatever the display mode is. For tools that follow a
+     * render with `syncLayerSliceData`, which rebuilds the whole slice from the canvas: an
+     * outline would bake back as a ring and erase every mask interior on that slice.
+     */
+    renderSliceForBake(
+        layer: string, axis: "x" | "y" | "z", sliceIndex: number,
+        targetCtx: CanvasRenderingContext2D,
+        scaledWidth: number, scaledHeight: number,
+    ): void;
     getOrCreateSliceBuffer(axis: "x" | "y" | "z"): ImageData | null;
     flipDisplayImageByAxis(): void;
     redrawDisplayCanvas(): void;
@@ -107,7 +117,7 @@ export type SphereHostDeps = Pick<ToolHost,
 export type DrawingHostDeps = Pick<ToolHost,
     'setCurrentLayer' | 'compositeAllLayers' | 'syncLayerSliceData'
     | 'filterDrawedImage' | 'getVolumeForLayer' | 'pushUndoDelta'
-    | 'renderSliceToCanvas' | 'getOrCreateSliceBuffer'
+    | 'renderSliceToCanvas' | 'renderSliceForBake' | 'getOrCreateSliceBuffer'
 >;
 
 /** DragSliceTool host dependencies */

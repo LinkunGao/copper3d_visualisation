@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../Utils/segmentation/core/MarchingSquares', () => ({
   findLabelsInSlice: vi.fn(() => [1]),
   extractLabelContours: vi.fn(() => ({ __dummyPath: true })),
+  extractLabelOutline: vi.fn(() => ({ __dummyOutline: true })),
 }));
 
 import { RenderingUtils } from '../Utils/segmentation/RenderingUtils';
@@ -35,7 +36,13 @@ function makeState(vol: MaskVolume) {
   return {
     protectedData: { maskData: { volumes: { layer1: vol } } },
     nrrd_states: { image: { layers: ['layer1'] } },
-    gui_states: { layerChannel: { layer: 'layer1', channelVisibility: { layer1: {} } } },
+    // `drawing` is not optional on a real GuiState, and renderSliceToCanvas reads the
+    // render mode from it. Its own try/catch would otherwise turn the missing field into
+    // a silently blank render rather than a failure that names itself.
+    gui_states: {
+      drawing: { maskRenderMode: 'fill' },
+      layerChannel: { layer: 'layer1', channelVisibility: { layer1: {} } },
+    },
   } as any;
 }
 

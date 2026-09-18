@@ -402,6 +402,88 @@ before `setMasksFromNIfTI` is consulted, and entries are collected with the buff
 | `flipDisplayImageByAxis` | `(): void` | Flip the CT image for correct display orientation |
 | `redrawDisplayCanvas` | `(): void` | Redraw the contrast image onto the displayCanvas |
 | `setEmptyCanvasSize` | `(axis?): void` | Set emptyCanvas dimensions based on the current axis |
+| `setMaskRenderMode` | `(mode: MaskRenderMode): void` | Set `"fill"` / `"outline"` globally, then `reloadMasksFromVolume()`. Repaints immediately because nothing else would bring the change to screen |
+| `getMaskRenderMode` | `(): MaskRenderMode` | Read the current mode |
+
+#### Fill vs. outline rendering
+
+Two render paths, one silhouette. `extractLabelPolygons` / `extractLabelContours` cover the
+region; `extractLabelBoundarySegments` / `extractLabelOutline` trace its edge. Both walk the
+same cells with the same sampling, the same out-of-bounds rule and the same `+0.5` shift, so
+the mask ends in exactly the same place whichever you draw — the edge does not appear to move
+when the mode is toggled.
+
+```
+RenderingUtils
+  │
+  ├─ renderSliceToCanvas(...)   → drawSlice(..., outline = maskRenderMode === "outline")
+  └─ renderSliceForBake(...)    → drawSlice(..., outline = false)      ◀ always filled
+```
+
+**`renderSliceForBake` is not an optimisation, it is a correctness requirement.** For the
+tools that bake (`syncLayerSliceData` — pencil and eraser) the layer canvas is not a picture
+of the mask, it is the input the mask is rebuilt from: the bake replaces the whole slice in
+`MaskVolume` with whatever pixels it finds. An outline is a *lossy* picture — it says where a
+mask ends, not what it contains — so baking one back writes rings and erases every interior on
+that slice, taking every other finding on the layer with it. One pencil stroke was enough.
+
+It is a separate entry point rather than a flag threaded through the display path because a
+render that is about to be read back has a different requirement from one that is about to be
+looked at; the two only coincided while there was one way to draw a mask.
+
+`DrawingTool` uses it in two places:
+
+| Method | When | Why |
+|--------|------|-----|
+| `redrawPreviousImageToLayerCtx` | before a pencil fill | what lands here is about to be read straight back by `syncLayerSliceData` |
+| `solidifyLayerForErase` | at pointer-down, if the eraser is active | the eraser removes pixels matching the active channel's colour; against an outline there is nothing to match *inside* a mask, so a drag over a lesion would erase nothing — and the bake that follows would write the ring back |
+
+`solidifyLayerForErase` runs unconditionally rather than checking the display mode: in fill
+mode it redraws what is already on screen, and a mode-dependent branch there is one more thing
+that can fall out of step with the renderer. The display mode returns at pointer-up, via
+`refreshLayerFromVolume`.
+
+##### Path cache
+
+The render mode is **not** part of the cache key. Each entry holds two lazily-built maps:
+
+```ts
+{
+  key: `${axis}:${sliceIndex}:${volume.getVersion()}`,
+  W, H,
+  labels:   number[],
+  fills:    Map<number, Path2D>,   // built on first use of fill mode for this slice
+  outlines: Map<number, Path2D>,   // built on first use of outline mode for this slice
+}
+```
+
+On a hit, `drawSlice` checks whether the map it needs is fully populated
+(`size !== labels.length`) and builds it if not. So switching mode costs one extraction per
+visible label the first time and is a pure cache hit after; a session that never leaves fill
+mode never builds an outline. Building both eagerly would make every slice scrub pay for a
+mode most sessions never turn on.
+
+##### Stroking on an untransformed context
+
+Outline mode does **not** stroke under `ctx.scale(sx, sy)`. The voxel→display mapping is
+carried in a `DOMMatrix` applied to the path (`display.addPath(path, matrix)`), and the
+context is left untransformed, so `lineWidth` is measured in **screen pixels**
+(`OUTLINE_WIDTH_PX = 1.5`).
+
+Stroking under the scale gets two things wrong: the line thickens with the zoom — exactly when
+the clinician has magnified the image to look at the boundary — and because voxels are rarely
+isotropic (`sx !== sy`) it comes out thicker in one axis than the other.
+
+The coronal (`axis === 'y'`) Z-flip is folded into the same matrix rather than applied to the
+context.
+
+::: tip Why the segments are left unjoined
+`extractLabelBoundarySegments` emits open two-point segments per cell and does not chain them
+into polylines. Canvas rasterises a whole `Path2D` in one compositing pass, so segments meeting
+at a shared endpoint produce no seam and no doubled alpha where their round caps overlap —
+joining them would buy nothing and cost a chaining pass. `lineJoin` / `lineCap` are `'round'`
+to close those joins.
+:::
 
 ### 2.6 Programmatic Sphere Placement
 
@@ -563,6 +645,7 @@ GuiState groups 20 properties into 4 semantic sub-objects:
 | `lineWidth` | `number` | Line width |
 | `color` / `fillColor` / `brushColor` | `string` | Brush color (Hex) |
 | `brushAndEraserSize` | `number` | Brush/eraser size |
+| `maskRenderMode` | `MaskRenderMode` | `"fill"` (default) or `"outline"`. Applies to every layer and channel at once; read only by the renderer, never by the write path |
 
 #### gui_states.viewConfig (IViewConfig)
 
@@ -787,12 +870,17 @@ reloadMasksFromVolume()
   ├─ FOR EACH layer:
   │   ├─ target.ctx.clearRect(...)         → clear layer canvas
   │   └─ renderSliceToCanvas(layerId, axis, sliceIndex, buffer, target.ctx, w, h)
-  │       [RenderingUtils.ts]
+  │       [RenderingUtils.ts] → drawSlice(..., outline = maskRenderMode === "outline")
   │       │
-  │       ├─ volume.renderLabelSliceInto(...)  → render voxels into buffer
-  │       ├─ emptyCtx.putImageData(buffer)     → put into emptyCanvas
-  │       └─ targetCtx.drawImage(emptyCanvas)  → draw to layer canvas
-  │           ⚠️ coronal view (axis='y') applies scale(1,-1) vertical flip (see §6.2)
+  │       ├─ cache miss? volume.getSliceUint8 → findLabelsInSlice → buildPaths
+  │       │   fill:    extractLabelContours(...)  → Path2D per label
+  │       │   outline: extractLabelOutline(...)   → Path2D per label
+  │       │
+  │       └─ FOR EACH visible label: set fill/stroke from volume.getChannelColor(lbl)
+  │           fill:    ctx.scale(sw/W, sh/H)  then ctx.fill(path, 'nonzero')
+  │           outline: DOMMatrix on the PATH, ctx untransformed, ctx.stroke(...)
+  │           ⚠️ coronal view (axis='y') applies a scale(1,-1) vertical flip (see §6.2) —
+  │              on the context in fill mode, folded into the matrix in outline mode
   │
   └─ compositeAllLayers()                  → composite onto master canvas
       ├─ masterCtx.clearRect(...)
@@ -805,6 +893,39 @@ reloadMasksFromVolume()
 ```
 
 > **Per-Layer Alpha in Rendering**: Each layer's canvas is composited with its individual `layerOpacity` value applied via `masterCtx.globalAlpha`. The existing `globalAlpha` (from `gui_states.drawing`) controls overall mask transparency, while `layerOpacity` provides independent per-layer control. Final alpha = `globalAlpha × layerOpacity[layerId]`.
+
+### 5.7 Marching Squares (`core/MarchingSquares.ts`)
+
+The vector extraction behind both render modes. All four are exported from the package root.
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `findLabelsInSlice(labels, w, h, stride?, offset?, bbox?)` | `number[]` | Distinct non-zero labels present in the region |
+| `extractLabelPolygons(...)` | `ContourPolygon[]` | Per-cell polygons covering the region |
+| `extractLabelContours(...)` | `Path2D` | The above as a path — **fill** this |
+| `extractLabelBoundarySegments(...)` | `ContourPolygon[]` | The region's edge, as open two-point segments |
+| `extractLabelOutline(...)` | `Path2D` | The above as a path — **stroke** this |
+
+All take `(labels, width, height, targetLabel, stride = 1, channelOffset = 0, bbox?)`.
+
+::: danger Do not stroke the contour path
+`extractLabelContours` is per-cell polygons whose *union* is the silhouette. Stroking it draws
+every internal cell edge as well, covering the mask in a grid. Stroke `extractLabelOutline`.
+:::
+
+**How the two tables relate.** `CELL_SEGMENTS` has one entry per marching-squares case, and
+each is the cut line of the corresponding `CELL_POLYGONS` entry — the one polygon edge that
+does *not* lie on the cell border. Filling the polygons and stroking the segments therefore
+describe the same silhouette, which is what lets the renderer swap fill for outline without
+the mask's edge appearing to move. Endpoints are side midpoints in the same cell-local 0..1
+space, so the caller adds `(i, j) + 0.5` identically for both.
+
+Cases 0 and 15 emit no segments. **15 is why an outline is cheap**: solid interior has no
+boundary, so the segment count follows the perimeter rather than the area.
+
+Saddles (5 and 10) follow `CELL_POLYGONS`' convention — the two in-corners are disconnected
+(4-connectivity) — because the other reading would run a boundary straight through mask the
+fill considers solid.
 
 ---
 
@@ -1019,7 +1140,7 @@ Unlike the SphereTool (which writes to a separate `sphereMaskVolume` overlay), S
 type SphereBrushHostDeps = Pick<ToolHost,
   'getVolumeForLayer' | 'compositeAllLayers' | 'pushUndoGroup'
   | 'renderSliceToCanvas' | 'getOrCreateSliceBuffer' | 'setEmptyCanvasSize'
-  | 'reloadMasksFromVolume' | 'getEraserUrls'
+  | 'reloadMasksFromVolume'
 >;
 ```
 
@@ -1073,7 +1194,8 @@ SphereEraser (drag):
 ```ts
 type DrawingHostDeps = Pick<ToolHost,
   'setCurrentLayer' | 'compositeAllLayers' | 'syncLayerSliceData'
-  | 'filterDrawedImage' | 'getVolumeForLayer' | 'pushUndoDelta' | 'getEraserUrls'
+  | 'filterDrawedImage' | 'getVolumeForLayer' | 'pushUndoDelta'
+  | 'renderSliceToCanvas' | 'renderSliceForBake' | 'getOrCreateSliceBuffer'
 >;
 ```
 

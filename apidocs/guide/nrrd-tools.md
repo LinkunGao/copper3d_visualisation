@@ -1135,6 +1135,43 @@ nrrdTools.setContrastShortcutEnabled(true);
 
 ### 10. Display & Canvas Control
 
+#### Mask render mode — fill or outline <Badge type="tip" text="3.10.3" />
+
+```typescript
+nrrdTools.setMaskRenderMode('outline');  // stroke only the boundary
+nrrdTools.setMaskRenderMode('fill');     // paint the silhouette (default)
+const mode = nrrdTools.getMaskRenderMode(); // → 'fill' | 'outline'
+```
+
+`"outline"` strokes only each mask's edge, leaving the interior clear so the tissue
+underneath stays readable — which is the point: a clinician can see what they annotated
+*and* what they annotated it on, at the same time.
+
+::: tip It is a display decision and nothing else
+`MaskVolume` is not read differently and not written at all. What is stored, uploaded,
+exported and undone is the complete mask either way, so switching mode can never lose data.
+:::
+
+Applies to **every layer and channel at once** — there is no per-layer variant. It repaints
+immediately, the same way `setChannelVisible` does, so the change is on screen the moment you
+set it rather than at the next slice scrub.
+
+The default is `"fill"`, which is what every existing caller already got.
+
+**Cost.** The boundary is extracted per visible label and cached alongside the fill path for
+that slice. Switching mode costs one extraction per visible label the first time and is a
+cache hit every time after; a session that never leaves fill mode never builds an outline at
+all. Outline extraction scales with the *perimeter* rather than the area, so it is cheaper
+than the fill it replaces.
+
+::: warning Drawing still works on the solid mask
+The pencil and eraser rebuild a slice from what is on the layer canvas, so they render the
+layer filled for the duration of a stroke regardless of the display mode, and the mode comes
+back at pointer-up. You do not need to leave outline mode to annotate — but if you write your
+own tool that bakes a canvas back into a volume, it must render filled too (see the
+[architecture guide](./segmentation-module)).
+:::
+
 #### Canvas size scaling
 
 Set the base display size multiplier (1–8). Larger values use more GPU memory but give sharper annotations:
@@ -1556,6 +1593,9 @@ interface IDragOpts {
 // Tool mode (used by setMode/getMode)
 type ToolMode = "pencil" | "brush" | "eraser" | "sphere" | "calculator" | "sphereBrush" | "sphereEraser";
 
+// Mask render mode (used by setMaskRenderMode/getMaskRenderMode)
+type MaskRenderMode = "fill" | "outline";
+
 // Keyboard settings
 interface IKeyBoardSettings {
   draw: string;
@@ -1653,6 +1693,8 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | | `getSphereBrushRadius()` | Read current sphere brush/eraser radius |
 | **Drawing** | `setOpacity(value)` | Set mask overlay opacity [0.1, 1] |
 | | `getOpacity()` | Read current opacity |
+| | `setMaskRenderMode(mode)` | `"fill"` or `"outline"` for every layer/channel; repaints immediately. Display only — the stored mask is unchanged |
+| | `getMaskRenderMode()` | Read the current render mode |
 | | `setBrushSize(size)` | Set brush/eraser size [5, 50], updates cursor |
 | | `getBrushSize()` | Read current brush size |
 | | `setPencilColor(hex)` | Set pencil stroke color (hex string) |

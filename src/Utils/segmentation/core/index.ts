@@ -110,6 +110,7 @@ export type {
   IDragOpts,
   IDrawOpts,
   IKeyBoardSettings,
+  MaskRenderMode,
 } from './types';
 
 export {
@@ -135,7 +136,9 @@ export { UndoManager } from './UndoManager';
 // ── Marching Squares ───────────────────────────────────────────────────────
 export type { ContourBBox, ContourPolygon } from './MarchingSquares';
 export {
+  extractLabelBoundarySegments,
   extractLabelContours,
+  extractLabelOutline,
   extractLabelPolygons,
   findLabelsInSlice,
 } from './MarchingSquares';

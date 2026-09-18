@@ -915,6 +915,40 @@ nrrdTools.isContrastShortcutEnabled(); // → false
 
 ## 10. 显示与画布控制
 
+### Mask 渲染模式 —— 填充还是描边 <Badge type="tip" text="3.10.3" />
+
+```typescript
+nrrdTools.setMaskRenderMode('outline');  // 只描出边界
+nrrdTools.setMaskRenderMode('fill');     // 填充整个轮廓内部（默认）
+const mode = nrrdTools.getMaskRenderMode(); // → 'fill' | 'outline'
+```
+
+`"outline"` 只描每个 mask 的边缘，内部留空，让下面的组织依然可读 —— 这正是它的意义：读片者可以
+同时看到自己标了什么、以及标在什么上面。
+
+::: tip 这纯粹是显示层的决定
+`MaskVolume` 的读取方式没有变，更完全不会被写入。无论哪种模式，存储、上传、导出、撤销的都是完整
+的 mask，所以切换模式绝不可能丢数据。
+:::
+
+它对**所有图层和所有通道同时生效** —— 没有 per-layer 的版本。它会像 `setChannelVisible` 一样
+立即重绘，所以设置的那一刻画面就变了，而不用等到下一次切片滚动。
+
+默认是 `"fill"`，也就是所有现有调用方本来就得到的行为。
+
+**开销。** 边界按每个可见 label 提取一次，并和该切片的填充路径缓存在一起。切换模式时，每个可见
+label 第一次会付一次提取，之后每次都是缓存命中；而一个从不离开填充模式的会话，永远不会去构建
+outline。outline 提取的代价随**周长**而不是面积增长，所以比它替代掉的填充更便宜。
+
+::: warning 绘制始终作用在实心 mask 上
+铅笔和橡皮擦是从图层画布上的像素重建切片的，所以无论当前显示模式是什么，它们在一次笔画期间都会把
+图层渲染成实心，笔画结束（pointer-up）后再恢复显示模式。你不需要退出 outline 模式才能标注 ——
+但如果你自己写的工具也要把画布烘焙回 volume，那它同样必须按实心渲染（见
+[架构指南](./segmentation-module)）。
+:::
+
+### 画布尺寸
+
 ```typescript
 // 画布分别率缩放数值乘数 (1–8 之间)
 nrrdTools.setBaseDrawDisplayCanvasesSize(2);
@@ -1207,6 +1241,8 @@ function onChannelColorPicked(hex: string) {
 | | `getSphereBrushRadius()` | 获取当前球形画笔/橡皮擦半径 |
 | **注绘操作** | `setOpacity(value)` | 给那个透明盖图层罩薄厚度下注定义设 [ 从0.1 透明最清至 1 完全厚填实实底 ] 之间的范数 |
 | | `getOpacity()` | 寻要探出当前的这盖覆实透明薄薄度现在正给多少数值内 |
+| | `setMaskRenderMode(mode)` | 对所有图层/通道设置 `"fill"` 或 `"outline"`，立即重绘。仅影响显示，存储的 mask 不变 |
+| | `getMaskRenderMode()` | 读取当前渲染模式 |
 | | `setBrushSize(size)` | 为现在使用的涂画擦拭这些刷头物设定那 [最小5, 最大50 ]这域段面之大中小号体积 |
 | | `getBrushSize()` | 要求交探出现在这个画笔刷的大体积给现多少数值啊 |
 | | `setPencilColor(hex)` | 直接把那一串代表特定给拿做以画走着线条模式下才单独生效去展示的那股边线表线颜调换掉色吧 |
@@ -1284,6 +1320,9 @@ interface IDragOpts {
 
 // 工具模式类型（用于 setMode/getMode）
 type ToolMode = "pencil" | "brush" | "eraser" | "sphere" | "calculator" | "sphereBrush" | "sphereEraser";
+
+// Mask 渲染模式（用于 setMaskRenderMode/getMaskRenderMode）
+type MaskRenderMode = "fill" | "outline";
 
 // 键盘快捷键设置
 interface IKeyBoardSettings {

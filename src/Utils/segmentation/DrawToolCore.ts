@@ -248,6 +248,8 @@ export class DrawToolCore {
       pushUndoDelta: (delta) => this.undoManager.push(delta),
       renderSliceToCanvas: (layer, axis, sliceIndex, buffer, ctx, w, h) =>
         this.renderer.renderSliceToCanvas(layer, axis, sliceIndex, buffer, ctx, w, h),
+      renderSliceForBake: (layer, axis, sliceIndex, ctx, w, h) =>
+        this.renderer.renderSliceForBake(layer, axis, sliceIndex, ctx, w, h),
       getOrCreateSliceBuffer: (axis) => this.renderer.getOrCreateSliceBuffer(axis),
     });
 
