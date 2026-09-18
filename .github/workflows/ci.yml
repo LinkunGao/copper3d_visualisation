@@ -1,0 +1,43 @@
+# Build and test on every pull request and on pushes to main.
+# Nothing here publishes -- release/publish lives in npm-publish.yml.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to the same branch supersedes the run already in flight.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # 20+ required by the test toolchain in devDependencies (vitest 4 / jsdom 29).
+          # Kept in step with deploy-api-docs.yaml and npm-publish.yml.
+          node-version: '22'
+          cache: npm
+
+      # Must match the npm that writes the lock file locally. From 11.6.1 npm no
+      # longer records the auto-install peers (@emnapi/*) of an optional transitive
+      # dependency (@napi-rs/wasm-runtime); older npm demands them and rejects the
+      # lock file with EUSAGE.
+      - run: npm install -g npm@11.6.1
+
+      - run: npm ci
+
+      # `build` is `tsc && rollup`, so this type-checks as well as bundles.
+      - run: npm run build
+
+      - run: npm run test

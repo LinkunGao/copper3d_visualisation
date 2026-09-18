@@ -19,8 +19,10 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: '24'
+          # Kept in step with ci.yml and deploy-api-docs.yaml.
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+          cache: npm
       # Must match the npm that writes the lock file locally. From 11.6.1 npm no
       # longer records the auto-install peers (@emnapi/*) of an optional transitive
       # dependency (@napi-rs/wasm-runtime); older npm demands them and rejects the
@@ -31,4 +33,7 @@ jobs:
       - run: npm install -g npm@11.6.1
       - run: npm ci
       - run: npm run build --if-present
+      # A release must not go out on a red test suite, even if CI already ran
+      # on the commit -- the release can be cut from any ref.
+      - run: npm run test
       - run: npm publish --provenance
