@@ -93,6 +93,19 @@ const nrrdTools = new Copper.NrrdTools(container, {
 如果后期需要添加或移除图层，必须重新实例化。
 :::
 
+::: tip 图层 id 可以是任意字符串 <Badge type="tip" text="3.10.4" />
+不一定非得是 `layerN`：
+
+```typescript
+const nrrdTools = new Copper.NrrdTools(container, {
+  layers: ['tumour', 'edema', 'necrosis', 'vessel']
+});
+```
+
+在 3.10.4 之前，undo 栈只为 `layer1` / `layer2` / `layer3` 预先创建，因此自定义 id 要么静默地
+压进了别的图层的历史里，要么在 undo 时抛异常。现在这些栈按需创建，键就是你传进来的那个 id。
+:::
+
 **可选：显示切片索引的面板：**
 
 ```typescript
@@ -654,7 +667,36 @@ const meta = nrrdTools.getSliderMeta('layerAlpha');
 
 用于 `OperationCtl.vue` 的 "Layer Alpha" slider radio 选项。
 
-### 6.6 擦除单个通道 —— `clearChannel()` <Badge type="tip" text="3.10.2" />
+### 6.6 整体读取与替换一个图层的 volume
+
+有三种方式可以整体地把体素搬进/搬出一个图层。它们的区别在于**有没有东西进 undo 栈**，选哪个就看这一点：
+
+| 方法 | 可撤销 | 说明 |
+|------|--------|------|
+| `getLayerVolume(id)` | — | 返回体素缓冲区的一份**拷贝**；图层没有 volume 时返回 `null` |
+| `replaceLayerVolume(id, data, { undoable })` | 可选 | `undoable: true` 会为整个 volume 记一步 Ctrl+Z |
+| `copyLayerData(src, dst)` | **否** | 直接写入目标缓冲区，不给 Ctrl+Z 留下任何东西 |
+
+```typescript
+// 把 mask 从 layer2 搬到 layer3，并且可撤销
+const voxels = nrrdTools.getLayerVolume('layer2');
+if (voxels) nrrdTools.replaceLayerVolume('layer3', voxels, { undoable: true });
+```
+
+`getLayerVolume` 交出来的是拷贝而不是活的缓冲区：渲染器自己的数组不能被外部改动，否则它背后的
+切片缓存没有任何东西会去失效。
+
+::: tip 优先用这一对，而不是 `copyLayerData` <Badge type="tip" text="3.10.4" />
+`copyLayerData(src, dst)` 仍然保留，用于它当初被写出来的那个场景 —— 在前端镜像一次后端的级联
+（改 layer2 意味着 layer3 也要改），省掉一次网络往返。它更快，也会保留目标图层的颜色映射，
+但读片者撤销不了。只要这次变更是**人触发**的，就走 `getLayerVolume` + `replaceLayerVolume`。
+:::
+
+`replaceLayerVolume` 自身**不会**触发 `onLayerVolumeReplaced` —— 调用方（比如 mask 上传流程）
+应当自己去持久化这个新 volume。该回调只在之后读片者撤销或重做这次替换时才触发，因为那时后端手里
+还是更新的那一版，需要被告知回退。
+
+### 6.7 擦除单个通道 —— `clearChannel()` <Badge type="tip" text="3.10.2" />
 
 ```typescript
 nrrdTools.clearChannel('layer1', 3);  // 3 号 finding 被清除；1、2、4 保留
@@ -1213,6 +1255,9 @@ function onChannelColorPicked(hex: string) {
 | | `isLayerVisible(id)` | 给询取是否仍正在屏表呈可视化现中 |
 | | `getLayerVisibility()` | 给取到整体一全套涵盖每样有跟所有的有关各家可见性的数据全字典信息 |
 | | `hasLayerData(id)` | 让鉴查这个被指定的某个层面中究竟是不是真的存了非归 0 数字数值的内容像素区块等 |
+| | `getLayerVolume(id)` | 返回该图层体素缓冲区的一份**拷贝**，或 `null` |
+| | `replaceLayerVolume(id, data, opts?)` | 替换整个缓冲区；`{ undoable: true }` 记一步 Ctrl+Z |
+| | `copyLayerData(src, dst)` | 在图层之间复制体素 —— **不可撤销**；保留目标图层的颜色映射 |
 | | `setLayerOpacity(id, opacity)` | 设置 per-layer 透明度 (0.1–1.0)，触发重渲染 |
 | | `getLayerOpacity(id)` | 获取指定 layer 的透明度 |
 | | `getLayerOpacityMap()` | 获取所有 layer 的透明度值 |

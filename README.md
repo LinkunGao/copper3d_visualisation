@@ -169,9 +169,9 @@ new Copper.NrrdTools(container: HTMLDivElement, options?: { layers?: string[] })
 | `options.layers` | `string[]` | `["layer1","layer2","layer3"]` | Named layers to create |
 
 ```typescript
-// Custom layer set
+// Custom layer set — any names, not just layerN
 const nrrdTools = new Copper.NrrdTools(container, {
-  layers: ['layer1', 'layer2', 'layer3', 'layer4']
+  layers: ['tumour', 'edema', 'necrosis', 'vessel']
 });
 
 // Optional: show current slice index in a panel
@@ -345,6 +345,33 @@ const allChannelVis = nrrdTools.getChannelVisibility();
 if (nrrdTools.hasLayerData('layer1')) await saveLayer('layer1');
 ```
 
+**Reading and replacing a whole layer volume**
+
+```typescript
+// Move a mask from layer2 to layer3, undoably
+const voxels = nrrdTools.getLayerVolume('layer2');   // a COPY, or null
+if (voxels) nrrdTools.replaceLayerVolume('layer3', voxels, { undoable: true });
+```
+
+`copyLayerData(src, dst)` also copies between layers and is faster, but it writes the target
+buffer directly and leaves nothing for Ctrl+Z. Use it only to mirror a backend cascade; if a
+person triggered the change, go through the pair above.
+
+---
+
+### Mask render mode — fill or outline
+
+```typescript
+nrrdTools.setMaskRenderMode('outline');  // stroke only the boundary
+nrrdTools.setMaskRenderMode('fill');     // paint the silhouette (default)
+```
+
+`"outline"` leaves each mask's interior clear so the tissue underneath stays readable. It is a
+display decision only — what is stored, uploaded, exported and undone is the complete mask
+either way — and it applies to every layer and channel at once, repainting immediately. The
+pencil and eraser render the layer filled for the duration of a stroke, so you do not need to
+leave outline mode to annotate.
+
 ---
 
 ### 7. Channel Color Customization
@@ -489,6 +516,9 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | | `isLayerVisible(id)` | Query layer visibility |
 | | `getLayerVisibility()` | All layer visibility map |
 | | `hasLayerData(id)` | Check if layer has non-zero voxels |
+| | `getLayerVolume(id)` | A **copy** of the layer's voxel buffer, or `null` |
+| | `replaceLayerVolume(id, data, opts?)` | Replace the whole buffer; `{ undoable: true }` records one Ctrl+Z step |
+| | `copyLayerData(src, dst)` | Copy voxels between layers — **not** undoable; keeps the target's colour map |
 | | `setLayerOpacity(id, opacity)` | Set per-layer opacity (0.1–1.0), triggers re-render |
 | | `getLayerOpacity(id)` | Read one layer's opacity |
 | | `getLayerOpacityMap()` | All per-layer opacity values |
@@ -521,6 +551,8 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | | `getBrushSize()` | Read current brush size |
 | | `setPencilColor(hex)` | Set pencil stroke color (hex string) |
 | | `getPencilColor()` | Read current pencil color |
+| | `setMaskRenderMode(mode)` | `"fill"` or `"outline"` for every layer/channel; repaints immediately. Display only — the stored mask is unchanged |
+| | `getMaskRenderMode()` | Read the current render mode |
 | **Contrast** | `setWindowHigh(value)` | Set window high |
 | | `setWindowLow(value)` | Set window low |
 | | `finishWindowAdjustment()` | Repaint all contrast slices after drag ends |
@@ -586,8 +618,9 @@ interface IKeyBoardSettings {
 
 interface ICommXYZ { x: number; y: number; z: number; }
 
-type LayerId      = 'layer1' | 'layer2' | 'layer3' | 'layer4'; // or any string
-type ChannelValue = number; // 0 = empty/erased, 1..MAX_ENGINE_CHANNEL (255)
+type LayerId        = 'layer1' | 'layer2' | 'layer3' | 'layer4'; // or any string
+type ChannelValue   = number; // 0 = empty/erased, 1..MAX_ENGINE_CHANNEL (255)
+type MaskRenderMode = 'fill' | 'outline';
 ```
 
 ---

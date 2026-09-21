@@ -1090,6 +1090,18 @@ export class DrawToolCore {
    * The callback exists only for applyVolumeSnapshot below, so a later undo/redo of
    * this replacement can tell the backend to fall back to the old/new volume.
    */
+  /**
+   * A copy of one layer's voxel buffer, or null if the layer has no volume.
+   *
+   * The read-only counterpart to replaceLayerVolume, and a copy rather than the live buffer:
+   * handing out the renderer's own array would let a caller mutate the volume behind it, with
+   * nothing invalidating the slice cache.
+   */
+  getLayerVolume(layerId: string): Uint8Array | null {
+    const vol = this.renderer.getVolumeForLayer(layerId);
+    return vol ? new Uint8Array(vol.getRawData()) : null;
+  }
+
   replaceLayerVolume(layerId: string, data: Uint8Array, opts: { undoable?: boolean } = {}) {
     const vol = this.renderer.getVolumeForLayer(layerId);
     if (!vol) {

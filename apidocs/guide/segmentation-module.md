@@ -119,6 +119,9 @@ protectedData.maskData.volumes = {
 | `setActiveLayer` | `(layerId: string): void` | Set the active Layer; also updates fillColor/brushColor |
 | `setActiveChannel` | `(channel: ChannelValue): void` | Set the active Channel (1–`MAX_ENGINE_CHANNEL`); updates brush color |
 | `clearChannel` | `(layerId: string, channel: number): void` | Erase one label across a whole layer, undoably. Throws on an unknown layer (deliberately not via `getVolumeForLayer`, whose fallback would erase a different layer) or a channel outside [1, 255] |
+| `getLayerVolume` | `(layerId: string): Uint8Array \| null` | A **copy** of the layer's voxel buffer — not the live array, which a caller could mutate with nothing invalidating the slice cache. Delegates to `DrawToolCore.getLayerVolume` |
+| `replaceLayerVolume` | `(layerId, data, opts?): void` | Replace the whole buffer. `{ undoable: true }` pushes one `VolumeSnapshot`. Does **not** fire `onLayerVolumeReplaced` itself — that fires only on a later undo/redo, when the backend holds the newer volume and must be told to fall back |
+| `copyLayerData` | `(sourceLayerId, targetLayerId): void` | Direct buffer copy between layers, **not** undoable. Warns and returns if either volume is unresolvable or the lengths differ; preserves the target's colour map |
 | `getActiveLayer` | `(): string` | Get the current Layer ID |
 | `getActiveChannel` | `(): number` | Get the current Channel value |
 | `setLayerVisible` | `(layerId, visible): void` | Set Layer visibility, triggers `reloadMasksFromVolume()` |
@@ -1290,6 +1293,20 @@ interface MaskDelta {
 
 - Independent undo/redo stack per layer
 - `MAX_STACK_SIZE = 50`
+
+**Stacks are created on demand** <Badge type="tip" text="3.10.4" />, keyed by layer id, so any
+layer name works. They used to be pre-created for exactly `layer1` / `layer2` / `layer3`, which
+broke in two different ways for any other id — and `NrrdTools`'s constructor has always taken
+`options.layers`, so any other id is reachable:
+
+| Call | Old behaviour with a custom layer id |
+|------|--------------------------------------|
+| `pushGroup` / `pushVolumeSnapshot` | resolved with `?? get("layer1")` and silently appended to **another layer's** history, so a later undo popped a stroke the user never made there |
+| `undo` / `redo` | asserted non-null on the same lookup and **threw** |
+
+`stackFor(stacks, layerId)` creates the entry on first use, which removes both. Nothing else
+needs to know which layers exist, and `clearAll()` now iterates the maps rather than a fixed
+id list.
 
 **Undo flow:**
 

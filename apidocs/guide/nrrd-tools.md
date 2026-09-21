@@ -99,6 +99,20 @@ const nrrdTools = new Copper.NrrdTools(container, {
 > **Important**: The layer list you pass here must match what your backend and UI expect.
 > Adding or removing layers later requires re-instantiation.
 
+::: tip Layer ids are arbitrary strings <Badge type="tip" text="3.10.4" />
+They do not have to be `layerN`:
+
+```typescript
+const nrrdTools = new Copper.NrrdTools(container, {
+  layers: ['tumour', 'edema', 'necrosis', 'vessel']
+});
+```
+
+Before 3.10.4 the undo stacks were pre-created for `layer1` / `layer2` / `layer3` only, so a
+custom id either silently pushed onto another layer's history or threw on undo. Stacks are now
+created on demand, keyed by whatever id you pass.
+:::
+
 #### Optional display panel
 
 Attach a panel element to show current slice index in the viewer:
@@ -814,7 +828,39 @@ const meta = nrrdTools.getSliderMeta('layerAlpha');
 
 This is used by `OperationCtl.vue`’s "Layer Alpha" slider radio option.
 
-#### 6.6 Erasing one channel — `clearChannel()` <Badge type="tip" text="3.10.2" />
+#### 6.6 Reading and replacing a layer's whole volume
+
+Three ways to move voxels in and out of a layer wholesale. They differ in what ends up on the
+undo stack, which is the thing to pick on:
+
+| Method | Undoable | Notes |
+|--------|----------|-------|
+| `getLayerVolume(id)` | — | Returns a **copy** of the voxel buffer, or `null` if the layer has no volume |
+| `replaceLayerVolume(id, data, { undoable })` | opt-in | `undoable: true` records one Ctrl+Z step for the whole volume |
+| `copyLayerData(src, dst)` | **no** | Writes the target buffer directly; leaves nothing for Ctrl+Z |
+
+```typescript
+// Move a mask from layer2 to layer3, undoably
+const voxels = nrrdTools.getLayerVolume('layer2');
+if (voxels) nrrdTools.replaceLayerVolume('layer3', voxels, { undoable: true });
+```
+
+`getLayerVolume` hands back a copy, not the live buffer: the renderer's own array must not be
+mutated from outside, because nothing would invalidate the slice cache behind it.
+
+::: tip Prefer this pair over `copyLayerData` <Badge type="tip" text="3.10.4" />
+`copyLayerData(src, dst)` still exists for the case it was written for — mirroring a backend
+cascade (editing layer2 implies layer3) without a network round-trip. It is faster and it
+preserves the target's colour map, but the clinician cannot undo it. If a person triggered the
+change, go through `getLayerVolume` + `replaceLayerVolume` instead.
+:::
+
+`replaceLayerVolume` does **not** fire `onLayerVolumeReplaced` itself — the caller (a mask
+upload flow, say) is expected to persist the new volume. The callback fires only later, if the
+clinician undoes or redoes the replacement, because at that point the backend holds the newer
+volume and has to be told to fall back.
+
+#### 6.7 Erasing one channel — `clearChannel()` <Badge type="tip" text="3.10.2" />
 
 ```typescript
 nrrdTools.clearChannel('layer1', 3);  // finding 3 goes; 1, 2 and 4 stay
@@ -1666,6 +1712,9 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | | `isLayerVisible(id)` | Query layer visibility |
 | | `getLayerVisibility()` | All layer visibility map |
 | | `hasLayerData(id)` | Check if layer has non-zero voxels |
+| | `getLayerVolume(id)` | A **copy** of the layer's voxel buffer, or `null` |
+| | `replaceLayerVolume(id, data, opts?)` | Replace the whole buffer; `{ undoable: true }` records one Ctrl+Z step |
+| | `copyLayerData(src, dst)` | Copy voxels between layers — **not** undoable; keeps the target's colour map |
 | | `setLayerOpacity(id, opacity)` | Set per-layer opacity (0.1–1.0), triggers re-render |
 | | `getLayerOpacity(id)` | Get opacity for a specific layer |
 | | `getLayerOpacityMap()` | Get all per-layer opacity values |
