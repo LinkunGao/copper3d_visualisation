@@ -110,3 +110,54 @@ describe("UndoManager volume snapshots", () => {
     expect(m.canUndo()).toBe(false);
   });
 });
+
+/**
+ * Layers are dynamic: `NrrdTools`'s constructor takes `options.layers`, and `types.ts`
+ * documents "Dynamic N-layer support". `UndoManager` was the one class that did not follow,
+ * pre-creating stacks for exactly layer1/2/3. That failed in two different ways at once --
+ * `push*` fell back to layer1's stack silently, and `undo`/`redo` asserted non-null on a
+ * `Map.get` that returned undefined and threw.
+ */
+describe("UndoManager with a layer outside the built-in three", () => {
+  it("keeps a fourth layer's history on its own stack, not layer1's", () => {
+    const m = new UndoManager();
+    m.setActiveLayer("layer4");
+    m.pushGroup([delta("layer4")]);
+
+    m.setActiveLayer("layer1");
+    expect(m.canUndo()).toBe(false);
+
+    m.setActiveLayer("layer4");
+    expect(m.canUndo()).toBe(true);
+  });
+
+  it("undoes a fourth layer's edit instead of throwing", () => {
+    const m = new UndoManager();
+    m.setActiveLayer("layer4");
+    m.pushGroup([delta("layer4")]);
+
+    const entry = m.undo();
+    expect(Array.isArray(entry)).toBe(true);
+    expect((entry as MaskDelta[])[0].layerId).toBe("layer4");
+  });
+
+  it("round-trips a fourth layer through redo", () => {
+    const m = new UndoManager();
+    m.setActiveLayer("layer4");
+    m.pushGroup([delta("layer4")]);
+    m.undo();
+
+    expect(m.canRedo()).toBe(true);
+    const entry = m.redo();
+    expect((entry as MaskDelta[])[0].layerId).toBe("layer4");
+    expect(m.canUndo()).toBe(true);
+  });
+
+  it("clearAll drops a fourth layer's stacks too", () => {
+    const m = new UndoManager();
+    m.setActiveLayer("layer4");
+    m.pushGroup([delta("layer4")]);
+    m.clearAll();
+    expect(m.canUndo()).toBe(false);
+  });
+});

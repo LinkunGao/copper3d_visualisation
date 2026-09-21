@@ -39,16 +39,29 @@ export type UndoEntry = MaskDelta[] | VolumeSnapshot;
 
 const MAX_STACK_SIZE = 50;
 
-const LAYER_IDS = ["layer1", "layer2", "layer3"] as const;
-
 export class UndoManager {
-  private undoStacks: Map<string, UndoEntry[]>;
-  private redoStacks: Map<string, UndoEntry[]>;
+  private undoStacks = new Map<string, UndoEntry[]>();
+  private redoStacks = new Map<string, UndoEntry[]>();
   private activeLayer: string = "layer1";
 
-  constructor() {
-    this.undoStacks = new Map(LAYER_IDS.map((id) => [id, []]));
-    this.redoStacks = new Map(LAYER_IDS.map((id) => [id, []]));
+  /**
+   * The stack for a layer, created on first use.
+   *
+   * Stacks used to be pre-created for exactly layer1/2/3, which broke in two ways at once for
+   * any other id -- and `NrrdTools`'s constructor has always accepted `options.layers`, so any
+   * other id is reachable. `push*` resolved with `?? get("layer1")` and silently appended to a
+   * different layer's history, so an undo later popped a stroke the user never made there;
+   * `undo`/`redo` asserted non-null on the same lookup and threw instead.
+   *
+   * Creating on demand removes both. Nothing else needs to know which layers exist.
+   */
+  private stackFor(stacks: Map<string, UndoEntry[]>, layerId: string): UndoEntry[] {
+    let stack = stacks.get(layerId);
+    if (!stack) {
+      stack = [];
+      stacks.set(layerId, stack);
+    }
+    return stack;
   }
 
   /** Set the currently active layer (determines which stack undo/redo operates on). */
@@ -65,13 +78,13 @@ export class UndoManager {
   pushGroup(deltas: MaskDelta[]): void {
     if (deltas.length === 0) return;
     const layerId = deltas[0].layerId;
-    const stack = this.undoStacks.get(layerId) ?? this.undoStacks.get("layer1")!;
+    const stack = this.stackFor(this.undoStacks, layerId);
     stack.push(deltas);
     if (stack.length > MAX_STACK_SIZE) {
       stack.shift();
     }
     // Any new operation invalidates the redo history for that layer
-    const redoStack = this.redoStacks.get(layerId) ?? this.redoStacks.get("layer1")!;
+    const redoStack = this.stackFor(this.redoStacks, layerId);
     redoStack.length = 0;
   }
 
@@ -82,7 +95,7 @@ export class UndoManager {
    * an unbounded stack would be hundreds of megabytes. Slice deltas below it survive.
    */
   pushVolumeSnapshot(layerId: string, oldVolume: Uint8Array, newVolume: Uint8Array): void {
-    const stack = this.undoStacks.get(layerId) ?? this.undoStacks.get("layer1")!;
+    const stack = this.stackFor(this.undoStacks, layerId);
     for (let i = stack.length - 1; i >= 0; i--) {
       if (!Array.isArray(stack[i])) stack.splice(i, 1);
     }
@@ -90,7 +103,7 @@ export class UndoManager {
     if (stack.length > MAX_STACK_SIZE) {
       stack.shift();
     }
-    const redoStack = this.redoStacks.get(layerId) ?? this.redoStacks.get("layer1")!;
+    const redoStack = this.stackFor(this.redoStacks, layerId);
     redoStack.length = 0;
   }
 
@@ -99,10 +112,10 @@ export class UndoManager {
    * @returns The delta(s) that were undone, or undefined if nothing to undo.
    */
   undo(): UndoEntry | undefined {
-    const stack = this.undoStacks.get(this.activeLayer)!;
+    const stack = this.stackFor(this.undoStacks, this.activeLayer);
     const entry = stack.pop();
     if (entry) {
-      this.redoStacks.get(this.activeLayer)!.push(entry);
+      this.stackFor(this.redoStacks, this.activeLayer).push(entry);
     }
     return entry;
   }
@@ -112,10 +125,10 @@ export class UndoManager {
    * @returns The delta(s) that were redone, or undefined if nothing to redo.
    */
   redo(): UndoEntry | undefined {
-    const stack = this.redoStacks.get(this.activeLayer)!;
+    const stack = this.stackFor(this.redoStacks, this.activeLayer);
     const entry = stack.pop();
     if (entry) {
-      this.undoStacks.get(this.activeLayer)!.push(entry);
+      this.stackFor(this.undoStacks, this.activeLayer).push(entry);
     }
     return entry;
   }
@@ -138,9 +151,7 @@ export class UndoManager {
 
   /** Clear all stacks for all layers (called on full dataset reload). */
   clearAll(): void {
-    for (const id of LAYER_IDS) {
-      this.undoStacks.get(id)!.length = 0;
-      this.redoStacks.get(id)!.length = 0;
-    }
+    for (const stack of this.undoStacks.values()) stack.length = 0;
+    for (const stack of this.redoStacks.values()) stack.length = 0;
   }
 }

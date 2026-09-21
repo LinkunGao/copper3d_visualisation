@@ -119,6 +119,9 @@ protectedData.maskData.volumes = {
 | `setActiveLayer` | `(layerId: string): void` | 设置当前活跃 Layer，同时更新 fillColor/brushColor |
 | `setActiveChannel` | `(channel: ChannelValue): void` | 设置当前活跃 Channel (1–`MAX_ENGINE_CHANNEL`)，更新画笔颜色 |
 | `clearChannel` | `(layerId: string, channel: number): void` | 跨整个图层擦除单个 label，可撤销。图层不存在时抛错（刻意不走 `getVolumeForLayer`，否则它的回退会擦掉另一个图层），通道超出 [1, 255] 时抛 `RangeError` |
+| `getLayerVolume` | `(layerId: string): Uint8Array \| null` | 该图层体素缓冲区的一份**拷贝** —— 不是活的数组，否则调用方可以直接改动它，而没有任何东西会去让切片缓存失效。委托给 `DrawToolCore.getLayerVolume` |
+| `replaceLayerVolume` | `(layerId, data, opts?): void` | 替换整个缓冲区。`{ undoable: true }` 会压入一个 `VolumeSnapshot`。它自身**不会**触发 `onLayerVolumeReplaced` —— 该回调只在之后的 undo/redo 时触发，因为那时后端手里是更新的那一版，需要被告知回退 |
+| `copyLayerData` | `(sourceLayerId, targetLayerId): void` | 图层之间的直接缓冲区拷贝，**不可撤销**。任一 volume 解析不到、或长度不一致时会 warn 并返回；保留目标图层的颜色映射 |
 | `getActiveLayer` | `(): string` | 获取当前 Layer ID |
 | `getActiveChannel` | `(): number` | 获取当前 Channel 值 |
 | `setLayerVisible` | `(layerId, visible): void` | 设置 Layer 可见性，触发 `reloadMasksFromVolume()` |
@@ -1421,6 +1424,18 @@ interface MaskDelta {
 
 - 每个 Layer 独立的 undo/redo 栈
 - MAX_STACK_SIZE = 50
+
+**栈按需创建** <Badge type="tip" text="3.10.4" />，以 layer id 为键，因此任意图层名都能用。
+以前这些栈是为 `layer1` / `layer2` / `layer3` 三个预先建好的，对其他 id 会以两种不同的方式出错 ——
+而 `NrrdTools` 的构造函数一直接受 `options.layers`，也就是说其他 id 是完全可达的：
+
+| 调用 | 自定义 layer id 下的旧行为 |
+|------|---------------------------|
+| `pushGroup` / `pushVolumeSnapshot` | 以 `?? get("layer1")` 兜底，**静默地**追加到了另一个图层的历史里；于是之后一次 undo 会弹出用户根本没在那里画过的笔画 |
+| `undo` / `redo` | 对同一次查找做了非空断言，直接**抛异常** |
+
+`stackFor(stacks, layerId)` 在首次使用时创建条目，两个问题一并消失。其他地方都不需要知道存在
+哪些图层，`clearAll()` 现在也改为遍历 map，而不是遍历一份固定的 id 列表。
 
 ### Undo 流程
 

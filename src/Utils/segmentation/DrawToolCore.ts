@@ -1080,6 +1080,18 @@ export class DrawToolCore {
   }
 
   /**
+   * A copy of one layer's voxel buffer, or null if the layer has no volume.
+   *
+   * The read-only counterpart to replaceLayerVolume, and a copy rather than the live buffer:
+   * handing out the renderer's own array would let a caller mutate the volume behind it, with
+   * nothing invalidating the slice cache.
+   */
+  getLayerVolume(layerId: string): Uint8Array | null {
+    const vol = this.renderer.getVolumeForLayer(layerId);
+    return vol ? new Uint8Array(vol.getRawData()) : null;
+  }
+
+  /**
    * Replace a layer's entire volume, optionally recording it as one undo step.
    *
    * Used by the mask upload dialog. Unlike DataLoader.setMasksFromNIfTI this records
