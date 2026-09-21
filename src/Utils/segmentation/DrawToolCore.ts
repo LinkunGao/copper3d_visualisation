@@ -1080,17 +1080,6 @@ export class DrawToolCore {
   }
 
   /**
-   * Replace a layer's entire volume, optionally recording it as one undo step.
-   *
-   * Used by the mask upload dialog. Unlike DataLoader.setMasksFromNIfTI this records
-   * undo history and does not resetZoom, so the clinician keeps their view.
-   *
-   * This call does NOT fire onLayerVolumeReplaced - the caller (the upload flow)
-   * already knows it just replaced the volume and is responsible for persisting it.
-   * The callback exists only for applyVolumeSnapshot below, so a later undo/redo of
-   * this replacement can tell the backend to fall back to the old/new volume.
-   */
-  /**
    * A copy of one layer's voxel buffer, or null if the layer has no volume.
    *
    * The read-only counterpart to replaceLayerVolume, and a copy rather than the live buffer:
@@ -1102,6 +1091,17 @@ export class DrawToolCore {
     return vol ? new Uint8Array(vol.getRawData()) : null;
   }
 
+  /**
+   * Replace a layer's entire volume, optionally recording it as one undo step.
+   *
+   * Used by the mask upload dialog. Unlike DataLoader.setMasksFromNIfTI this records
+   * undo history and does not resetZoom, so the clinician keeps their view.
+   *
+   * This call does NOT fire onLayerVolumeReplaced - the caller (the upload flow)
+   * already knows it just replaced the volume and is responsible for persisting it.
+   * The callback exists only for applyVolumeSnapshot below, so a later undo/redo of
+   * this replacement can tell the backend to fall back to the old/new volume.
+   */
   replaceLayerVolume(layerId: string, data: Uint8Array, opts: { undoable?: boolean } = {}) {
     const vol = this.renderer.getVolumeForLayer(layerId);
     if (!vol) {

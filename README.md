@@ -1,5 +1,6 @@
 # copper3d
 
+[![CI][ci]][ci-url]
 [![NPM Package][npm]][npm-url]
 [![Read the Docs][readthedocs]][readthedocs-url]
 [![Copper3d Examples][examples]][examples-url]
@@ -631,6 +632,8 @@ Special thanks to [Duke University dataset](https://wiki.cancerimagingarchive.ne
 
 ---
 
+[ci]: https://github.com/LinkunGao/copper3d_visualisation/actions/workflows/ci.yml/badge.svg?branch=main
+[ci-url]: https://github.com/LinkunGao/copper3d_visualisation/actions/workflows/ci.yml
 [npm]: https://img.shields.io/npm/v/copper3d
 [npm-url]: https://www.npmjs.com/package/copper3d
 [readthedocs]: https://img.shields.io/readthedocs/copper3d_visualisation

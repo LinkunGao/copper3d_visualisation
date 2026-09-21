@@ -1638,6 +1638,17 @@ export class NrrdTools {
   }
 
   /**
+   * A copy of one layer's voxel buffer, or null if the layer has no volume.
+   *
+   * Pairs with `replaceLayerVolume`, so a caller can move a mask from one layer to another
+   * through the undoable path rather than through `copyLayerData`, which writes the target
+   * buffer directly and leaves nothing for Ctrl+Z.
+   */
+  getLayerVolume(layerId: string): Uint8Array | null {
+    return this.drawCore.getLayerVolume(layerId);
+  }
+
+  /**
    * Replace a layer's entire voxel buffer.
    *
    * This call itself does NOT fire onLayerVolumeReplaced - callers (e.g. the mask
@@ -1650,17 +1661,6 @@ export class NrrdTools {
    * @param data     Voxels, exactly the layer volume's length.
    * @param opts     `undoable: true` records one Ctrl+Z step for the whole volume.
    */
-  /**
-   * A copy of one layer's voxel buffer, or null if the layer has no volume.
-   *
-   * Pairs with `replaceLayerVolume`, so a caller can move a mask from one layer to another
-   * through the undoable path rather than through `copyLayerData`, which writes the target
-   * buffer directly and leaves nothing for Ctrl+Z.
-   */
-  getLayerVolume(layerId: string): Uint8Array | null {
-    return this.drawCore.getLayerVolume(layerId);
-  }
-
   replaceLayerVolume(layerId: string, data: Uint8Array, opts: { undoable?: boolean } = {}): void {
     this.drawCore.replaceLayerVolume(layerId, data, opts);
   }
