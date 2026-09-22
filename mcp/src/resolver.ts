@@ -14,7 +14,7 @@
  * clients that lose the workspace say where it is.
  */
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
 /** Where the index was found, for diagnostics and the server banner. */
@@ -72,6 +72,33 @@ function indexUnder(projectDir: string): string {
 }
 
 /**
+ * True when `dir` is the copper3d repository itself rather than a project that
+ * consumes it. There the index sits at `<repo>/ai-index`, built in place by
+ * `npm run build`, and there is no `node_modules/copper3d` to find.
+ *
+ * Gated on the package name so an unrelated project that happens to have an
+ * `ai-index` directory is never mistaken for copper3d.
+ */
+function isCopper3dRepo(dir: string): boolean {
+  try {
+    const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+    return pkg?.name === "copper3d";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The places a given directory could be holding the index: as a consumer, and
+ * as the copper3d repo itself.
+ */
+function indexCandidates(dir: string): string[] {
+  const candidates = [indexUnder(dir)];
+  if (isCopper3dRepo(dir)) candidates.push(join(dir, "ai-index"));
+  return candidates;
+}
+
+/**
  * Walk from `start` up to the filesystem root, looking for a project that has
  * copper3d installed. Covers nested workspaces, where the server may be spawned
  * in `packages/viewer` while `node_modules` lives at the repo root.
@@ -113,14 +140,18 @@ export function resolveIndex(input: ResolveInput = {}): ResolvedIndex {
     const projectDir = isAbsolute(input.projectDir)
       ? input.projectDir
       : resolve(cwd, input.projectDir);
-    const hit = tryDir("--project", indexUnder(projectDir), "--project");
-    if (hit) return hit;
+    for (const dir of indexCandidates(projectDir)) {
+      const hit = tryDir("--project", dir, "--project");
+      if (hit) return hit;
+    }
   }
 
   // 3. Workspace roots the client told us about.
   for (const root of input.roots ?? []) {
-    const hit = tryDir("MCP roots", indexUnder(root), "MCP roots");
-    if (hit) return hit;
+    for (const dir of indexCandidates(root)) {
+      const hit = tryDir("MCP roots", dir, "MCP roots");
+      if (hit) return hit;
+    }
   }
 
   // 4. CLAUDE_PROJECT_DIR, then cwd — both walked upwards.
@@ -130,9 +161,11 @@ export function resolveIndex(input: ResolveInput = {}): ResolvedIndex {
   walkStarts.push(["cwd", cwd, "cwd"]);
 
   for (const [source, start, via] of walkStarts) {
-    for (const dir of ancestors(start)) {
-      const hit = tryDir(source, indexUnder(dir), via);
-      if (hit) return hit;
+    for (const ancestor of ancestors(start)) {
+      for (const dir of indexCandidates(ancestor)) {
+        const hit = tryDir(source, dir, via);
+        if (hit) return hit;
+      }
     }
   }
 
@@ -155,7 +188,7 @@ function formatNotFound(attempts: readonly Attempt[]): string {
     "Looked in:",
     looked,
     "",
-    "Two things to check:",
+    "Three things to check:",
     "",
     "1. Is copper3d installed, and recent enough?",
     "     npm install copper3d@latest",
@@ -163,7 +196,13 @@ function formatNotFound(attempts: readonly Attempt[]): string {
     "   Releases from before MCP support was added do not contain it, so an",
     "   installed-but-older copper3d looks exactly like a missing one.",
     "",
-    "2. Does this MCP client tell the server where the project is?",
+    "2. Is the editor open ABOVE the project rather than at it?",
+    "   The search only goes upwards from the paths listed above, never down into",
+    "   subdirectories — with several subprojects there would be no right answer.",
+    "   So opening `work/` when the project is `work/app/` hides it. Open the",
+    "   project directly, or name it with --project.",
+    "",
+    "3. Does this MCP client tell the server where the project is?",
     "   Claude Code sets the working directory for you. Claude Desktop, Cursor,",
     "   Windsurf and VS Code do not, so pass the path explicitly:",
     "",

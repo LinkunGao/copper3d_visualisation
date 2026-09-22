@@ -1,6 +1,6 @@
 {
   "name": "copper3d-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server that lets AI coding assistants search the copper3d API and read its usage guides, at the exact version installed in your project.",
   "type": "module",
   "bin": {

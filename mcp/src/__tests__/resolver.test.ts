@@ -18,6 +18,22 @@ function makeProject(root: string, name: string): string {
   return project;
 }
 
+/** The copper3d repo itself: index at `<repo>/ai-index`, no node_modules/copper3d. */
+function makeCopper3dRepo(root: string, name: string): string {
+  const repo = join(root, name);
+  const indexDir = join(repo, "ai-index");
+  mkdirSync(indexDir, { recursive: true });
+  writeFileSync(
+    join(repo, "package.json"),
+    JSON.stringify({ name: "copper3d", version: "3.11.0" })
+  );
+  writeFileSync(
+    join(indexDir, "manifest.json"),
+    JSON.stringify({ schemaVersion: 1, copper3dVersion: "3.11.0", guides: [] })
+  );
+  return repo;
+}
+
 let root: string;
 /** Somewhere with no copper3d anywhere above it, so the walk-up genuinely fails. */
 let empty: string;
@@ -110,6 +126,44 @@ describe("resolveIndex", () => {
     );
   });
 
+  describe("inside the copper3d repo itself", () => {
+    it("finds <repo>/ai-index by walking up from a subdirectory", () => {
+      const repo = makeCopper3dRepo(root, "repo-cwd");
+      const deep = join(repo, "src", "Utils", "segmentation");
+      mkdirSync(deep, { recursive: true });
+
+      const result = resolveIndex({ env: {}, cwd: deep });
+
+      expect(result.via).toBe("cwd");
+      expect(result.dir).toBe(join(repo, "ai-index"));
+    });
+
+    it("finds it via --project too", () => {
+      const repo = makeCopper3dRepo(root, "repo-project");
+
+      const result = resolveIndex({ projectDir: repo, env: {}, cwd: empty });
+
+      expect(result.dir).toBe(join(repo, "ai-index"));
+    });
+
+    it("ignores a stray ai-index in a project that is not copper3d", () => {
+      const other = join(root, "impostor");
+      mkdirSync(join(other, "ai-index"), { recursive: true });
+      writeFileSync(
+        join(other, "package.json"),
+        JSON.stringify({ name: "some-other-app" })
+      );
+      writeFileSync(
+        join(other, "ai-index", "manifest.json"),
+        JSON.stringify({ schemaVersion: 1, guides: [] })
+      );
+
+      expect(() => resolveIndex({ projectDir: other, env: {}, cwd: empty })).toThrow(
+        IndexNotFoundError
+      );
+    });
+  });
+
   describe("when nothing is found", () => {
     function failure(): IndexNotFoundError {
       try {
@@ -146,6 +200,12 @@ describe("resolveIndex", () => {
       const message = failure().message;
       expect(message).toContain("Claude Desktop");
       expect(message).toContain("Cursor");
+    });
+
+    it("warns about opening the editor above the project", () => {
+      // Opening `work/` when the project is `work/app/` is a common miss, and
+      // the upward-only search makes it invisible.
+      expect(failure().message).toContain("never down into");
     });
   });
 });
