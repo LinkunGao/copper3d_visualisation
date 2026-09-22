@@ -108,6 +108,9 @@
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.bench.ts",
-    "vitest.config.mts"
+    "vitest.config.mts",
+    // copper3d-mcp is a separate package with its own tsconfig; without this
+    // the default `**/*` include pulls it in and it fails `rootDir: ./src`.
+    "mcp"
   ]
 }
