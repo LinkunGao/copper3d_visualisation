@@ -1,0 +1,64 @@
+# Publishes the copper3d-mcp package.
+#
+# Deliberately NOT triggered by `release: created` the way npm-publish.yml is.
+# That event is a copper3d release, and copper3d-mcp has its own version line:
+# it is a reader that carries no documentation of its own, so a copper3d release
+# does not change it and must not republish it.
+#
+# Release it by tagging, from the branch holding the change:
+#   git tag mcp-v0.1.0 && git push origin mcp-v0.1.0
+# or run this workflow by hand from the Actions tab.
+
+name: Publish copper3d-mcp
+
+on:
+  push:
+    tags:
+      - 'mcp-v*'
+  workflow_dispatch:
+
+permissions:
+  id-token: write # OIDC, for --provenance
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # Kept in step with ci.yml, npm-publish.yml and deploy-api-docs.yaml.
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: mcp/package-lock.json
+
+      - run: npm install -g npm@11.6.1
+
+      # A tag that disagrees with package.json would publish a version nobody
+      # can find from the tag, so fail before anything is pushed to the registry.
+      - name: Check the tag matches mcp/package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#mcp-v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME implies version $TAG_VERSION, but mcp/package.json says $PKG_VERSION."
+            exit 1
+          fi
+          echo "Publishing copper3d-mcp@$PKG_VERSION"
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # A release must not go out on a red test suite, even though CI already
+      # ran on the commit -- a tag can point at any ref.
+      - run: npm run test
+
+      - run: npm publish --provenance --access public

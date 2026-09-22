@@ -41,3 +41,27 @@ jobs:
       - run: npm run build
 
       - run: npm run test
+
+  # The MCP server is a separate package with its own dependency tree (see
+  # mcp/README or the repo README for why this is not an npm workspace), so it
+  # gets its own install/build/test rather than riding on the job above.
+  mcp-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mcp/package-lock.json
+
+      - run: npm ci
+        working-directory: mcp
+
+      # `build` is `tsc`, so this type-checks as well as emits.
+      - run: npm run build
+        working-directory: mcp
+
+      - run: npm run test
+        working-directory: mcp

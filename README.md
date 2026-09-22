@@ -25,6 +25,128 @@ Very old: https://www.npmjs.com/package/gltfloader-plugin-test
 
 ---
 
+### AI coding assistants (MCP)
+
+copper3d ships a machine-readable index of its own API and guides. Point your AI
+assistant at it through the [`copper3d-mcp`](https://www.npmjs.com/package/copper3d-mcp)
+server and it can look up real signatures instead of inventing them.
+
+It reads the index from the copper3d **installed in your project**, so what the
+assistant sees always matches the version you actually depend on.
+
+Four read-only tools: `copper3d_search_api`, `copper3d_get_symbol`,
+`copper3d_list_guides`, `copper3d_get_guide`.
+
+**Claude Code** — one command, no path needed:
+
+```bash
+# just you, in this project
+claude mcp add copper3d -- npx -y copper3d-mcp
+
+# commit it to .mcp.json so the whole team gets it on clone
+claude mcp add --scope project copper3d -- npx -y copper3d-mcp
+
+# all your projects
+claude mcp add --scope user copper3d -- npx -y copper3d-mcp
+```
+
+**Every other client** needs to be told where the project is, because they start
+the server with a working directory that is not your project
+([why](https://github.com/anthropics/claude-code/issues/75266)):
+
+| Client | Config file | Root key | Needs `--project` |
+|---|---|---|---|
+| Claude Code | `claude mcp add`, or `.mcp.json` | `mcpServers` | no |
+| Cursor | `.cursor/mcp.json` or `~/.cursor/mcp.json` | `mcpServers` | **yes** |
+| VS Code / Copilot | `.vscode/mcp.json` | **`servers`** | **yes** |
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json`<br>`~/Library/Application Support/Claude/claude_desktop_config.json` | `mcpServers` | **yes** |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` | `mcpServers` | **yes** |
+
+<details>
+<summary><b>Cursor</b> — <code>.cursor/mcp.json</code></summary>
+
+```json
+{
+  "mcpServers": {
+    "copper3d": {
+      "command": "npx",
+      "args": ["-y", "copper3d-mcp", "--project", "/absolute/path/to/your/project"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>VS Code / Copilot</b> — <code>.vscode/mcp.json</code> (note: <code>servers</code>, not <code>mcpServers</code>)</summary>
+
+```json
+{
+  "servers": {
+    "copper3d": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "copper3d-mcp", "--project", "${workspaceFolder}"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Claude Desktop</b> — <code>claude_desktop_config.json</code></summary>
+
+The absolute path is required here: Claude Desktop has no project, and it ignores
+the `cwd` field.
+
+```json
+{
+  "mcpServers": {
+    "copper3d": {
+      "command": "npx",
+      "args": ["-y", "copper3d-mcp", "--project", "/absolute/path/to/your/project"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Windsurf</b> — <code>~/.codeium/windsurf/mcp_config.json</code></summary>
+
+```json
+{
+  "mcpServers": {
+    "copper3d": {
+      "command": "npx",
+      "args": ["-y", "copper3d-mcp", "--project", "/absolute/path/to/your/project"]
+    }
+  }
+}
+```
+
+</details>
+
+**If it does not work**
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Tools never appear in VS Code | Used `mcpServers` in `.vscode/mcp.json` | VS Code calls it `servers` |
+| "AI index was not found" | copper3d not installed, or the client lost the project directory | `npm i copper3d`, then add `--project /abs/path` |
+| Assistant still invents APIs | Server not connected | `claude mcp list`, or your client's MCP panel |
+
+You can also skip discovery entirely by setting `COPPER3D_INDEX_PATH` to the
+`node_modules/copper3d/ai-index` directory.
+
+**What it does not do.** This is documentation lookup only. copper3d is a browser
+WebGL library and the server is a Node process — it cannot render a scene, run your
+code, or look at a canvas.
+
+---
+
 ### Basic Usage
 
 **Load demo**

@@ -1,0 +1,46 @@
+{
+  "name": "copper3d-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets AI coding assistants search the copper3d API and read its usage guides, at the exact version installed in your project.",
+  "type": "module",
+  "bin": {
+    "copper3d-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "copper3d",
+    "threejs",
+    "documentation"
+  ],
+  "author": "Linkun Gao",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LinkunGao/copper3d_visualisation.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/LinkunGao/copper3d_visualisation#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}
