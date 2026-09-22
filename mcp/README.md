@@ -25,6 +25,10 @@ npm install copper3d
 The index lives at `node_modules/copper3d/ai-index/`. Releases from before MCP support was
 added do not contain it.
 
+Working on copper3d itself rather than using it? The server also recognises the copper3d
+repository, where `npm run build` puts the index at `<repo>/ai-index`, so no extra
+configuration is needed there either.
+
 ## Setup
 
 ### Claude Code
