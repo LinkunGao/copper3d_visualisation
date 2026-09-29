@@ -534,6 +534,7 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | Method | Description |
 |--------|-------------|
 | `drag(opts?)` | Enable drag-to-scroll slice navigation |
+| `dispose()` | Teardown: `eventRouter.unbindAll()`, cancel the pending slice-step `requestAnimationFrame`, clear the `setIsDrawFalse` timer. Releases only what the instance attached outside its own DOM subtree — the window `blur` listener is the one that pins the whole engine graph. Instance unusable afterwards; idempotent |
 | `setAnnotationSuspended(bool)` | Block every input that can write into a mask, at `DrawToolCore.onCanvasPointerDown`. Slice scrubbing, zoom, pan and the crosshair stay live (see 7.1) |
 | `isAnnotationSuspended()` | Query the suspension state |
 | `setSliceOrientation(axis)` | Switch viewing axis. Calls `ensureAxisExtracted` for every loaded contrast first, so a narrowed-axes load can still switch planes |

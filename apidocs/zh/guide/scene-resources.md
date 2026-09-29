@@ -118,6 +118,47 @@ scene.dispose();
 
 ---
 
+## 2b. `NrrdTools.dispose()` <Badge type="tip" text="3.11.2" />
+
+```ts
+nrrdTools.dispose(): void
+```
+
+上一层的同一个道理。分割视图同样会往自己之外挂东西，而 `disposeScene()` 对它一无所知 ——
+`NrrdTools` 不是一个 scene，所以没有任何人会替你调用它。
+
+| 被释放的 | 原因 |
+|----------|------|
+| EventRouter 的各个监听器 | 它挂在 window 上的 `blur` 监听器闭包持有 router，而 router 可以到达整张引擎对象图 —— 各个 canvas、`MaskVolume` 缓冲区、undo 栈。一个监听器就把这些全钉住了 |
+| 待处理的切片步进 | `setSliceMoving` 用来合并步进的那个 `requestAnimationFrame` |
+| 绘制标志定时器 | 尚未触发的 `setIsDrawFalse` 定时器 |
+
+一个"每个病例建一个视图"的应用，如果从不调用它，就会每个病例泄漏一整张引擎对象图，而且每一个的
+`blur` 监听器都会在整个页面生命周期里继续触发 —— 和 §2a 里那个 `resize` 监听器是同一种形状的泄漏，
+只是背后拖着的东西多得多。
+
+```ts
+scene.removePreRenderCallbackFunction(callbackId);
+nrrdTools.dispose();
+```
+
+调用之后这个实例就不能再用了。可以重复调用。
+
+它刻意只做到这个边界为止：你传给构造函数的宿主元素由你自己移除，而 volume 会随实例一起回收。
+调用完请丢掉你对它的引用。
+
+::: tip 视图 + 场景的完整拆除顺序
+```ts
+scene.removePreRenderCallbackFunction(callbackId);   // 先停掉每帧回调
+nrrdTools.dispose();                                 // 再释放视图的监听器/定时器
+renderer.disposeScene(sceneName);                    // 然后拆场景内容
+container.remove();                                  // 最后是你自己的 DOM
+```
+先取消每帧回调，意味着不会有任何东西再作用到一个"拆了一半"的实例上。
+:::
+
+---
+
 ## 3. 驻留预算
 
 ```ts

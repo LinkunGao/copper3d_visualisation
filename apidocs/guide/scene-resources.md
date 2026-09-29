@@ -130,6 +130,49 @@ scene class that has none (`disposeScene` calls it optionally).
 
 ---
 
+## 2b. `NrrdTools.dispose()` <Badge type="tip" text="3.11.2" />
+
+```ts
+nrrdTools.dispose(): void
+```
+
+The same idea one level up. A segmentation viewer also attaches things outside itself, and
+`disposeScene()` knows nothing about it — `NrrdTools` is not a scene, so nothing calls this
+for you.
+
+| Released | Why |
+|----------|-----|
+| The event router's listeners | Its window `blur` listener closes over the router, which reaches the whole engine graph — canvases, `MaskVolume` buffers, undo stacks. One listener pins all of it |
+| A pending slice step | The `requestAnimationFrame` that `setSliceMoving` coalesces into |
+| The drawing-flag timer | The pending `setIsDrawFalse` timeout |
+
+An app that builds a viewer per case and never calls it leaks one engine graph per case, and
+each one's `blur` listener goes on firing for the life of the page — the same shape of leak as
+the `resize` listener in §2a, with considerably more held behind it.
+
+```ts
+scene.removePreRenderCallbackFunction(callbackId);
+nrrdTools.dispose();
+```
+
+The instance must not be used afterwards. Safe to call twice.
+
+It stops at that boundary on purpose: the host element you passed to the constructor is yours
+to remove, and the volumes go when the instance does. Drop your reference to it.
+
+::: tip Full teardown order, viewer plus scene
+```ts
+scene.removePreRenderCallbackFunction(callbackId);   // stop the frame callback first
+nrrdTools.dispose();                                 // then the viewer's listeners/timers
+renderer.disposeScene(sceneName);                    // then the scene contents
+container.remove();                                  // finally your own DOM
+```
+Unregistering the frame callback first means nothing can run against a half-disposed
+instance.
+:::
+
+---
+
 ## 3. Residency budget
 
 ```ts

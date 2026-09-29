@@ -336,6 +336,45 @@ function animate() {
 animate();
 ```
 
+### 销毁 —— `dispose()` <Badge type="tip" text="3.11.2" />
+
+```typescript
+scene.removePreRenderCallbackFunction(callbackId);
+nrrdTools.dispose();
+container.remove();          // 你的 DOM，由你决定
+```
+
+`dispose()` 释放的是这个实例挂在**自己 DOM 子树之外**的那些东西，从而让一个被拆掉的视图真正能被
+垃圾回收：
+
+| 被释放的 | 为什么重要 |
+|----------|-----------|
+| EventRouter 的各个监听器 | 它挂在 window 上的 `blur` 监听器闭包持有 router，而 router 可以到达整张引擎对象图 —— 一个活着的监听器就钉住了整个实例 |
+| 待处理的切片步进 | `setSliceMoving` 用来合并步进的那个 `requestAnimationFrame` |
+| 绘制标志定时器 | 尚未触发的 `setIsDrawFalse` 定时器 |
+
+调用之后这个实例就不能再用了。它可以被安全地重复调用，所以一个可能执行两次的卸载钩子不需要额外
+加保护。
+
+::: warning 它不会移除你的容器，也不会释放 volume
+`dispose()` 刻意只做到"NrrdTools 挂到别处去的东西"这个边界为止。你传给构造函数的宿主元素由你自己
+移除，而 `MaskVolume` 的缓冲区会随实例一起回收。调用之后请丢掉你对 `nrrdTools` 的引用。
+:::
+
+**Vue 3：**
+
+```typescript
+import { onBeforeUnmount } from 'vue';
+
+onBeforeUnmount(() => {
+  scene.removePreRenderCallbackFunction(callbackId);
+  nrrdTools.dispose();
+});
+```
+
+一个"每个病例建一个视图"的应用，如果从不调用它，就会每个病例泄漏一整张引擎对象图 ——
+场景层面的对应物见 [场景资源管理](./scene-resources)。
+
 ---
 
 ## 5. 绘图设置
@@ -1266,6 +1305,7 @@ function onChannelColorPicked(hex: string) {
 | | `switchAllSlicesArrayData(slices)` | 替换已加载的序列（会重置切片索引 / 缩放 / 平移） |
 | | `switchSlicesPreservingView(slices)` | 替换已加载的序列，保留切片索引、缩放和平移 |
 | **渲染部分** | `start` | 一组用去刷新重现覆盖表里的挂帧刷绘画层动作钩件方法函数 —— 它用来投入至全局循动描渲周期系统当中 |
+| **生命周期** | `dispose()` | 释放 EventRouter 的监听器、待处理的切片步进和绘制标志定时器。调用后实例不可再用；可重复调用 |
 | **图层** | `setActiveLayer(id)` | 指令调切换过去另至另一块为被作为画改作用焦聚的图层中去 |
 | | `getActiveLayer()` | 查证核检取回当下现在被聚焦中用来修改活动所在的图层代号 |
 | | `setLayerVisible(id, bool)` | 指令定准切换图块被开启可视亦或者是做暂蔽关闭起来的指令 |
