@@ -95,6 +95,12 @@ export default {
               ],
             },
             {
+              text: "工具链",
+              items: [
+                { text: "AI 编程助手（MCP）", link: "/zh/guide/mcp-server" },
+              ],
+            },
+            {
               text: "4D 动画",
               items: [
                 { text: "对齐 4D MRI + 模型 API", link: "/zh/guide/copper3d-4D-API" },
@@ -178,6 +184,12 @@ export default {
           text: "Sensors",
           items: [
             { text: "Heart Sensor (Kiwrious)", link: "/guide/heart-sensor" },
+          ],
+        },
+        {
+          text: "Tooling",
+          items: [
+            { text: "AI Coding Assistants (MCP)", link: "/guide/mcp-server" },
           ],
         },
         {

@@ -119,6 +119,7 @@ protectedData.maskData.volumes = {
 | `setActiveLayer` | `(layerId: string): void` | 设置当前活跃 Layer，同时更新 fillColor/brushColor |
 | `setActiveChannel` | `(channel: ChannelValue): void` | 设置当前活跃 Channel (1–`MAX_ENGINE_CHANNEL`)，更新画笔颜色 |
 | `clearChannel` | `(layerId: string, channel: number): void` | 跨整个图层擦除单个 label，可撤销。图层不存在时抛错（刻意不走 `getVolumeForLayer`，否则它的回退会擦掉另一个图层），通道超出 [1, 255] 时抛 `RangeError` |
+| `setCurrentLayer` | `(): { ctx, canvas } \| null` *(ToolHost)* | 绘制操作应当作用到的图层画布。当实例**完全没有图层**时返回 `null` —— 即 `new NrrdTools(el, { layers: [] })` 这种只读参考视图。每个调用方都必须在 `null` 时跳过自己的工作，而不是直接解引用 |
 | `getLayerVolume` | `(layerId: string): Uint8Array \| null` | 该图层体素缓冲区的一份**拷贝** —— 不是活的数组，否则调用方可以直接改动它，而没有任何东西会去让切片缓存失效。委托给 `DrawToolCore.getLayerVolume` |
 | `replaceLayerVolume` | `(layerId, data, opts?): void` | 替换整个缓冲区。`{ undoable: true }` 会压入一个 `VolumeSnapshot`。它自身**不会**触发 `onLayerVolumeReplaced` —— 该回调只在之后的 undo/redo 时触发，因为那时后端手里是更新的那一版，需要被告知回退 |
 | `copyLayerData` | `(sourceLayerId, targetLayerId): void` | 图层之间的直接缓冲区拷贝，**不可撤销**。任一 volume 解析不到、或长度不一致时会 warn 并返回；保留目标图层的颜色映射 |
@@ -1052,6 +1053,26 @@ onCanvasPointerDown(e)
 
 `handleOnDrawingMouseMove` 里也有同样的提前返回，所以在暂停之前就已经按下的拖动，无法穿过暂停
 继续绘制。
+
+##### pointer-up 同样被拦截 <Badge type="tip" text="3.11.1" />
+
+`onCanvasPointerUp(e)` 是与之对应的具名方法，抽出来的理由也一样 —— 让闸门可以被直接驱动。
+它对左键的判断**不是**简单的"当前是不是 draw 模式"：
+
+```ts
+if (
+  this.drawingTool.painting ||
+  (this.eventRouter.getMode() === 'draw' && !this.annotationSuspended)
+) { this.drawingTool.onPointerUp(e); ... }
+```
+
+`getMode() === 'draw'` 只说明"按住了 Shift 且当前选中的是绘制工具"，它并不知道笔画有没有真的
+开始。在被暂停的实例上，pointer-down 已经被拦截、笔画根本不可能开始，但按住 Shift 再松开鼠标
+仍然会报告 `'draw'` 并进到 `drawingTool.onPointerUp`，而后者会在 `setCurrentLayer` 里因为没有
+可用图层而抛异常。
+
+`drawingTool.painting` 才是可靠信号：只有笔画真正开始之后它才为 true。被暂停的实例永远无法把它
+置为 true，因此永远到不了 `onPointerUp`；而一个跨越了"中途暂停"的进行中笔画，仍然能正常收尾。
 
 在这里统一拦截（而不是每个工具各拦一次）带来两个结果：
 
