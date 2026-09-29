@@ -1507,6 +1507,26 @@ export class NrrdTools {
     this.state.nrrd_states.sphere.nippleSphereOrigin = null;
   }
 
+  /**
+   * Releases what this instance holds outside its own DOM subtree, so a viewer that is torn
+   * down can be garbage-collected: the event router's listeners (its window `blur` listener
+   * reaches the whole engine graph), a pending slice step and the drawing-flag timer.
+   *
+   * The instance must not be used afterwards. Safe to call more than once.
+   */
+  dispose(): void {
+    this.drawCore.eventRouter?.unbindAll();
+    if (this._sliceRAFId !== null) {
+      cancelAnimationFrame(this._sliceRAFId);
+      this._sliceRAFId = null;
+    }
+    this._pendingSliceStep = 0;
+    if (this.preTimer !== undefined) {
+      window.clearTimeout(this.preTimer);
+      this.preTimer = undefined;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 12. Internal — Input Events
   // ═══════════════════════════════════════════════════════════════════════════

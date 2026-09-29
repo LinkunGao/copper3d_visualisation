@@ -371,6 +371,46 @@ function animate() {
 animate();
 ```
 
+#### Teardown — `dispose()` <Badge type="tip" text="3.11.2" />
+
+```typescript
+scene.removePreRenderCallbackFunction(callbackId);
+nrrdTools.dispose();
+container.remove();          // your DOM, your call
+```
+
+`dispose()` releases what the instance holds **outside its own DOM subtree**, so a viewer that
+is torn down can actually be garbage-collected:
+
+| Released | Why it matters |
+|----------|----------------|
+| The event router's listeners | Its window `blur` listener closes over the router, which reaches the whole engine graph — one live listener pins the entire instance |
+| A pending slice step | The `requestAnimationFrame` `setSliceMoving` coalesces into |
+| The drawing-flag timer | The pending `setIsDrawFalse` timeout |
+
+The instance must not be used afterwards. It is safe to call more than once, so an unmount
+hook that may run twice needs no guard.
+
+::: warning It does not remove your container or free the volumes
+`dispose()` deliberately stops at the boundary of what `NrrdTools` attached elsewhere. The
+host element you passed to the constructor is yours to remove, and the `MaskVolume` buffers go
+when the instance does. Drop your reference to `nrrdTools` after calling it.
+:::
+
+**Vue 3:**
+
+```typescript
+import { onBeforeUnmount } from 'vue';
+
+onBeforeUnmount(() => {
+  scene.removePreRenderCallbackFunction(callbackId);
+  nrrdTools.dispose();
+});
+```
+
+An app that builds a viewer per case and never calls this leaks one engine graph per case —
+see [Scene Resources](./scene-resources) for the scene-level counterpart.
+
 ---
 
 ### 5. Drawing Setup
@@ -1726,6 +1766,7 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | | `switchAllSlicesArrayData(slices)` | Swap the loaded series (resets slice index / zoom / pan) |
 | | `switchSlicesPreservingView(slices)` | Swap the loaded series, keeping slice index, zoom and pan |
 | **Render** | `start` | Frame callback — pass to render loop |
+| **Lifecycle** | `dispose()` | Release the event router's listeners, a pending slice step and the drawing-flag timer. Instance unusable afterwards; safe to call twice |
 | **Layer** | `setActiveLayer(id)` | Switch drawing target layer |
 | | `getActiveLayer()` | Read current layer |
 | | `setLayerVisible(id, bool)` | Toggle layer in composite view |

@@ -388,9 +388,15 @@ clears the undo stack each time a slice arrives.
 // Register once after initialization
 const callbackId = scene.addPreRenderCallbackFunction(nrrdTools.start);
 
-// Unregister on teardown
+// Unregister on teardown, then release the instance
 scene.removePreRenderCallbackFunction(callbackId);
+nrrdTools.dispose();
 ```
+
+`dispose()` releases what the instance holds outside its own DOM subtree — the event router's
+listeners (its window `blur` listener pins the whole engine graph), a pending slice step, and
+the drawing-flag timer. Without it, an app that builds a viewer per case leaks one engine graph
+per case. The instance must not be used afterwards; calling it twice is safe.
 
 ---
 
@@ -639,6 +645,7 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | | `switchAllSlicesArrayData(slices)` | Swap the series (resets view state) |
 | | `switchSlicesPreservingView(slices)` | Swap the series, keep slice index / zoom / pan |
 | **Render** | `start` | Frame callback — pass to render loop |
+| **Lifecycle** | `dispose()` | Release the event router's listeners, a pending slice step and the drawing-flag timer. Instance unusable afterwards; safe to call twice |
 | **Layer** | `setActiveLayer(id)` | Switch drawing target layer |
 | | `getActiveLayer()` | Read current layer |
 | | `setLayerVisible(id, bool)` | Toggle layer in composite view |

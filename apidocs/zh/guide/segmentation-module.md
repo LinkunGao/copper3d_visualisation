@@ -529,6 +529,7 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | 方法 | 说明 |
 |------|------|
 | `drag(opts?)` | 启用拖拽切片功能 |
+| `dispose()` | 拆除：`eventRouter.unbindAll()`、取消待处理的切片步进 `requestAnimationFrame`、清掉 `setIsDrawFalse` 定时器。只释放实例挂到自己 DOM 子树之外的东西 —— 其中 window 的 `blur` 监听器才是钉住整张引擎对象图的那一个。调用后实例不可再用；幂等 |
 | `setAnnotationSuspended(bool)` | 在 `DrawToolCore.onCanvasPointerDown` 处拦截所有会写入 mask 的输入。切片浏览、缩放、平移和十字准线仍然可用（见 7.1） |
 | `isAnnotationSuspended()` | 查询当前是否处于暂停标注状态 |
 | `setSliceOrientation(axis)` | 切换观察轴。会先为每个已加载的对比度调用 `ensureAxisExtracted`，所以只抽了部分轴的加载仍然可以切面 |
