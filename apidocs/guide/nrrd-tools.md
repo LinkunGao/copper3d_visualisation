@@ -113,6 +113,26 @@ custom id either silently pushed onto another layer's history or threw on undo. 
 created on demand, keyed by whatever id you pass.
 :::
 
+#### Example: read-only reference viewer <Badge type="tip" text="3.11.1" />
+
+Pass an empty list for a viewer that shows the image but has nothing to annotate into — a
+side-by-side reference panel, a prior study, a QA view:
+
+```typescript
+const reference = new Copper.NrrdTools(container, { layers: [] });
+```
+
+Slice scrubbing, zoom, pan, window/level and the crosshair all work as usual. The drawing
+tools have no layer to target and skip their work rather than failing: `setCurrentLayer()`
+returns `null` and every caller checks it.
+
+::: tip Which one to reach for
+`layers: []` is a **structural** choice — this instance will never annotate.
+`setAnnotationSuspended(true)` (§5.6) is a **temporary** one on an instance that will, such as
+during loading. Use the flag if the user gets to draw later; use the empty list if they never
+do.
+:::
+
 #### Optional display panel
 
 Attach a panel element to show current slice index in the viewer:

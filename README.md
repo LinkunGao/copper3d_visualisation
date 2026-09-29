@@ -37,6 +37,8 @@ assistant sees always matches the version you actually depend on.
 Four read-only tools: `copper3d_search_api`, `copper3d_get_symbol`,
 `copper3d_list_guides`, `copper3d_get_guide`.
 
+Full guide: [AI Coding Assistants (MCP)](https://linkungao.github.io/copper3d_visualisation/guide/mcp-server).
+
 **Claude Code** — one command, no path needed:
 
 ```bash
@@ -296,6 +298,10 @@ new Copper.NrrdTools(container: HTMLDivElement, options?: { layers?: string[] })
 const nrrdTools = new Copper.NrrdTools(container, {
   layers: ['tumour', 'edema', 'necrosis', 'vessel']
 });
+
+// Read-only reference viewer — shows the image, nothing to annotate into.
+// Scrub / zoom / pan / window-level / crosshair all still work.
+const reference = new Copper.NrrdTools(container, { layers: [] });
 
 // Optional: show current slice index in a panel
 nrrdTools.setDisplaySliceIndexPanel(document.getElementById('slice-panel') as HTMLDivElement);

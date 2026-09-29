@@ -119,6 +119,7 @@ protectedData.maskData.volumes = {
 | `setActiveLayer` | `(layerId: string): void` | Set the active Layer; also updates fillColor/brushColor |
 | `setActiveChannel` | `(channel: ChannelValue): void` | Set the active Channel (1–`MAX_ENGINE_CHANNEL`); updates brush color |
 | `clearChannel` | `(layerId: string, channel: number): void` | Erase one label across a whole layer, undoably. Throws on an unknown layer (deliberately not via `getVolumeForLayer`, whose fallback would erase a different layer) or a channel outside [1, 255] |
+| `setCurrentLayer` | `(): { ctx, canvas } \| null` *(ToolHost)* | The layer canvas drawing should target. **Returns `null`** when the instance has no layers at all — `new NrrdTools(el, { layers: [] })`, a read-only reference viewer. Every caller must skip its work on `null` rather than dereference |
 | `getLayerVolume` | `(layerId: string): Uint8Array \| null` | A **copy** of the layer's voxel buffer — not the live array, which a caller could mutate with nothing invalidating the slice cache. Delegates to `DrawToolCore.getLayerVolume` |
 | `replaceLayerVolume` | `(layerId, data, opts?): void` | Replace the whole buffer. `{ undoable: true }` pushes one `VolumeSnapshot`. Does **not** fire `onLayerVolumeReplaced` itself — that fires only on a later undo/redo, when the backend holds the newer volume and must be told to fall back |
 | `copyLayerData` | `(sourceLayerId, targetLayerId): void` | Direct buffer copy between layers, **not** undoable. Warns and returns if either volume is unresolvable or the lengths differ; preserves the target's colour map |
@@ -1056,6 +1057,28 @@ onCanvasPointerDown(e)
 
 `handleOnDrawingMouseMove` carries the same early return, so a drag that began before
 suspension cannot continue painting through it.
+
+##### Pointer-up is gated too <Badge type="tip" text="3.11.1" />
+
+`onCanvasPointerUp(e)` is the matching named method, extracted for the same reason — so the
+gate can be exercised directly. Its left-button condition is **not** simply "are we in draw
+mode":
+
+```ts
+if (
+  this.drawingTool.painting ||
+  (this.eventRouter.getMode() === 'draw' && !this.annotationSuspended)
+) { this.drawingTool.onPointerUp(e); ... }
+```
+
+`getMode() === 'draw'` reports only that Shift is held with a drawing tool selected — it does
+not know whether a stroke began. On a suspended instance pointer-down is gated, so no stroke
+ever starts, yet holding Shift and releasing the mouse still reported `'draw'` and reached
+`drawingTool.onPointerUp`, which threw inside `setCurrentLayer` with no layer to target.
+
+`drawingTool.painting` is the reliable signal: it is only ever true once a stroke has actually
+started. A suspended instance can never set it, so it never reaches `onPointerUp`; an
+in-progress stroke that outlives a mid-drag suspension still gets its proper release.
 
 Two consequences of gating here rather than per tool:
 

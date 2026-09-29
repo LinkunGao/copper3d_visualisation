@@ -106,6 +106,23 @@ const nrrdTools = new Copper.NrrdTools(container, {
 压进了别的图层的历史里，要么在 undo 时抛异常。现在这些栈按需创建，键就是你传进来的那个 id。
 :::
 
+**只读参考视图** <Badge type="tip" text="3.11.1" />
+
+传一个空列表，就得到一个"只看图、不标注"的视图 —— 比如并排的参考面板、既往检查、QA 视图：
+
+```typescript
+const reference = new Copper.NrrdTools(container, { layers: [] });
+```
+
+切片浏览、缩放、平移、窗宽窗位、十字准线都照常可用。绘制工具没有可作用的图层，会直接跳过自己的
+工作而不是报错：`setCurrentLayer()` 返回 `null`，每个调用方都会检查它。
+
+::: tip 该选哪一个
+`layers: []` 是**结构性**的选择 —— 这个实例永远不会用来标注。
+而 `setAnnotationSuspended(true)`（§5.6）是**临时**的，用在"以后会标注"的实例上，比如加载期间。
+用户之后还要画，就用那个开关；永远不画，就用空列表。
+:::
+
 **可选：显示切片索引的面板：**
 
 ```typescript
