@@ -164,6 +164,55 @@ export class DrawToolCore {
       }
   }
 
+  /**
+   * Left/right button release on the drawing canvas.
+   *
+   * Named rather than inlined so the suspension gate can be exercised directly, mirroring
+   * `onCanvasPointerDown`. `eventRouter.getMode() === 'draw'` alone is not proof a stroke
+   * began: holding Shift with the Pencil tool selected reports mode 'draw' even when
+   * pointer-down was gated by suspension and never armed `drawingTool`. Fall back to
+   * `drawingTool.painting`, which is only ever true once a stroke has actually started, so
+   * a suspended instance -- where a stroke can never start -- never reaches
+   * `drawingTool.onPointerUp`.
+   */
+  private onCanvasPointerUp(e: MouseEvent): void {
+      if (e.button === 0) {
+        if (
+          this.drawingTool.painting ||
+          (this.eventRouter.getMode() === 'draw' && !this.annotationSuspended)
+        ) {
+          this.drawingTool.onPointerUp(e);
+          this.activeWheelMode = 'zoom';
+        } else if (this.sphereBrushTool.isActive) {
+          // SphereBrush or SphereEraser pointer-up
+          if (this.state.gui_states.mode.sphereBrush) {
+            this.sphereBrushTool.onSphereBrushPointerUp();
+          } else if (this.state.gui_states.mode.sphereEraser) {
+            this.sphereBrushTool.onSphereEraserPointerUp();
+          }
+          this.activeWheelMode = 'zoom';
+        } else if (
+          this.state.gui_states.mode.sphere &&
+          !this.eventRouter.isCrosshairEnabled()
+        ) {
+          this.sphereTool.onSpherePointerUp();
+          this.activeWheelMode = 'zoom';
+          this.zoomActionAfterDrawSphere();
+        } else if (this.state.gui_states.mode.sphere &&
+          this.eventRouter.isCrosshairEnabled()) {
+          this.activeWheelMode = 'zoom';
+        }
+      } else if (e.button === 2) {
+        this.panTool.onPointerUp(e, this.state.gui_states.viewConfig.defaultPaintCursor);
+      } else {
+        return;
+      }
+
+      if (!this.state.gui_states.mode.pencil) {
+        this.setIsDrawFalse(100);
+      }
+  }
+
   /** Wheel event dispatch mode — replaces manual wheel add/remove (Phase 2) */
   private activeWheelMode: 'zoom' | 'sphere' | 'sphereBrush' | 'none' = 'zoom';
 
@@ -517,13 +566,23 @@ export class DrawToolCore {
       this.state.gui_states.viewConfig.defaultPaintCursor;
   }
 
-  private setCurrentLayer() {
+  /**
+   * Resolves the layer canvas/context that drawing operations should target.
+   *
+   * Returns null when the instance has no layers at all -- a read-only reference viewer
+   * (`layers: []`) has no "current layer" to fall back to. Every caller must skip its work
+   * on null rather than dereference an undefined target.
+   */
+  private setCurrentLayer(): { ctx: CanvasRenderingContext2D; canvas: HTMLCanvasElement } | null {
     const layer = this.state.gui_states.layerChannel.layer;
     let target = this.state.protectedData.layerTargets.get(layer);
     if (!target) {
       const firstId = this.state.nrrd_states.image.layers[0];
-      target = this.state.protectedData.layerTargets.get(firstId)!;
+      target = firstId !== undefined
+        ? this.state.protectedData.layerTargets.get(firstId)
+        : undefined;
     }
+    if (!target) return null;
     return { ctx: target.ctx, canvas: target.canvas };
   }
 
@@ -616,38 +675,7 @@ export class DrawToolCore {
     });
 
     this.drawingPrameters.handleOnDrawingMouseUp = (e: MouseEvent) => {
-      if (e.button === 0) {
-        if (this.eventRouter.getMode() === 'draw' || this.drawingTool.painting) {
-          this.drawingTool.onPointerUp(e);
-          this.activeWheelMode = 'zoom';
-        } else if (this.sphereBrushTool.isActive) {
-          // SphereBrush or SphereEraser pointer-up
-          if (this.state.gui_states.mode.sphereBrush) {
-            this.sphereBrushTool.onSphereBrushPointerUp();
-          } else if (this.state.gui_states.mode.sphereEraser) {
-            this.sphereBrushTool.onSphereEraserPointerUp();
-          }
-          this.activeWheelMode = 'zoom';
-        } else if (
-          this.state.gui_states.mode.sphere &&
-          !this.eventRouter.isCrosshairEnabled()
-        ) {
-          this.sphereTool.onSpherePointerUp();
-          this.activeWheelMode = 'zoom';
-          this.zoomActionAfterDrawSphere();
-        } else if (this.state.gui_states.mode.sphere &&
-          this.eventRouter.isCrosshairEnabled()) {
-          this.activeWheelMode = 'zoom';
-        }
-      } else if (e.button === 2) {
-        this.panTool.onPointerUp(e, this.state.gui_states.viewConfig.defaultPaintCursor);
-      } else {
-        return;
-      }
-
-      if (!this.state.gui_states.mode.pencil) {
-        this.setIsDrawFalse(100);
-      }
+      this.onCanvasPointerUp(e);
     };
 
 

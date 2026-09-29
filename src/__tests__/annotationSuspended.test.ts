@@ -22,6 +22,8 @@ interface CoreOpts {
   sphere?: boolean;
   sphereBrush?: boolean;
   sphereEraser?: boolean;
+  /** Whether a stroke is already in progress (DrawingTool.painting) */
+  painting?: boolean;
 }
 
 function makeCore(opts: CoreOpts = {}) {
@@ -31,14 +33,28 @@ function makeCore(opts: CoreOpts = {}) {
     sphere = false,
     sphereBrush = false,
     sphereEraser = false,
+    painting = false,
   } = opts;
 
-  const drawingTool = { onPointerDown: vi.fn(), onPointerMove: vi.fn(), isActive: false };
-  const panTool = { onPointerDown: vi.fn(), isActive: false };
-  const sphereBrushTool = { onSphereBrushClick: vi.fn(), onSphereEraserClick: vi.fn() };
+  const drawingTool = {
+    onPointerDown: vi.fn(),
+    onPointerMove: vi.fn(),
+    onPointerUp: vi.fn(),
+    isActive: false,
+    painting,
+  };
+  const panTool = { onPointerDown: vi.fn(), onPointerUp: vi.fn(), isActive: false };
+  const sphereBrushTool = {
+    onSphereBrushClick: vi.fn(),
+    onSphereEraserClick: vi.fn(),
+    onSphereBrushPointerUp: vi.fn(),
+    onSphereEraserPointerUp: vi.fn(),
+    isActive: false,
+  };
   const aiAssistTool = { onPointerDown: vi.fn() };
   const enableCrosshair = vi.fn();
   const handleSphereClick = vi.fn();
+  const setIsDrawFalse = vi.fn();
 
   const core: any = Object.create(DrawToolCore.prototype);
   core.drawingTool = drawingTool;
@@ -47,6 +63,7 @@ function makeCore(opts: CoreOpts = {}) {
   core.aiAssistTool = aiAssistTool;
   core.enableCrosshair = enableCrosshair;
   core.handleSphereClick = handleSphereClick;
+  core.setIsDrawFalse = setIsDrawFalse;
   core.paintSliceIndex = 0;
   core.activeWheelMode = "zoom";
   core.annotationSuspended = false;
@@ -55,9 +72,14 @@ function makeCore(opts: CoreOpts = {}) {
     protectedData: {
       ctxes: { drawingLayerMasterCtx: { closePath: vi.fn() } },
       mainPreSlices: { index: 0 },
+      layerTargets: new Map(),
     },
-    gui_states: { mode: { sphere, sphereBrush, sphereEraser } },
-    nrrd_states: { interaction: {}, view: { sizeFactor: 1 } },
+    gui_states: {
+      mode: { sphere, sphereBrush, sphereEraser, pencil: false },
+      layerChannel: { layer: "main" },
+      viewConfig: { defaultPaintCursor: "default" },
+    },
+    nrrd_states: { interaction: {}, view: { sizeFactor: 1 }, image: { layers: [] } },
   };
 
   return {
@@ -68,6 +90,7 @@ function makeCore(opts: CoreOpts = {}) {
     aiAssistTool,
     enableCrosshair,
     handleSphereClick,
+    setIsDrawFalse,
   };
 }
 
@@ -156,5 +179,58 @@ describe("once resumed, annotation works again", () => {
     core.setAnnotationSuspended(false);
     core.onCanvasPointerDown(press(0));
     expect(drawingTool.onPointerDown).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * A suspended instance's pointer-down is gated (above), so a stroke can never actually
+ * start. But `eventRouter.getMode()` reports 'draw' purely from Shift being held with the
+ * Pencil tool selected -- it does not know whether a stroke began. Holding Shift and
+ * releasing the mouse on a suspended instance used to reach `drawingTool.onPointerUp`
+ * regardless, which threw inside `setCurrentLayer` (no layer to target). Pointer-up must
+ * additionally check that a stroke is actually in progress.
+ */
+describe("while suspended, a pointer-up with no stroke in progress does not reach drawingTool", () => {
+  it("suspended + mode draw + button 0: onPointerUp is not called", () => {
+    const { core, drawingTool } = makeCore({ mode: "draw" });
+    core.setAnnotationSuspended(true);
+    core.onCanvasPointerUp(press(0));
+    expect(drawingTool.onPointerUp).not.toHaveBeenCalled();
+  });
+
+  it("not suspended + mode draw + button 0: onPointerUp is called once (control)", () => {
+    const { core, drawingTool } = makeCore({ mode: "draw" });
+    core.onCanvasPointerUp(press(0));
+    expect(drawingTool.onPointerUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("suspended + button 2: pan's onPointerUp still fires", () => {
+    const { core, panTool } = makeCore({ mode: "draw" });
+    core.setAnnotationSuspended(true);
+    core.onCanvasPointerUp(press(2));
+    expect(panTool.onPointerUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("suspended but a stroke is already in progress: onPointerUp still completes it", () => {
+    const { core, drawingTool } = makeCore({ mode: "draw", painting: true });
+    core.setAnnotationSuspended(true);
+    core.onCanvasPointerUp(press(0));
+    expect(drawingTool.onPointerUp).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("setCurrentLayer on a layerless instance", () => {
+  it("returns null instead of throwing when there are no layers", () => {
+    const { core } = makeCore();
+    expect(() => core.setCurrentLayer()).not.toThrow();
+    expect(core.setCurrentLayer()).toBeNull();
+  });
+
+  it("returns the layer's ctx/canvas when one exists", () => {
+    const { core } = makeCore();
+    const target = { ctx: {} as CanvasRenderingContext2D, canvas: {} as HTMLCanvasElement };
+    core.state.protectedData.layerTargets.set("main", target);
+    core.state.gui_states.layerChannel.layer = "main";
+    expect(core.setCurrentLayer()).toEqual({ ctx: target.ctx, canvas: target.canvas });
   });
 });

@@ -137,7 +137,16 @@ export class DrawingTool extends BaseTool {
    */
   onPointerUp(_e: MouseEvent): void {
     this.leftClicked = false;
-    const { ctx, canvas } = this.callbacks.setCurrentLayer();
+    const target = this.callbacks.setCurrentLayer();
+
+    if (!target) {
+      // No layer to paint into (read-only reference viewer) -- nothing was drawn.
+      this.isPainting = false;
+      this.prevVoxel = null;
+      return;
+    }
+
+    const { ctx, canvas } = target;
 
     ctx.closePath();
 
@@ -588,6 +597,7 @@ export class DrawingTool extends BaseTool {
    */
   private solidifyLayerForErase(): void {
     const target = this.callbacks.setCurrentLayer();
+    if (!target) return;
     target.canvas.width = target.canvas.width; // clear
     this.callbacks.renderSliceForBake(
       this.ctx.gui_states.layerChannel.layer,
@@ -626,7 +636,9 @@ export class DrawingTool extends BaseTool {
 
   /** Paint a segment on the current layer canvas and composite to master (pencil mode) */
   private paintOnCanvasLayer(x: number, y: number): void {
-    const { ctx } = this.callbacks.setCurrentLayer();
+    const target = this.callbacks.setCurrentLayer();
+    if (!target) return;
+    const { ctx } = target;
 
     this.drawLinesOnLayer(ctx, x, y);
     this.callbacks.compositeAllLayers();

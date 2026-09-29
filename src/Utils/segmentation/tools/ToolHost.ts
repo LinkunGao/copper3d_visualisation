@@ -63,7 +63,8 @@ export interface ToolHost {
     clearUndoHistory(): void;
 
     // ── Drawing-specific ───────────────────────────────────────────
-    setCurrentLayer(): { ctx: CanvasRenderingContext2D; canvas: HTMLCanvasElement };
+    /** Null when the instance has no layers (read-only reference viewer) — callers must skip. */
+    setCurrentLayer(): { ctx: CanvasRenderingContext2D; canvas: HTMLCanvasElement } | null;
     syncLayerSliceData(index: number, layer: string): void;
     filterDrawedImage(axis: "x" | "y" | "z", index: number): { image: ImageData } | undefined;
     pushUndoDelta(delta: MaskDelta): void;
