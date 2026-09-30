@@ -387,6 +387,7 @@ is torn down can actually be garbage-collected:
 | The event router's listeners | Its window `blur` listener closes over the router, which reaches the whole engine graph — one live listener pins the entire instance |
 | A pending slice step | The `requestAnimationFrame` `setSliceMoving` coalesces into |
 | The drawing-flag timer | The pending `setIsDrawFalse` timeout |
+| Any mask-mirror link | Broken from **both** ends, so neither viewer keeps the other alive. Disposing a source detaches its mirrors and repaints them empty (see §6.7) |
 
 The instance must not be used afterwards. It is safe to call more than once, so an unmount
 hook that may run twice needs no guard.
@@ -920,7 +921,55 @@ upload flow, say) is expected to persist the new volume. The callback fires only
 clinician undoes or redoes the replacement, because at that point the backend holds the newer
 volume and has to be told to fall back.
 
-#### 6.7 Erasing one channel — `clearChannel()` <Badge type="tip" text="3.10.2" />
+#### 6.7 Mirroring another viewer's masks — `setMaskMirror()` <Badge type="tip" text="3.11.5" />
+
+Draw a **different** viewer's masks on this one. The classic use is a side-by-side: annotate
+on the left, and have the right-hand study show the same findings over its own image.
+
+```typescript
+// `reference` draws `primary`'s masks
+reference.setMaskMirror(primary);
+
+// with a voxel→voxel transform between the two grids
+reference.setMaskMirror(primary, mirrorToSource);   // row-major 4×4
+
+reference.setMaskMirror(null);                      // detach
+const src = reference.getMaskMirrorSource();        // → primary | null
+```
+
+**Everything is read live from the source** — its volumes, channel colours, layer and channel
+visibility, per-layer opacity, and its fill/outline render mode. Change any of them on the
+source and the mirror follows on the next frame. A mirroring viewer needs no layers of its
+own; `layers: []` pairs naturally with this.
+
+::: warning Display only
+Nothing is written to either viewer's masks. The mirror holds no mask data at all — it is a
+view onto the source, so there is no copy to keep in sync and nothing to save.
+:::
+
+**The transform.** `mirrorToSource` is a row-major 4×4 mapping *this* viewer's voxel
+`(x, y, z, 1)` to the source's voxel. Omit it for the identity, which is right when both
+viewers share a grid.
+
+| Case | Sampling |
+|------|----------|
+| Identity **and** identical dimensions | The source's own slice, unchanged |
+| Diagonal transform (axes agree; only scale and offset differ) | A mirror voxel coarser than the source shows the first label among every source voxel it spans — so a finding thinner than the mirror's slice still appears on the slice containing it |
+| Any other transform | Nearest source voxel |
+
+A cell mapping outside the source reads as empty.
+
+**Refresh and teardown.** Every visible mask change on the source ends in a composite, and
+each one schedules a repaint of its mirrors on the next animation frame; repeated changes
+coalesce into one. `dispose()` breaks the link from both ends, so neither viewer keeps the
+other alive — disposing the source detaches its mirrors and repaints them empty.
+
+::: tip Sphere mode hides it
+The source hides its own layers in sphere mode, so a mirror of it shows nothing while that
+mode is active — matching what the source itself displays.
+:::
+
+#### 6.8 Erasing one channel — `clearChannel()` <Badge type="tip" text="3.10.2" />
 
 ```typescript
 nrrdTools.clearChannel('layer1', 3);  // finding 3 goes; 1, 2 and 4 stay
@@ -1839,7 +1888,7 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | | `switchAllSlicesArrayData(slices)` | Swap the loaded series (resets slice index / zoom / pan) |
 | | `switchSlicesPreservingView(slices)` | Swap the loaded series, keeping slice index, zoom and pan |
 | **Render** | `start` | Frame callback — pass to render loop |
-| **Lifecycle** | `dispose()` | Release the event router's listeners, a pending slice step and the drawing-flag timer. Instance unusable afterwards; safe to call twice |
+| **Lifecycle** | `dispose()` | Release the event router's listeners, a pending slice step, the drawing-flag timer and any mask-mirror link (from both ends). Instance unusable afterwards; safe to call twice |
 | **Layer** | `setActiveLayer(id)` | Switch drawing target layer |
 | | `getActiveLayer()` | Read current layer |
 | | `setLayerVisible(id, bool)` | Toggle layer in composite view |
@@ -1852,6 +1901,8 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | | `setLayerOpacity(id, opacity)` | Set per-layer opacity (0.1–1.0), triggers re-render |
 | | `getLayerOpacity(id)` | Get opacity for a specific layer |
 | | `getLayerOpacityMap()` | Get all per-layer opacity values |
+| **Mirror** | `setMaskMirror(src, m?)` | Draw another viewer's masks, read live from it. `m` = row-major 4×4 mapping this viewer's voxel to the source's; `null` detaches. Display only — nothing is written to either viewer |
+| | `getMaskMirrorSource()` | The viewer being mirrored, or `null` |
 | **Sphere** | `setActiveSphereType(type)` | Set active sphere type (`'tumour'`/`'skin'`/`'nipple'`/`'ribcage'`), updates brush color |
 | | `getActiveSphereType()` | Read current sphere type |
 | **Channel** | `setActiveChannel(ch)` | Switch drawing target channel |

@@ -509,6 +509,28 @@ leave outline mode to annotate.
 
 ---
 
+### Mask mirroring — show one viewer's masks on another
+
+```typescript
+// `reference` draws `primary`'s masks over its own image
+reference.setMaskMirror(primary);
+
+// with a row-major 4×4 mapping reference's voxel (x, y, z, 1) → primary's voxel
+reference.setMaskMirror(primary, mirrorToSource);
+
+reference.setMaskMirror(null);   // detach
+```
+
+Everything is read live from the source — volumes, channel colours, layer and channel
+visibility, per-layer opacity, fill/outline mode — so changing any of them on the source
+updates the mirror on the next frame. It is display only: nothing is written to either
+viewer's masks, and the mirror holds no mask data of its own.
+
+A mirroring viewer needs no layers, so `{ layers: [] }` pairs naturally with this. `dispose()`
+breaks the link from both ends.
+
+---
+
 ### Zoom range — showing below 1:1
 
 The zoom factor used to bottom out at `1`. Lower the floor and a large volume can be fitted
@@ -668,7 +690,7 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | | `switchAllSlicesArrayData(slices)` | Swap the series (resets view state) |
 | | `switchSlicesPreservingView(slices)` | Swap the series, keep slice index / zoom / pan |
 | **Render** | `start` | Frame callback — pass to render loop |
-| **Lifecycle** | `dispose()` | Release the event router's listeners, a pending slice step and the drawing-flag timer. Instance unusable afterwards; safe to call twice |
+| **Lifecycle** | `dispose()` | Release the event router's listeners, a pending slice step, the drawing-flag timer and any mask-mirror link (from both ends). Instance unusable afterwards; safe to call twice |
 | **Layer** | `setActiveLayer(id)` | Switch drawing target layer |
 | | `getActiveLayer()` | Read current layer |
 | | `setLayerVisible(id, bool)` | Toggle layer in composite view |
@@ -681,6 +703,8 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | | `setLayerOpacity(id, opacity)` | Set per-layer opacity (0.1–1.0), triggers re-render |
 | | `getLayerOpacity(id)` | Read one layer's opacity |
 | | `getLayerOpacityMap()` | All per-layer opacity values |
+| **Mirror** | `setMaskMirror(src, m?)` | Draw another viewer's masks, read live. `m` = row-major 4×4 voxel→voxel; `null` detaches. Display only |
+| | `getMaskMirrorSource()` | The viewer being mirrored, or `null` |
 | **Sphere** | `setActiveSphereType(type)` | Set active sphere type, updates brush color |
 | | `getActiveSphereType()` | Read current sphere type |
 | | `setCalculateDistanceSphere(x, y, slice, type)` | Programmatically place a calculator sphere |

@@ -446,6 +446,13 @@ RenderingUtils
 上已有的东西，而在这里加一个依赖模式的分支，就等于多一个可能和渲染器脱节的地方。显示模式会在
 pointer-up 时经由 `refreshLayerFromVolume` 恢复。
 
+::: tip 两者都在 `contourPaint.ts` 里 <Badge type="tip" text="3.11.5" />
+缓存条目、路径构建和绘制都已从 `RenderingUtils` 抽到 `contourPaint.ts`，这样 `MaskMirror`（§2.7）
+就能用完全相同的代码去绘制源视图的 mask —— 同样的缓存结构、同样的填充/描边选择、同样的描边几何。
+它导出的是 `ContourEntry`、`LabelSlice`、`contourEntry(...)`、`paintContours(...)` 和
+`OUTLINE_WIDTH_PX`。`RenderingUtils` 保留切片 buffer、合成逻辑，以及那张按图层索引的缓存表。
+:::
+
 ##### 路径缓存
 
 渲染模式**不在**缓存 key 里。每个条目持有两张惰性构建的 map：
@@ -522,14 +529,72 @@ nrrdTools.setCalculateDistanceSphere(120, 95, 42, 'tumour');
 nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 ```
 
-### 2.7 其他 API
+### 2.7 Mask 镜像 <Badge type="tip" text="3.11.5" />
+
+> **实现**: `tools/MaskMirror.ts`，绘制走 `contourPaint.ts`。
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| `setMaskMirror` | `(source: NrrdTools \| null, mirrorToSource?: ArrayLike<number>): void` | 在当前视图上绘制 `source` 的 mask。传 `null` —— 或者传入当前视图自身 —— 表示解除 |
+| `getMaskMirrorSource` | `(): NrrdTools \| null` | 当前被镜像的那个视图 |
+
+**`MaskMirror` 不持有任何 mask 数据。** 每一次绘制都实时读取源视图的 `CanvasState`：volume、
+通道颜色、图层/通道可见性、per-layer 透明度，以及 `maskRenderMode`。因为不存在副本，所以既没有
+需要同步的东西，编辑发生时也没有需要失效的东西。
+
+```
+NrrdTools A（源）                          NrrdTools B（镜像）
+  renderer.onComposited ──┐                 renderer.mirror = MaskMirror(B.state, A.state, m)
+                          │                            │
+  A.scheduleMirrorRefresh()                            │
+   └─ rAF，已合并 ────────┴──► B.compositeAllLayers() ─┘
+                                 └─ …先画 B 自己的图层，再 mirror.paint(masterCtx, w, h)
+```
+
+`compositeAllLayers` 在画完本视图自己的图层之后调用 `this.mirror?.paint(...)`，然后触发
+`onComposited`。所以镜像是画在做镜像的那个视图**自己的内容之上**的 —— 通常它什么内容都没有，
+因为这类视图一般就是用 `layers: []` 构造的。
+
+当 `hasMaskMirror()` 为真时，`SliceRenderPipeline` 会短路成一次普通的 `compositeAllLayers()`：
+做镜像的视图没有属于自己的图层需要渲染。
+
+#### 采样 —— `mirrorSliceLabels`
+
+变换是一个行主序 4×4 矩阵，从**当前**视图的体素 `(x, y, z, 1)` 映射到源视图的体素。切片是按
+`MaskVolume.getSliceUint8` 的布局、以当前视图自己的网格构建的，所以共享的绘制代码可以原样绘制，
+翻转逻辑也一并适用。
+
+| 情形 | 走哪条路 |
+|------|----------|
+| `isIdentity(m)` **且**维度一致 | 直接返回源自己的切片 —— 不做重采样 |
+| `isDiagonal(m)`（每个轴映射到它自己的轴） | `coveredRanges` 给出每个镜像索引所跨越的源索引闭区间。当镜像体素比源体素**粗**时，取它覆盖的所有源体素中的第一个 label |
+| 其他情况 | 取最近的源体素 |
+
+粗体素那条规则最值得知道：它意味着比镜像切片还薄的 finding 仍会出现在包含它的那张切片上，
+而不是在采样之间漏掉。映射到源之外的格子读作 `0`。
+
+#### 缓存与失败处理
+
+每个源图层一个 `ContourEntry`，键为 `axis:index:volume.getVersion()`。镜像还会记录每个条目是从
+哪个 `MaskVolume` 对象构建的，一旦该对象变了就丢弃条目 —— 病例加载会换掉这个对象，而单看版本号
+是发现不了的。
+
+换一个变换就意味着**换一个新的 `MaskMirror` 实例**，所以缓存永远不可能留着用另一个变换算出来的
+contour。
+
+`paint` 在两个层面上做了防御：每个图层的 `try` 会吞掉"源视图对这一张切片还没准备好"的情况
+（该图层什么都不画），而 `finally` 会恢复画布，使得抛异常不会把某个图层的 `globalAlpha` 或变换
+残留在 master canvas 上。此外，当源视图处于球体模式时它会提前返回 —— 该模式下源视图会隐藏自己的
+图层，所以镜像显示的就是源视图所显示的。
+
+### 2.8 其他 API
 
 > **实现**: 直接在 NrrdTools Facade 中（分区 5 View Control、分区 6 Data Getters）。
 
 | 方法 | 说明 |
 |------|------|
 | `drag(opts?)` | 启用拖拽切片功能 |
-| `dispose()` | 拆除：`eventRouter.unbindAll()`、取消待处理的切片步进 `requestAnimationFrame`、清掉 `setIsDrawFalse` 定时器。只释放实例挂到自己 DOM 子树之外的东西 —— 其中 window 的 `blur` 监听器才是钉住整张引擎对象图的那一个。调用后实例不可再用；幂等 |
+| `dispose()` | 拆除：`eventRouter.unbindAll()`、取消待处理的切片步进 `requestAnimationFrame`、清掉 `setIsDrawFalse` 定时器，并从两端断开 mask 镜像链接（销毁源视图会解除它的所有镜像并把它们重绘为空）。只释放实例挂到自己 DOM 子树之外的东西 —— 其中 window 的 `blur` 监听器才是钉住整张引擎对象图的那一个。调用后实例不可再用；幂等 |
 | `setAnnotationSuspended(bool)` | 在 `DrawToolCore.onCanvasPointerDown` 处拦截所有会写入 mask 的输入。切片浏览、缩放、平移和十字准线仍然可用（见 7.1） |
 | `isAnnotationSuspended()` | 查询当前是否处于暂停标注状态 |
 | `setSliceOrientation(axis)` | 切换观察轴。会先为每个已加载的对比度调用 `ensureAxisExtracted`，所以只抽了部分轴的加载仍然可以切面 |
