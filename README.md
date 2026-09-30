@@ -606,8 +606,12 @@ window.addEventListener('keydown', (e) => {
 | Redo | `y` |
 | Contrast adjust | `Ctrl` / `Meta` (hold) |
 | Crosshair | `s` |
-| Sphere mode | `q` |
 | Mouse wheel | Zoom |
+
+> **Breaking:** sphere mode no longer has a shortcut. `sphere: "q"` is gone and `sphere` has
+> been removed from `IKeyBoardSettings` — it toggled the mode behind the host's back, clearing
+> the masks from the view while the host's UI still showed its own tool as selected. Enter it
+> with `setMode('sphere')` and bind your own key if you want one.
 
 ```typescript
 nrrdTools.setKeyboardSettings({ undo: 'u', mouseWheel: 'Scroll:Slice' });
@@ -769,7 +773,6 @@ interface IKeyBoardSettings {
   redo: string;
   contrast: string[];
   crosshair: string;
-  sphere: string;
   mouseWheel: 'Scroll:Zoom' | 'Scroll:Slice';
 }
 

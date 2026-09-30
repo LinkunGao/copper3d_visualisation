@@ -1284,6 +1284,30 @@ EventRouter permanently binds all pointer/keyboard/wheel events to the drawingCa
 | `'sphereBrush'` | Set by sphereBrush/sphereEraser mouseDown | `handleSphereBrushWheel` (adjusts `sphereBrushRadius`) |
 | `'none'` | Set by mouseDown in draw mode | No-op (wheel suppressed) |
 
+#### Wheel zoom ratio <Badge type="tip" text="3.11.4" />
+
+`ZoomTool`'s `wheelZoomRatio(e)` derives the zoom ratio for one wheel event from **how far it
+scrolled**, not from the fact that it happened. It replaces a flat `±10%` per event.
+
+```
+100px scrolled  = one notch = ×1.1        (LOG_STEP_PER_PIXEL = ln(1.1) / 100)
+deltaMode 1     × 33px   (lines, Firefox)
+deltaMode 2     × 800px  (pages)
+no deltaY       → one notch, direction from `detail` / `wheelDelta` (legacy events)
+```
+
+Positive `deltaY` (scrolling down) zooms out. The ratio is computed in log space and clamped
+to `MAX_RATIO_PER_EVENT = 2`, so a single runaway delta cannot jump the view.
+
+**Why distance rather than event count.** A busy page makes the browser coalesce wheel events
+and sum their deltas. Counting events therefore zoomed a heavy view *slower* than a light one —
+the same physical scroll produced less zoom exactly when the app was under load. Following the
+distance zooms both alike, and it is what lets a trackpad's many small deltas zoom smoothly
+instead of in 10% jumps.
+
+The result still passes through the `[minSizeFactor, 8]` clamp and the same
+`requestAnimationFrame` coalescing as before; only the per-event ratio changed.
+
 ### 8.4 Default Keyboard Settings
 
 ```ts
@@ -1293,7 +1317,6 @@ IKeyBoardSettings = {
   redo: "y",
   contrast: ["Control", "Meta"],
   crosshair: "s",
-  sphere: "q",
   mouseWheel: "Scroll:Zoom",   // or "Scroll:Slice"
 }
 
@@ -1301,6 +1324,20 @@ IKeyBoardSettings = {
 // Ctrl+1 → switch to Scroll:Zoom
 // Ctrl+2 → switch to Scroll:Slice
 ```
+
+::: warning No `sphere` key <Badge type="warning" text="breaking in 3.11.5" />
+`sphere: "q"` has been removed from `IKeyBoardSettings`, from `EventRouter`'s
+`DEFAULT_KEYBOARD_SETTINGS`, and the toggle branch is gone from `DrawToolCore`'s keydown
+handler.
+
+Sphere mode is entered only through `setMode("sphere")` — the path the calculator already
+uses — so the active tool is always something the host chose. The shortcut changed
+`gui_states.mode.sphere` directly, which runs `enterSphereMode()` and clears the masks from
+the view, while the host's UI still reported its own tool as selected. There was no event to
+tell it otherwise.
+
+A host that wants a key for it binds one itself and calls `setMode`.
+:::
 
 ---
 

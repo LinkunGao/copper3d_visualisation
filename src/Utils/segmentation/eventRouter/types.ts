@@ -75,7 +75,6 @@ export interface KeyboardSettings {
     redo: string;           // Key for redo (default: 'y')
     contrast: string[];     // Keys for contrast mode (default: ['Control', 'Meta'])
     crosshair: string;      // Key to toggle crosshair (default: 'c')
-    sphere: string;          // Key to toggle sphere mode (default: 'q')
     mouseWheel: 'Scroll:Zoom' | 'Scroll:Slice';
 }
 

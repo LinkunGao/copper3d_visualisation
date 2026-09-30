@@ -44,7 +44,6 @@ export class CanvasState {
         redo: "y",
         contrast: ["Control", "Meta"],
         crosshair: "s",
-        sphere: "q",
         mouseWheel: "Scroll:Zoom",
     };
 

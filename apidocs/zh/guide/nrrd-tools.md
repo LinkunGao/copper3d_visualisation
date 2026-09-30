@@ -979,10 +979,27 @@ window.addEventListener('keydown', (e) => {
 | 重做 (Redo) | `y` |
 | 对比度 (Contrast) | `Ctrl` / `Meta` (按住) |
 | 十字准星 (Crosshair) | `s` |
-| 球体模式 (Sphere) | `q` |
 | 鼠标滚轮 | 放大 / 缩小视觉区 |
 | 滚轮:缩放 快捷键 | `Ctrl+1` |
 | 滚轮:切片 快捷键 | `Ctrl+2` |
+
+::: warning 球体模式不再有快捷键 <Badge type="warning" text="3.11.5 破坏性变更" />
+`sphere: "q"` 这个绑定已经**移除**，`sphere` 也从 `IKeyBoardSettings` 中删掉了。球体模式现在只能
+通过 `setMode("sphere")` 进入 —— 距离计算器也是走这条路 —— 这样宿主始终知道当前激活的是哪个工具。
+
+原来那个快捷键是绕过宿主背后切模式的：按下 `q` 会把 mask 从视图里清掉，而宿主自己的 UI 还显示着
+它以为被选中的那个工具。
+
+如果你之前给 `setKeyboardSettings` 传了 `sphere`，请去掉 —— 它已经不在类型里了：
+
+```typescript
+// 之前
+nrrdTools.setKeyboardSettings({ sphere: 'e', crosshair: 'x' });
+// 之后
+nrrdTools.setKeyboardSettings({ crosshair: 'x' });
+nrrdTools.setMode('sphere');   // 想要快捷键的话，自己绑一个键调这个
+```
+:::
 
 ### 自定义配置
 
@@ -1065,6 +1082,12 @@ const min = nrrdTools.getMinSizeFactor();
 所有会改动缩放的地方都遵守它：`setMainAreaSize`、滚轮缩放，以及 `NrrdState.setZoomFactor`。
 `"mainAreaSize"` 这个 GUI 滑块的 `min` 也会同步更新，所以接上的 dat.GUI / lil-gui 面板能够拉到
 新的范围。
+
+::: tip 滚轮缩放按滚动距离计算 <Badge type="tip" text="3.11.4" />
+一格（滚动 100px）缩放 10%，单次事件最多 2×。因为比例来自滚动的距离、而不是事件的次数，所以
+触控板那些细小的 delta 能平滑缩放；而页面繁忙时（浏览器会合并滚轮事件并累加它们的 delta）
+缩放速率和空闲时一致。无需任何配置。
+:::
 
 如果当前系数**低于**新设的下限，它会被抬到下限并立即重绘，所以你可以自由地调低再调高这个下限，
 而不会把视图留在一个非法状态上。
@@ -1481,7 +1504,6 @@ interface IKeyBoardSettings {
   redo: string;
   contrast: string[];           // 其中比如好例子给像这就可会是像例如的指它会传如是如像为等它是像这个例 ["Control", "Meta"]这等的
   crosshair: string;
-  sphere: string;
   mouseWheel: 'Scroll:Zoom' | 'Scroll:Slice';
 }
 

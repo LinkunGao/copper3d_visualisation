@@ -751,6 +751,5 @@ export interface IKeyBoardSettings {
   redo: string;
   contrast: string[];
   crosshair: string;
-  sphere: string;
   mouseWheel: "Scroll:Zoom" | "Scroll:Slice";
 }

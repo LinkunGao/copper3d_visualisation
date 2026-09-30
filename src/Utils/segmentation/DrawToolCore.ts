@@ -401,20 +401,6 @@ export class DrawToolCore {
           return; // Ctrl takes priority
         }
       }
-
-      // Handle sphere mode toggle
-      if (ev.key === this.state.keyboardSettings.sphere) {
-        // Block during draw mode or contrast mode
-        if (this.eventRouter.isShiftHeld() || this.eventRouter.isCtrlHeld()) {
-          return;
-        }
-        this.state.gui_states.mode.sphere = !this.state.gui_states.mode.sphere;
-        if (this.state.gui_states.mode.sphere) {
-          this.enterSphereMode();
-        } else {
-          this.exitSphereMode();
-        }
-      }
     });
 
     this.eventRouter.setKeyupHandler((ev: KeyboardEvent) => {

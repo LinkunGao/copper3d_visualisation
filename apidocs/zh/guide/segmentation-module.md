@@ -1409,6 +1409,29 @@ DrawToolCore 新增 `activeWheelMode: 'zoom' | 'sphere' | 'sphereBrush' | 'none'
 | `'sphereBrush'` | sphereBrush/sphereEraser mouseDown 设置 | `handleSphereBrushWheel`（调整 `sphereBrushRadius`）|
 | `'none'` | draw 模式 mouseDown 设置 | 无操作（抑制滚轮）|
 
+#### 滚轮缩放比例 <Badge type="tip" text="3.11.4" />
+
+`ZoomTool` 的 `wheelZoomRatio(e)` 是根据**滚动了多远**来算出这一次滚轮事件的缩放比例，而不是
+"发生了一次事件"。它取代了原先固定的每次 `±10%`。
+
+```
+滚动 100px      = 一格 = ×1.1        （LOG_STEP_PER_PIXEL = ln(1.1) / 100）
+deltaMode 1     × 33px   （行，Firefox）
+deltaMode 2     × 800px  （页）
+没有 deltaY      → 按一格处理，方向取自 `detail` / `wheelDelta`（旧式事件）
+```
+
+`deltaY` 为正（向下滚）表示缩小。比例在对数空间里计算，并夹取到 `MAX_RATIO_PER_EVENT = 2`，
+这样单个异常大的 delta 也不会让视图一下跳飞。
+
+**为什么按距离而不是按事件次数。** 页面繁忙时浏览器会合并滚轮事件、把它们的 delta 累加起来。
+因此按事件计数会让"重"的视图缩放得比"轻"的视图**更慢** —— 同样的物理滚动量，恰恰在应用有负载时
+产生更少的缩放。按距离计算让两者表现一致，也正是它让触控板那许多细小的 delta 能平滑缩放、
+而不是一格一格跳 10%。
+
+结果仍然要过 `[minSizeFactor, 8]` 的夹取，以及和以前一样的 `requestAnimationFrame` 合并；
+变的只是单次事件的比例。
+
 ### 8.3 默认键盘设置
 
 定义: [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) `keyboardSettings` 字段
@@ -1420,7 +1443,6 @@ IKeyBoardSettings = {
   redo: "y",
   contrast: ["Control", "Meta"],
   crosshair: "s",
-  sphere: "q",
   mouseWheel: "Scroll:Zoom",   // 或 "Scroll:Slice"
 }
 
@@ -1428,6 +1450,18 @@ IKeyBoardSettings = {
 // Ctrl+1 → 切换到 Scroll:Zoom
 // Ctrl+2 → 切换到 Scroll:Slice
 ```
+
+::: warning 没有 `sphere` 键了 <Badge type="warning" text="3.11.5 破坏性变更" />
+`sphere: "q"` 已经从 `IKeyBoardSettings`、从 `EventRouter` 的 `DEFAULT_KEYBOARD_SETTINGS` 中
+移除，`DrawToolCore` keydown 处理器里的那段切换分支也删掉了。
+
+球体模式现在只能通过 `setMode("sphere")` 进入 —— 也就是距离计算器本来就走的那条路 —— 所以当前
+激活的工具永远是宿主自己选的。原来那个快捷键直接改 `gui_states.mode.sphere`，从而执行
+`enterSphereMode()` 并把 mask 从视图里清掉，而宿主的 UI 仍然汇报着它自己那个被选中的工具 ——
+并且没有任何事件去告诉它情况变了。
+
+宿主如果想给它配一个键，自己绑，然后调 `setMode`。
+:::
 
 ---
 
