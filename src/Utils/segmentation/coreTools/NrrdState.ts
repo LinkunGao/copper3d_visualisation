@@ -53,6 +53,7 @@ export class NrrdState {
       minIndex: 0,
       contrastNum: 0,
       sizeFactor: baseCanvasesSize,
+      minSizeFactor: 1,
       showContrast: false,
       switchSliceFlag: false,
       previousPanelL: -99999,
@@ -89,9 +90,9 @@ export class NrrdState {
 
   // ── Validated Setters ────────────────────────────────────────────────────
 
-  /** Set zoom factor with clamping [1, 8] */
+  /** Set zoom factor with clamping [minSizeFactor, 8] */
   setZoomFactor(factor: number): void {
-    this.view.sizeFactor = Math.max(1, Math.min(8, factor));
+    this.view.sizeFactor = Math.max(this.view.minSizeFactor, Math.min(8, factor));
   }
 
   /** Reset all sphere state to defaults */

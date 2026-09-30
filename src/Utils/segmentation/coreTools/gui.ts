@@ -382,7 +382,7 @@ function setupGui(configs: IConfigGUI): IGuiParameterSettings {
       },
       mainAreaSize: {
         name: "Zoom",
-        min: 1,
+        min: configs.nrrd_states.view.minSizeFactor,
         max: configs.gui_states.viewConfig.max_sensitive,
         step: 1,
         onFinished: null,

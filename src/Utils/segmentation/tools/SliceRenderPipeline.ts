@@ -378,8 +378,10 @@ export class SliceRenderPipeline extends BaseTool {
    * @param factor number
    */
   resizePaintArea(factor: number): void {
-    const newWidth = Math.floor(this.ctx.nrrd_states.image.originWidth * factor);
-    const newHeight = Math.floor(this.ctx.nrrd_states.image.originHeight * factor);
+    // A factor below 1 can floor a thin dimension to 0; keep a loaded image at least 1px.
+    const { originWidth, originHeight } = this.ctx.nrrd_states.image;
+    const newWidth = originWidth > 0 ? Math.max(1, Math.floor(originWidth * factor)) : 0;
+    const newHeight = originHeight > 0 ? Math.max(1, Math.floor(originHeight * factor)) : 0;
     const sizeChanged = newWidth !== this.ctx.nrrd_states.view.changedWidth ||
       newHeight !== this.ctx.nrrd_states.view.changedHeight;
 

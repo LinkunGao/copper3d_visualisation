@@ -45,6 +45,8 @@ export class ZoomTool extends BaseTool {
       if (!pending) return;
       const p = pending;
       pending = null;
+      // The host may have raised the minimum since the wheel event queued this target.
+      p.moveDistance = Math.max(p.moveDistance, this.ctx.nrrd_states.view.minSizeFactor);
 
       if (p.recenter) {
         this.callbacks.resetPaintAreaUIPosition();
@@ -95,8 +97,9 @@ export class ZoomTool extends BaseTool {
         return;
       }
 
-      if (moveDistance < 1) {
-        moveDistance = 1;
+      const minFactor = this.ctx.nrrd_states.view.minSizeFactor;
+      if (moveDistance < minFactor) {
+        moveDistance = minFactor;
         pending = { moveDistance, l: 0, t: 0, recenter: true };
       } else {
         // Target displayed size for this zoom level → keep cursor anchored.
