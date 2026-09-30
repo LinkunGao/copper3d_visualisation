@@ -9,6 +9,37 @@ import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import type { ZoomHostDeps } from "./ToolHost";
 
+/** Pixels one wheel notch scrolls in Chrome; one notch zooms by 10%. */
+const PIXELS_PER_NOTCH = 100;
+const LOG_STEP_PER_PIXEL = Math.log(1.1) / PIXELS_PER_NOTCH;
+/** deltaMode 1 (lines, Firefox) and 2 (pages) in pixels, so a notch is ~100px everywhere. */
+const PIXELS_PER_LINE = 33;
+const PIXELS_PER_PAGE = 800;
+/** A single event zooms by at most this ratio, so one runaway delta cannot jump the view. */
+const MAX_RATIO_PER_EVENT = 2;
+
+/**
+ * The zoom ratio for one wheel event, proportional to how far it scrolled. A busy page makes
+ * the browser coalesce wheel events and sum their deltas, so counting events would zoom a
+ * heavy view slower than a light one; following the distance zooms both alike, and lets a
+ * trackpad's small deltas zoom smoothly. Scrolling down (positive deltaY) zooms out.
+ */
+function wheelZoomRatio(e: WheelEvent): number {
+  let px = e.deltaY;
+  if (!Number.isFinite(px) || px === 0) {
+    // No deltaY (legacy events): one notch in the direction detail/wheelDelta gives.
+    const out = e.detail ? e.detail > 0 : (e as any).wheelDelta < 0;
+    px = out ? PIXELS_PER_NOTCH : -PIXELS_PER_NOTCH;
+  } else if (e.deltaMode === 1) {
+    px *= PIXELS_PER_LINE;
+  } else if (e.deltaMode === 2) {
+    px *= PIXELS_PER_PAGE;
+  }
+  const maxLog = Math.log(MAX_RATIO_PER_EVENT);
+  const log = Math.max(-maxLog, Math.min(maxLog, -px * LOG_STEP_PER_PIXEL));
+  return Math.exp(log);
+}
+
 export class ZoomTool extends BaseTool {
   private container: HTMLElement;
   private mainAreaContainer: HTMLDivElement;
@@ -69,7 +100,6 @@ export class ZoomTool extends BaseTool {
       }
       e.preventDefault();
 
-      const delta = e.detail ? e.detail > 0 : (e as any).wheelDelta < 0;
       this.ctx.protectedData.isDrawing = true;
 
       const rect = this.container.getBoundingClientRect();
@@ -82,7 +112,7 @@ export class ZoomTool extends BaseTool {
         (e.clientY - rect.top - this.mainAreaContainer.offsetTop - drawingCanvas.offsetTop) /
         drawingCanvas.offsetHeight;
 
-      const ratioDelta = !delta ? 1 + 0.1 : 1 - 0.1;
+      const ratioDelta = wheelZoomRatio(e);
 
       // Compound from the latest pending target (this frame) or the current
       // committed sizeFactor.

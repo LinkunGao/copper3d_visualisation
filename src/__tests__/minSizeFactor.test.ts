@@ -185,7 +185,7 @@ describe("ZoomTool wheel zoom with a minimum size factor", () => {
     return { onWheel: tool.configMouseZoomWheel(), nrrd_states, callbacks };
   }
 
-  // `detail > 0` is a wheel-down tick, which zooms out by 10%.
+  // An event without deltaY: `detail > 0` is a wheel-down tick, one notch out.
   const wheel = (out: boolean): any => ({
     detail: out ? 3 : -3,
     clientX: 50,
@@ -209,7 +209,7 @@ describe("ZoomTool wheel zoom with a minimum size factor", () => {
   it("zooms out below 1 and stops at the minimum", () => {
     const { onWheel, nrrd_states, callbacks } = makeZoom(1, 0.3);
     spin(onWheel, true, 2);
-    expect(nrrd_states.view.sizeFactor).toBeCloseTo(0.81, 10);
+    expect(nrrd_states.view.sizeFactor).toBeCloseTo(1 / 1.1 ** 2, 10);
     spin(onWheel, true, 60);
     expect(nrrd_states.view.sizeFactor).toBe(0.3);
     expect(callbacks.resizePaintArea).toHaveBeenLastCalledWith(0.3);
@@ -229,5 +229,104 @@ describe("ZoomTool wheel zoom with a minimum size factor", () => {
     const { onWheel, nrrd_states } = makeZoom(0.5, 0.3);
     spin(onWheel, false, 60);
     expect(nrrd_states.view.sizeFactor).toBe(8);
+  });
+});
+
+describe("ZoomTool wheel zoom follows the scroll distance", () => {
+  let rafQueue: Array<() => void>;
+
+  beforeEach(() => {
+    rafQueue = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+      rafQueue.push(cb);
+      return rafQueue.length;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function makeZoom(sizeFactor: number) {
+    const nrrd_states = new NrrdState(sizeFactor);
+    nrrd_states.view.minSizeFactor = 0.1;
+    nrrd_states.image.originWidth = 200;
+    nrrd_states.image.originHeight = 100;
+    const ctx: any = {
+      nrrd_states,
+      gui_states: { mode: { sphereBrush: false, sphereEraser: false } },
+      protectedData: {
+        isDrawing: false,
+        canvases: {
+          drawingCanvas: { offsetLeft: 0, offsetTop: 0, offsetWidth: 200, offsetHeight: 100 },
+        },
+      },
+      eventRouter: null,
+    };
+    const container: any = { getBoundingClientRect: () => ({ left: 0, top: 0 }) };
+    const mainArea: any = { offsetLeft: 0, offsetTop: 0 };
+    const callbacks = {
+      resetPaintAreaUIPosition: vi.fn(),
+      resizePaintArea: vi.fn(),
+      setIsDrawFalse: vi.fn(),
+    };
+    const tool = new ZoomTool(ctx, container, mainArea, callbacks as any);
+    return { onWheel: tool.configMouseZoomWheel(), nrrd_states };
+  }
+
+  const wheel = (deltaY: number, deltaMode = 0): any => ({
+    deltaY,
+    deltaMode,
+    detail: 0,
+    wheelDelta: -deltaY,
+    clientX: 50,
+    clientY: 50,
+    preventDefault: () => {},
+  });
+
+  const flush = () => rafQueue.splice(0).forEach((cb) => cb());
+
+  it("zooms by about 10% for one mouse-wheel notch", () => {
+    const { onWheel, nrrd_states } = makeZoom(2);
+    onWheel(wheel(-100));
+    flush();
+    expect(nrrd_states.view.sizeFactor).toBeCloseTo(2.2, 2);
+    onWheel(wheel(100));
+    flush();
+    expect(nrrd_states.view.sizeFactor).toBeCloseTo(2, 2);
+  });
+
+  it("gives the same zoom whether the browser coalesces the events or not", () => {
+    const separate = makeZoom(2);
+    for (let i = 0; i < 4; i++) separate.onWheel(wheel(-100));
+    flush();
+
+    const coalesced = makeZoom(2);
+    coalesced.onWheel(wheel(-400));
+    flush();
+
+    expect(coalesced.nrrd_states.view.sizeFactor).toBeCloseTo(separate.nrrd_states.view.sizeFactor, 6);
+  });
+
+  it("zooms a small trackpad delta by a small step", () => {
+    const { onWheel, nrrd_states } = makeZoom(2);
+    onWheel(wheel(-4));
+    flush();
+    expect(nrrd_states.view.sizeFactor).toBeGreaterThan(2);
+    expect(nrrd_states.view.sizeFactor).toBeLessThan(2.01);
+  });
+
+  it("reads line-mode deltas as lines", () => {
+    const { onWheel, nrrd_states } = makeZoom(2);
+    onWheel(wheel(-3, 1)); // one notch in Firefox
+    flush();
+    expect(nrrd_states.view.sizeFactor).toBeCloseTo(2.2, 1);
+  });
+
+  it("caps a single huge delta", () => {
+    const { onWheel, nrrd_states } = makeZoom(1);
+    onWheel(wheel(-100000));
+    flush();
+    expect(nrrd_states.view.sizeFactor).toBeLessThanOrEqual(2);
   });
 });
