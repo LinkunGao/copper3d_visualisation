@@ -509,6 +509,25 @@ leave outline mode to annotate.
 
 ---
 
+### Zoom range — showing below 1:1
+
+The zoom factor used to bottom out at `1`. Lower the floor and a large volume can be fitted
+into a small panel:
+
+```typescript
+nrrdTools.setMinSizeFactor(0.5);   // clamped to [0.05, 1]; default 1
+nrrdTools.setMainAreaSize(0.6);    // now valid
+```
+
+`setMainAreaSize`, wheel zoom and the `"mainAreaSize"` GUI slider all follow it; the upper
+bound stays `8`. If the current factor is below the new floor it is raised and repainted.
+
+The engine never recomputes the floor — the right value depends on the image and axis
+dimensions *and* your panel size — so re-apply it after each case load, axis switch and panel
+resize.
+
+---
+
 ### 7. Channel Color Customization
 
 **Default colors:**
@@ -697,7 +716,9 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | **Actions** | `executeAction(action, opts?)` | Run: `"undo"` / `"redo"` / `"clearActiveSliceMask"` / `"clearActiveLayerMask"` / `"resetZoom"` / `"downloadCurrentMask"` / `"gaussianSmooth"` (takes `{ sigma? }`) |
 | **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"`; extracts the plane on demand if the load skipped it |
 | | `setSliceMoving(step)` | Step the current slice (coalesced per animation frame) |
-| | `setMainAreaSize(factor)` | Set the main-area zoom factor [1, 8] |
+| | `setMainAreaSize(factor)` | Set the main-area zoom factor `[minSizeFactor, 8]` |
+| | `setMinSizeFactor(f)` | Lower the zoom floor below 1:1. Clamped to `[0.05, 1]`; default `1`. Re-apply after case loads, axis switches and panel resizes |
+| | `getMinSizeFactor()` | Read the current zoom floor |
 | **History** | `undo()` / `redo()` | Undo / redo last stroke |
 | **Keyboard** | `setKeyboardSettings(partial)` | Remap shortcuts |
 | | `getKeyboardSettings()` | Read current bindings |

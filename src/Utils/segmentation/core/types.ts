@@ -636,6 +636,8 @@ export interface IViewState {
   minIndex: number;
   contrastNum: number;
   sizeFactor: number;
+  /** Lower bound for `sizeFactor`, in [0.05, 1]. Default 1 (never smaller than 1:1). */
+  minSizeFactor: number;
   showContrast: boolean;
   switchSliceFlag: boolean;
   previousPanelL: number;

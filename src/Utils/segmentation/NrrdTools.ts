@@ -973,11 +973,38 @@ export class NrrdTools {
 
     if (this.state.nrrd_states.view.sizeFactor >= 8) {
       this.state.nrrd_states.view.sizeFactor = 8;
-    } else if (this.state.nrrd_states.view.sizeFactor <= 1) {
-      this.state.nrrd_states.view.sizeFactor = 1;
+    } else if (this.state.nrrd_states.view.sizeFactor <= this.state.nrrd_states.view.minSizeFactor) {
+      this.state.nrrd_states.view.sizeFactor = this.state.nrrd_states.view.minSizeFactor;
     }
     this.resizePaintArea(this.state.nrrd_states.view.sizeFactor);
     this.resetPaintAreaUIPosition();
+  }
+
+  /**
+   * Set the lower bound for the 2D zoom factor (`sizeFactor`), so the image can be shown
+   * smaller than its original size. Clamped to [0.05, 1]; a non-finite value resets it to 1.
+   * The default is 1. If the current factor is below the new minimum, it is raised to it and
+   * the view repaints. The upper bound (8) is unchanged.
+   *
+   * The minimum survives `reset()` and case loads, and the engine never recomputes it: the
+   * right value depends on the image/axis size and the host panel's size, which the engine
+   * does not know. The host must re-apply it after each case load, axis switch and panel
+   * resize.
+   */
+  setMinSizeFactor(f: number) {
+    const min = Number.isFinite(f) ? Math.min(1, Math.max(0.05, f)) : 1;
+    const view = this.state.nrrd_states.view;
+    view.minSizeFactor = min;
+    if (this.guiParameterSettings) this.guiParameterSettings.advance.mainAreaSize.min = min;
+    if (view.sizeFactor < min) {
+      view.sizeFactor = min;
+      this.resizePaintArea(min);
+      this.resetPaintAreaUIPosition();
+    }
+  }
+
+  getMinSizeFactor(): number {
+    return this.state.nrrd_states.view.minSizeFactor;
   }
 
   switchAllSlicesArrayData(allSlices: Array<nrrdSliceType>) {

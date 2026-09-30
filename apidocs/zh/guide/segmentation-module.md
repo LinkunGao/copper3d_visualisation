@@ -541,7 +541,9 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | `switchAllSlicesArrayData(slices)` | 替换已加载的序列并重建显示（会重置视图状态） |
 | `switchSlicesPreservingView(slices)` | 通过 `switchPreservingView()` 替换序列，保留切片索引、缩放和平移 |
 | `setSliceMoving(step)` | 移动当前切片；多次步进会被累加并在一次 `requestAnimationFrame` 中应用 |
-| `setMainAreaSize(factor)` | 把缩放系数夹取到 [1, 8]，调整绘制区域大小并重置其 UI 位置 |
+| `setMainAreaSize(factor)` | 把缩放系数夹取到 `[view.minSizeFactor, 8]`，调整绘制区域大小并重置其 UI 位置 |
+| `setMinSizeFactor(f)` | `sizeFactor` 的下限，夹取到 `[0.05, 1]`（非有限值 → `1`）。同时更新 `guiParameterSettings.advance.mainAreaSize.min`；若当前系数已低于新下限，会抬上去并重绘。引擎从不替你重算 —— 它同时取决于图像/轴的尺寸**和**宿主面板的尺寸 |
+| `getMinSizeFactor()` | 读取当前下限 |
 | `setBaseDrawDisplayCanvasesSize(size)` | 设置 Canvas 基础尺寸 (1-8) |
 | `setupGUI(gui)` | 设置 dat.gui 面板 |
 | `enableContrastDragEvents(callback)` | 启用 contrast 拖拽事件 |
@@ -582,7 +584,8 @@ NrrdState 将 44 个属性分组为 5 个语义子对象：
 | `currentSliceIndex` | `number` | 当前切片索引 |
 | `maxIndex` / `minIndex` | `number` | 切片索引范围 |
 | `changedWidth` / `changedHeight` | `number` | Canvas 显示尺寸 |
-| `sizeFactor` | `number` | 缩放因子 |
+| `sizeFactor` | `number` | 缩放因子。所有写入它的地方都会夹取到 `[minSizeFactor, 8]` —— `setMainAreaSize`、`ZoomTool` 的滚轮、`NrrdState.setZoomFactor` |
+| `minSizeFactor` | `number` | `sizeFactor` 的下限，取值 `[0.05, 1]`。默认 `1`（即不小于 1:1）。在 `reset()` 和病例加载之后保留 |
 | `originWidth` / `originHeight` | `number` | 原始图像尺寸 |
 
 #### nrrd_states.interaction (IInteractionState)

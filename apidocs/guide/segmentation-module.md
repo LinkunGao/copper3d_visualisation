@@ -546,7 +546,9 @@ nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 | `switchAllSlicesArrayData(slices)` | Swap the loaded series and rebuild the display (resets view state) |
 | `switchSlicesPreservingView(slices)` | Swap the loaded series via `switchPreservingView()`, keeping slice index, zoom and pan |
 | `setSliceMoving(step)` | Step the current slice; steps are accumulated and applied in one `requestAnimationFrame` |
-| `setMainAreaSize(factor)` | Clamp the zoom factor to [1, 8], resize the paint area and reset its UI position |
+| `setMainAreaSize(factor)` | Clamp the zoom factor to `[view.minSizeFactor, 8]`, resize the paint area and reset its UI position |
+| `setMinSizeFactor(f)` | Lower bound for `sizeFactor`, clamped to `[0.05, 1]` (non-finite → `1`). Also updates `guiParameterSettings.advance.mainAreaSize.min`, and raises + repaints the current factor if it is now below the floor. Never recomputed by the engine — it depends on image/axis dimensions *and* host panel size |
+| `getMinSizeFactor()` | Read the current floor |
 | `setBaseDrawDisplayCanvasesSize(size)` | Set canvas base size multiplier (1–8) |
 | `setupGUI(gui)` | Set up the dat.GUI panel |
 | `enableContrastDragEvents(callback)` | Enable contrast drag (window/level) events |
@@ -589,7 +591,8 @@ NrrdState groups 44 properties into 5 semantic sub-objects:
 | `currentSliceIndex` | `number` | Current slice index |
 | `maxIndex` / `minIndex` | `number` | Slice index range |
 | `changedWidth` / `changedHeight` | `number` | Canvas display dimensions |
-| `sizeFactor` | `number` | Scale factor |
+| `sizeFactor` | `number` | Scale factor. Clamped to `[minSizeFactor, 8]` everywhere it is written — `setMainAreaSize`, `ZoomTool`'s wheel, `NrrdState.setZoomFactor` |
+| `minSizeFactor` | `number` | Lower bound for `sizeFactor`, in `[0.05, 1]`. Default `1` (never smaller than 1:1). Survives `reset()` and case loads |
 | `originWidth` / `originHeight` | `number` | Original image dimensions |
 
 #### nrrd_states.interaction (IInteractionState)
