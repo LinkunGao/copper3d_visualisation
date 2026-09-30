@@ -32,7 +32,6 @@ const DEFAULT_KEYBOARD_SETTINGS: KeyboardSettings = {
     redo: 'y',
     contrast: ['Control', 'Meta'],
     crosshair: 'c',
-    sphere: 'q',
     mouseWheel: 'Scroll:Zoom'
 };
 

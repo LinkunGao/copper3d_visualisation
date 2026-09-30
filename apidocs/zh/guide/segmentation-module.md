@@ -1443,7 +1443,6 @@ IKeyBoardSettings = {
   redo: "y",
   contrast: ["Control", "Meta"],
   crosshair: "s",
-  sphere: "q",
   mouseWheel: "Scroll:Zoom",   // 或 "Scroll:Slice"
 }
 
@@ -1451,6 +1450,18 @@ IKeyBoardSettings = {
 // Ctrl+1 → 切换到 Scroll:Zoom
 // Ctrl+2 → 切换到 Scroll:Slice
 ```
+
+::: warning 没有 `sphere` 键了 <Badge type="warning" text="3.11.5 破坏性变更" />
+`sphere: "q"` 已经从 `IKeyBoardSettings`、从 `EventRouter` 的 `DEFAULT_KEYBOARD_SETTINGS` 中
+移除，`DrawToolCore` keydown 处理器里的那段切换分支也删掉了。
+
+球体模式现在只能通过 `setMode("sphere")` 进入 —— 也就是距离计算器本来就走的那条路 —— 所以当前
+激活的工具永远是宿主自己选的。原来那个快捷键直接改 `gui_states.mode.sphere`，从而执行
+`enterSphereMode()` 并把 mask 从视图里清掉，而宿主的 UI 仍然汇报着它自己那个被选中的工具 ——
+并且没有任何事件去告诉它情况变了。
+
+宿主如果想给它配一个键，自己绑，然后调 `setMode`。
+:::
 
 ---
 

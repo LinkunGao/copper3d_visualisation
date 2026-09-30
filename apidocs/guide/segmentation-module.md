@@ -1317,7 +1317,6 @@ IKeyBoardSettings = {
   redo: "y",
   contrast: ["Control", "Meta"],
   crosshair: "s",
-  sphere: "q",
   mouseWheel: "Scroll:Zoom",   // or "Scroll:Slice"
 }
 
@@ -1325,6 +1324,20 @@ IKeyBoardSettings = {
 // Ctrl+1 → switch to Scroll:Zoom
 // Ctrl+2 → switch to Scroll:Slice
 ```
+
+::: warning No `sphere` key <Badge type="warning" text="breaking in 3.11.5" />
+`sphere: "q"` has been removed from `IKeyBoardSettings`, from `EventRouter`'s
+`DEFAULT_KEYBOARD_SETTINGS`, and the toggle branch is gone from `DrawToolCore`'s keydown
+handler.
+
+Sphere mode is entered only through `setMode("sphere")` — the path the calculator already
+uses — so the active tool is always something the host chose. The shortcut changed
+`gui_states.mode.sphere` directly, which runs `enterSphereMode()` and clears the masks from
+the view, while the host's UI still reported its own tool as selected. There was no event to
+tell it otherwise.
+
+A host that wants a key for it binds one itself and calls `setMode`.
+:::
 
 ---
 

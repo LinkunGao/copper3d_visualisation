@@ -522,7 +522,7 @@ const type = nrrdTools.getActiveSphereType();
 ##### Interaction Flow
 
 ```
-Sphere mode activated (gui_states.mode.sphere = true, keyboard shortcut: 'q'):
+Sphere mode activated (gui_states.mode.sphere = true, via setMode("sphere")):
   ├─ Shift key DISABLED (no draw mode)
   ├─ Crosshair toggle allowed (S key)
   │
@@ -1181,10 +1181,28 @@ window.addEventListener('keydown', (e) => {
 | Redo | `y` |
 | Contrast adjust | `Ctrl` / `Meta` (hold) |
 | Crosshair | `s` |
-| Sphere mode | `q` |
 | Mouse wheel | Zoom |
 | Scroll:Zoom shortcut | `Ctrl+1` |
 | Scroll:Slice shortcut | `Ctrl+2` |
+
+::: warning Sphere mode no longer has a shortcut <Badge type="warning" text="breaking in 3.11.5" />
+The `sphere: "q"` binding is **gone**, and `sphere` has been removed from
+`IKeyBoardSettings`. Sphere mode is now entered only through `setMode("sphere")` — which is
+also how the calculator reaches it — so the host always knows which tool is active.
+
+The shortcut toggled the mode behind the host's back: pressing `q` cleared the masks from the
+view while the host's own UI still showed whatever tool it thought was selected.
+
+If you passed `sphere` to `setKeyboardSettings`, drop it — it is no longer part of the type:
+
+```typescript
+// before
+nrrdTools.setKeyboardSettings({ sphere: 'e', crosshair: 'x' });
+// after
+nrrdTools.setKeyboardSettings({ crosshair: 'x' });
+nrrdTools.setMode('sphere');   // bind your own key to this if you want one
+```
+:::
 
 #### Reading current settings
 
@@ -1765,7 +1783,6 @@ interface IKeyBoardSettings {
   redo: string;
   contrast: string[];           // always an array, e.g. ["Control", "Meta"]
   crosshair: string;
-  sphere: string;
   mouseWheel: 'Scroll:Zoom' | 'Scroll:Slice';
 }
 
