@@ -30,7 +30,7 @@ import type { AiPromptTool, AiPromptPayload, AiMaskResult } from "./tools/AiAssi
 import { LayerChannelManager } from "./tools/LayerChannelManager";
 import { SliceRenderPipeline } from "./tools/SliceRenderPipeline";
 import { MaskMirror } from "./tools/MaskMirror";
-import { DataLoader } from "./tools/DataLoader";
+import { DataLoader, type NrrdHeaderLike } from "./tools/DataLoader";
 import type { ToolContext } from "./tools/BaseTool";
 import { ensureAxisExtracted } from "../../Loader/copperNrrdLoader";
 
@@ -75,6 +75,8 @@ export class NrrdTools {
   /** The pending frame that refreshes this viewer's mirrors. */
   private _mirrorFrame: number | null = null;
   private _pendingSliceStep: number = 0;
+  /** Receives slice moves while a preview slice is shown; null when none is. */
+  private _previewSliceMove: ((index: number) => void) | null = null;
 
   /** Whether calculator mode is active (not part of gui_states interface) */
   private _calculatorActive: boolean = false;
@@ -158,6 +160,7 @@ export class NrrdTools {
 
     // Wire sphere overlay refresh callback into DragOperator → DragSliceTool
     this.dragOperator.setRefreshSphereOverlay(() => this.refreshSphereOverlay());
+    this.dragOperator.setPreviewSliceMove((index) => this.previewSliceMove(index));
 
     // Initialize extracted modules
     this.initNrrdToolsModules();
@@ -1078,9 +1081,59 @@ export class NrrdTools {
    * Used for register/origin image switching where the view state should persist.
    */
   switchSlicesPreservingView(allSlices: Array<nrrdSliceType>) {
+    this._previewSliceMove = null;
     this.state.protectedData.allSlicesArray.length = 0;
     this.state.protectedData.allSlicesArray = [...allSlices];
     this.sliceRenderPipeline.switchPreservingView();
+  }
+
+  /**
+   * Show one slice of a volume before the volume itself has loaded: `header` is the full
+   * volume's geometry, `slice` a depth-1 slice triple of plane `index` (built from one plane's
+   * voxels), shown as slice `index` of the full stack. Geometry is re-initialised only when it
+   * differs from the current one. Replaces whatever slice data is displayed; writes no mask.
+   * The full volume later replaces it with `switchSlicesPreservingView`, keeping `index`.
+   *
+   * Until then every slice move (wheel, keys, drag, `setSliceMoving`) goes to `onSliceMove`
+   * with its clamped target index instead of moving the displayed slice. Axial only; it does
+   * not switch orientation.
+   */
+  showPreviewSlice(
+    header: NrrdHeaderLike,
+    slice: nrrdSliceType,
+    index: number,
+    onSliceMove: (index: number) => void
+  ) {
+    const image = this.state.nrrd_states.image;
+    const same = (a: ArrayLike<number> | undefined, b: ArrayLike<number>) =>
+      !!a && a.length === b.length && Array.from(b).every((v, i) => a[i] === v);
+    if (
+      !same(image.dimensions, header.dimensions) ||
+      !same(image.voxelSpacing, header.spacing) ||
+      !same(image.spaceOrigin, header.space_origin)
+    ) {
+      this.dataLoader.initFromHeader(header);
+    }
+
+    slice.z.initIndex = index;
+    this.state.protectedData.allSlicesArray.length = 0;
+    // Take the index from `initIndex` rather than writing the full-stack index into the
+    // depth-1 slice's own `index`, which would be out of range for it.
+    this.sliceRenderPipeline.resetInitState();
+    this.dataLoader.appendSlice(slice, 0);
+    this._previewSliceMove = onSliceMove;
+  }
+
+  /** Whether a preview slice from `showPreviewSlice` is shown in place of a loaded volume. */
+  isPreviewing(): boolean {
+    return this._previewSliceMove !== null;
+  }
+
+  /** Hands a slice move to the preview's host; false when no preview is shown. */
+  private previewSliceMove(index: number): boolean {
+    if (!this._previewSliceMove) return false;
+    this._previewSliceMove(index);
+    return true;
   }
 
   appendLoadingbar(loadingbar: HTMLDivElement) {
@@ -1218,7 +1271,10 @@ export class NrrdTools {
   // 9. Delegated — DataLoader
   // ═══════════════════════════════════════════════════════════════════════════
 
-  setAllSlices(allSlices: Array<nrrdSliceType>) { this.dataLoader.setAllSlices(allSlices); }
+  setAllSlices(allSlices: Array<nrrdSliceType>) {
+    this._previewSliceMove = null;
+    this.dataLoader.setAllSlices(allSlices);
+  }
   setMasksData(masksData: storeExportPaintImageType, loadingBar?: loadingBarType) { this.dataLoader.setMasksData(masksData, loadingBar); }
   setMasksFromNIfTI(layerVoxels: Map<string, Uint8Array>, loadingBar?: loadingBarType) { this.dataLoader.setMasksFromNIfTI(layerVoxels, loadingBar); }
 
@@ -1503,6 +1559,7 @@ export class NrrdTools {
   }
 
   reset() {
+    this._previewSliceMove = null;
     this.state.protectedData.allSlicesArray.length = 0;
     this.state.protectedData.displaySlices.length = 0;
     this.drawCore.undoManager.clearAll();

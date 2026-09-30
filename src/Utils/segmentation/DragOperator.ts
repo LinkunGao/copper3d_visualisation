@@ -44,6 +44,7 @@ export class DragOperator {
   ) => void;
   private compositeAllLayers: () => void;
   private refreshSphereOverlayCb: (() => void) | null = null;
+  private previewSliceMoveCb: (index: number) => boolean = () => false;
 
   // EventRouter for centralized event handling
   private eventRouter: EventRouter | null = null;
@@ -115,6 +116,7 @@ export class DragOperator {
           this.renderSliceToCanvas(layer, axis, sliceIndex, buffer, targetCtx, w, h),
         compositeAllLayers: () => this.compositeAllLayers(),
         refreshSphereOverlay: () => this.refreshSphereOverlayCb?.(),
+        previewSliceMove: (index) => this.previewSliceMoveCb(index),
       },
       this.showDragNumberDiv,
       dragEffectCanvases
@@ -132,6 +134,14 @@ export class DragOperator {
    */
   setRefreshSphereOverlay(cb: () => void): void {
     this.refreshSphereOverlayCb = cb;
+  }
+
+  /**
+   * Set the callback that may consume a slice move while a preview slice is shown.
+   * Called by NrrdTools; until then every move proceeds normally.
+   */
+  setPreviewSliceMove(cb: (index: number) => boolean): void {
+    this.previewSliceMoveCb = cb;
   }
 
   /**

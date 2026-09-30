@@ -344,6 +344,51 @@ nrrdTools.switchAllSlicesArrayData(allSlices);
 nrrdTools.switchSlicesPreservingView(allSlices);
 ```
 
+#### 3.4 Previewing one slice before the volume loads <Badge type="tip" text="3.11.6" />
+
+A large volume takes seconds to arrive. `showPreviewSlice` puts **one** slice on screen
+immediately, positioned as slice `index` of the full stack, and lets the reader scrub while
+the rest is still downloading:
+
+```typescript
+nrrdTools.showPreviewSlice(header, slice, index, async (target) => {
+  // `target` is the clamped slice the reader asked for — fetch and show it
+  const next = await fetchSinglePlane(caseId, target);
+  nrrdTools.showPreviewSlice(header, next, target, onSliceMove);
+});
+
+nrrdTools.isPreviewing();   // → true until a full volume takes over
+```
+
+| Parameter | What it is |
+|-----------|------------|
+| `header` | The **full** volume's geometry (`NrrdHeaderLike`: dimensions, spacing, space_origin) — not the single plane's |
+| `slice` | A depth-1 slice triple built from one plane's voxels |
+| `index` | Which slice of the full stack this plane is |
+| `onSliceMove` | Receives the clamped target index for every slice move while previewing |
+
+**While previewing, slice moves do not move the display.** Wheel, keys, drag and
+`setSliceMoving` are all intercepted and handed to `onSliceMove` with the clamped target
+instead — the displayed slice has depth 1, so moving it would paint blank. Fetching that
+plane and calling `showPreviewSlice` again is what advances the view.
+
+Geometry is re-initialised only when `header` differs from the current one, so calling it
+repeatedly while scrubbing is cheap. It writes no mask data.
+
+**Handing over to the real volume:**
+
+```typescript
+const allSlices = await loadFullVolume(caseId);
+nrrdTools.switchSlicesPreservingView(allSlices);   // keeps the previewed index, ends previewing
+```
+
+Previewing also ends on `setAllSlices()` and `reset()`.
+
+::: warning Axial only
+`showPreviewSlice` does not switch orientation — it shows a `z` plane. Sagittal and coronal
+need the full volume.
+:::
+
 ---
 
 ### 4. Render Loop Integration
@@ -1887,6 +1932,8 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | | `commitSeriesLoad(slices, entries, i)` | Case-load completion: swap series + reconcile skips + land on contrast, one refresh |
 | | `switchAllSlicesArrayData(slices)` | Swap the loaded series (resets slice index / zoom / pan) |
 | | `switchSlicesPreservingView(slices)` | Swap the loaded series, keeping slice index, zoom and pan |
+| **Preview** | `showPreviewSlice(header, slice, i, cb)` | Show one depth-1 slice as slice `i` of the not-yet-loaded stack. While previewing, every slice move is handed to `cb` with the clamped target instead of moving the display. Axial only; ends on `switchSlicesPreservingView` / `setAllSlices` / `reset` |
+| | `isPreviewing()` | Whether a preview slice is shown in place of a loaded volume |
 | **Render** | `start` | Frame callback — pass to render loop |
 | **Lifecycle** | `dispose()` | Release the event router's listeners, a pending slice step, the drawing-flag timer and any mask-mirror link (from both ends). Instance unusable afterwards; safe to call twice |
 | **Layer** | `setActiveLayer(id)` | Switch drawing target layer |

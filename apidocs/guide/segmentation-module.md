@@ -328,6 +328,8 @@ The `a` (alpha) field determines the base mask opacity. Usually set to `255`; ac
 | `setAllSlices` | `(allSlices: Array<nrrdSliceType>): void` | **Entry point**: Load NRRD slices and initialize all MaskVolumes to the correct dimensions |
 | `initFromHeader` | `(header: NrrdHeaderLike): void` | Size image metadata and MaskVolumes from volume geometry alone, before any pixel data exists. `allSlicesArray` is untouched |
 | `appendSlice` | `(slice: nrrdSliceType, order: number): void` | Append one already-loaded slice to the contrast series and refresh display slices / undo state |
+| `showPreviewSlice` | `(header, slice, index, onSliceMove): void` *(NrrdTools)* | Show one depth-1 slice as slice `index` of the not-yet-loaded stack, and route slice moves to `onSliceMove` until a real volume takes over |
+| `isPreviewing` | `(): boolean` *(NrrdTools)* | Whether a preview slice is shown |
 | `setMasksData` | `(masksData, loadingBar?): void` | Legacy loading method (deprecated, pending removal) |
 | `setMasksFromNIfTI` | `(layerVoxels: Map<string, Uint8Array>, loadingBar?): void` | Load mask data from NIfTI files into MaskVolume, validating each buffer's grid |
 | `registerNiftiMaskGrid` | `(data: Uint8Array, dims: number[]): void` *(module export)* | Record a mask buffer's NIfTI voxel grid, keyed by buffer identity, for `setMasksFromNIfTI` to check |
@@ -350,6 +352,41 @@ setAllSlices(allSlices)
 The split exists so a progressive loader can size everything from a backend headers response
 (`{ dimensions, spacing, space_origin }` as JSON — the same `NrrdHeaderLike` shape) and then
 feed slices in one at a time with `appendSlice` as they arrive.
+
+#### Preview slices <Badge type="tip" text="3.11.6" />
+
+`NrrdTools.showPreviewSlice(header, slice, index, onSliceMove)` is the progressive path's
+front end, and it is built from the two pieces above:
+
+```
+showPreviewSlice(header, slice, index, onSliceMove)
+  │
+  ├─ geometry differs from the current one? → dataLoader.initFromHeader(header)
+  │     (compared field-by-field on dimensions / spacing / space_origin, so repeated
+  │      calls while scrubbing re-initialise nothing)
+  │
+  ├─ slice.z.initIndex = index          ◀ the full-stack index lives here, NOT in the
+  │                                        depth-1 slice's own `index`, where it would
+  │                                        be out of range
+  ├─ allSlicesArray.length = 0
+  ├─ sliceRenderPipeline.resetInitState()
+  ├─ dataLoader.appendSlice(slice, 0)   ◀ one slice, so appendSlice is the right call here
+  └─ _previewSliceMove = onSliceMove
+```
+
+**The slice-move interception.** While `_previewSliceMove` is set, `DragSliceTool` clamps the
+requested index to `[minIndex, maxIndex]` and offers it to `previewSliceMove(target)`; a
+`true` return means the move was consumed and the tool returns without touching the display.
+The displayed slice has depth 1, so moving it would paint blank — the host is expected to
+fetch that plane and call `showPreviewSlice` again.
+
+The hook reaches `DragSliceTool` as a `ToolHost` dependency
+(`DragSliceHostDeps` gained `previewSliceMove`), wired through
+`DragOperator.setPreviewSliceMove`. Before `NrrdTools` sets it, the default returns `false`,
+so every move proceeds normally.
+
+`_previewSliceMove` is cleared by `setAllSlices`, `switchSlicesPreservingView` and `reset` —
+the three ways a real volume takes over. `isPreviewing()` reports whether it is set.
 
 ::: warning `appendSlice` is not a loop-friendly substitute for `setAllSlices`
 It calls `setDisplaySlicesBaseOnAxis()` per slice, which rebuilds the display-slice list from

@@ -58,6 +58,12 @@ export interface ToolHost {
     // ── State / Lifecycle ──────────────────────────────────────────
     setIsDrawFalse(target: number): void;
     setSyncsliceNum(): void;
+    /**
+     * Offers a slice move to the host while a preview slice is shown (see
+     * `NrrdTools.showPreviewSlice`). Returns true when the move was consumed, in which
+     * case the caller must not move the displayed slice itself.
+     */
+    previewSliceMove(index: number): boolean;
     resetPaintAreaUIPosition(l?: number, t?: number): void;
     resizePaintArea(moveDistance: number): void;
     resetZoom(): void;
@@ -127,7 +133,7 @@ export type DrawingHostDeps = Pick<ToolHost,
 export type DragSliceHostDeps = Pick<ToolHost,
     'setSyncsliceNum' | 'setIsDrawFalse' | 'flipDisplayImageByAxis'
     | 'setEmptyCanvasSize' | 'getOrCreateSliceBuffer' | 'renderSliceToCanvas'
-    | 'refreshSphereOverlay' | 'compositeAllLayers'
+    | 'refreshSphereOverlay' | 'compositeAllLayers' | 'previewSliceMove'
 >;
 
 /** LayerChannelManager host dependencies */

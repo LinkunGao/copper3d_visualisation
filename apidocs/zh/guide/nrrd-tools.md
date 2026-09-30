@@ -311,6 +311,48 @@ nrrdTools.switchAllSlicesArrayData(allSlices);
 nrrdTools.switchSlicesPreservingView(allSlices);
 ```
 
+### 3.4 在体数据加载完成之前先预览单张切片 <Badge type="tip" text="3.11.6" />
+
+大体数据要好几秒才能传完。`showPreviewSlice` 可以**立刻**把一张切片放到屏幕上，并把它摆在完整
+序列中第 `index` 张的位置上，让读片者在其余数据还在下载时就能翻片：
+
+```typescript
+nrrdTools.showPreviewSlice(header, slice, index, async (target) => {
+  // `target` 是被夹取之后、读片者想去的那一张 —— 取回来再显示
+  const next = await fetchSinglePlane(caseId, target);
+  nrrdTools.showPreviewSlice(header, next, target, onSliceMove);
+});
+
+nrrdTools.isPreviewing();   // → 在完整体数据接管之前一直为 true
+```
+
+| 参数 | 含义 |
+|------|------|
+| `header` | **完整**体数据的几何信息（`NrrdHeaderLike`：dimensions、spacing、space_origin）—— 不是那一张平面的 |
+| `slice` | 由单张平面的体素构建出来的 depth-1 切片三元组 |
+| `index` | 这张平面在完整序列中是第几张 |
+| `onSliceMove` | 预览期间每一次切片移动，都会把夹取后的目标索引交给它 |
+
+**预览期间，切片移动不会移动显示内容。** 滚轮、按键、拖动和 `setSliceMoving` 都会被拦截，转而把
+夹取后的目标交给 `onSliceMove` —— 因为当前显示的切片深度为 1，移动它只会画出空白。真正让画面前进
+的，是你把那一张取回来、再调一次 `showPreviewSlice`。
+
+只有当 `header` 和当前的不一致时才会重新初始化几何信息，所以翻片过程中反复调用它是廉价的。
+它不会写入任何 mask 数据。
+
+**交接给真正的体数据：**
+
+```typescript
+const allSlices = await loadFullVolume(caseId);
+nrrdTools.switchSlicesPreservingView(allSlices);   // 保留预览时的索引，并结束预览状态
+```
+
+`setAllSlices()` 和 `reset()` 同样会结束预览状态。
+
+::: warning 仅限横断面
+`showPreviewSlice` 不会切换观察方向 —— 它显示的是一张 `z` 平面。矢状面和冠状面需要完整体数据。
+:::
+
 ---
 
 ## 4. 渲染循环集成
@@ -1419,6 +1461,8 @@ function onChannelColorPicked(hex: string) {
 | | `commitSeriesLoad(slices, entries, i)` | 病例加载收尾：换序列 + 对齐 skip + 落到目标对比度，只刷新一次 |
 | | `switchAllSlicesArrayData(slices)` | 替换已加载的序列（会重置切片索引 / 缩放 / 平移） |
 | | `switchSlicesPreservingView(slices)` | 替换已加载的序列，保留切片索引、缩放和平移 |
+| **预览** | `showPreviewSlice(header, slice, i, cb)` | 把一张 depth-1 切片显示为尚未加载完的序列中的第 `i` 张。预览期间每一次切片移动都会把夹取后的目标交给 `cb`，而不移动显示内容。仅限横断面；在 `switchSlicesPreservingView` / `setAllSlices` / `reset` 时结束 |
+| | `isPreviewing()` | 当前是否正以预览切片代替已加载的体数据 |
 | **渲染部分** | `start` | 一组用去刷新重现覆盖表里的挂帧刷绘画层动作钩件方法函数 —— 它用来投入至全局循动描渲周期系统当中 |
 | **生命周期** | `dispose()` | 释放 EventRouter 的监听器、待处理的切片步进、绘制标志定时器，以及（从两端断开）mask 镜像链接。调用后实例不可再用；可重复调用 |
 | **图层** | `setActiveLayer(id)` | 指令调切换过去另至另一块为被作为画改作用焦聚的图层中去 |

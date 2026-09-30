@@ -335,6 +335,8 @@ Channel `a`（alpha）决定 mask 的不透明度基准值。通常设为 `255`�
 | `setAllSlices` | `(allSlices: Array<nrrdSliceType>): void` | **入口函数**：加载 NRRD 切片，初始化所有 MaskVolume 到正确尺寸 |
 | `initFromHeader` | `(header: NrrdHeaderLike): void` | 仅凭体数据几何信息就把图像元数据和 MaskVolume 尺寸定下来，此时还没有任何像素数据。不动 `allSlicesArray` |
 | `appendSlice` | `(slice: nrrdSliceType, order: number): void` | 把一个已加载的切片追加进对比度序列，并刷新 display slices / undo 状态 |
+| `showPreviewSlice` | `(header, slice, index, onSliceMove): void` *(NrrdTools)* | 把一张 depth-1 切片显示为尚未加载完的序列中的第 `index` 张，并在真正的体数据接管之前把切片移动转交给 `onSliceMove` |
+| `isPreviewing` | `(): boolean` *(NrrdTools)* | 当前是否显示着预览切片 |
 | `setMasksData` | `(masksData, loadingBar?): void` | 旧版加载方法（Legacy，待移除） |
 | `setMasksFromNIfTI` | `(layerVoxels: Map<string, Uint8Array>, loadingBar?): void` | 从 NIfTI 文件加载 mask 到 MaskVolume，并校验每个 buffer 的网格 |
 | `registerNiftiMaskGrid` | `(data: Uint8Array, dims: number[]): void` *（模块导出）* | 以 buffer 身份为键记录其 NIfTI 体素网格，供 `setMasksFromNIfTI` 校验 |
@@ -357,6 +359,38 @@ setAllSlices(allSlices)
 拆开是为了让渐进式加载可以先用后端 headers 响应（JSON 形式的
 `{ dimensions, spacing, space_origin }`，即同一个 `NrrdHeaderLike` 形状）把尺寸定下来，
 再用 `appendSlice` 随着切片陆续到达一个一个喂进去。
+
+#### 预览切片 <Badge type="tip" text="3.11.6" />
+
+`NrrdTools.showPreviewSlice(header, slice, index, onSliceMove)` 是渐进式路径的门面，
+而它正是由上面那两块拼出来的：
+
+```
+showPreviewSlice(header, slice, index, onSliceMove)
+  │
+  ├─ 几何信息和当前的不一致？ → dataLoader.initFromHeader(header)
+  │     （逐字段比较 dimensions / spacing / space_origin，因此翻片过程中反复调用
+  │       不会重复初始化）
+  │
+  ├─ slice.z.initIndex = index          ◀ 完整序列中的索引放在这里，**不是**写进
+  │                                        depth-1 切片自己的 `index`，那样会越界
+  ├─ allSlicesArray.length = 0
+  ├─ sliceRenderPipeline.resetInitState()
+  ├─ dataLoader.appendSlice(slice, 0)   ◀ 只有一张切片，所以这里用 appendSlice 是对的
+  └─ _previewSliceMove = onSliceMove
+```
+
+**切片移动的拦截。** 只要 `_previewSliceMove` 有值，`DragSliceTool` 就会把请求的索引夹取到
+`[minIndex, maxIndex]`，再交给 `previewSliceMove(target)`；返回 `true` 表示这次移动已被消费，
+工具随即返回、不去碰显示内容。当前显示的切片深度为 1，移动它只会画出空白 —— 宿主应当去取回那一张
+平面，然后再调一次 `showPreviewSlice`。
+
+这个钩子是作为 `ToolHost` 依赖到达 `DragSliceTool` 的（`DragSliceHostDeps` 新增了
+`previewSliceMove`），经由 `DragOperator.setPreviewSliceMove` 接线。在 `NrrdTools` 设置它之前，
+默认实现返回 `false`，因此所有移动都照常进行。
+
+`_previewSliceMove` 会被 `setAllSlices`、`switchSlicesPreservingView` 和 `reset` 清空 ——
+这正是真正的体数据接管的三条路径。`isPreviewing()` 报告它当前是否有值。
 
 ::: warning `appendSlice` 不是 `setAllSlices` 的循环替代品
 它每个切片都会调一次 `setDisplaySlicesBaseOnAxis()`，而后者是从一个还在增长的 `allSlicesArray`

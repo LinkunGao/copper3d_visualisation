@@ -352,6 +352,24 @@ write — the package ships without a UI and does not reach into yours. Point it
 nrrdTools.notifyUser = (message, level) => toast[level](message); // 'error' | 'warning' | 'info'
 ```
 
+**Previewing one slice before the volume loads**
+
+```typescript
+// Put one plane on screen immediately, positioned as slice `index` of the full stack
+nrrdTools.showPreviewSlice(header, slice, index, async (target) => {
+  const next = await fetchSinglePlane(caseId, target);   // `target` is already clamped
+  nrrdTools.showPreviewSlice(header, next, target, onSliceMove);
+});
+
+// Later, when the real volume arrives — keeps the previewed index
+nrrdTools.switchSlicesPreservingView(allSlices);
+```
+
+While previewing, wheel/keys/drag do **not** move the display — the shown slice has depth 1,
+so the target index is handed to your callback to fetch instead. `header` is the full volume's
+geometry, not the plane's. Axial only. `isPreviewing()` reports the state; it ends on
+`switchSlicesPreservingView`, `setAllSlices` or `reset`.
+
 **Contrast series**
 
 A case is a series of contrasts. `addSkip` / `removeSkip` index the **full** contrast list;
@@ -689,6 +707,8 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | | `commitSeriesLoad(slices, entries, i)` | Case-load completion — one refresh |
 | | `switchAllSlicesArrayData(slices)` | Swap the series (resets view state) |
 | | `switchSlicesPreservingView(slices)` | Swap the series, keep slice index / zoom / pan |
+| **Preview** | `showPreviewSlice(header, slice, i, cb)` | Show one depth-1 slice as slice `i` of the not-yet-loaded stack; slice moves go to `cb` instead of moving the display. Axial only |
+| | `isPreviewing()` | Whether a preview slice is shown |
 | **Render** | `start` | Frame callback — pass to render loop |
 | **Lifecycle** | `dispose()` | Release the event router's listeners, a pending slice step, the drawing-flag timer and any mask-mirror link (from both ends). Instance unusable afterwards; safe to call twice |
 | **Layer** | `setActiveLayer(id)` | Switch drawing target layer |
