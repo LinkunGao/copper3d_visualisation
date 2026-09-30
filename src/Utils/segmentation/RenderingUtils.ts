@@ -1,16 +1,8 @@
 import type { INewMaskData } from "./core/types";
 import type { MaskVolume } from "./core/index";
 import type { CanvasState } from "./CanvasState";
-import { extractLabelContours, extractLabelOutline, findLabelsInSlice } from "./core/MarchingSquares";
-
-/**
- * Outline stroke width, in screen pixels.
- *
- * Screen pixels rather than voxels so magnifying the image does not thicken the line over the
- * boundary the clinician magnified it to see. Thin enough to sit on an edge, thick enough to
- * stay visible against bright tissue.
- */
-const OUTLINE_WIDTH_PX = 1.5;
+import type { MaskMirror } from "./tools/MaskMirror";
+import { contourEntry, paintContours, type ContourEntry } from "./contourPaint";
 
 /**
  * RenderingUtils — Rendering / slice-buffer helper methods.
@@ -27,6 +19,12 @@ export class RenderingUtils {
 
     /** Injected callback — set by owner after construction. */
     setEmptyCanvasSize: (axis?: "x" | "y" | "z") => void = () => { };
+
+    /** Set while this viewer draws another viewer's masks; painted after this viewer's own layers. */
+    mirror: MaskMirror | null = null;
+
+    /** Called after every composite. The owner refreshes the viewers mirroring this one. */
+    onComposited: (() => void) | null = null;
 
     // Reusable ImageData buffer for zero-allocation slice rendering
     private _reusableSliceBuffer: ImageData | null = null;
@@ -55,16 +53,7 @@ export class RenderingUtils {
      * One entry per layer (the current slice). Switching slice/axis or
      * editing overwrites it.
      */
-    private _contourCache = new Map<string, {
-        key: string;
-        W: number;
-        H: number;
-        labels: number[];
-        /** Silhouettes, to fill. Built on first use of fill mode for this slice. */
-        fills: Map<number, Path2D>;
-        /** Boundaries, to stroke. Built on first use of outline mode for this slice. */
-        outlines: Map<number, Path2D>;
-    }>();
+    private _contourCache = new Map<string, ContourEntry>();
 
     constructor(state: CanvasState) {
         this.state = state;
@@ -163,31 +152,6 @@ export class RenderingUtils {
     }
 
     /**
-     * Populate one cache entry's paths for one render mode.
-     *
-     * Split out because the two modes are built at different times: whichever is in use when
-     * a slice is first drawn, and the other one only if the clinician switches while still on
-     * that slice. Building both eagerly would make every slice scrub pay for a mode most
-     * sessions never turn on.
-     */
-    private buildPaths(
-        entry: { W: number; H: number; labels: number[]; fills: Map<number, Path2D>; outlines: Map<number, Path2D> },
-        data: Uint8Array,
-        stride: number,
-        outline: boolean,
-    ): void {
-        const target = outline ? entry.outlines : entry.fills;
-        for (const lbl of entry.labels) {
-            target.set(
-                lbl,
-                outline
-                    ? extractLabelOutline(data, entry.W, entry.H, lbl, stride, 0)
-                    : extractLabelContours(data, entry.W, entry.H, lbl, stride, 0),
-            );
-        }
-    }
-
-    /**
      * Render a layer's slice onto the target canvas as vector contours.
      *
      * Uses marching-squares to extract voxel-truthful Path2D contours per
@@ -252,102 +216,18 @@ export class RenderingUtils {
             const volume = this.getVolumeForLayer(layer);
             if (!volume) return;
 
-            const stride = volume.getChannels();
-            const cacheKey = `${axis}:${sliceIndex}:${volume.getVersion()}`;
-
-            // Cache miss → run the expensive extraction once. Hits (zoom,
-            // recomposite, contrast toggle) skip straight to the draw below.
-            let entry = this._contourCache.get(layer);
-            if (!entry || entry.key !== cacheKey) {
-                const slice = volume.getSliceUint8(sliceIndex, axis);
-                entry = {
-                    key: cacheKey,
-                    W: slice.width,
-                    H: slice.height,
-                    labels: findLabelsInSlice(slice.data, slice.width, slice.height, stride, 0),
-                    fills: new Map(),
-                    outlines: new Map(),
-                };
-                this._contourCache.set(layer, entry);
-                this.buildPaths(entry, slice.data, stride, outline);
-            } else if ((outline ? entry.outlines : entry.fills).size !== entry.labels.length) {
-                // The mode changed since this slice was last drawn, so the other set of
-                // paths is cached and this one is not. Re-read the slice and build it; from
-                // here on both are present and toggling is a pure cache hit.
-                const slice = volume.getSliceUint8(sliceIndex, axis);
-                this.buildPaths(entry, slice.data, stride, outline);
-            }
-
-            if (entry.labels.length === 0) return;
-
-            const { W, H, labels } = entry;
-            const paths = outline ? entry.outlines : entry.fills;
-            const channelVis = this.state.gui_states.layerChannel.channelVisibility[layer];
-
-            targetCtx.save();
-            // Vector drawing — imageSmoothingEnabled is irrelevant here, but keep
-            // it off to match the rest of the pipeline.
-            targetCtx.imageSmoothingEnabled = false;
-
-            if (outline) {
-                // Stroke on an UNTRANSFORMED context, with the voxel→display mapping carried
-                // in the path instead. `lineWidth` is then measured in screen pixels, which
-                // is what the other two options get wrong: stroking under `ctx.scale(sx, sy)`
-                // thickens the line with the zoom, exactly when the clinician has magnified
-                // the image to look at the boundary — and because voxels are rarely isotropic
-                // (sx !== sy), it also comes out thicker in one axis than the other.
-                const matrix = new DOMMatrix();
-                if (axis === 'y') {
-                    matrix.scaleSelf(1, -1);
-                    matrix.translateSelf(0, -scaledHeight);
-                }
-                matrix.scaleSelf(scaledWidth / W, scaledHeight / H);
-
-                targetCtx.lineWidth = OUTLINE_WIDTH_PX;
-                // Segments are emitted per cell and meet at shared endpoints; round caps
-                // close those joins. Canvas composites a whole Path2D in one pass, so the
-                // overlap costs no doubled alpha.
-                targetCtx.lineJoin = 'round';
-                targetCtx.lineCap = 'round';
-
-                for (const lbl of labels) {
-                    if (channelVis && channelVis[lbl] === false) continue;
-                    const path = paths.get(lbl);
-                    if (!path) continue;
-                    const color = volume.getChannelColor(lbl);
-                    targetCtx.strokeStyle =
-                        `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a / 255})`;
-                    const display = new Path2D();
-                    display.addPath(path, matrix);
-                    targetCtx.stroke(display);
-                }
-
-                targetCtx.restore();
-                return;
-            }
-
-            // Coronal (axis='y') Z-flip: mirrors the flip applied by the write
-            // path (syncLayerSliceData). Apply BEFORE the voxel→display scale
-            // so the flip operates in display coordinates.
-            if (axis === 'y') {
-                targetCtx.scale(1, -1);
-                targetCtx.translate(0, -scaledHeight);
-            }
-
-            // Voxel coord (x ∈ [0, W], y ∈ [0, H]) → display coord.
-            targetCtx.scale(scaledWidth / W, scaledHeight / H);
-
-            for (const lbl of labels) {
-                if (channelVis && channelVis[lbl] === false) continue;
-                const path = paths.get(lbl);
-                if (!path) continue;
-                const color = volume.getChannelColor(lbl);
-                targetCtx.fillStyle =
-                    `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a / 255})`;
-                targetCtx.fill(path, 'nonzero');
-            }
-
-            targetCtx.restore();
+            const entry = contourEntry(
+                this._contourCache,
+                layer,
+                `${axis}:${sliceIndex}:${volume.getVersion()}`,
+                () => ({ ...volume.getSliceUint8(sliceIndex, axis), stride: volume.getChannels() }),
+                outline,
+            );
+            paintContours(
+                entry, targetCtx, axis, scaledWidth, scaledHeight, outline,
+                (lbl) => volume.getChannelColor(lbl),
+                this.state.gui_states.layerChannel.channelVisibility[layer],
+            );
         } catch {
             // Slice out of bounds or volume not ready — skip silently
         }
@@ -411,5 +291,8 @@ export class RenderingUtils {
                 masterCtx.restore();
             }
         }
+
+        this.mirror?.paint(masterCtx, width, height);
+        this.onComposited?.();
     }
 }

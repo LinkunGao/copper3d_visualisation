@@ -29,6 +29,7 @@ import type { SphereType } from "./tools/SphereTool";
 import type { AiPromptTool, AiPromptPayload, AiMaskResult } from "./tools/AiAssistTool";
 import { LayerChannelManager } from "./tools/LayerChannelManager";
 import { SliceRenderPipeline } from "./tools/SliceRenderPipeline";
+import { MaskMirror } from "./tools/MaskMirror";
 import { DataLoader } from "./tools/DataLoader";
 import type { ToolContext } from "./tools/BaseTool";
 import { ensureAxisExtracted } from "../../Loader/copperNrrdLoader";
@@ -67,6 +68,12 @@ export class NrrdTools {
   private preTimer: any;
   private guiParameterSettings: IGuiParameterSettings | undefined;
   private _sliceRAFId: number | null = null;
+  /** Viewers drawing this one's masks (see setMaskMirror). */
+  private _mirrors = new Set<NrrdTools>();
+  /** The viewer whose masks this one draws, if any. */
+  private _mirrorSource: NrrdTools | null = null;
+  /** The pending frame that refreshes this viewer's mirrors. */
+  private _mirrorFrame: number | null = null;
   private _pendingSliceStep: number = 0;
 
   /** Whether calculator mode is active (not part of gui_states interface) */
@@ -122,6 +129,8 @@ export class NrrdTools {
 
     // Wire DrawToolCore's overridable methods to NrrdTools implementations
     this.wireDrawCoreMethods();
+    // Every visible mask change ends in a composite; the viewers mirroring this one follow it.
+    this.drawCore.renderer.onComposited = () => this.scheduleMirrorRefresh();
 
     // Wire RenderingUtils' setEmptyCanvasSize callback
     this.drawCore.renderer.setEmptyCanvasSize = (axis?) => this.setEmptyCanvasSize(axis);
@@ -204,6 +213,7 @@ export class NrrdTools {
     });
     this.sliceRenderPipeline = new SliceRenderPipeline(toolCtx, {
       compositeAllLayers: () => this.drawCore.renderer.compositeAllLayers(),
+      hasMaskMirror: () => this._mirrorSource !== null,
       getOrCreateSliceBuffer: (axis) => this.drawCore.renderer.getOrCreateSliceBuffer(axis),
       renderSliceToCanvas: (layer, axis, sliceIndex, buffer, targetCtx, w, h) =>
         this.drawCore.renderer.renderSliceToCanvas(layer, axis, sliceIndex, buffer, targetCtx, w, h),
@@ -1535,9 +1545,40 @@ export class NrrdTools {
   }
 
   /**
+   * Draw `source`'s masks on this viewer, read live from it: its volumes, colours, channel and
+   * layer visibility, opacity and render mode. `mirrorToSource` is a row-major 4×4 from this
+   * viewer's voxel (x, y, z, 1) to the source's voxel; omitted means the identity. `null`
+   * detaches. Display only — nothing is written to either viewer's masks.
+   */
+  setMaskMirror(source: NrrdTools | null, mirrorToSource?: ArrayLike<number>): void {
+    this._mirrorSource?._mirrors.delete(this);
+    this._mirrorSource = source && source !== this ? source : null;
+    this.drawCore.renderer.mirror = this._mirrorSource
+      ? new MaskMirror(this.state, this._mirrorSource.state, mirrorToSource ?? null)
+      : null;
+    this._mirrorSource?._mirrors.add(this);
+    this.drawCore.renderer.compositeAllLayers();
+  }
+
+  /** The viewer whose masks this one draws, or null. */
+  getMaskMirrorSource(): NrrdTools | null {
+    return this._mirrorSource;
+  }
+
+  /** Repaint every mirror of this viewer on the next frame; repeated calls coalesce. */
+  private scheduleMirrorRefresh(): void {
+    if (this._mirrors.size === 0 || this._mirrorFrame !== null) return;
+    this._mirrorFrame = requestAnimationFrame(() => {
+      this._mirrorFrame = null;
+      for (const m of this._mirrors) m.drawCore.renderer.compositeAllLayers();
+    });
+  }
+
+  /**
    * Releases what this instance holds outside its own DOM subtree, so a viewer that is torn
    * down can be garbage-collected: the event router's listeners (its window `blur` listener
-   * reaches the whole engine graph), a pending slice step and the drawing-flag timer.
+   * reaches the whole engine graph), a pending slice step, the drawing-flag timer and any
+   * mask-mirror link.
    *
    * The instance must not be used afterwards. Safe to call more than once.
    */
@@ -1551,6 +1592,22 @@ export class NrrdTools {
     if (this.preTimer !== undefined) {
       window.clearTimeout(this.preTimer);
       this.preTimer = undefined;
+    }
+    // Release the mirror link from both ends, so neither viewer keeps the other alive.
+    if (this._mirrorSource) {
+      this._mirrorSource._mirrors.delete(this);
+      this._mirrorSource = null;
+      this.drawCore.renderer.mirror = null;
+    }
+    for (const m of this._mirrors) {
+      m._mirrorSource = null;
+      m.drawCore.renderer.mirror = null;
+      m.drawCore.renderer.compositeAllLayers();
+    }
+    this._mirrors.clear();
+    if (this._mirrorFrame !== null) {
+      cancelAnimationFrame(this._mirrorFrame);
+      this._mirrorFrame = null;
     }
   }
 

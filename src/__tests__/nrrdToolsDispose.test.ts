@@ -16,6 +16,9 @@ function makeInstance() {
   const instance: any = Object.create(NrrdTools.prototype);
   instance.drawCore = { eventRouter };
   instance._sliceRAFId = null;
+  instance._mirrors = new Set();
+  instance._mirrorSource = null;
+  instance._mirrorFrame = null;
   instance.preTimer = undefined;
   return { instance, eventRouter };
 }

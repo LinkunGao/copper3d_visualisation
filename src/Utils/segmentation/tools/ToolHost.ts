@@ -20,6 +20,8 @@ export interface ToolHost {
     setEmptyCanvasSize(axis?: "x" | "y" | "z"): void;
     drawImageOnEmptyImage(canvas: HTMLCanvasElement): void;
     compositeAllLayers(): void;
+    /** Whether this viewer draws another viewer's masks instead of its own layers. */
+    hasMaskMirror(): boolean;
     renderSliceToCanvas(
         layer: string, axis: "x" | "y" | "z", sliceIndex: number,
         buffer: ImageData, targetCtx: CanvasRenderingContext2D,
@@ -135,7 +137,7 @@ export type LayerChannelHostDeps = Pick<ToolHost,
 
 /** SliceRenderPipeline host dependencies */
 export type SliceRenderHostDeps = Pick<ToolHost,
-    'compositeAllLayers' | 'getOrCreateSliceBuffer' | 'renderSliceToCanvas'
+    'compositeAllLayers' | 'hasMaskMirror' | 'getOrCreateSliceBuffer' | 'renderSliceToCanvas'
     | 'getVolumeForLayer' | 'refreshSphereOverlay' | 'syncGuiParameterSettings'
     | 'repraintCurrentContrastSlice' | 'clearUndoHistory'
     | 'updateShowNumDiv' | 'updateCurrentContrastSlice'
