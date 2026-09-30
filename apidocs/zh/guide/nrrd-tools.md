@@ -311,6 +311,48 @@ nrrdTools.switchAllSlicesArrayData(allSlices);
 nrrdTools.switchSlicesPreservingView(allSlices);
 ```
 
+### 3.4 在体数据加载完成之前先预览单张切片 <Badge type="tip" text="3.11.6" />
+
+大体数据要好几秒才能传完。`showPreviewSlice` 可以**立刻**把一张切片放到屏幕上，并把它摆在完整
+序列中第 `index` 张的位置上，让读片者在其余数据还在下载时就能翻片：
+
+```typescript
+nrrdTools.showPreviewSlice(header, slice, index, async (target) => {
+  // `target` 是被夹取之后、读片者想去的那一张 —— 取回来再显示
+  const next = await fetchSinglePlane(caseId, target);
+  nrrdTools.showPreviewSlice(header, next, target, onSliceMove);
+});
+
+nrrdTools.isPreviewing();   // → 在完整体数据接管之前一直为 true
+```
+
+| 参数 | 含义 |
+|------|------|
+| `header` | **完整**体数据的几何信息（`NrrdHeaderLike`：dimensions、spacing、space_origin）—— 不是那一张平面的 |
+| `slice` | 由单张平面的体素构建出来的 depth-1 切片三元组 |
+| `index` | 这张平面在完整序列中是第几张 |
+| `onSliceMove` | 预览期间每一次切片移动，都会把夹取后的目标索引交给它 |
+
+**预览期间，切片移动不会移动显示内容。** 滚轮、按键、拖动和 `setSliceMoving` 都会被拦截，转而把
+夹取后的目标交给 `onSliceMove` —— 因为当前显示的切片深度为 1，移动它只会画出空白。真正让画面前进
+的，是你把那一张取回来、再调一次 `showPreviewSlice`。
+
+只有当 `header` 和当前的不一致时才会重新初始化几何信息，所以翻片过程中反复调用它是廉价的。
+它不会写入任何 mask 数据。
+
+**交接给真正的体数据：**
+
+```typescript
+const allSlices = await loadFullVolume(caseId);
+nrrdTools.switchSlicesPreservingView(allSlices);   // 保留预览时的索引，并结束预览状态
+```
+
+`setAllSlices()` 和 `reset()` 同样会结束预览状态。
+
+::: warning 仅限横断面
+`showPreviewSlice` 不会切换观察方向 —— 它显示的是一张 `z` 平面。矢状面和冠状面需要完整体数据。
+:::
+
 ---
 
 ## 4. 渲染循环集成
@@ -352,6 +394,7 @@ container.remove();          // 你的 DOM，由你决定
 | EventRouter 的各个监听器 | 它挂在 window 上的 `blur` 监听器闭包持有 router，而 router 可以到达整张引擎对象图 —— 一个活着的监听器就钉住了整个实例 |
 | 待处理的切片步进 | `setSliceMoving` 用来合并步进的那个 `requestAnimationFrame` |
 | 绘制标志定时器 | 尚未触发的 `setIsDrawFalse` 定时器 |
+| mask 镜像链接 | 从**两端**断开，因此两个视图不会互相钉住。销毁源视图会解除它的所有镜像并把它们重绘为空（见 §6.7）|
 
 调用之后这个实例就不能再用了。它可以被安全地重复调用，所以一个可能执行两次的卸载钩子不需要额外
 加保护。
@@ -752,7 +795,52 @@ if (voxels) nrrdTools.replaceLayerVolume('layer3', voxels, { undoable: true });
 应当自己去持久化这个新 volume。该回调只在之后读片者撤销或重做这次替换时才触发，因为那时后端手里
 还是更新的那一版，需要被告知回退。
 
-### 6.7 擦除单个通道 —— `clearChannel()` <Badge type="tip" text="3.10.2" />
+### 6.7 镜像另一个视图的 mask —— `setMaskMirror()` <Badge type="tip" text="3.11.5" />
+
+把**另一个**视图的 mask 画到当前视图上。最典型的用法是并排对照：在左边标注，让右边那份检查在
+它自己的图像上显示同样的 finding。
+
+```typescript
+// 让 reference 画出 primary 的 mask
+reference.setMaskMirror(primary);
+
+// 两个网格之间带一个体素→体素变换
+reference.setMaskMirror(primary, mirrorToSource);   // 行主序 4×4
+
+reference.setMaskMirror(null);                      // 解除
+const src = reference.getMaskMirrorSource();        // → primary | null
+```
+
+**所有东西都是从源视图实时读取的** —— 它的 volume、通道颜色、图层与通道可见性、per-layer 透明度，
+以及它的填充/描边渲染模式。在源视图上改动其中任何一项，镜像会在下一帧跟上。做镜像的视图本身不需要
+任何图层，`layers: []` 和它天然搭配。
+
+::: warning 仅影响显示
+两边视图的 mask 都不会被写入。镜像自身根本不持有任何 mask 数据 —— 它是对源的一个视图，因此不存在
+需要保持同步的副本，也没有任何东西需要保存。
+:::
+
+**关于变换。** `mirrorToSource` 是一个行主序 4×4 矩阵，把**当前**视图的体素 `(x, y, z, 1)` 映射到
+源视图的体素。不传则视为单位矩阵 —— 两个视图共用同一网格时就该这样。
+
+| 情形 | 采样方式 |
+|------|----------|
+| 单位矩阵**且**维度一致 | 直接就是源自己的那一张切片，原样使用 |
+| 对角变换（轴向一致，只有缩放和偏移不同） | 当镜像体素比源体素粗时，取它所覆盖的所有源体素中找到的第一个 label —— 因此比镜像切片还薄的 finding 仍会出现在包含它的那张切片上 |
+| 其他任意变换 | 取最近的源体素 |
+
+映射到源之外的格子读作空。
+
+**刷新与销毁。** 源视图上每一次可见的 mask 改动最终都会走到一次合成，而每一次合成都会安排在下一个
+动画帧重绘它的镜像；连续多次改动会被合并成一次。`dispose()` 会从两端断开这个链接，因此两个视图不会
+互相钉住 —— 销毁源视图会解除它的所有镜像并把它们重绘为空。
+
+::: tip 球体模式下会隐藏
+源视图在球体模式下会隐藏自己的图层，因此在该模式激活期间，它的镜像也什么都不显示 —— 和源视图自己
+显示的内容保持一致。
+:::
+
+### 6.8 擦除单个通道 —— `clearChannel()` <Badge type="tip" text="3.10.2" />
 
 ```typescript
 nrrdTools.clearChannel('layer1', 3);  // 3 号 finding 被清除；1、2、4 保留
@@ -1373,8 +1461,10 @@ function onChannelColorPicked(hex: string) {
 | | `commitSeriesLoad(slices, entries, i)` | 病例加载收尾：换序列 + 对齐 skip + 落到目标对比度，只刷新一次 |
 | | `switchAllSlicesArrayData(slices)` | 替换已加载的序列（会重置切片索引 / 缩放 / 平移） |
 | | `switchSlicesPreservingView(slices)` | 替换已加载的序列，保留切片索引、缩放和平移 |
+| **预览** | `showPreviewSlice(header, slice, i, cb)` | 把一张 depth-1 切片显示为尚未加载完的序列中的第 `i` 张。预览期间每一次切片移动都会把夹取后的目标交给 `cb`，而不移动显示内容。仅限横断面；在 `switchSlicesPreservingView` / `setAllSlices` / `reset` 时结束 |
+| | `isPreviewing()` | 当前是否正以预览切片代替已加载的体数据 |
 | **渲染部分** | `start` | 一组用去刷新重现覆盖表里的挂帧刷绘画层动作钩件方法函数 —— 它用来投入至全局循动描渲周期系统当中 |
-| **生命周期** | `dispose()` | 释放 EventRouter 的监听器、待处理的切片步进和绘制标志定时器。调用后实例不可再用；可重复调用 |
+| **生命周期** | `dispose()` | 释放 EventRouter 的监听器、待处理的切片步进、绘制标志定时器，以及（从两端断开）mask 镜像链接。调用后实例不可再用；可重复调用 |
 | **图层** | `setActiveLayer(id)` | 指令调切换过去另至另一块为被作为画改作用焦聚的图层中去 |
 | | `getActiveLayer()` | 查证核检取回当下现在被聚焦中用来修改活动所在的图层代号 |
 | | `setLayerVisible(id, bool)` | 指令定准切换图块被开启可视亦或者是做暂蔽关闭起来的指令 |
@@ -1387,6 +1477,8 @@ function onChannelColorPicked(hex: string) {
 | | `setLayerOpacity(id, opacity)` | 设置 per-layer 透明度 (0.1–1.0)，触发重渲染 |
 | | `getLayerOpacity(id)` | 获取指定 layer 的透明度 |
 | | `getLayerOpacityMap()` | 获取所有 layer 的透明度值 |
+| **镜像** | `setMaskMirror(src, m?)` | 实时绘制另一个视图的 mask。`m` 为行主序 4×4 体素→体素变换；传 `null` 解除。仅影响显示，两边的 mask 都不会被写入 |
+| | `getMaskMirrorSource()` | 当前被镜像的那个视图，或 `null` |
 | **球体** | `setActiveSphereType(type)` | 让激活切点变更使用的类型系统, 顺道同换掉相关的颜色设定 |
 | | `getActiveSphereType()` | 验证当下此刻使用到的到底是哪一种求体积对象系统类型 |
 | | `setCalculateDistanceSphere(x, y, slice, type)` | 以纯系统后方传点编码输入式自动完成放下求计算小球的过程指派动作 |

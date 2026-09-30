@@ -67,6 +67,7 @@ function makeCallbacks(): DragSliceHostDeps {
     renderSliceToCanvas: vi.fn(),
     refreshSphereOverlay: vi.fn(),
     compositeAllLayers: vi.fn(),
+    previewSliceMove: vi.fn(() => false),
   } as unknown as DragSliceHostDeps;
 }
 

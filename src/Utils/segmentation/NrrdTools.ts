@@ -29,7 +29,8 @@ import type { SphereType } from "./tools/SphereTool";
 import type { AiPromptTool, AiPromptPayload, AiMaskResult } from "./tools/AiAssistTool";
 import { LayerChannelManager } from "./tools/LayerChannelManager";
 import { SliceRenderPipeline } from "./tools/SliceRenderPipeline";
-import { DataLoader } from "./tools/DataLoader";
+import { MaskMirror } from "./tools/MaskMirror";
+import { DataLoader, type NrrdHeaderLike } from "./tools/DataLoader";
 import type { ToolContext } from "./tools/BaseTool";
 import { ensureAxisExtracted } from "../../Loader/copperNrrdLoader";
 
@@ -67,7 +68,15 @@ export class NrrdTools {
   private preTimer: any;
   private guiParameterSettings: IGuiParameterSettings | undefined;
   private _sliceRAFId: number | null = null;
+  /** Viewers drawing this one's masks (see setMaskMirror). */
+  private _mirrors = new Set<NrrdTools>();
+  /** The viewer whose masks this one draws, if any. */
+  private _mirrorSource: NrrdTools | null = null;
+  /** The pending frame that refreshes this viewer's mirrors. */
+  private _mirrorFrame: number | null = null;
   private _pendingSliceStep: number = 0;
+  /** Receives slice moves while a preview slice is shown; null when none is. */
+  private _previewSliceMove: ((index: number) => void) | null = null;
 
   /** Whether calculator mode is active (not part of gui_states interface) */
   private _calculatorActive: boolean = false;
@@ -122,6 +131,8 @@ export class NrrdTools {
 
     // Wire DrawToolCore's overridable methods to NrrdTools implementations
     this.wireDrawCoreMethods();
+    // Every visible mask change ends in a composite; the viewers mirroring this one follow it.
+    this.drawCore.renderer.onComposited = () => this.scheduleMirrorRefresh();
 
     // Wire RenderingUtils' setEmptyCanvasSize callback
     this.drawCore.renderer.setEmptyCanvasSize = (axis?) => this.setEmptyCanvasSize(axis);
@@ -149,6 +160,7 @@ export class NrrdTools {
 
     // Wire sphere overlay refresh callback into DragOperator → DragSliceTool
     this.dragOperator.setRefreshSphereOverlay(() => this.refreshSphereOverlay());
+    this.dragOperator.setPreviewSliceMove((index) => this.previewSliceMove(index));
 
     // Initialize extracted modules
     this.initNrrdToolsModules();
@@ -204,6 +216,7 @@ export class NrrdTools {
     });
     this.sliceRenderPipeline = new SliceRenderPipeline(toolCtx, {
       compositeAllLayers: () => this.drawCore.renderer.compositeAllLayers(),
+      hasMaskMirror: () => this._mirrorSource !== null,
       getOrCreateSliceBuffer: (axis) => this.drawCore.renderer.getOrCreateSliceBuffer(axis),
       renderSliceToCanvas: (layer, axis, sliceIndex, buffer, targetCtx, w, h) =>
         this.drawCore.renderer.renderSliceToCanvas(layer, axis, sliceIndex, buffer, targetCtx, w, h),
@@ -1068,9 +1081,59 @@ export class NrrdTools {
    * Used for register/origin image switching where the view state should persist.
    */
   switchSlicesPreservingView(allSlices: Array<nrrdSliceType>) {
+    this._previewSliceMove = null;
     this.state.protectedData.allSlicesArray.length = 0;
     this.state.protectedData.allSlicesArray = [...allSlices];
     this.sliceRenderPipeline.switchPreservingView();
+  }
+
+  /**
+   * Show one slice of a volume before the volume itself has loaded: `header` is the full
+   * volume's geometry, `slice` a depth-1 slice triple of plane `index` (built from one plane's
+   * voxels), shown as slice `index` of the full stack. Geometry is re-initialised only when it
+   * differs from the current one. Replaces whatever slice data is displayed; writes no mask.
+   * The full volume later replaces it with `switchSlicesPreservingView`, keeping `index`.
+   *
+   * Until then every slice move (wheel, keys, drag, `setSliceMoving`) goes to `onSliceMove`
+   * with its clamped target index instead of moving the displayed slice. Axial only; it does
+   * not switch orientation.
+   */
+  showPreviewSlice(
+    header: NrrdHeaderLike,
+    slice: nrrdSliceType,
+    index: number,
+    onSliceMove: (index: number) => void
+  ) {
+    const image = this.state.nrrd_states.image;
+    const same = (a: ArrayLike<number> | undefined, b: ArrayLike<number>) =>
+      !!a && a.length === b.length && Array.from(b).every((v, i) => a[i] === v);
+    if (
+      !same(image.dimensions, header.dimensions) ||
+      !same(image.voxelSpacing, header.spacing) ||
+      !same(image.spaceOrigin, header.space_origin)
+    ) {
+      this.dataLoader.initFromHeader(header);
+    }
+
+    slice.z.initIndex = index;
+    this.state.protectedData.allSlicesArray.length = 0;
+    // Take the index from `initIndex` rather than writing the full-stack index into the
+    // depth-1 slice's own `index`, which would be out of range for it.
+    this.sliceRenderPipeline.resetInitState();
+    this.dataLoader.appendSlice(slice, 0);
+    this._previewSliceMove = onSliceMove;
+  }
+
+  /** Whether a preview slice from `showPreviewSlice` is shown in place of a loaded volume. */
+  isPreviewing(): boolean {
+    return this._previewSliceMove !== null;
+  }
+
+  /** Hands a slice move to the preview's host; false when no preview is shown. */
+  private previewSliceMove(index: number): boolean {
+    if (!this._previewSliceMove) return false;
+    this._previewSliceMove(index);
+    return true;
   }
 
   appendLoadingbar(loadingbar: HTMLDivElement) {
@@ -1208,7 +1271,10 @@ export class NrrdTools {
   // 9. Delegated — DataLoader
   // ═══════════════════════════════════════════════════════════════════════════
 
-  setAllSlices(allSlices: Array<nrrdSliceType>) { this.dataLoader.setAllSlices(allSlices); }
+  setAllSlices(allSlices: Array<nrrdSliceType>) {
+    this._previewSliceMove = null;
+    this.dataLoader.setAllSlices(allSlices);
+  }
   setMasksData(masksData: storeExportPaintImageType, loadingBar?: loadingBarType) { this.dataLoader.setMasksData(masksData, loadingBar); }
   setMasksFromNIfTI(layerVoxels: Map<string, Uint8Array>, loadingBar?: loadingBarType) { this.dataLoader.setMasksFromNIfTI(layerVoxels, loadingBar); }
 
@@ -1493,6 +1559,7 @@ export class NrrdTools {
   }
 
   reset() {
+    this._previewSliceMove = null;
     this.state.protectedData.allSlicesArray.length = 0;
     this.state.protectedData.displaySlices.length = 0;
     this.drawCore.undoManager.clearAll();
@@ -1535,9 +1602,40 @@ export class NrrdTools {
   }
 
   /**
+   * Draw `source`'s masks on this viewer, read live from it: its volumes, colours, channel and
+   * layer visibility, opacity and render mode. `mirrorToSource` is a row-major 4×4 from this
+   * viewer's voxel (x, y, z, 1) to the source's voxel; omitted means the identity. `null`
+   * detaches. Display only — nothing is written to either viewer's masks.
+   */
+  setMaskMirror(source: NrrdTools | null, mirrorToSource?: ArrayLike<number>): void {
+    this._mirrorSource?._mirrors.delete(this);
+    this._mirrorSource = source && source !== this ? source : null;
+    this.drawCore.renderer.mirror = this._mirrorSource
+      ? new MaskMirror(this.state, this._mirrorSource.state, mirrorToSource ?? null)
+      : null;
+    this._mirrorSource?._mirrors.add(this);
+    this.drawCore.renderer.compositeAllLayers();
+  }
+
+  /** The viewer whose masks this one draws, or null. */
+  getMaskMirrorSource(): NrrdTools | null {
+    return this._mirrorSource;
+  }
+
+  /** Repaint every mirror of this viewer on the next frame; repeated calls coalesce. */
+  private scheduleMirrorRefresh(): void {
+    if (this._mirrors.size === 0 || this._mirrorFrame !== null) return;
+    this._mirrorFrame = requestAnimationFrame(() => {
+      this._mirrorFrame = null;
+      for (const m of this._mirrors) m.drawCore.renderer.compositeAllLayers();
+    });
+  }
+
+  /**
    * Releases what this instance holds outside its own DOM subtree, so a viewer that is torn
    * down can be garbage-collected: the event router's listeners (its window `blur` listener
-   * reaches the whole engine graph), a pending slice step and the drawing-flag timer.
+   * reaches the whole engine graph), a pending slice step, the drawing-flag timer and any
+   * mask-mirror link.
    *
    * The instance must not be used afterwards. Safe to call more than once.
    */
@@ -1551,6 +1649,22 @@ export class NrrdTools {
     if (this.preTimer !== undefined) {
       window.clearTimeout(this.preTimer);
       this.preTimer = undefined;
+    }
+    // Release the mirror link from both ends, so neither viewer keeps the other alive.
+    if (this._mirrorSource) {
+      this._mirrorSource._mirrors.delete(this);
+      this._mirrorSource = null;
+      this.drawCore.renderer.mirror = null;
+    }
+    for (const m of this._mirrors) {
+      m._mirrorSource = null;
+      m.drawCore.renderer.mirror = null;
+      m.drawCore.renderer.compositeAllLayers();
+    }
+    this._mirrors.clear();
+    if (this._mirrorFrame !== null) {
+      cancelAnimationFrame(this._mirrorFrame);
+      this._mirrorFrame = null;
     }
   }
 

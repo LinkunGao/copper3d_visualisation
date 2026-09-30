@@ -328,6 +328,8 @@ The `a` (alpha) field determines the base mask opacity. Usually set to `255`; ac
 | `setAllSlices` | `(allSlices: Array<nrrdSliceType>): void` | **Entry point**: Load NRRD slices and initialize all MaskVolumes to the correct dimensions |
 | `initFromHeader` | `(header: NrrdHeaderLike): void` | Size image metadata and MaskVolumes from volume geometry alone, before any pixel data exists. `allSlicesArray` is untouched |
 | `appendSlice` | `(slice: nrrdSliceType, order: number): void` | Append one already-loaded slice to the contrast series and refresh display slices / undo state |
+| `showPreviewSlice` | `(header, slice, index, onSliceMove): void` *(NrrdTools)* | Show one depth-1 slice as slice `index` of the not-yet-loaded stack, and route slice moves to `onSliceMove` until a real volume takes over |
+| `isPreviewing` | `(): boolean` *(NrrdTools)* | Whether a preview slice is shown |
 | `setMasksData` | `(masksData, loadingBar?): void` | Legacy loading method (deprecated, pending removal) |
 | `setMasksFromNIfTI` | `(layerVoxels: Map<string, Uint8Array>, loadingBar?): void` | Load mask data from NIfTI files into MaskVolume, validating each buffer's grid |
 | `registerNiftiMaskGrid` | `(data: Uint8Array, dims: number[]): void` *(module export)* | Record a mask buffer's NIfTI voxel grid, keyed by buffer identity, for `setMasksFromNIfTI` to check |
@@ -350,6 +352,41 @@ setAllSlices(allSlices)
 The split exists so a progressive loader can size everything from a backend headers response
 (`{ dimensions, spacing, space_origin }` as JSON — the same `NrrdHeaderLike` shape) and then
 feed slices in one at a time with `appendSlice` as they arrive.
+
+#### Preview slices <Badge type="tip" text="3.11.6" />
+
+`NrrdTools.showPreviewSlice(header, slice, index, onSliceMove)` is the progressive path's
+front end, and it is built from the two pieces above:
+
+```
+showPreviewSlice(header, slice, index, onSliceMove)
+  │
+  ├─ geometry differs from the current one? → dataLoader.initFromHeader(header)
+  │     (compared field-by-field on dimensions / spacing / space_origin, so repeated
+  │      calls while scrubbing re-initialise nothing)
+  │
+  ├─ slice.z.initIndex = index          ◀ the full-stack index lives here, NOT in the
+  │                                        depth-1 slice's own `index`, where it would
+  │                                        be out of range
+  ├─ allSlicesArray.length = 0
+  ├─ sliceRenderPipeline.resetInitState()
+  ├─ dataLoader.appendSlice(slice, 0)   ◀ one slice, so appendSlice is the right call here
+  └─ _previewSliceMove = onSliceMove
+```
+
+**The slice-move interception.** While `_previewSliceMove` is set, `DragSliceTool` clamps the
+requested index to `[minIndex, maxIndex]` and offers it to `previewSliceMove(target)`; a
+`true` return means the move was consumed and the tool returns without touching the display.
+The displayed slice has depth 1, so moving it would paint blank — the host is expected to
+fetch that plane and call `showPreviewSlice` again.
+
+The hook reaches `DragSliceTool` as a `ToolHost` dependency
+(`DragSliceHostDeps` gained `previewSliceMove`), wired through
+`DragOperator.setPreviewSliceMove`. Before `NrrdTools` sets it, the default returns `false`,
+so every move proceeds normally.
+
+`_previewSliceMove` is cleared by `setAllSlices`, `switchSlicesPreservingView` and `reset` —
+the three ways a real volume takes over. `isPreviewing()` reports whether it is set.
 
 ::: warning `appendSlice` is not a loop-friendly substitute for `setAllSlices`
 It calls `setDisplaySlicesBaseOnAxis()` per slice, which rebuilds the display-slice list from
@@ -447,6 +484,15 @@ mode it redraws what is already on screen, and a mode-dependent branch there is 
 that can fall out of step with the renderer. The display mode returns at pointer-up, via
 `refreshLayerFromVolume`.
 
+::: tip Both live in `contourPaint.ts` <Badge type="tip" text="3.11.5" />
+The cache entry, the path building and the painting were extracted out of `RenderingUtils`
+into `contourPaint.ts` so `MaskMirror` (§2.7) can paint a source viewer's masks with exactly
+the same code — same cache shape, same fill/outline choice, same stroke geometry. Its exports
+are `ContourEntry`, `LabelSlice`, `contourEntry(...)`, `paintContours(...)` and
+`OUTLINE_WIDTH_PX`. `RenderingUtils` keeps the slice buffer, the compositing and the
+per-layer cache map.
+:::
+
 ##### Path cache
 
 The render mode is **not** part of the cache key. Each entry holds two lazily-built maps:
@@ -527,14 +573,74 @@ nrrdTools.setCalculateDistanceSphere(120, 95, 42, 'tumour');
 nrrdTools.setCalculateDistanceSphere(200, 150, 42, 'skin');
 ```
 
-### 2.7 Other APIs
+### 2.7 Mask Mirroring <Badge type="tip" text="3.11.5" />
+
+> **Implementation**: `tools/MaskMirror.ts`, painting through `contourPaint.ts`.
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `setMaskMirror` | `(source: NrrdTools \| null, mirrorToSource?: ArrayLike<number>): void` | Draw `source`'s masks on this viewer. `null` — or passing this viewer itself — detaches |
+| `getMaskMirrorSource` | `(): NrrdTools \| null` | The viewer being mirrored |
+
+**`MaskMirror` holds no mask data.** Every paint reads the source's `CanvasState` live:
+volumes, channel colours, layer/channel visibility, per-layer opacity and `maskRenderMode`.
+There is no copy, so there is nothing to keep in sync and nothing to invalidate on an edit.
+
+```
+NrrdTools A (source)                      NrrdTools B (mirror)
+  renderer.onComposited ──┐                 renderer.mirror = MaskMirror(B.state, A.state, m)
+                          │                            │
+  A.scheduleMirrorRefresh()                            │
+   └─ rAF, coalesced ─────┴──► B.compositeAllLayers() ─┘
+                                 └─ …B's own layers, then mirror.paint(masterCtx, w, h)
+```
+
+`compositeAllLayers` calls `this.mirror?.paint(...)` after the viewer's own layers, then fires
+`onComposited`. So a mirror is painted **on top of** whatever the mirroring viewer has of its
+own — usually nothing, since such a viewer is typically constructed with `layers: []`.
+
+`SliceRenderPipeline` short-circuits to a plain `compositeAllLayers()` when
+`hasMaskMirror()` is true: a mirroring viewer has no layers of its own to render.
+
+#### Sampling — `mirrorSliceLabels`
+
+The transform is a row-major 4×4 from **this** viewer's voxel `(x, y, z, 1)` to the source's.
+Slices are built in `MaskVolume.getSliceUint8`'s layout for this viewer's own grid, so the
+shared paint code draws them unchanged, flips included.
+
+| Case | Path |
+|------|------|
+| `isIdentity(m)` **and** matching dimensions | Returns the source's own slice directly — no resampling |
+| `isDiagonal(m)` (each axis maps onto its own) | `coveredRanges` gives, per mirror index, the inclusive source range it spans. A mirror voxel **coarser** than the source takes the first label among every source voxel it covers |
+| Otherwise | Nearest source voxel |
+
+The coarse-voxel rule is the one worth knowing: it means a finding thinner than the mirror's
+slice still appears on the slice that contains it, instead of falling between samples. A cell
+mapping outside the source reads as `0`.
+
+#### Cache and failure handling
+
+One `ContourEntry` per source layer, keyed `axis:index:volume.getVersion()`. The mirror also
+tracks which `MaskVolume` object each entry came from and drops the entry when it changes — a
+case load replaces the object, and the version counter alone would not notice.
+
+A new transform means a **new `MaskMirror` instance**, so a cache can never hold contours
+built under a different transform.
+
+`paint` is defensive at two levels: the per-layer `try` swallows a source that is not ready
+for this slice (nothing drawn for that layer), and a `finally` restores the canvas so a throw
+cannot leave a layer's `globalAlpha` or transform on the master canvas. It also returns early
+when the source is in sphere mode, which hides the source's own layers — so the mirror shows
+what the source shows.
+
+### 2.8 Other APIs
 
 > **Implementation**: Directly in the NrrdTools Facade (section 5 View Control, section 6 Data Getters).
 
 | Method | Description |
 |--------|-------------|
 | `drag(opts?)` | Enable drag-to-scroll slice navigation |
-| `dispose()` | Teardown: `eventRouter.unbindAll()`, cancel the pending slice-step `requestAnimationFrame`, clear the `setIsDrawFalse` timer. Releases only what the instance attached outside its own DOM subtree — the window `blur` listener is the one that pins the whole engine graph. Instance unusable afterwards; idempotent |
+| `dispose()` | Teardown: `eventRouter.unbindAll()`, cancel the pending slice-step `requestAnimationFrame`, clear the `setIsDrawFalse` timer, and break any mask-mirror link from both ends (disposing a source detaches its mirrors and repaints them empty). Releases only what the instance attached outside its own DOM subtree — the window `blur` listener is the one that pins the whole engine graph. Instance unusable afterwards; idempotent |
 | `setAnnotationSuspended(bool)` | Block every input that can write into a mask, at `DrawToolCore.onCanvasPointerDown`. Slice scrubbing, zoom, pan and the crosshair stay live (see 7.1) |
 | `isAnnotationSuspended()` | Query the suspension state |
 | `setSliceOrientation(axis)` | Switch viewing axis. Calls `ensureAxisExtracted` for every loaded contrast first, so a narrowed-axes load can still switch planes |

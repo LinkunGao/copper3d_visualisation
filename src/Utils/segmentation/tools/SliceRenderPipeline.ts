@@ -214,6 +214,12 @@ export class SliceRenderPipeline extends BaseTool {
       return;
     }
 
+    // A mirroring viewer has no layers of its own; its mirror paints in the composite.
+    if (this.callbacks.hasMaskMirror()) {
+      this.callbacks.compositeAllLayers();
+      return;
+    }
+
     const axis = this.ctx.protectedData.axis;
     let sliceIndex = this.ctx.nrrd_states.view.currentSliceIndex;
 

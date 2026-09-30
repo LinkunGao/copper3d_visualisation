@@ -81,6 +81,11 @@ export class DragSliceTool extends BaseTool {
     let newIndex = view.currentSliceIndex + sliceModifyNum;
 
     if (newIndex != view.currentSliceIndex || view.showContrast) {
+      // While a preview slice is shown the displayed slice has depth 1, so moving it would
+      // paint blank; the host fetches the target slice instead.
+      const target = Math.min(Math.max(newIndex, view.minIndex), view.maxIndex);
+      if (this.callbacks.previewSliceMove(target)) return;
+
       if (newIndex > view.maxIndex) {
         newIndex = view.maxIndex;
         view.contrastNum = this.ctx.protectedData.displaySlices.length - 1;
