@@ -1308,6 +1308,13 @@ Everything that moves the zoom respects it: `setMainAreaSize`, wheel zoom, and
 `NrrdState.setZoomFactor`. The `"mainAreaSize"` GUI slider's `min` is updated too, so a
 connected dat.GUI / lil-gui panel can reach the new range.
 
+::: tip Wheel zoom follows scroll distance <Badge type="tip" text="3.11.4" />
+One notch (100px of scroll) zooms by 10%, and a single event is capped at 2×. Because the
+ratio comes from the distance scrolled rather than from the number of events, a trackpad's
+small deltas zoom smoothly, and a busy page — where the browser coalesces wheel events and
+sums their deltas — zooms at the same rate as an idle one. Nothing to configure.
+:::
+
 If the current factor is **below** the new minimum it is raised to it and the view repaints
 immediately, so you can lower and raise the floor freely without leaving the view in an
 invalid state.
