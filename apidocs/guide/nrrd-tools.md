@@ -1286,6 +1286,55 @@ Set the base display size multiplier (1–8). Larger values use more GPU memory 
 nrrdTools.setBaseDrawDisplayCanvasesSize(2); // 2× base resolution
 ```
 
+#### Zoom range — `setMinSizeFactor()` <Badge type="tip" text="3.11.3" />
+
+The 2D zoom factor (`sizeFactor`) used to bottom out at `1`, i.e. 1:1 with the image. Lower
+the floor and the image can be shown **smaller than its original size** — which is what a
+large volume in a small panel needs:
+
+```typescript
+nrrdTools.setMinSizeFactor(0.5);      // allow down to half size
+nrrdTools.setMainAreaSize(0.6);       // now valid
+const min = nrrdTools.getMinSizeFactor();
+```
+
+| | |
+|---|---|
+| Accepted range | clamped to `[0.05, 1]`; a non-finite value resets it to `1` |
+| Default | `1` — exactly the previous behaviour |
+| Upper bound | still `8`, unchanged |
+
+Everything that moves the zoom respects it: `setMainAreaSize`, wheel zoom, and
+`NrrdState.setZoomFactor`. The `"mainAreaSize"` GUI slider's `min` is updated too, so a
+connected dat.GUI / lil-gui panel can reach the new range.
+
+If the current factor is **below** the new minimum it is raised to it and the view repaints
+immediately, so you can lower and raise the floor freely without leaving the view in an
+invalid state.
+
+::: warning You have to re-apply it — the engine never recomputes it
+The minimum survives `reset()` and case loads, and the engine will not adjust it on its own:
+the right value depends on the image and axis dimensions *and* on the size of your panel,
+neither of which the engine knows. Re-apply it after each
+
+- case load,
+- axis switch (`setSliceOrientation`), and
+- panel resize.
+
+```typescript
+function fitFloor() {
+  const [w, h] = nrrdTools.getCurrentImageDimension();   // per current axis
+  const panel = container.getBoundingClientRect();
+  nrrdTools.setMinSizeFactor(Math.min(panel.width / w, panel.height / h, 1));
+}
+```
+:::
+
+::: tip A thin dimension never floors to zero
+`resizePaintArea` keeps a loaded image at **at least 1px** per axis, because a factor below 1
+could otherwise floor a thin dimension to `0`. An unloaded (0×0) image stays `0`.
+:::
+
 #### Reading image metadata
 
 ```typescript
@@ -1818,7 +1867,9 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | | `GaussianSmoother.generateKernel1D(sigma)` | Generate a normalized 1D Gaussian kernel |
 | **Navigation** | `setSliceOrientation(axis)` | Switch viewing axis `"x"` / `"y"` / `"z"`; extracts the plane on demand if the load skipped it |
 | | `setSliceMoving(step)` | Step the current slice by `step` (coalesced into one `requestAnimationFrame`) |
-| | `setMainAreaSize(factor)` | Set the main-area zoom factor [1, 8] and reposition the paint area |
+| | `setMainAreaSize(factor)` | Set the main-area zoom factor `[minSizeFactor, 8]` and reposition the paint area |
+| | `setMinSizeFactor(f)` | Lower the zoom floor so the image can show below 1:1. Clamped to `[0.05, 1]`; default `1`. Not recomputed by the engine — re-apply after case loads, axis switches and panel resizes |
+| | `getMinSizeFactor()` | Read the current zoom floor |
 | | `setCalculateDistanceSphere(x, y, slice, type)` | Programmatically place a calculator sphere (simulates full click flow: record origin → draw → write to volume) |
 | **History** | `undo()` | Undo last stroke |
 | | `redo()` | Redo last undone stroke |

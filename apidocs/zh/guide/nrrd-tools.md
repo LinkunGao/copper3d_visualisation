@@ -1045,6 +1045,52 @@ outline。outline 提取的代价随**周长**而不是面积增长，所以比�
 [架构指南](./segmentation-module)）。
 :::
 
+### 缩放范围 —— `setMinSizeFactor()` <Badge type="tip" text="3.11.3" />
+
+二维缩放系数（`sizeFactor`）原来的下限是 `1`，也就是和图像 1:1。把这个下限降下去，图像就可以显示得
+**比原始尺寸更小** —— 这正是"大体数据放在小面板里"所需要的：
+
+```typescript
+nrrdTools.setMinSizeFactor(0.5);      // 允许缩到一半
+nrrdTools.setMainAreaSize(0.6);       // 现在是合法值了
+const min = nrrdTools.getMinSizeFactor();
+```
+
+| | |
+|---|---|
+| 取值范围 | 夹取到 `[0.05, 1]`；传入非有限值会重置为 `1` |
+| 默认值 | `1` —— 与原先行为完全一致 |
+| 上限 | 仍然是 `8`，未改变 |
+
+所有会改动缩放的地方都遵守它：`setMainAreaSize`、滚轮缩放，以及 `NrrdState.setZoomFactor`。
+`"mainAreaSize"` 这个 GUI 滑块的 `min` 也会同步更新，所以接上的 dat.GUI / lil-gui 面板能够拉到
+新的范围。
+
+如果当前系数**低于**新设的下限，它会被抬到下限并立即重绘，所以你可以自由地调低再调高这个下限，
+而不会把视图留在一个非法状态上。
+
+::: warning 需要你自己重新设置 —— 引擎不会替你重算
+这个下限会在 `reset()` 和病例加载之后保留下来，而引擎也不会自行调整它：合适的值既取决于图像和当前
+轴的尺寸，也取决于你面板的尺寸，而这两者引擎都不知道。请在下面这些时机重新设置一次：
+
+- 每次病例加载之后
+- 每次切换轴（`setSliceOrientation`）之后
+- 每次面板尺寸变化之后
+
+```typescript
+function fitFloor() {
+  const [w, h] = nrrdTools.getCurrentImageDimension();   // 按当前轴
+  const panel = container.getBoundingClientRect();
+  nrrdTools.setMinSizeFactor(Math.min(panel.width / w, panel.height / h, 1));
+}
+```
+:::
+
+::: tip 细窄的那一维不会被压成 0
+`resizePaintArea` 会保证已加载的图像每个轴**至少 1px**，否则小于 1 的系数可能把细窄的一维向下取整
+到 `0`。未加载的（0×0）图像仍然保持 `0`。
+:::
+
 ### 画布尺寸
 
 ```typescript
@@ -1358,7 +1404,9 @@ function onChannelColorPicked(hex: string) {
 | | `GaussianSmoother.generateKernel1D(sigma)` | 生成归一化 1D 高斯核 |
 | **浏览导向** | `setSliceOrientation(axis)` | 切换观察轴 `"x"` / `"y"` / `"z"`；若加载时跳过了该切片面，会在此按需抽取 |
 | | `setSliceMoving(step)` | 按 `step` 移动当前切片（合并进一次 `requestAnimationFrame`） |
-| | `setMainAreaSize(factor)` | 设置主区域缩放系数 [1, 8] 并重新摆放绘制区域 |
+| | `setMainAreaSize(factor)` | 设置主区域缩放系数 `[minSizeFactor, 8]` 并重新摆放绘制区域 |
+| | `setMinSizeFactor(f)` | 降低缩放下限，使图像可以显示到 1:1 以下。夹取到 `[0.05, 1]`，默认 `1`。引擎不会替你重算 —— 病例加载、切换轴、面板尺寸变化后需要重新设置 |
+| | `getMinSizeFactor()` | 读取当前的缩放下限 |
 | **历史倒推** | `undo()` / `redo()` | 退一步倒先推走下撤销走上次这一笔一划，亦或直接叫返追着刚补弄错返回上才取消去的那补回来重做这步骤嘛 |
 | **键盘按键** | `setKeyboardSettings(partial)` | 供入进个重新配置并分配那几项有变动的特殊专键改替原键键名去变替原版绑位 |
 | | `getKeyboardSettings()` | 要求交取出现版所实带运行中绑的那些配全字典全包集合组 |
