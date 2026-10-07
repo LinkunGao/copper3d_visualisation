@@ -10,7 +10,7 @@ import * as THREE from "three";
 export class copperRenderer extends baseRenderer {
   private sceneMap: SceneMapType = {};
   private fps: number = 30;
-  private renderClock: THREE.Clock = new THREE.Clock();
+  private renderClock: THREE.Timer = new THREE.Timer();
   private delta: number = 0;
   private interval: number = 1 / this.fps;
 
@@ -80,7 +80,7 @@ export class copperRenderer extends baseRenderer {
         if (this.delta === 0) {
           this.render();
         }
-        this.delta += this.renderClock.getDelta();
+        this.delta += this.renderClock.update().getDelta();
         if (this.delta > this.interval) {
           this.render();
           if (this.options?.performanceGui) this.stats.update();

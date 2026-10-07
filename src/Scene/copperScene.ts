@@ -27,7 +27,7 @@ import { SurfaceAnnotator } from "../Utils/surfaceAnnotation";
 import type { SurfaceAnnotatorOptions } from "../Utils/surfaceAnnotation";
 
 export class copperScene extends baseScene {
-  clock: THREE.Clock = new THREE.Clock();
+  clock: THREE.Timer = new THREE.Timer();
   controls: Copper3dTrackballControls | OrbitControls | TrackballControls;
   // isHalfed: boolean = false;
 
@@ -622,6 +622,9 @@ export class copperScene extends baseScene {
 
   render(time?: number) {
     this.controls.update();
+    // Every frame, so a model's first mixer step is one frame long rather than
+    // the time since this scene was built.
+    this.clock.update();
 
     if (this.modelReady) {
       this.mixer && this.mixer.update(this.clock.getDelta() * this.playRate);

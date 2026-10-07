@@ -220,6 +220,9 @@ export class SliceRenderPipeline extends BaseTool {
       return;
     }
 
+    // A read-only viewer has no layers and nothing to reload.
+    if (this.ctx.nrrd_states.image.layers.length === 0) return;
+
     const axis = this.ctx.protectedData.axis;
     let sliceIndex = this.ctx.nrrd_states.view.currentSliceIndex;
 
