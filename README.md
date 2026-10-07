@@ -238,6 +238,12 @@ Skipped a plane and need it later? `ensureAxisExtracted(slices, axis, meshes?)` 
 demand, mutating `slices` (and `meshes`) in place. `NrrdTools.setSliceOrientation()` already
 calls it for you, so an axial-only load can still switch to sagittal or coronal.
 
+Extracting a slice yourself with `Volume.extractSlice`? Run `prepareVolumeSlices(...slices)`
+on the result. It gives the slice's readback buffer a `willReadFrequently` context (three
+creates it without the flag, so every repaint copies the canvas back from the GPU) and
+restores the geometry three's `VolumeSlice` constructor wipes. The loader does this for
+everything it extracts.
+
 ---
 
 ## NrrdTools Usage Guide

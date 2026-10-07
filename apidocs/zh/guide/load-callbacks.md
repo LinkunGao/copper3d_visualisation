@@ -165,6 +165,40 @@ abort 会**立即**拒绝你自己的 promise，不等 worker。worker 只是被
 - **worker 被内联进 bundle**（`?worker&inline`），所以不需要额外再发一个资源文件。挂在构建时
   未知的 base path 下的 UMD bundle 也能正常工作。
 
+## `prepareVolumeSlices()`：每张切片都需要的那几处修补 <Badge type="tip" text="3.11.6" />
+
+`loadNrrd` 和 `ensureAxisExtracted` 对它们抽出来的每一张切片都已经调用过它了。只有当你自己调用
+`Volume.extractSlice` 时才需要它 —— 比如为了做一张预览平面：
+
+```ts
+import { prepareVolumeSlices } from "copper3d";
+
+const slice = volume.extractSlice("z", index * spacing[2]);
+prepareVolumeSlices(slice);          // 可变参数；`undefined` 会被跳过
+```
+
+它做两件事。
+
+**1. 给回读用的 buffer 一个带 `willReadFrequently` 的 context。** three 原生的
+`VolumeSlice.repaint` **每次**重绘都会用 `getImageData` 把 `ctxBuffer` 读回来，而 three 创建那个
+context 时没有加这个标志 —— 于是该 canvas 可能驻留在 GPU 上，每次重绘都要往 CPU 拷贝一次。
+Chrome 会为每个这样的 context 警告一次。
+
+一个 context 的属性在它所属 canvas 上第一次调用 `getContext` 时就定死了，事后加不上去；因此这里
+直接把 buffer canvas 换成一个新的、用该标志创建 context 的 canvas。之后 `updateGeometry` 重新取到
+的还是同一个 context，所以这个标志会保留下来。
+
+**2. 恢复被 three 构造函数抹掉的几何信息。** `VolumeSlice` 的构造函数先调用 `updateGeometry()` 和
+`repaint()`，**然后**才去赋值 `iLength = 0`、`jLength = 0`、`sliceAccess = null`，把刚算出来的
+结果又覆盖掉。而 `repaint()` 只有在 `index` 变化之后才会重算，所以任何没有先改 `index` 的重绘都会
+走到 `ctx.getImageData(0, 0, 0, 0)` 并抛出 `IndexSizeError: The source width is 0`。该问题存在于
+three r175 到至少 r185；在 r174 及更早版本上这只是一次无害的重算。
+
+::: tip 由 `repairSliceGeometry` 更名而来
+它原本是内部函数，而且只做第 (2) 件事。现在把它导出来，是因为预览切片的流程会在加载器之外自己构建
+切片，而那里两件事都需要。
+:::
+
 ## 检测卡死的下载
 
 对一个大体数据来说，固定超时是错的工具：53MB 的 NRRD 在共享的 6 Mbps 网络上，正常也要跑

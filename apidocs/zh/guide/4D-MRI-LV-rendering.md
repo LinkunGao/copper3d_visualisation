@@ -440,7 +440,7 @@ animate();  // 启动
 animate = (time?) => {
   if (!this.running) return;
   requestAnimationFrame(this.animate);   // 自我调度
-  this.delta += this.renderClock.getDelta();
+  this.delta += this.renderClock.update().getDelta();   // THREE.Timer: advance, then read
   if (this.delta > this.interval) {      // 攒够间隔才画（限制帧率）
     this.render();
   }

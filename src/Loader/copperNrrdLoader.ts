@@ -273,7 +273,20 @@ export interface optsType {
 }
 
 /**
- * Work around a three.js regression (present from r175 through at least r185).
+ * Post-extraction fixups every `VolumeSlice` needs. Run it on each slice right
+ * after `Volume.extractSlice`; `undefined` (an axis not extracted) is skipped.
+ *
+ * ## Readback-friendly buffer
+ *
+ * Stock `VolumeSlice.repaint` reads `ctxBuffer` back with `getImageData` on
+ * every repaint. three creates that context in the constructor without
+ * `willReadFrequently`, so the canvas may live on the GPU and each repaint
+ * copies it back to the CPU (Chrome warns once per such context). A context's
+ * attributes are fixed by the first `getContext` call on its canvas, so the
+ * buffer is replaced by a canvas whose context is created with the flag;
+ * `updateGeometry` re-fetching it later gets that same context.
+ *
+ * ## three.js regression (present from r175 through at least r185)
  *
  * `VolumeSlice`'s constructor calls `updateGeometry()` and then `repaint()`, but
  * *afterwards* assigns the JSDoc default values:
@@ -291,9 +304,17 @@ export interface optsType {
  * Recomputing the geometry right after extraction restores the correct values.
  * It is a harmless recompute on three <= r174, where the bug does not exist.
  */
-function repairSliceGeometry(...slices: any[]): void {
+export function prepareVolumeSlices(...slices: any[]): void {
   for (const slice of slices) {
-    if (slice && slice.iLength === 0 && typeof slice.updateGeometry === "function") {
+    if (!slice) continue;
+    if (slice.canvasBuffer) {
+      const buffer = document.createElement("canvas");
+      buffer.width = slice.canvasBuffer.width;
+      buffer.height = slice.canvasBuffer.height;
+      slice.canvasBuffer = buffer;
+      slice.ctxBuffer = buffer.getContext("2d", { willReadFrequently: true });
+    }
+    if (slice.iLength === 0 && typeof slice.updateGeometry === "function") {
       slice.updateGeometry();
     }
   }
@@ -327,7 +348,7 @@ export function ensureAxisExtracted(
 
   const initIndex = Math.floor(dimensions[axisIndex] / 2);
   const slice = volume.extractSlice(axis, initIndex * ratio[axisIndex]);
-  repairSliceGeometry(slice);
+  prepareVolumeSlices(slice);
   slice.initIndex = initIndex;
   slice.MaxIndex = dimensions[axisIndex] - 1;
   slice.RSARatio = ratio[axisIndex];
@@ -390,7 +411,7 @@ export function copperNrrdLoader(
       const sliceX = wanted.x
         ? volume.extractSlice("x", initIndexX * ratio[0])
         : undefined;
-      repairSliceGeometry(sliceZ, sliceY, sliceX);
+      prepareVolumeSlices(sliceZ, sliceY, sliceX);
       if (sliceZ) {
         sliceZ.initIndex = initIndexZ;
         sliceZ.MaxIndex = dimensions[2] - 1;

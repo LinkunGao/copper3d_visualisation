@@ -117,6 +117,15 @@ const reference = new Copper.NrrdTools(container, { layers: [] });
 切片浏览、缩放、平移、窗宽窗位、十字准线都照常可用。绘制工具没有可作用的图层，会直接跳过自己的
 工作而不是报错：`setCurrentLayer()` 返回 `null`，每个调用方都会检查它。
 
+管线其余部分遵循同样的规则 <Badge type="tip" text="3.11.6" />：`getVolumeForLayer()` 返回
+`undefined`，并且**不再**打印那条 "unknown layer, falling back to…" 警告 —— 根本不存在可回退的
+第一个图层，而且对一个本就按设计工作的视图来说，那条警告只是噪音 —— 同时
+`reloadMasksFromVolume()` 会提前返回，因为没有任何东西需要重新加载。对**确实有图层**的视图来说，
+传入一个不存在的图层 id 仍然会警告并回退，和以前一样。
+
+和 `setMaskMirror`（§6.7）天然搭配：没有图层的视图依然会走合成，因此它可以在自己的图像上显示
+另一个视图的 mask。
+
 ::: tip 该选哪一个
 `layers: []` 是**结构性**的选择 —— 这个实例永远不会用来标注。
 而 `setAnnotationSuspended(true)`（§5.6）是**临时**的，用在"以后会标注"的实例上，比如加载期间。

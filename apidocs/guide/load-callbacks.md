@@ -182,6 +182,41 @@ Two consequences worth knowing:
   asset file to serve. A UMD bundle mounted at a base path unknown at build time still
   works.
 
+## `prepareVolumeSlices()`: the fixups every slice needs <Badge type="tip" text="3.11.6" />
+
+`loadNrrd` and `ensureAxisExtracted` already call this on everything they extract. You only
+need it if you call `Volume.extractSlice` yourself — for a preview plane, say:
+
+```ts
+import { prepareVolumeSlices } from "copper3d";
+
+const slice = volume.extractSlice("z", index * spacing[2]);
+prepareVolumeSlices(slice);          // variadic; `undefined` entries are skipped
+```
+
+It does two things.
+
+**1. Gives the readback buffer a `willReadFrequently` context.** Stock
+`VolumeSlice.repaint` reads `ctxBuffer` back with `getImageData` on *every* repaint, and
+three creates that context without the flag — so the canvas may live on the GPU and each
+repaint copies it back to the CPU. Chrome warns once per such context.
+
+A context's attributes are fixed by the first `getContext` call on its canvas, so the flag
+cannot be added afterwards; the buffer canvas is replaced with one whose context is created
+with it. A later `updateGeometry` re-fetches the same context, so the flag survives.
+
+**2. Restores the geometry three's constructor wipes.** `VolumeSlice`'s constructor calls
+`updateGeometry()` and `repaint()` and *then* assigns `iLength = 0`, `jLength = 0`,
+`sliceAccess = null`, undoing what it just computed. `repaint()` only recomputes them after an
+`index` change, so any repaint not preceded by one calls `ctx.getImageData(0, 0, 0, 0)` and
+throws `IndexSizeError: The source width is 0`. Present in three r175 through at least r185;
+a harmless recompute on r174 and earlier.
+
+::: tip Renamed from `repairSliceGeometry`
+It was internal and only did (2). It is exported now because the preview-slice flow builds
+slices outside the loader and needs both.
+:::
+
 ## Detecting a stalled download
 
 A flat timeout is the wrong instrument for a large volume: a 53MB NRRD on a

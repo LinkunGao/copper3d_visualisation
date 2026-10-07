@@ -65,13 +65,15 @@ export class RenderingUtils {
      * Get MaskVolume for a specific layer
      *
      * @param layer - Layer name: "layer1", "layer2", or "layer3"
-     * @returns MaskVolume instance for the specified layer
+     * @returns MaskVolume instance for the specified layer; `undefined` on a
+     *   read-only engine built with no layers, which has no volume to return
      */
     getVolumeForLayer(layer: string): MaskVolume {
         const { volumes } = this.state.protectedData.maskData;
         const vol = volumes[layer];
         if (vol) return vol;
         const firstLayerId = this.state.nrrd_states.image.layers[0];
+        if (firstLayerId === undefined) return vol;
         console.warn(`RenderingUtils: unknown layer "${layer}", falling back to "${firstLayerId}"`);
         return volumes[firstLayerId];
     }

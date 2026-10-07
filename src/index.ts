@@ -85,7 +85,7 @@ import type {
   BoundingBoxHost,
   VolumeBoundingBoxOpts,
 } from "./Loader/volumeBoundingBox";
-import { DEFAULT_AXES, ensureAxisExtracted } from "./Loader/copperNrrdLoader";
+import { DEFAULT_AXES, ensureAxisExtracted, prepareVolumeSlices } from "./Loader/copperNrrdLoader";
 import type { NrrdAxis } from "./Loader/copperNrrdLoader";
 import {
   easeInOutCubic,
@@ -227,6 +227,7 @@ export {
   VOLUME_BOUNDS_NAME,
   DEFAULT_AXES,
   ensureAxisExtracted,
+  prepareVolumeSlices,
   copperGltfLoader,
   setDracoDecoderPath,
   setKTX2TranscoderPath,
