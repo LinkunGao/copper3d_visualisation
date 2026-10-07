@@ -126,6 +126,16 @@ Slice scrubbing, zoom, pan, window/level and the crosshair all work as usual. Th
 tools have no layer to target and skip their work rather than failing: `setCurrentLayer()`
 returns `null` and every caller checks it.
 
+The rest of the pipeline follows the same rule <Badge type="tip" text="3.11.6" />:
+`getVolumeForLayer()` returns `undefined` **without** the "unknown layer, falling back to…"
+warning — there is no first layer to fall back to, and the warning was noise on a viewer that
+is working as designed — and `reloadMasksFromVolume()` returns early, since there is nothing
+to reload. An unknown layer id on a viewer that *does* have layers still warns and falls back,
+as before.
+
+Pairs naturally with `setMaskMirror` (§6.7): a layerless viewer still composites, so it can
+show another viewer's masks over its own image.
+
 ::: tip Which one to reach for
 `layers: []` is a **structural** choice — this instance will never annotate.
 `setAnnotationSuspended(true)` (§5.6) is a **temporary** one on an instance that will, such as

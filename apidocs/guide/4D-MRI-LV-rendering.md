@@ -440,7 +440,7 @@ Versus `setInterval`, rAF syncs to the display refresh and auto-pauses when the 
 animate = (time?) => {
   if (!this.running) return;
   requestAnimationFrame(this.animate);   // self-scheduling
-  this.delta += this.renderClock.getDelta();
+  this.delta += this.renderClock.update().getDelta();   // THREE.Timer: advance, then read
   if (this.delta > this.interval) {      // only draw once enough time has accumulated (frame-rate cap)
     this.render();
   }

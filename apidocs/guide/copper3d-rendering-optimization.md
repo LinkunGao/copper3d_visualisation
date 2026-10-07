@@ -118,6 +118,43 @@ All lighting and rendering parameters are exposed through a dat.GUI panel for re
 
 ---
 
+## 7. Frame timing — `THREE.Timer` <Badge type="tip" text="3.11.6" />
+
+three r185 deprecates `THREE.Clock` and warns on **every construction**. copper3d built one
+per renderer and one per scene, so a viewer panel produced a warning pair each time it was
+created. Both are now `THREE.Timer`.
+
+::: warning Breaking: `copperScene.clock` is a `THREE.Timer`
+It is a public field, so code that types or constructs it has to change:
+
+```ts
+scene.clock;                          // THREE.Clock  →  THREE.Timer
+scene.clock.getDelta();               // unchanged, but see below
+```
+
+The behavioural difference is that a `Timer` **only advances when you call `update()`** —
+`getDelta()` on its own returns the same value twice.
+:::
+
+Both call sites update before reading:
+
+```ts
+// copperRenderer.animate
+this.delta += this.renderClock.update().getDelta();
+
+// copperScene.render — every frame, not only once a model is ready
+this.clock.update();
+if (this.modelReady) this.mixer?.update(this.clock.getDelta() * this.playRate);
+```
+
+`copperScene` updating unconditionally is a **fix**, not bookkeeping. `Clock.getDelta()`
+measured from the previous `getDelta()` — or, on the first call, from construction. A scene
+whose model finished loading five seconds after the scene was built therefore handed its
+mixer a five-second first step, and the animation jumped. Updating every frame makes the
+first step one frame long.
+
+---
+
 ## Architecture Diagram
 
 ```

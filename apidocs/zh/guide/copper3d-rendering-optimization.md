@@ -118,6 +118,41 @@ if (child.material instanceof THREE.MeshStandardMaterial) {
 
 ---
 
+## 7. 帧计时 —— `THREE.Timer` <Badge type="tip" text="3.11.6" />
+
+three r185 弃用了 `THREE.Clock`，并且**每构造一次就警告一次**。copper3d 原先每个 renderer 建一个、
+每个 scene 建一个，于是每创建一个视图面板就会冒出一对警告。两处现在都改成了 `THREE.Timer`。
+
+::: warning 破坏性变更：`copperScene.clock` 现在是 `THREE.Timer`
+它是一个公开字段，所以凡是标注过它的类型、或者自己构造它的代码都要改：
+
+```ts
+scene.clock;                          // THREE.Clock  →  THREE.Timer
+scene.clock.getDelta();               // 调用方式不变，但见下
+```
+
+行为上的区别在于：`Timer` **只有在你调用 `update()` 时才推进** —— 单独连调两次 `getDelta()`
+会拿到同一个值。
+:::
+
+两处调用点都是"先 update、再读"：
+
+```ts
+// copperRenderer.animate
+this.delta += this.renderClock.update().getDelta();
+
+// copperScene.render —— 每一帧都更新，而不是等模型就绪之后才更新
+this.clock.update();
+if (this.modelReady) this.mixer?.update(this.clock.getDelta() * this.playRate);
+```
+
+`copperScene` 无条件更新是一处**修复**，而不是顺手记账。`Clock.getDelta()` 是从上一次
+`getDelta()` 开始计时的 —— 而第一次调用时，是从构造那一刻开始计时。于是一个在场景建好五秒之后
+才加载完模型的场景，会给 mixer 喂进一个五秒长的首帧步长，动画直接跳过去。每帧都更新之后，
+首帧步长就只有一帧那么长。
+
+---
+
 ## 架构示意图
 
 ```
