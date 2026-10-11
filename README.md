@@ -49,7 +49,8 @@ reference, in English and 简体中文.
 | [AI Coding Assistants (MCP)](https://linkungao.github.io/copper3d_visualisation/guide/mcp-server) | Point your assistant at the real API |
 | [API reference](https://linkungao.github.io/copper3d_visualisation/apidist/modules) | Generated from source by TypeDoc |
 
-The site is built from [`apidocs/`](apidocs/) with VitePress and deploys to GitHub Pages.
+The site is built from [`apidocs/`](https://github.com/LinkunGao/copper3d_visualisation/tree/main/apidocs)
+with VitePress and deploys to GitHub Pages.
 
 > The old Sphinx site on readthedocs was retired at 3.11.6. It had not been updated since
 > v2.0.7 (December 2023) and documented an API that no longer exists — `Copper.Renderer`
