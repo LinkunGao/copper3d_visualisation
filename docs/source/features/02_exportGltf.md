@@ -1,5 +1,0 @@
-# ExportGltf
-
-## Description
-
-## Usage
