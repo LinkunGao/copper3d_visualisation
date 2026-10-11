@@ -12,7 +12,7 @@
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Matrix4 } from "three";
-import { Volume } from "three/examples/jsm/misc/Volume.js";
+import { Volume } from "three/addons/misc/Volume.js";
 
 import { DataLoader, type NrrdHeaderLike } from "../Utils/segmentation/tools/DataLoader";
 import type { DataLoaderHostDeps } from "../Utils/segmentation/tools/ToolHost";

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { environments, environmentType } from "../lib/environment/index";
-import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
+import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
 import { copperMScene } from "../Scene/copperMScene";
 import { positionType } from "../types/types";
 

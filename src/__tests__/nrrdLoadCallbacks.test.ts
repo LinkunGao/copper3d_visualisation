@@ -133,7 +133,7 @@ describe("opts.axes", () => {
   /** Runs the loader end to end against a real 4x4x4 NRRD cube and returns what it built,
    *  plus a spy on the real `Volume.prototype.extractSlice` calls this load made. */
   async function loadWith(axes?: readonly ("x" | "y" | "z")[]) {
-    const { Volume } = await import("three/examples/jsm/misc/Volume.js");
+    const { Volume } = await import("three/addons/misc/Volume.js");
     const extractSliceSpy = vi.spyOn(Volume.prototype as any, "extractSlice");
     fetchMock.mockResolvedValue(streamedResponse([new Uint8Array(buildNrrd())]));
 

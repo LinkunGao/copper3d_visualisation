@@ -2,19 +2,19 @@ import * as THREE from "three";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 
 import { CameraViewPoint } from "../Controls/copperControls";
-import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
+import { GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import type { GltfLoadOpts } from "../Loader/copperGltfLoader";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { copperNrrdTexture3dLoader } from "../Loader/copperNrrdLoader";
 import { loadRaw4DVolume as loadRaw4DVolumeImpl } from "../Loader/copperRaw4DVolumeLoader";
 import { copperVtkLoader, copperMultipleVtk } from "../Loader/copperVtkLoader";
 import { createTexture2D_Array } from "../Utils/texture2d";
 import { copperDicomLoader } from "../Loader/copperDicomLoader";
-import { VTKLoader } from "three/examples/jsm/loaders/VTKLoader.js";
+import { VTKLoader } from "three/addons/loaders/VTKLoader.js";
 import { baseScene } from "./baseScene";
 import { vtkModels } from "../types/types";
-import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { TrackballControls } from "three/addons/controls/TrackballControls.js";
 import {
   ICopperSceneOpts,
   copperVolumeType,

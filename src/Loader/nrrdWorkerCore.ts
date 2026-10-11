@@ -1,5 +1,5 @@
-import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
-import { Volume } from "three/examples/jsm/misc/Volume.js";
+import { NRRDLoader } from "three/addons/loaders/NRRDLoader.js";
+import { Volume } from "three/addons/misc/Volume.js";
 
 /**
  * Runs entirely off the main thread: fetch, gunzip (via `NRRDLoader.parse`'s own

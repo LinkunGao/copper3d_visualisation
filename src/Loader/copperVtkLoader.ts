@@ -1,4 +1,4 @@
-import { VTKLoader } from "three/examples/jsm/loaders/VTKLoader.js";
+import { VTKLoader } from "three/addons/loaders/VTKLoader.js";
 import * as THREE from "three";
 import { IOptVTKLoader } from "../types/types";
 

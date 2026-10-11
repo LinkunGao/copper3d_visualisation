@@ -1,17 +1,17 @@
 import * as THREE from "three";
-import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
+import { NRRDLoader } from "three/addons/loaders/NRRDLoader.js";
 // import { NRRDLoader } from "copper3d_plugin_nrrd";
-import { Volume } from "three/examples/jsm/misc/Volume.js";
+import { Volume } from "three/addons/misc/Volume.js";
 
 import { copperScene } from "../Scene/copperScene";
-import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
+import { VolumeRenderShader1 } from "three/addons/shaders/VolumeShader.js";
 import cm_gray from "../css/images/cm_gray.png";
 import cm_viridis from "../css/images/cm_viridis.png";
 import { GUI } from "dat.gui";
 import { nrrdMeshesType, nrrdSliceType, loadingBarType } from "../types/types";
-// import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+// import { TrackballControls } from "three/addons/controls/TrackballControls.js";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
-import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
+import { DecalGeometry } from "three/addons/geometries/DecalGeometry.js";
 import { loading } from "../Utils/utils";
 import { resize3dnrrd } from "../Utils/convet";
 // `?worker&inline` bundles the worker's own code as an inline blob URL, not a separate

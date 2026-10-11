@@ -6,7 +6,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { Matrix4 } from "three";
-import { Volume } from "three/examples/jsm/misc/Volume.js";
+import { Volume } from "three/addons/misc/Volume.js";
 
 import { prepareVolumeSlices } from "../Loader/copperNrrdLoader";
 

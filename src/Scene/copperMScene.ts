@@ -3,11 +3,11 @@ import { createPreRenderRegistry } from "./preRenderRegistry";
 import { GUI } from "dat.gui";
 import { Controls, CameraViewPoint } from "../Controls/copperControls";
 import { createBackground, customMeshType } from "../lib/three-vignette";
-import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { TrackballControls } from "three/addons/controls/TrackballControls.js";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
+import { GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import type { GltfLoadOpts } from "../Loader/copperGltfLoader";
 import { objLoader } from "../Loader/copperOBJLoader";

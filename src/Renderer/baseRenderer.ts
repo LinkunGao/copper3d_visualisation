@@ -2,8 +2,8 @@ import * as THREE from "three";
 import { baseScene } from "../Scene/baseScene";
 import { customMeshType } from "../lib/three-vignette";
 import { environments, environmentType } from "../lib/environment/index";
-import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
-import Stats from "three/examples/jsm/libs/stats.module";
+import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
+import Stats from "three/addons/libs/stats.module.js";
 import { GUI, GUIController } from "dat.gui";
 import {
   ICopperRenderOpt,

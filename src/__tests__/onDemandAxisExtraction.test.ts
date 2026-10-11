@@ -17,7 +17,7 @@
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Matrix4 } from "three";
-import { Volume } from "three/examples/jsm/misc/Volume.js";
+import { Volume } from "three/addons/misc/Volume.js";
 
 import { ensureAxisExtracted } from "../Loader/copperNrrdLoader";
 import { DataLoader } from "../Utils/segmentation/tools/DataLoader";

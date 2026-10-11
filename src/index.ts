@@ -140,6 +140,9 @@ import type {
   AiMaskResult,
 } from "./Utils/segmentation/tools/AiAssistTool";
 
+import { REVISION as THREE_REVISION } from "three";
+import { checkThreeRevision } from "./Utils/threeRevisionCheck";
+
 import "./css/style.css";
 
 // __REVISION__ is injected at build time by rollup @rollup/plugin-replace, sourced from package.json version.
@@ -152,6 +155,15 @@ try {
   /* __REVISION__ not injected (local source build) */
 }
 export const REVISION = _revision;
+
+// __THREE_REVISION__ is three's revision at build time, injected the same way.
+let _builtThreeRevision: string | undefined;
+try {
+  _builtThreeRevision = __THREE_REVISION__;
+} catch {
+  /* __THREE_REVISION__ not injected (local source build) */
+}
+checkThreeRevision(_builtThreeRevision, THREE_REVISION);
 
 // Expose on global so the version can be read in a production browser console via window.__COPPER3D_VERSION__
 if (typeof window !== "undefined") {

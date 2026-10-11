@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { Line2 } from "three/examples/jsm/lines/Line2";
-import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import type { Annotation, AnnotationMode, AnnotationVertex, SurfaceHit, ExportOptions } from "./types";
 import { worldHitToLocalVertex } from "./types";
 import { raycastSurface } from "./raycastSurface";
@@ -10,7 +10,7 @@ import { makeContourLine, updateContourLine, setContourColor } from "./contourRe
 import { MeshGraph } from "./MeshGraph";
 import { GeodesicContour } from "./geodesicContour";
 import { AnnotationStore } from "./annotationStore";
-import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils";
+import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 
 export interface SurfaceAnnotatorOptions {
   scene: THREE.Scene;

@@ -1,6 +1,6 @@
 ﻿import { describe, it, expect } from "vitest";
 import * as THREE from "three";
-import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils";
+import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 import { MeshGraph } from "../Utils/surfaceAnnotation/MeshGraph";
 import { GeodesicContour } from "../Utils/surfaceAnnotation/geodesicContour";
 
