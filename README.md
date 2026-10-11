@@ -42,6 +42,7 @@ reference, in English and 简体中文.
 
 | | |
 |---|---|
+| [Upgrading to 4.0](https://linkungao.github.io/copper3d_visualisation/guide/upgrading-to-4) | **Start here if you are on 3.x** — three is now a peer dependency |
 | [NrrdTools Usage Guide](https://linkungao.github.io/copper3d_visualisation/guide/nrrd-tools) | The segmentation engine, end to end |
 | [Segmentation Module](https://linkungao.github.io/copper3d_visualisation/guide/segmentation-module) | Its architecture and internals |
 | [Load Progress & Errors](https://linkungao.github.io/copper3d_visualisation/guide/load-callbacks) | `loadNrrd` / `loadGltf` options and callbacks |
