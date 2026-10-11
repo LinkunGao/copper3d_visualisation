@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { baseScene } from "./baseScene";
-import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
+import { GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import type { GltfLoadOpts } from "../Loader/copperGltfLoader";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TrackballControls } from "three/addons/controls/TrackballControls.js";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 import { CameraViewPoint } from "../Controls/copperControls";
 import { fitView as fitViewOn } from "../Controls/fitView";

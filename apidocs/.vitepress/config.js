@@ -46,6 +46,12 @@ export default {
           ],
           "/zh/guide/": [
             {
+              text: "开始使用",
+              items: [
+                { text: "升级到 4.0", link: "/zh/guide/upgrading-to-4" },
+              ],
+            },
+            {
               text: "使用指南",
               items: [
                 { text: "NrrdTools 使用指南", link: "/zh/guide/nrrd-tools" },
@@ -137,6 +143,12 @@ export default {
         },
       ],
       "/guide/": [
+        {
+          text: "Getting Started",
+          items: [
+            { text: "Upgrading to 4.0", link: "/guide/upgrading-to-4" },
+          ],
+        },
         {
           text: "Usage Guide",
           items: [

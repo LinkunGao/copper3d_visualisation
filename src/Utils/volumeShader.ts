@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
+import { VolumeRenderShader1 } from "three/addons/shaders/VolumeShader.js";
 
 /**
  * three's VolumeRenderShader1 offers only MIP and ISO, and no opacity control. Clone it and

@@ -1,10 +1,19 @@
 {
   "name": "copper3d",
   "description": "A 3d visualisation package base on threejs provides multiple scenes and Nrrd image load funtion.",
-  "version": "3.11.6",
+  "version": "4.0.0",
   "main": "dist/bundle.umd.js",
-  "moudle": "dist/bundle.esm.js",
+  "module": "dist/bundle.esm.mjs",
   "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/bundle.esm.mjs",
+      "require": "./dist/bundle.umd.js"
+    },
+    "./dist/css/*": "./dist/css/*",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "build": "tsc && rollup -c rollup.config.js && npm run build:ai-index",
     "build:t": "rollup -c rollup.config.js",
@@ -39,6 +48,7 @@
     "@rollup/plugin-replace": "^4.0.0",
     "@rollup/plugin-typescript": "^8.3.2",
     "@types/file-saver": "^2.0.5",
+    "@types/three": "~0.186.0",
     "jsdom": "^29.1.1",
     "postcss": "^8.4.14",
     "rollup": "^2.74.1",
@@ -49,20 +59,28 @@
     "rollup-plugin-sourcemaps": "^0.6.3",
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.31.2",
+    "three": "~0.186.1",
     "typedoc": "^0.28.20",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
+  "peerDependencies": {
+    "@types/three": "~0.186.0",
+    "three": "~0.186.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/three": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@types/dat.gui": "^0.7.9",
-    "@types/three": "^0.185.1",
     "copper3d_plugin_heart_k": "^1.0.14",
     "dat.gui": "^0.7.9",
     "dicom-parser": "^1.8.13",
     "fflate": "^0.7.3",
     "file-saver": "^2.0.5",
     "glsl-blend-soft-light": "^1.0.5",
-    "glsl-film-grain": "^1.0.4",
-    "three": "^0.185.1"
+    "glsl-film-grain": "^1.0.4"
   }
 }

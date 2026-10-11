@@ -16,7 +16,7 @@
 import * as THREE from 'three'
 // The .js suffix is required: three@0.170 has a literal exports map and this repo uses
 // moduleResolution: bundler, so the extensionless specifier fails to resolve (TS2307).
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import {
   computeFraming,
   resolveViewPose,

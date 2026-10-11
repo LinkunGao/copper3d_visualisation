@@ -71,7 +71,7 @@ describe("pixel identity: worker round trip vs direct parse", () => {
 
     // Reference: a direct, synchronous parse -- exactly what ran on the main thread before
     // fetch/gunzip/parse moved into a worker.
-    const { NRRDLoader } = await import("three/examples/jsm/loaders/NRRDLoader");
+    const { NRRDLoader } = await import("three/addons/loaders/NRRDLoader.js");
     const referenceLoader = new (NRRDLoader as any)();
     referenceLoader.setSegmentation(false);
     const referenceVolume = referenceLoader.parse(nrrd.slice(0));

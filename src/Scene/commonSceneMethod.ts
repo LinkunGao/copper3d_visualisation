@@ -20,9 +20,9 @@ import { Controls } from "../Controls/copperControls";
 import { objLoader } from "../Loader/copperOBJLoader";
 import { isPickedModel } from "../Utils/raycaster";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { copperNrrdTexture3dLoader } from "../Loader/copperNrrdLoader";
-import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { TrackballControls } from "three/addons/controls/TrackballControls.js";
 
 export class commonScene {
   container: HTMLDivElement;

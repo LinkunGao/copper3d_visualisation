@@ -10,6 +10,7 @@ import postcss from "rollup-plugin-postcss";
 import replace from "@rollup/plugin-replace";
 const getPath = (_path) => path.resolve(__dirname, _path);
 import packageJSON from "./package.json";
+import threePackageJSON from "./node_modules/three/package.json";
 
 const extensions = [".js", ".ts", ".tsx"];
 
@@ -37,6 +38,20 @@ const rawPlugin = () => ({
 });
 
 const WORKER_SUFFIX = "?worker&inline";
+
+// The worker is a self-contained iife, so unlike the main bundles it must inline
+// the three code it uses. `rollup-plugin-node-resolve` predates package "exports"
+// maps and cannot resolve `three/addons/*`; left unresolved, rollup turns each
+// addon into an undefined global and the worker throws on its first load. Point
+// the specifier at the file the exports map names.
+const ADDONS_PREFIX = "three/addons/";
+const threeAddonsPathPlugin = () => ({
+  name: "three-addons-path",
+  resolveId(source) {
+    if (!source.startsWith(ADDONS_PREFIX)) return null;
+    return getPath(`./node_modules/three/examples/jsm/${source.slice(ADDONS_PREFIX.length)}`);
+  },
+});
 
 // Handle Vite-style `?worker&inline` imports: build the target as its own bundle and
 // hand back a `Worker` constructor that boots it from an inline blob URL.
@@ -70,6 +85,7 @@ const inlineWorkerPlugin = () => {
         const bundle = await rollup({
           input: entry,
           plugins: [
+            threeAddonsPathPlugin(),
             resolve({ extensions }),
             commonjs(),
             // A separate rpt2 instance with its own cache: sharing one with the main
@@ -83,6 +99,8 @@ const inlineWorkerPlugin = () => {
               },
               include: ["*.ts", "**/*.ts", "*.tsx", "**/*.tsx"],
               cacheRoot: getPath("./node_modules/.cache/rpt2_worker"),
+              // Transpile only; see the main tsPlugin below.
+              check: false,
             }),
           ],
         });
@@ -132,23 +150,38 @@ const tsPlugin = ts({
   // the plugin filter out every source file. Rollup then parses .ts with its own
   // JS parser and fails with "Unexpected token".
   include: ["*.ts", "**/*.ts", "*.tsx", "**/*.tsx"],
+  // Transpile only: `npm run build` type-checks all of src with `tsc` first,
+  // using tsconfig.json as written. rpt2's own check does not: it forces
+  // moduleResolution "node", which cannot resolve `three/addons/*` through
+  // three's exports map.
+  check: false,
 });
+
+// three is a peer dependency: the consuming app installs it and copper3d must
+// share that one copy. Bundling it gives the page a second three (three warns
+// "Multiple instances of Three.js being imported"), and objects passed between
+// the app and copper3d then belong to different copies. Every `three/...`
+// subpath is external too, or an addon bundled here would import the app's core
+// while copper3d's own code used another.
+const isThree = (id) => id === "three" || id.startsWith("three/");
 
 // Base config
 const commonConf = {
   // Entry file
   input: getPath("./src/index.ts"),
-  // Kept out of the bundle on purpose. `Utils/kiwrious/configKiwrious.ts` loads
+  // `copper3d_plugin_heart_k` is kept out of the bundle on purpose. `Utils/kiwrious/configKiwrious.ts` loads
   // it with a dynamic `import()` so that merely importing copper3d no longer
   // evaluates its nested webpack runtime -- which reads `document.currentScript`
   // and threw under native ESM. Bundling it would hoist that evaluation back to
   // load time and undo the fix; splitting it into a chunk is not an option
   // either, since both targets emit a single file.
-  external: ["copper3d_plugin_heart_k"],
+  external: (id) => isThree(id) || id === "copper3d_plugin_heart_k",
   plugins: [
     replace({
       preventAssignment: true,
       __REVISION__: JSON.stringify(`v${packageJSON.version}`),
+      // three's REVISION is its minor version: "0.186.1" -> "186".
+      __THREE_REVISION__: JSON.stringify(threePackageJSON.version.split(".")[1]),
     }),
     rawPlugin(),
     inlineWorkerPlugin(),
@@ -166,13 +199,17 @@ const commonConf = {
 // Module formats to emit
 const outputMap = [
   {
-    file: "dist/bundle.esm.js",
+    // .mjs so Node loads it as ESM without guessing; the package has no "type".
+    file: "dist/bundle.esm.mjs",
     format: "esm",
   },
   {
     file: "dist/bundle.umd.js",
     format: "umd",
     name: "Copper",
+    // Only the core has a browser global; `three/addons/...` has none, so the
+    // UMD is for require-based consumers, not a bare script tag.
+    globals: { three: "THREE" },
   },
 ];
 

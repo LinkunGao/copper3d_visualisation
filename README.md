@@ -2,16 +2,59 @@
 
 [![CI][ci]][ci-url]
 [![NPM Package][npm]][npm-url]
-[![Read the Docs][readthedocs]][readthedocs-url]
+[![Documentation][docs]][docs-url]
 [![Copper3d Examples][examples]][examples-url]
 [![NRRD_Segmentation_Tool example][nrrd_example]][nrrd_example-url]
 [![MedTech Heart example][heart_example]][heart_example-url]
 
 A 3D visualisation package based on three.js — multiple scenes, NRRD/DICOM image loading, and a full medical image segmentation annotation engine.
 
+### Installation
+
+```bash
+npm install copper3d three@~0.186.0
+```
+
+**`three` is a peer dependency since 4.0.0** — you install it, and copper3d shares your copy.
+It is not bundled, so there is exactly one three on the page: bundling it would give you a
+second (three warns *"Multiple instances of Three.js being imported"*), and a `Mesh` built by
+your code would not be an `instanceof` the `Mesh` copper3d checks against.
+
+TypeScript users also want the types, which are an optional peer:
+
+```bash
+npm install -D @types/three@~0.186.0
+```
+
+copper3d imports three's addons through `three/addons/*`, which three exposes only via its
+package `exports` map. If your `tsconfig.json` still has `"moduleResolution": "node"`, move it
+to `"bundler"` (or `"node16"`/`"nodenext"`) — `"node"` predates exports maps and cannot
+resolve those paths.
+
+At import, copper3d compares the three it was built against with the one actually loaded and
+logs a `console.error` if they differ. npm refuses a mismatched peer at install time; yarn 1
+and pnpm only warn, so the check is repeated where it cannot be scrolled past.
+
 ### Documentation
 
-https://copper3d-visualisation.readthedocs.io/en/latest/
+**https://linkungao.github.io/copper3d_visualisation/** — guides and the full generated API
+reference, in English and 简体中文.
+
+| | |
+|---|---|
+| [Upgrading to 4.0](https://linkungao.github.io/copper3d_visualisation/guide/upgrading-to-4) | **Start here if you are on 3.x** — three is now a peer dependency |
+| [NrrdTools Usage Guide](https://linkungao.github.io/copper3d_visualisation/guide/nrrd-tools) | The segmentation engine, end to end |
+| [Segmentation Module](https://linkungao.github.io/copper3d_visualisation/guide/segmentation-module) | Its architecture and internals |
+| [Load Progress & Errors](https://linkungao.github.io/copper3d_visualisation/guide/load-callbacks) | `loadNrrd` / `loadGltf` options and callbacks |
+| [AI Coding Assistants (MCP)](https://linkungao.github.io/copper3d_visualisation/guide/mcp-server) | Point your assistant at the real API |
+| [API reference](https://linkungao.github.io/copper3d_visualisation/apidist/modules) | Generated from source by TypeDoc |
+
+The site is built from [`apidocs/`](apidocs/) with VitePress and deploys to GitHub Pages.
+
+> The old Sphinx site on readthedocs was retired at 3.11.6. It had not been updated since
+> v2.0.7 (December 2023) and documented an API that no longer exists — `Copper.Renderer`
+> rather than `copperRenderer`, and nothing from the 3.x segmentation engine. Everything now
+> lives at the link above. Its sources remain in git history if you need them.
 
 ### Previous versions
 
@@ -845,8 +888,8 @@ Special thanks to [Duke University dataset](https://wiki.cancerimagingarchive.ne
 [ci-url]: https://github.com/LinkunGao/copper3d_visualisation/actions/workflows/ci.yml
 [npm]: https://img.shields.io/npm/v/copper3d
 [npm-url]: https://www.npmjs.com/package/copper3d
-[readthedocs]: https://img.shields.io/readthedocs/copper3d_visualisation
-[readthedocs-url]: https://copper3d-visualisation.readthedocs.io/en/latest/
+[docs]: https://img.shields.io/badge/docs-copper3d-blue
+[docs-url]: https://linkungao.github.io/copper3d_visualisation/
 [examples]: https://img.shields.io/badge/copper3d__visualisation-examples-orange
 [examples-url]: https://linkungao.github.io/copper3d_examples
 [nrrd_example]: https://img.shields.io/badge/Nrrd__Segmentation__tool-example-orange
