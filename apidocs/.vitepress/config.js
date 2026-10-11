@@ -5,6 +5,19 @@ export default {
   ignoreDeadLinks: false,
   title: "Copper3d API",
   base: "/copper3d_visualisation/",
+  // Archivo carries the landing page's wordmark; its width axis is what makes the
+  // mark read as equipment labelling rather than a default UI sans.
+  head: [
+    ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
+    ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
+    [
+      "link",
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap",
+      },
+    ],
+  ],
   markdown: {
     // markdown-it-attrs turns a trailing `{ ... }` into HTML attributes, so a
     // JSDoc line such as `visibility: { layer1: true, layer2: true }` becomes
