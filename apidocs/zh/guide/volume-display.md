@@ -135,7 +135,7 @@ addVolumeBoundingBox(
 面就悬在一片没有边界的虚空里，读者完全不知道自己滚到体数据的哪个位置了。
 
 ```ts
-scene.loadNrrd(url, loadingBar, false, (volume, meshes) => {
+scene.loadNrrd(url, loadingBar, (volume, meshes) => {
   scene.addObject(meshes.z);
   Copper.addVolumeBoundingBox(scene, volume.RASDimensions, { color: 0x8a7f84 });
 });

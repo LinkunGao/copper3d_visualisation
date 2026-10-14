@@ -43,6 +43,7 @@ reference, in English and 简体中文.
 | | |
 |---|---|
 | [Upgrading to 4.0](https://linkungao.github.io/copper3d_visualisation/guide/upgrading-to-4) | **Start here if you are on 3.x** — three is now a peer dependency |
+| [Patient Orientation](https://linkungao.github.io/copper3d_visualisation/guide/orientation) | Canonical LPS order, `OrientationError`, view labels |
 | [NrrdTools Usage Guide](https://linkungao.github.io/copper3d_visualisation/guide/nrrd-tools) | The segmentation engine, end to end |
 | [Segmentation Module](https://linkungao.github.io/copper3d_visualisation/guide/segmentation-module) | Its architecture and internals |
 | [Load Progress & Errors](https://linkungao.github.io/copper3d_visualisation/guide/load-callbacks) | `loadNrrd` / `loadGltf` options and callbacks |
@@ -249,16 +250,27 @@ CameraViewPoint {
 
 ### Loading NRRD volumes
 
-`scene.loadNrrd(url, loadingBar, segmentation, callback, opts?)` fetches, gunzips and parses
+`scene.loadNrrd(url, loadingBar, callback, opts?)` fetches, gunzips and parses
 the volume **in a shared Web Worker**; the pixel buffer comes back as a transferable and the
 main thread only rehydrates a `Volume` around it. Two concurrent loads of the same URL share
 one network transfer. The worker is inlined into the bundle, so there is no second asset file
 to serve.
 
+Every volume comes back in the **canonical voxel order** (`i` → patient Left, `j` → Posterior,
+`k` → Superior), whatever order its file stores, so each view is the radiological one without
+you doing anything. `volume.orientation` records how the file got there. A file whose patient
+orientation cannot be established is refused through `onError` with an `OrientationError`,
+never guessed at — see [Patient Orientation](https://linkungao.github.io/copper3d_visualisation/guide/orientation).
+
+> **Breaking in 4.1.0:** the `segmentation` argument was removed —
+> `loadNrrd(url, loadingBar, segmentation, callback, opts)` is now
+> `loadNrrd(url, loadingBar, callback, opts)`. The canonical order makes the flag meaningless,
+> so it is always on; leaving it in shifts your other arguments by one.
+
 ```ts
 const controller = new AbortController();
 
-scene.loadNrrd(url, loadingBar, false, (volume, meshes, slices) => { /* ... */ }, {
+scene.loadNrrd(url, loadingBar, (volume, meshes, slices) => { /* ... */ }, {
   openGui: false,
   axes: ["z"],                  // extract only the planes you show
   knownMinMax: [min, max],      // skip three's whole-volume intensity scan

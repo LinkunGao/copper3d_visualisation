@@ -35,10 +35,26 @@ scene.loadGltf(url, callback?, {
 
 ## `scene.loadNrrd`
 
+::: warning 4.1.0 破坏性变更：`segmentation` 参数已移除
+```ts
+scene.loadNrrd(url, loadingBar, segmentation, callback, opts);   // 之前
+scene.loadNrrd(url, loadingBar, callback, opts);                 // 4.1.0
+```
+
+它已经没有意义了。加载器现在会把每个体数据放进[标准体素序](./orientation),并按体素下标铺切片 ——
+这正是那个开关当初想近似达到的效果 —— 所以它永远是开的;继续传它只会让你后面的参数整体错位一个。
+
+随之而来还有两点:
+
+- 加载出来的 volume 上新增了 **`volume.orientation`**:文件是怎么进入标准序的,以及它在患者空间里的
+  标准网格。
+- **无法确定患者方位的体数据会被拒绝**,通过 `onError` 抛出 `OrientationError`。绝不猜测,也绝不显示。
+:::
+
 回调挂在已有的 `opts` 对象上：
 
 ```ts
-scene.loadNrrd(url, loadingBar, segmentation, callback, {
+scene.loadNrrd(url, loadingBar, callback, {
   openGui: false,
   onProgress: (event) => { /* ... */ },
   onError: (error) => showFailure(error),
@@ -62,7 +78,7 @@ NRRD 的加载条现在会在**加载失败时隐藏**。它原本没有任何�
 释放的 geometry、material 和 canvas 纹理。
 
 ```ts
-scene.loadNrrd(url, loadingBar, false, callback, {
+scene.loadNrrd(url, loadingBar, callback, {
   openGui: false,
   axes: ["z"],          // 只看横断面的 viewer
 });
@@ -110,7 +126,7 @@ ensureAxisExtracted(slices, "x", meshes); // 顺带填上 meshes.x
 ```ts
 const { min, max } = await fetch(`/files/${caseId}/headers`).then((r) => r.json());
 
-scene.loadNrrd(url, loadingBar, false, callback, {
+scene.loadNrrd(url, loadingBar, callback, {
   openGui: false,
   knownMinMax: [min, max],
 });
@@ -131,7 +147,7 @@ function loadCase(url: string) {
   inflight?.abort();               // 掐掉上一次下载
   inflight = new AbortController();
 
-  scene.loadNrrd(url, loadingBar, false, onLoaded, {
+  scene.loadNrrd(url, loadingBar, onLoaded, {
     openGui: false,
     signal: inflight.signal,
     onError: (error) => {
@@ -215,7 +231,7 @@ function armStallTimer() {
 }
 
 armStallTimer();
-scene.loadNrrd(url, loadingBar, false, (volume, meshes, slices) => {
+scene.loadNrrd(url, loadingBar, (volume, meshes, slices) => {
   clearTimeout(timer);
   /* ... */
 }, {
