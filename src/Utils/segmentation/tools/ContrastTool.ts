@@ -40,7 +40,7 @@ export class ContrastTool extends BaseTool {
 
     this.contrastEventPrameters.handleOnContrastMouseDown = (ev: MouseEvent) => {
       if (ev.button === 0) {
-        this.contrastEventPrameters.x = ev.offsetX / this.contrastEventPrameters.x;
+        this.contrastEventPrameters.x = ev.offsetX / this.contrastEventPrameters.w;
         this.contrastEventPrameters.y = ev.offsetY / this.contrastEventPrameters.h;
         this.container.addEventListener(
           "pointermove",

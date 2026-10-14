@@ -14,6 +14,7 @@ import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls
 import { DecalGeometry } from "three/addons/geometries/DecalGeometry.js";
 import { loading } from "../Utils/utils";
 import { resize3dnrrd } from "../Utils/convet";
+import { OrientationError, type OrientationErrorCode, type VolumeOrientation } from "../Utils/orientation";
 // `?worker&inline` bundles the worker's own code as an inline blob URL, not a separate
 // emitted file -- required for the plugin (UMD) build, whose bundle is uploaded as one
 // `code/` tree and mounted at a base path unknown at build time (see vite.config.ts).
@@ -55,7 +56,7 @@ function getSharedWorker(): NrrdWorkerLike {
       const msg = event.data as
         | { id: string; type: "progress"; loaded: number; total: number }
         | { id: string; type: "loaded"; payload: any }
-        | { id: string; type: "error"; name: string; message: string };
+        | { id: string; type: "error"; name: string; message: string; code?: string; detail?: string };
       const pending = pendingRequests.get(msg.id);
       if (!pending) return;
       if (msg.type === "progress") {
@@ -65,13 +66,20 @@ function getSharedWorker(): NrrdWorkerLike {
         pending.onLoaded(msg.payload);
       } else {
         pendingRequests.delete(msg.id);
-        const err = new Error(msg.message);
-        err.name = msg.name;
-        pending.onError(err);
+        pending.onError(workerError(msg));
       }
     };
   }
   return sharedWorker;
+}
+
+/** A worker error rebuilt on this side of the boundary. A refused orientation comes back as the
+ *  engine's own OrientationError, so callers can tell it from a failed fetch and say why. */
+function workerError(msg: { name: string; message: string; code?: string; detail?: string }): Error {
+  if (msg.code) return new OrientationError(msg.code as OrientationErrorCode, msg.detail ?? msg.message);
+  const err = new Error(msg.message);
+  err.name = msg.name;
+  return err;
 }
 
 interface PendingRequest {
@@ -99,7 +107,6 @@ let requestSeq = 0;
  */
 function loadViaWorker(
   url: string,
-  segmentation: boolean,
   knownMinMax: [number, number] | undefined,
   onProgress: ((event: ProgressEvent) => void) | undefined,
   signal: AbortSignal | undefined
@@ -148,7 +155,7 @@ function loadViaWorker(
       },
     });
 
-    worker.postMessage({ cmd: "load", id, url, segmentation, knownMinMax });
+    worker.postMessage({ cmd: "load", id, url, knownMinMax });
   });
 }
 
@@ -177,6 +184,8 @@ export interface NrrdVolume extends Omit<Volume, "matrix"> {
   max: number;
   windowLow: number;
   windowHigh: number;
+  /** How the file reached the canonical voxel order, and its canonical grid in patient space. */
+  orientation: VolumeOrientation;
 }
 
 function rehydrateVolume(payload: any): NrrdVolume {
@@ -184,7 +193,9 @@ function rehydrateVolume(payload: any): NrrdVolume {
   // exactly the fields NRRDLoader.parse() adds, so the instance does carry them.
   const volume = new Volume(payload.xLength, payload.yLength, payload.zLength, payload.type, payload.buffer) as unknown as NrrdVolume;
   volume.header = payload.header;
-  volume.segmentation = payload.segmentation;
+  // Slices are laid out by voxel index, which the worker made the patient's order.
+  volume.segmentation = true;
+  volume.orientation = payload.orientation;
   volume.dimensions = [payload.xLength, payload.yLength, payload.zLength];
   volume.axisOrder = payload.axisOrder;
   volume.spacing = payload.spacing;
@@ -363,10 +374,15 @@ export function ensureAxisExtracted(
   return slice;
 }
 
+/**
+ * Loads an NRRD in the canonical voxel order (i -> patient Left, j -> Posterior, k -> Superior),
+ * whatever order its file stores, so every view comes out in the radiological convention. A file
+ * whose patient orientation cannot be established fails through `opts.onError` with an
+ * `OrientationError` and is never displayed.
+ */
 export function copperNrrdLoader(
   url: string,
   loadingBar: loadingBarType,
-  segmentation: boolean,
   callback?: (
     volume: any,
     nrrdMeshes: nrrdMeshesType,
@@ -533,11 +549,16 @@ export function copperNrrdLoader(
     opts?.onError?.(error);
   };
 
-  loadViaWorker(url, segmentation, opts?.knownMinMax, onXhrProgress, opts?.signal)
+  loadViaWorker(url, opts?.knownMinMax, onXhrProgress, opts?.signal)
     .then(onLoad)
     .catch(onLoadError);
 }
 
+/**
+ * @deprecated Shows the file in its stored voxel order, not the canonical LPS order every other
+ * loader uses, with window and threshold values fixed for one demo case. Use
+ * `copperNrrdLoader` instead. Will be removed in a future major release.
+ */
 export function copperNrrdTexture3dLoader(
   url: string,
   scene: THREE.Scene,

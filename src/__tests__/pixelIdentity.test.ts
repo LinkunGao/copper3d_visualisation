@@ -36,15 +36,20 @@ function loadingBar() {
 }
 
 /** A real, valid raw-encoded NRRD document: a 4x4x4 uint8 cube (64 voxels) with a
- *  non-trivial value spread, so a byte-order or dtype mistake would visibly change pixels. */
+ *  non-trivial value spread, so a byte-order or dtype mistake would visibly change pixels.
+ *  Stored LPS-ordered, so the worker's canonical reordering is the identity and the direct
+ *  parse below is a fair reference. */
 function buildNrrd(): ArrayBuffer {
   const header =
     "NRRD0004\n" +
     "type: uint8\n" +
     "dimension: 3\n" +
+    "space: left-posterior-superior\n" +
     "sizes: 4 4 4\n" +
+    "space directions: (1,0,0) (0,1,0) (0,0,1)\n" +
     "encoding: raw\n" +
     "endian: little\n" +
+    "space origin: (0,0,0)\n" +
     "\n";
   const headerBytes = new TextEncoder().encode(header);
   const values = Array.from({ length: 64 }, (_, i) => (i * 37 + 11) % 256);
@@ -73,7 +78,8 @@ describe("pixel identity: worker round trip vs direct parse", () => {
     // fetch/gunzip/parse moved into a worker.
     const { NRRDLoader } = await import("three/addons/loaders/NRRDLoader.js");
     const referenceLoader = new (NRRDLoader as any)();
-    referenceLoader.setSegmentation(false);
+    // The engine always lays slices out by voxel index (segmentation mode).
+    referenceLoader.setSegmentation(true);
     const referenceVolume = referenceLoader.parse(nrrd.slice(0));
 
     capturedFrames = [];
@@ -94,7 +100,7 @@ describe("pixel identity: worker round trip vs direct parse", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(nrrd.slice(0))));
 
     const volume = await new Promise<any>((resolve, reject) => {
-      loaderModule.copperNrrdLoader("v.nrrd", loadingBar(), false, (v) => resolve(v), {
+      loaderModule.copperNrrdLoader("v.nrrd", loadingBar(), (v) => resolve(v), {
         openGui: false,
         axes: ["z"],
         onError: reject,

@@ -101,8 +101,9 @@ export class SphereBrushTool extends BaseTool {
       case 'x':
         return {
           x: sliceIndex,
-          y: displayY * nrrd.image.nrrd_y_pixel / ch,
-          z: displayX * nrrd.image.nrrd_z_pixel / cw,
+          y: displayX * nrrd.image.nrrd_y_pixel / cw,
+          // Sagittal vertical flip, as coronal: superior at the top
+          z: (ch - displayY) * nrrd.image.nrrd_z_pixel / ch,
         };
     }
   }
@@ -123,7 +124,7 @@ export class SphereBrushTool extends BaseTool {
     // pixel-exact voxel radius for the visible horizontal/vertical dims
     const rxView = radius * sf * nrrd.image.nrrd_x_pixel / cw;
     const ryView = radius * sf * nrrd.image.nrrd_y_pixel / ch;
-    const rzHoriz = radius * sf * nrrd.image.nrrd_z_pixel / cw;
+    const ryHoriz = radius * sf * nrrd.image.nrrd_y_pixel / cw;
     const rzVert = radius * sf * nrrd.image.nrrd_z_pixel / ch;
     // mm-based fallback for the slice-direction (perpendicular) dim
     const rxMm = radius * nrrd.image.nrrd_x_pixel / nrrd.image.nrrd_x_mm;
@@ -132,7 +133,7 @@ export class SphereBrushTool extends BaseTool {
     switch (axis) {
       case 'z': return { rx: rxView, ry: ryView, rz: rzMm };
       case 'y': return { rx: rxView, ry: ryMm,   rz: rzVert };
-      case 'x': return { rx: rxMm,   ry: ryView, rz: rzHoriz };
+      case 'x': return { rx: rxMm,   ry: ryHoriz, rz: rzVert };
     }
   }
 

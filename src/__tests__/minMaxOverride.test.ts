@@ -48,9 +48,12 @@ function buildNrrd(values: number[]): ArrayBuffer {
     "NRRD0004\n" +
     "type: uint8\n" +
     "dimension: 3\n" +
+    "space: left-posterior-superior\n" +
     "sizes: 2 2 2\n" +
+    "space directions: (1,0,0) (0,1,0) (0,0,1)\n" +
     "encoding: raw\n" +
     "endian: little\n" +
+    "space origin: (0,0,0)\n" +
     "\n";
   const headerBytes = new TextEncoder().encode(header);
   const out = new Uint8Array(headerBytes.length + values.length);
@@ -74,7 +77,7 @@ function okResponse(buffer: ArrayBuffer) {
  *  parsed volume once the success callback fires. */
 function load(loader: Loader["copperNrrdLoader"], buffer: ArrayBuffer, opts: any): Promise<any> {
   return new Promise((resolve, reject) => {
-    loader("v.nrrd", loadingBar(), false, (volume) => resolve(volume), {
+    loader("v.nrrd", loadingBar(), (volume) => resolve(volume), {
       ...opts,
       onError: reject,
     });
@@ -157,8 +160,8 @@ describe("known min/max override", () => {
     );
 
     const [a, b] = await Promise.all([
-      new Promise((resolve) => copperNrrdLoader("a.nrrd", loadingBar(), false, resolve as any, { openGui: false, knownMinMax: [111, 222] })),
-      new Promise((resolve) => copperNrrdLoader("b.nrrd", loadingBar(), false, resolve as any, { openGui: false, knownMinMax: [333, 444] })),
+      new Promise((resolve) => copperNrrdLoader("a.nrrd", loadingBar(), resolve as any, { openGui: false, knownMinMax: [111, 222] })),
+      new Promise((resolve) => copperNrrdLoader("b.nrrd", loadingBar(), resolve as any, { openGui: false, knownMinMax: [333, 444] })),
     ]);
 
     expect([(a as any).min, (a as any).max]).toEqual([111, 222]);
@@ -223,7 +226,7 @@ describe("cancellation", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
 
     const onError = vi.fn();
-    copperNrrdLoader("v.nrrd", loadingBar(), false, undefined, {
+    copperNrrdLoader("v.nrrd", loadingBar(), undefined, {
       openGui: false,
       signal: controller.signal,
       onError,

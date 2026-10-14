@@ -4,6 +4,20 @@ import type { MaskVolume } from "../core";
 import type { SliceRenderHostDeps } from "./ToolHost";
 
 /**
+ * The size three's slice canvas is shown at. The sagittal view turns that canvas a quarter turn
+ * (see `flipDisplayImageByAxis`), so its width and height trade places; every other canvas, mask
+ * slices included, is laid out at this size.
+ */
+export function displaySizeOf(
+  axis: "x" | "y" | "z",
+  canvas: { width: number; height: number },
+): { width: number; height: number } {
+  return axis === "x"
+    ? { width: canvas.height, height: canvas.width }
+    : { width: canvas.width, height: canvas.height };
+}
+
+/**
  * Manages slice rendering pipeline: slice setup, canvas rendering, and view helpers.
  *
  * Extracted from NrrdTools.ts to reduce its size.
@@ -12,6 +26,8 @@ import type { SliceRenderHostDeps } from "./ToolHost";
 export class SliceRenderPipeline extends BaseTool {
   private callbacks: SliceRenderHostDeps;
   private initState: boolean = true;
+  /** The view the layer canvases were last drawn for; a different view must redraw them. */
+  private layerCanvasAxis?: "x" | "y" | "z";
 
   constructor(ctx: ToolContext, callbacks: SliceRenderHostDeps) {
     super(ctx);
@@ -106,10 +122,9 @@ export class SliceRenderPipeline extends BaseTool {
     const prevW = this.ctx.nrrd_states.image.originWidth;
     const prevH = this.ctx.nrrd_states.image.originHeight;
     if (this.ctx.protectedData.canvases.originCanvas) {
-      this.ctx.nrrd_states.image.originWidth =
-        this.ctx.protectedData.canvases.originCanvas.width;
-      this.ctx.nrrd_states.image.originHeight =
-        this.ctx.protectedData.canvases.originCanvas.height;
+      const shown = displaySizeOf(this.ctx.protectedData.axis, this.ctx.protectedData.canvases.originCanvas);
+      this.ctx.nrrd_states.image.originWidth = shown.width;
+      this.ctx.nrrd_states.image.originHeight = shown.height;
     }
     this.resizePaintArea(this.ctx.nrrd_states.view.sizeFactor);
 
@@ -313,19 +328,29 @@ export class SliceRenderPipeline extends BaseTool {
   }
 
   /**
-   * flip the canvas to a correct position.
-   * This is because the slice canvas from threejs is not in a correct 2D postion.
-   * Thus, everytime when we redraw the display canvas, we need to flip to draw the origin canvas from threejs.
-   * Under different axis(sagittal, Axial, Coronal), the flip orientation is different.
+   * Maps three's slice canvas onto the display canvas. Callers then draw that canvas into
+   * (0, 0, changedWidth, changedHeight).
+   *
+   * The loader puts every volume in the canonical voxel order (i -> patient Left, j -> Posterior,
+   * k -> Superior), and three lays a slice out by voxel index with fixed row reversals. This fixed
+   * per-axis transform undoes those reversals, which makes each view the radiological one:
+   * - axial (z): screen-right = +i (patient Left), screen-down = +j (Posterior);
+   * - coronal (y): screen-right = +i, screen-down = -k (Superior at the top);
+   * - sagittal (x): screen-right = +j (Anterior on the left), screen-down = -k.
+   * Three's sagittal canvas runs columns along -k and rows along -j, so sagittal is a quarter
+   * turn as well as a scale: the drawn rectangle is the display size (`displaySizeOf`), whose
+   * width and height are three's height and width.
+   * `Utils/orientation.ts` (VIEW_LAYOUT) states the same layout for the orientation letters, so the
+   * two change together.
    */
   flipDisplayImageByAxis(): void {
     if (this.ctx.protectedData.axis === "x") {
-      this.ctx.protectedData.ctxes.displayCtx?.scale(-1, -1);
-
-      this.ctx.protectedData.ctxes.displayCtx?.translate(
-        -this.ctx.nrrd_states.view.changedWidth,
-        -this.ctx.nrrd_states.view.changedHeight
-      );
+      const w = this.ctx.nrrd_states.view.changedWidth;
+      const h = this.ctx.nrrd_states.view.changedHeight;
+      if (w > 0 && h > 0) {
+        // (x, y) -> (w - y * w / h, x * h / w)
+        this.ctx.protectedData.ctxes.displayCtx?.transform(0, h / w, -w / h, 0, w, 0);
+      }
     } else if (this.ctx.protectedData.axis === "z") {
       this.ctx.protectedData.ctxes.displayCtx?.scale(1, -1);
       this.ctx.protectedData.ctxes.displayCtx?.translate(
@@ -350,9 +375,9 @@ export class SliceRenderPipeline extends BaseTool {
     switch (!!axis ? axis : this.ctx.protectedData.axis) {
       case "x":
         this.ctx.protectedData.canvases.emptyCanvas.width =
-          this.ctx.nrrd_states.image.nrrd_z_pixel;
-        this.ctx.protectedData.canvases.emptyCanvas.height =
           this.ctx.nrrd_states.image.nrrd_y_pixel;
+        this.ctx.protectedData.canvases.emptyCanvas.height =
+          this.ctx.nrrd_states.image.nrrd_z_pixel;
         break;
       case "y":
         this.ctx.protectedData.canvases.emptyCanvas.width =
@@ -393,6 +418,9 @@ export class SliceRenderPipeline extends BaseTool {
     const newHeight = originHeight > 0 ? Math.max(1, Math.floor(originHeight * factor)) : 0;
     const sizeChanged = newWidth !== this.ctx.nrrd_states.view.changedWidth ||
       newHeight !== this.ctx.nrrd_states.view.changedHeight;
+    // The layer canvases hold the masks of the view they were drawn for. Sagittal and coronal can
+    // be the same size, so a view switch must redraw them even when the size is unchanged.
+    const viewChanged = this.ctx.protectedData.axis !== this.layerCanvasAxis;
 
     // Always clear display/drawing/origin canvases (needed for contrast updates)
     this.ctx.protectedData.canvases.originCanvas.width =
@@ -425,11 +453,12 @@ export class SliceRenderPipeline extends BaseTool {
 
     this.redrawDisplayCanvas();
 
-    if (sizeChanged) {
-      // Phase 3: Reload masks from MaskVolume only when canvas size changed
+    if (sizeChanged || viewChanged) {
+      // Redraw every layer from its MaskVolume for this view and size.
       this.reloadMasksFromVolume();
+      this.layerCanvasAxis = this.ctx.protectedData.axis;
     } else {
-      // Size unchanged (e.g. contrast toggle): layer canvases still have
+      // Same view, same size (e.g. contrast toggle): layer canvases still have
       // valid data, just recomposite to master for the start() render loop.
       this.callbacks.compositeAllLayers();
     }
@@ -469,10 +498,9 @@ export class SliceRenderPipeline extends BaseTool {
     const prevW = this.ctx.nrrd_states.image.originWidth;
     const prevH = this.ctx.nrrd_states.image.originHeight;
 
-    this.ctx.nrrd_states.image.originWidth =
-      this.ctx.protectedData.canvases.originCanvas.width;
-    this.ctx.nrrd_states.image.originHeight =
-      this.ctx.protectedData.canvases.originCanvas.height;
+    const shown = displaySizeOf(this.ctx.protectedData.axis, this.ctx.protectedData.canvases.originCanvas);
+    this.ctx.nrrd_states.image.originWidth = shown.width;
+    this.ctx.nrrd_states.image.originHeight = shown.height;
 
     // Let resizePaintArea be the sole setter of changedWidth/changedHeight.
     // Setting them here would defeat the sizeChanged detection in resizePaintArea,

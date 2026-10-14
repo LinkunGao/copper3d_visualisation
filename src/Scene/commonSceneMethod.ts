@@ -295,11 +295,13 @@ export class commonScene {
       });
     }
   }
-  //   load nrrd
+  /**
+   * Loads an NRRD in the canonical voxel order (i -> patient Left, j -> Posterior,
+   * k -> Superior), whatever order its file stores; see `copperNrrdLoader`.
+   */
   loadNrrd(
     url: string,
     loadingBar: loadingBarType,
-    segmentation: boolean,
     callback?: (
       volume: any,
       nrrdMeshes: nrrdMeshesType,
@@ -308,7 +310,7 @@ export class commonScene {
     ) => void,
     opts?: optsType
   ) {
-    copperNrrdLoader(url, loadingBar, segmentation, callback, opts);
+    copperNrrdLoader(url, loadingBar, callback, opts);
   }
 
   updateControls(camera: THREE.PerspectiveCamera | THREE.OrthographicCamera) {
@@ -320,6 +322,11 @@ export class commonScene {
     this.controls.enablePan = false;
   }
 
+  /**
+   * @deprecated Shows the file in its stored voxel order, not the canonical LPS order every
+   * other loader uses, with window and threshold values fixed for one demo case. Use
+   * `loadNrrd` (`copperNrrdLoader`) instead. Will be removed in a future major release.
+   */
   loadNrrdTexture3d(url: string, callback?: (volume: any, gui?: GUI) => void) {
     // const h = 512; // frustum height
     this.camera.updateProjectionMatrix();

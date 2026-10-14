@@ -322,8 +322,8 @@ export class DrawingTool extends BaseTool {
       case 'x':
         return {
           x: sliceIndex,
-          y: displayY * nrrd.image.nrrd_y_pixel / ch,
-          z: displayX * nrrd.image.nrrd_z_pixel / cw,
+          y: displayX * nrrd.image.nrrd_y_pixel / cw,
+          z: (ch - displayY) * nrrd.image.nrrd_z_pixel / ch,
         };
     }
   }
@@ -352,8 +352,8 @@ export class DrawingTool extends BaseTool {
         };
       case 'x':
         return {
-          rH: displayRadius * nrrd.image.nrrd_z_pixel / cw,
-          rV: displayRadius * nrrd.image.nrrd_y_pixel / ch,
+          rH: displayRadius * nrrd.image.nrrd_y_pixel / cw,
+          rV: displayRadius * nrrd.image.nrrd_z_pixel / ch,
         };
     }
   }
@@ -407,16 +407,16 @@ export class DrawingTool extends BaseTool {
         break;
       }
       case 'x': {
-        const minZ = Math.max(0, Math.floor(center.z - rH));
-        const maxZ = Math.min(dims.depth - 1, Math.ceil(center.z + rH));
-        const minY = Math.max(0, Math.floor(center.y - rV));
-        const maxY = Math.min(dims.height - 1, Math.ceil(center.y + rV));
+        const minY = Math.max(0, Math.floor(center.y - rH));
+        const maxY = Math.min(dims.height - 1, Math.ceil(center.y + rH));
+        const minZ = Math.max(0, Math.floor(center.z - rV));
+        const maxZ = Math.min(dims.depth - 1, Math.ceil(center.z + rV));
         const x = Math.round(center.x);
-        for (let yy = minY; yy <= maxY; yy++) {
-          for (let zz = minZ; zz <= maxZ; zz++) {
-            const dz = rH > 0 ? (zz - center.z) / rH : 0;
-            const dy = rV > 0 ? (yy - center.y) / rV : 0;
-            if (dz * dz + dy * dy <= 1.0) {
+        for (let zz = minZ; zz <= maxZ; zz++) {
+          for (let yy = minY; yy <= maxY; yy++) {
+            const dy = rH > 0 ? (yy - center.y) / rH : 0;
+            const dz = rV > 0 ? (zz - center.z) / rV : 0;
+            if (dy * dy + dz * dz <= 1.0) {
               vol.setVoxel(x, yy, zz, label);
             }
           }
@@ -447,7 +447,7 @@ export class DrawingTool extends BaseTool {
         switch (axis) {
           case 'z': steps = Math.max(Math.abs(current.x - prev.x), Math.abs(current.y - prev.y)); break;
           case 'y': steps = Math.max(Math.abs(current.x - prev.x), Math.abs(current.z - prev.z)); break;
-          case 'x': steps = Math.max(Math.abs(current.z - prev.z), Math.abs(current.y - prev.y)); break;
+          case 'x': steps = Math.max(Math.abs(current.y - prev.y), Math.abs(current.z - prev.z)); break;
         }
         steps = Math.max(1, Math.ceil(steps));
 

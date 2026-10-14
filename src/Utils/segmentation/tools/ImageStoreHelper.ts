@@ -10,6 +10,7 @@
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import { MaskVolume } from "../core";
+import { rowsRunUp } from "../contourPaint";
 import type { ImageStoreHostDeps } from "./ToolHost";
 
 export class ImageStoreHelper extends BaseTool {
@@ -52,11 +53,9 @@ export class ImageStoreHelper extends BaseTool {
   /**
    * Vertically flip an ImageData buffer in-place (swap rows top↔bottom).
    *
-   * Used to compensate for the Z-axis direction reversal between sagittal
-   * and coronal views. On coronal, Z runs along the canvas j-axis (vertical),
-   * and the display flip (scale(1,-1)) reverses Z relative to sagittal's
-   * horizontal Z mapping. This row-swap aligns the Z ordering so that
-   * MaskVolume stores data in a consistent coordinate system.
+   * Coronal and sagittal show superior at the top, while their slices store z ascending in
+   * their rows. The bake canvas is a picture of the display, so its rows are reversed before
+   * they are written into the MaskVolume.
    */
   private flipImageDataVertically(imageData: ImageData): void {
     const { width, height, data } = imageData;
@@ -96,12 +95,9 @@ export class ImageStoreHelper extends BaseTool {
       this.ctx.protectedData.canvases.emptyCanvas.height
     );
 
-    // Coronal (axis='y') Z-flip: the Z dimension runs vertically on coronal
-    // but horizontally on sagittal, with opposite screen directions.
-    // Flip ImageData vertically before writing to MaskVolume so that
-    // cross-view rendering (sagittal↔coronal) is consistent.
-    // Same pattern as SphereTool.canvasToVoxelCenter('y') Z-flip.
-    if (this.ctx.protectedData.axis === 'y') {
+    // Coronal and sagittal Z-flip: the display shows superior at the top, the slice stores z
+    // ascending, the same flip contourPaint draws with.
+    if (rowsRunUp(this.ctx.protectedData.axis)) {
       this.flipImageDataVertically(imageData);
     }
 

@@ -21,7 +21,7 @@ describe("sliceDims", () => {
   it("matches getSliceUint8's layout", () => {
     expect(sliceDims([6, 5, 4], "z")).toEqual([6, 5]);
     expect(sliceDims([6, 5, 4], "y")).toEqual([6, 4]);
-    expect(sliceDims([6, 5, 4], "x")).toEqual([4, 5]);
+    expect(sliceDims([6, 5, 4], "x")).toEqual([5, 4]);
   });
 });
 
@@ -56,6 +56,18 @@ describe("mirrorSliceLabels", () => {
     }
   });
 
+  it("resamples a non-diagonal matrix to the same layout as the source's slice", () => {
+    const v = marked();
+    // Off-diagonal noise forces the general path; it still rounds to the same voxels.
+    const skewed = [...I];
+    skewed[1] = 1e-6;
+    skewed[6] = 1e-6;
+    for (const [axis, index] of [["z", 3], ["z", 1], ["y", 2], ["y", 0], ["x", 1], ["x", 4]] as const) {
+      const s = mirrorSliceLabels(v, [6, 5, 4], axis, index, skewed);
+      expect(Array.from(s.data)).toEqual(Array.from(v.getSliceUint8(index, axis).data));
+    }
+  });
+
   it("maps a coarser mirror grid onto the source by the matrix", () => {
     const v = new MaskVolume(8, 8, 8, 1);
     v.setVoxel(2, 4, 6, 5);
@@ -82,7 +94,7 @@ describe("mirrorSliceLabels", () => {
     // The same coverage holds on an in-plane axis: a sagittal slice through x = 1.
     const sag = mirrorSliceLabels(v, [4, 4, 3], "x", 1, thick);
     expect(Array.from(sag.data).filter((x) => x !== 0)).toEqual([7]);
-    expect(sag.data[2 * sag.width + 1]).toBe(7);
+    expect(sag.data[1 * sag.width + 2]).toBe(7); // column y = 2, row z = 1
   });
 
   it("draws nothing where the mirror maps outside the source", () => {

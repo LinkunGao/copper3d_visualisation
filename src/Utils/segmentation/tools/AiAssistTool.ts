@@ -368,13 +368,13 @@ export class AiAssistTool extends BaseTool {
   //
   // Mapping must INVERT exactly what RenderingUtils.renderSliceToCanvas does to
   // display the overlay (it is the renderer used by renderOverlay):
-  //   - axial (z) / sagittal (x): no flip
-  //   - coronal (y): vertical flip (scale(1,-1))
+  //   - axial (z): no flip
+  //   - coronal (y) / sagittal (x): vertical flip (scale(1,-1))
   // Slice voxel dims & canvas mm extents per axis (matches MaskVolume
   // getSliceDimensions + SphereTool.setSphereCanvasSize):
   //   z → (W=width,  H=height) over (x_mm, y_mm)
   //   y → (W=width,  H=depth ) over (x_mm, z_mm)   [vertical flip]
-  //   x → (W=depth,  H=height) over (z_mm, y_mm)
+  //   x → (W=height, H=depth ) over (y_mm, z_mm)   [vertical flip]
 
   /** Voxel-slice (width,height) for the current axis. */
   private sliceDims(): { w: number; h: number } | null {
@@ -383,7 +383,7 @@ export class AiAssistTool extends BaseTool {
     switch (this.ctx.protectedData.axis) {
       case "z": return { w: d.width, h: d.height };
       case "y": return { w: d.width, h: d.depth };
-      case "x": return { w: d.depth, h: d.height };
+      case "x": return { w: d.height, h: d.depth };
       default: return null;
     }
   }
@@ -401,7 +401,7 @@ export class AiAssistTool extends BaseTool {
     switch (this.ctx.protectedData.axis) {
       case "z": hMM = img.nrrd_x_mm; vMM = img.nrrd_y_mm; flipV = false; break;
       case "y": hMM = img.nrrd_x_mm; vMM = img.nrrd_z_mm; flipV = true; break;
-      case "x": hMM = img.nrrd_z_mm; vMM = img.nrrd_y_mm; flipV = false; break;
+      case "x": hMM = img.nrrd_y_mm; vMM = img.nrrd_z_mm; flipV = true; break;
       default: return null;
     }
 
@@ -424,7 +424,7 @@ export class AiAssistTool extends BaseTool {
     switch (this.ctx.protectedData.axis) {
       case "z": hMM = img.nrrd_x_mm; vMM = img.nrrd_y_mm; flipV = false; break;
       case "y": hMM = img.nrrd_x_mm; vMM = img.nrrd_z_mm; flipV = true; break;
-      case "x": hMM = img.nrrd_z_mm; vMM = img.nrrd_y_mm; flipV = false; break;
+      case "x": hMM = img.nrrd_y_mm; vMM = img.nrrd_z_mm; flipV = true; break;
       default: return null;
     }
     const vyRaw = flipV ? sd.h - 1 - vy : vy;

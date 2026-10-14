@@ -78,10 +78,10 @@ export function computeFraming(box: THREE.Box3, fovDeg: number): Framing {
  * distance comes from C5 auto-framing (the implicit 600 in the JSON is ignored).
  *
  * up must be Gram-Schmidt-orthogonalised against the view direction (decision D1):
- * OrbitControls uses camera.up as its polar axis, and nrrd_view_coronal.json's up
- * (0,1,-1) is not perpendicular to its own view direction (0,1,0) — feeding it raw
- * gives a 45-degree-tilted pole. The old trackball path got away with it only because
- * three's lookAt() orthogonalises internally.
+ * OrbitControls uses camera.up as its polar axis, and a preset whose up is not
+ * perpendicular to its own view direction would otherwise get a tilted pole. The
+ * old trackball path got away with that only because three's lookAt() orthogonalises
+ * internally.
  */
 export function resolveViewPose(
   preset: CameraViewPreset,

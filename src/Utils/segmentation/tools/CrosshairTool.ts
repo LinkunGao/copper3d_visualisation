@@ -69,33 +69,43 @@ export class CrosshairTool extends BaseTool {
     let convertCursorNumX = 0;
     let convertCursorNumY = 0;
 
+    // On screen: axial X = i, Y = j; coronal X = i, Y = k reversed; sagittal X = j, Y = k
+    // reversed. Coronal and sagittal therefore share their vertical, the patient's height.
+    //
+    // A cursor selects the voxel it is inside (floor, clamped to the volume), and a slice is shown
+    // as the cursor on that voxel's centre -- never on an edge, which for the first slice is the
+    // image's own edge.
+    const voxelAt = (fraction: number, n: number) =>
+      Math.min(Math.max(Math.floor(fraction * n), 0), n - 1);
+    const centreOf = (index: number, n: number) => (index + 0.5) / n;
+
     const convertIndex: Record<string, Record<string, (val: number) => number>> = {
       x: {
-        y: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
-        z: (val: number) => Math.ceil((val / nrrd_z_mm) * dimensions[2]),
+        y: (val: number) => voxelAt(val / nrrd_y_mm, dimensions[1]),
+        z: (val: number) => voxelAt(1 - val / nrrd_z_mm, dimensions[2]),
       },
       y: {
-        x: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
-        z: (val: number) => Math.ceil((1 - val / nrrd_z_mm) * dimensions[2]),
+        x: (val: number) => voxelAt(val / nrrd_x_mm, dimensions[0]),
+        z: (val: number) => voxelAt(1 - val / nrrd_z_mm, dimensions[2]),
       },
       z: {
-        x: (val: number) => Math.ceil((val / nrrd_x_mm) * dimensions[0]),
-        y: (val: number) => Math.ceil((val / nrrd_y_mm) * dimensions[1]),
+        x: (val: number) => voxelAt(val / nrrd_x_mm, dimensions[0]),
+        y: (val: number) => voxelAt(val / nrrd_y_mm, dimensions[1]),
       },
     };
 
     const convertCursor: Record<string, Record<string, (sliceIndex: number) => number>> = {
       x: {
-        y: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[0]) * nrrd_x_mm),
-        z: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[0]) * nrrd_x_mm),
+        y: (sliceIndex: number) => centreOf(sliceIndex, dimensions[0]) * nrrd_x_mm,
+        z: (sliceIndex: number) => centreOf(sliceIndex, dimensions[0]) * nrrd_x_mm,
       },
       y: {
-        x: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[1]) * nrrd_y_mm),
-        z: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[1]) * nrrd_y_mm),
+        x: (sliceIndex: number) => centreOf(sliceIndex, dimensions[1]) * nrrd_y_mm,
+        z: (sliceIndex: number) => centreOf(sliceIndex, dimensions[1]) * nrrd_y_mm,
       },
       z: {
-        x: (sliceIndex: number) => Math.ceil((sliceIndex / dimensions[2]) * nrrd_z_mm),
-        y: (sliceIndex: number) => Math.ceil((1 - sliceIndex / dimensions[2]) * nrrd_z_mm),
+        x: (sliceIndex: number) => (1 - centreOf(sliceIndex, dimensions[2])) * nrrd_z_mm,
+        y: (sliceIndex: number) => (1 - centreOf(sliceIndex, dimensions[2])) * nrrd_z_mm,
       },
     };
 
@@ -106,28 +116,28 @@ export class CrosshairTool extends BaseTool {
     if (from === "z" && to === "x") {
       currentNewSliceIndex = convertIndex[from][to](cursorNumX);
       preSliceIndex = currentNewSliceIndex * ratios[to];
-      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumY = cursorNumY;
+      convertCursorNumX = cursorNumY;
+      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
     } else if (from === "y" && to === "x") {
       currentNewSliceIndex = convertIndex[from][to](cursorNumX);
       preSliceIndex = currentNewSliceIndex * ratios.x;
-      convertCursorNumY = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumX = dimensions[2] * ratios.z - cursorNumY;
+      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumY = cursorNumY;
     } else if (from === "z" && to === "y") {
       currentNewSliceIndex = convertIndex[from][to](cursorNumY);
       preSliceIndex = currentNewSliceIndex * ratios[to];
       convertCursorNumY = convertCursor[from][to](currentSliceIndex);
       convertCursorNumX = cursorNumX;
     } else if (from === "x" && to === "y") {
-      currentNewSliceIndex = convertIndex[from][to](cursorNumY);
-      preSliceIndex = currentNewSliceIndex * ratios[to];
-      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
-      convertCursorNumY = dimensions[2] * ratios.z - cursorNumX;
-    } else if (from === "x" && to === "z") {
       currentNewSliceIndex = convertIndex[from][to](cursorNumX);
       preSliceIndex = currentNewSliceIndex * ratios[to];
       convertCursorNumX = convertCursor[from][to](currentSliceIndex);
       convertCursorNumY = cursorNumY;
+    } else if (from === "x" && to === "z") {
+      currentNewSliceIndex = convertIndex[from][to](cursorNumY);
+      preSliceIndex = currentNewSliceIndex * ratios[to];
+      convertCursorNumX = convertCursor[from][to](currentSliceIndex);
+      convertCursorNumY = cursorNumX;
     } else if (from === "y" && to === "z") {
       currentNewSliceIndex = convertIndex[from][to](cursorNumY);
       preSliceIndex = currentNewSliceIndex * ratios.z;
@@ -164,8 +174,8 @@ export class CrosshairTool extends BaseTool {
       this.ctx.nrrd_states.interaction.cursorPageY *
       this.ctx.nrrd_states.view.sizeFactor;
 
-    this.drawLine(ctx, ex, 0, ex, width);
-    this.drawLine(ctx, 0, ey, height, ey);
+    this.drawLine(ctx, ex, 0, ex, height);
+    this.drawLine(ctx, 0, ey, width, ey);
   }
 
   private drawLine(

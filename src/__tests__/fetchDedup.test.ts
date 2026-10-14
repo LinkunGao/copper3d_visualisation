@@ -44,9 +44,12 @@ function buildNrrd(values: number[]): ArrayBuffer {
     "NRRD0004\n" +
     "type: uint8\n" +
     "dimension: 3\n" +
+    "space: left-posterior-superior\n" +
     "sizes: 2 2 2\n" +
+    "space directions: (1,0,0) (0,1,0) (0,0,1)\n" +
     "encoding: raw\n" +
     "endian: little\n" +
+    "space origin: (0,0,0)\n" +
     "\n";
   const headerBytes = new TextEncoder().encode(header);
   const out = new Uint8Array(headerBytes.length + values.length);
@@ -91,12 +94,12 @@ describe("in-flight fetch deduplication", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const resultA = new Promise<any>((resolve, reject) => {
-      copperNrrdLoader("v.nrrd", loadingBar(), false, resolve, {
+      copperNrrdLoader("v.nrrd", loadingBar(), resolve, {
         openGui: false, knownMinMax: [1, 2], onError: reject,
       });
     });
     const resultB = new Promise<any>((resolve, reject) => {
-      copperNrrdLoader("v.nrrd", loadingBar(), false, resolve, {
+      copperNrrdLoader("v.nrrd", loadingBar(), resolve, {
         openGui: false, knownMinMax: [3, 4], onError: reject,
       });
     });
@@ -127,10 +130,10 @@ describe("in-flight fetch deduplication", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await new Promise<void>((resolve, reject) => {
-      copperNrrdLoader("v.nrrd", loadingBar(), false, () => resolve(), { openGui: false, onError: reject });
+      copperNrrdLoader("v.nrrd", loadingBar(), () => resolve(), { openGui: false, onError: reject });
     });
     await new Promise<void>((resolve, reject) => {
-      copperNrrdLoader("v.nrrd", loadingBar(), false, () => resolve(), { openGui: false, onError: reject });
+      copperNrrdLoader("v.nrrd", loadingBar(), () => resolve(), { openGui: false, onError: reject });
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -147,14 +150,14 @@ describe("cancellation with a shared fetch", () => {
     const controllerA = new AbortController();
     let errorA: unknown;
     const resultA = new Promise<any>((resolve, reject) => {
-      copperNrrdLoader("v.nrrd", loadingBar(), false, resolve, {
+      copperNrrdLoader("v.nrrd", loadingBar(), resolve, {
         openGui: false, signal: controllerA.signal,
         onError: (e) => { errorA = e; reject(e); },
       });
     });
     // B supplies no signal at all -- it has no way to give up, and must not be made to.
     const resultB = new Promise<any>((resolve, reject) => {
-      copperNrrdLoader("v.nrrd", loadingBar(), false, resolve, { openGui: false, onError: reject });
+      copperNrrdLoader("v.nrrd", loadingBar(), resolve, { openGui: false, onError: reject });
     });
 
     await Promise.resolve();
@@ -180,7 +183,7 @@ describe("cancellation with a shared fetch", () => {
 
     const controller = new AbortController();
     const onError = vi.fn();
-    copperNrrdLoader("v.nrrd", loadingBar(), false, undefined, {
+    copperNrrdLoader("v.nrrd", loadingBar(), undefined, {
       openGui: false, signal: controller.signal, onError,
     });
 
