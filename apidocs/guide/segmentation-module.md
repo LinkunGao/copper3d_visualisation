@@ -907,7 +907,7 @@ Underlying data structure: a single contiguous `Uint8Array`
 |------|-------------|--------------|-------|
 | z (Axial) | width | height | Most common, contiguous memory |
 | y (Coronal) | width | depth | Extracted row by row |
-| x (Sagittal) | depth | height | Extracted pixel by pixel, slowest |
+| x (Sagittal) | height | depth | Columns along `y`, rows along `z` (changed in 4.1.0) |
 
 emptyCanvas size configuration: `SliceRenderPipeline.setEmptyCanvasSize()` → `tools/SliceRenderPipeline.ts`
 
@@ -1045,47 +1045,73 @@ fill considers solid.
 
 ## 6. Flip Mechanism
 
-### 6.1 Display Flip (CT/MRI image only)
+### 6.1 Display Mapping (CT/MRI image only) <Badge type="tip" text="4.1.0" />
 
 **`flipDisplayImageByAxis()`** — `SliceRenderPipeline.flipDisplayImageByAxis()`
 
-Because the slices rendered by Three.js are not in the correct 2D orientation, the displayCanvas must be flipped:
+The loader puts every volume in the [canonical voxel order](./orientation) (`i` → patient
+Left, `j` → Posterior, `k` → Superior), and three lays a slice out by voxel index with fixed
+row reversals. This per-axis transform undoes those reversals, which is what makes each view
+the radiological one:
 
-| Axis | Flip |
-|------|------|
-| x (Sagittal) | `scale(-1, -1)` + `translate(-w, -h)` |
-| y (Coronal) | `scale(1, -1)` + `translate(0, -h)` |
-| z (Axial) | `scale(1, -1)` + `translate(0, -h)` |
+| Axis | screen-right | screen-down | Transform |
+|------|--------------|-------------|-----------|
+| z (Axial) | `+i` (patient Left) | `+j` (Posterior) | `scale(1, -1)` + `translate(0, -h)` |
+| y (Coronal) | `+i` | `−k` (Superior at the top) | `scale(1, -1)` + `translate(0, -h)` |
+| x (Sagittal) | `+j` (Anterior on the left) | `−k` | `transform(0, h/w, -w/h, 0, w, 0)` |
+
+::: warning Sagittal is a quarter turn, not a flip
+three's sagittal canvas runs columns along `−k` and rows along `−j`, so the view is a **90°
+rotation as well as a scale**. Its drawn rectangle is the *display* size — width and height
+swapped relative to three's canvas — which is what `displaySizeOf(axis, canvas)` returns.
+Every other canvas, mask slices included, is laid out at that same display size.
+
+Before 4.1.0 sagittal was `scale(-1, -1)` + `translate(-w, -h)`, a 180° flip, which was only
+correct for volumes already stored in one particular order.
+:::
+
+`Utils/orientation.ts`'s `VIEW_LAYOUT` states the same layout for the orientation letters, so
+the two are changed in the same commit.
 
 Called from: `SliceRenderPipeline.redrawDisplayCanvas()`
 
-### 6.2 Mask Flip (Coronal only)
+### 6.2 Mask Flip (Coronal **and** Sagittal) <Badge type="tip" text="4.1.0" />
 
-**Important**: In `renderSliceToCanvas()` (RenderingUtils.ts), mask rendering **applies a vertical flip for the coronal view (axis='y')**:
+Mask contours are drawn bottom-up for any view whose slice rows run up the screen, which
+`contourPaint.rowsRunUp(axis)` decides:
 
 ```ts
-if (axis === 'y') {
-  targetCtx.save();
-  targetCtx.scale(1, -1);
-  targetCtx.translate(0, -scaledHeight);
+/** Coronal and sagittal slices store z ascending in their rows and show superior at
+ *  the top, so their rows are drawn bottom-up. */
+export function rowsRunUp(axis: "x" | "y" | "z"): boolean {
+  return axis !== "z";
 }
-targetCtx.drawImage(emptyCanvas, 0, 0, scaledWidth, scaledHeight);
-if (axis === 'y') targetCtx.restore();
 ```
 
-| Axis | Mask Flip | Notes |
-|------|-----------|-------|
-| z (Axial) | **None** | Storage coordinates match Three.js slice |
-| y (Coronal) | **Vertical flip** `scale(1,-1)` | Cancels out the flip in the write path, ensuring cross-axis display consistency |
-| x (Sagittal) | **None** | Storage coordinates match Three.js slice |
+| Axis | Mask flip | Why |
+|------|-----------|-----|
+| z (Axial) | **None** | Rows already run down the screen |
+| y (Coronal) | `scale(1, -1)` | Rows store `k` ascending; Superior belongs at the top |
+| x (Sagittal) | `scale(1, -1)` | Same — rows run along `k` |
 
-::: warning
-Previous documentation stating "mask has no flip" is outdated. A Y-axis flip was introduced for the coronal view to fix a cross-axis slice alignment bug.
+It is applied in both drawing paths: on the `DOMMatrix` for outline mode, and on the context
+for fill mode, in each case *before* the voxel→display scale so the flip happens in display
+coordinates.
+
+::: warning Changed in 4.1.0
+Sagittal previously had **no** mask flip, and sagittal slices were laid out `depth × height`.
+Both changed together: slices are now `height × depth` (columns along `y`, rows along `z`),
+and the flip applies. A caller reading `getSliceUint8` for the sagittal axis gets the
+transposed layout from 4.1.0 on.
 :::
 
-### 6.3 applyMaskFlipForAxis (helper method)
+### 6.3 `applyMaskFlipForAxis` was removed <Badge type="warning" text="removed in 4.1.0" />
 
-`RenderingUtils.applyMaskFlipForAxis()` — provides the same flip transform as `flipDisplayImageByAxis()`, available for scenarios requiring manual coordinate alignment.
+`RenderingUtils.applyMaskFlipForAxis()` no longer exists. It duplicated the per-axis transform
+as a third copy, which could — and did — drift from the display path and the contour path.
+The two remaining copies are kept in step deliberately:
+`SliceRenderPipeline.flipDisplayImageByAxis` for the image, `contourPaint.rowsRunUp` for the
+masks.
 
 ---
 

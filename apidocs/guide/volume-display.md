@@ -151,7 +151,7 @@ plane spatial context — without it the plane floats in an unbounded void and
 nothing tells the reader how far through the volume they have scrubbed.
 
 ```ts
-scene.loadNrrd(url, loadingBar, false, (volume, meshes) => {
+scene.loadNrrd(url, loadingBar, (volume, meshes) => {
   scene.addObject(meshes.z);
   Copper.addVolumeBoundingBox(scene, volume.RASDimensions, { color: 0x8a7f84 });
 });

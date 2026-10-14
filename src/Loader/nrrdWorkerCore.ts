@@ -1,5 +1,21 @@
+import { Matrix4 } from "three";
 import { NRRDLoader } from "three/addons/loaders/NRRDLoader.js";
 import { Volume } from "three/addons/misc/Volume.js";
+
+import {
+  OrientationError,
+  canonicalTransform,
+  geometryFromNrrd,
+  nrrdHeaderText,
+  readNrrdOrientationFields,
+  reorientVoxels,
+  reorientedGeometry,
+  spacingOf,
+  type OrientationTransform,
+  type VolumeGeometry,
+  type VolumeOrientation,
+} from "../Utils/orientation";
+import { rasDimensions } from "./rasDimensions";
 
 /**
  * Runs entirely off the main thread: fetch, gunzip (via `NRRDLoader.parse`'s own
@@ -51,7 +67,6 @@ export interface NrrdLoadCommand {
   cmd: "load";
   id: string;
   url: string;
-  segmentation: boolean;
   knownMinMax?: [number, number];
 }
 
@@ -75,7 +90,7 @@ export interface NrrdWorkerPayload {
   spacing: [number, number, number];
   axisOrder: string[];
   RASDimensions: [number, number, number];
-  segmentation: boolean;
+  orientation: VolumeOrientation;
   min: number;
   max: number;
   windowLow: number;
@@ -90,7 +105,7 @@ export interface NrrdWorkerPayload {
 export type NrrdWorkerMessage =
   | { id: string; type: "progress"; loaded: number; total: number }
   | { id: string; type: "loaded"; payload: NrrdWorkerPayload }
-  | { id: string; type: "error"; name: string; message: string };
+  | { id: string; type: "error"; name: string; message: string; code?: string; detail?: string };
 
 interface PendingUrlFetch {
   bufferPromise: Promise<ArrayBuffer>;
@@ -166,7 +181,7 @@ function buildPayload(volume: any): NrrdWorkerPayload {
     spacing: volume.spacing,
     axisOrder: volume.axisOrder,
     RASDimensions: volume.RASDimensions,
-    segmentation: volume.segmentation,
+    orientation: volume.orientation,
     min: volume.min,
     max: volume.max,
     windowLow: volume.windowLow,
@@ -179,11 +194,48 @@ function buildPayload(volume: any): NrrdWorkerPayload {
   };
 }
 
-function errorMessage(err: unknown): { name: string; message: string } {
+function errorMessage(err: unknown): { name: string; message: string; code?: string; detail?: string } {
+  if (err instanceof OrientationError) return { name: err.name, message: err.message, code: err.code, detail: err.detail };
   if (err instanceof Error) return { name: err.name, message: err.message };
   return { name: "Error", message: String(err) };
 }
 
+/**
+ * Puts a just-parsed volume into the canonical voxel order (i -> Left, j -> Posterior,
+ * k -> Superior) and rewrites every field derived from the order together, so nothing downstream
+ * ever sees the file's own order. With the voxels in this order, three's slice layout under
+ * `segmentation = true` plus the engine's fixed per-axis display mapping is the radiological view.
+ *
+ * `matrix` is written exactly diagonal: three turns a slice position back into an index through
+ * `inverseMatrix` and rounds it, and an oblique file's cross terms would drift that index. The
+ * true, oblique geometry is kept in `orientation` and `header` instead.
+ */
+export function canonicaliseVolume(volume: any, native: VolumeGeometry, transform: OrientationTransform): void {
+  const canonical = reorientedGeometry(native, transform);
+  const [nx, ny, nz] = canonical.dims;
+  const [sx, sy, sz] = spacingOf(canonical);
+
+  volume.data = reorientVoxels(volume.data, native.dims, transform);
+  volume.xLength = nx;
+  volume.yLength = ny;
+  volume.zLength = nz;
+  volume.dimensions = [nx, ny, nz];
+  volume.spacing = [sx, sy, sz];
+  volume.axisOrder = ["x", "y", "z"];
+  // three's IJK -> RAS for an LPS-ordered grid: i and j run against R and A.
+  volume.matrix = new Matrix4().set(-sx, 0, 0, 0, 0, -sy, 0, 0, 0, 0, sz, 0, 0, 0, 0, 1);
+  volume.inverseMatrix = volume.matrix.clone().invert();
+  volume.RASDimensions = rasDimensions([nx, ny, nz], [sx, sy, sz]);
+  volume.segmentation = true;
+
+  volume.header.space = "left-posterior-superior";
+  volume.header.sizes = [nx, ny, nz];
+  volume.header.vectors = canonical.directions.map((d) => [...d]);
+  volume.header.space_origin = [...canonical.origin];
+
+  const orientation: VolumeOrientation = { transform, nativeDims: [...native.dims], geometry: canonical };
+  volume.orientation = orientation;
+}
 /**
  * Handles one `{cmd: "load"}` command. Dedupes the underlying fetch by URL exactly like
  * `copperNrrdLoader.ts`'s old `sharedFetchNrrdArrayBuffer` did (one real request per URL,
@@ -199,7 +251,7 @@ export async function handleLoadMessage(
   msg: NrrdLoadCommand,
   emit: WorkerEmit
 ): Promise<void> {
-  const { id, url, segmentation, knownMinMax } = msg;
+  const { id, url, knownMinMax } = msg;
 
   let entry = state.pendingByUrl.get(url);
   if (!entry) {
@@ -250,14 +302,21 @@ export async function handleLoadMessage(
   if (!stillAttached) return; // detached (aborted) while the fetch was in flight
 
   try {
+    // Before parsing: a file without a patient orientation is refused, not parsed and guessed at.
+    const native = geometryFromNrrd(readNrrdOrientationFields(nrrdHeaderText(buffer)));
+    const transform = canonicalTransform(native);
+
     pendingMinMax = knownMinMax ?? null;
     let volume: any;
     try {
-      loader.setSegmentation(segmentation);
+      // Slices are laid out by voxel index; canonicaliseVolume makes that index order the
+      // patient's, so three must not apply the header's directions a second time.
+      loader.setSegmentation(true);
       volume = loader.parse(buffer);
     } finally {
       pendingMinMax = null;
     }
+    canonicaliseVolume(volume, native, transform);
     const payload = buildPayload(volume);
     emit({ id, type: "loaded", payload }, [payload.buffer]);
   } catch (err) {

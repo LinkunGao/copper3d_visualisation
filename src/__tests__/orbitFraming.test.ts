@@ -18,9 +18,15 @@ const AXIAL: CameraViewPreset = {
 }
 const SAGITTAL: CameraViewPreset = {
   farPlane: 1000, nearPlane: 0.01,
-  targetPosition: [0, 0, 0], upVector: [0, -1, 0], eyePosition: [500, 0, 0],
+  targetPosition: [0, 0, 0], upVector: [0, 0, 1], eyePosition: [500, 0, 0],
 }
 const CORONAL: CameraViewPreset = {
+  farPlane: 1000, nearPlane: 0.01,
+  targetPosition: [0, 0, 0], upVector: [0, 0, 1], eyePosition: [0, -500, 0],
+}
+/** Not a real preset: an up vector with a component along the view direction, which is
+ *  what Gram-Schmidt has to remove. */
+const TILTED_UP: CameraViewPreset = {
   farPlane: 1000, nearPlane: 0.01,
   targetPosition: [0, 0, 0], upVector: [0, 1, -1], eyePosition: [0, 500, 0],
 }
@@ -100,28 +106,26 @@ describe('resolveViewPose', () => {
 
   // -- Supplement D1: this is the core of this task
   it('up is orthogonal to the view direction (supplement D1)', () => {
-    for (const preset of [AXIAL, SAGITTAL, CORONAL]) {
+    for (const preset of [AXIAL, SAGITTAL, CORONAL, TILTED_UP]) {
       const { position, up, target } = resolveViewPose(preset, pivot, dist)
       const dir = new THREE.Vector3().subVectors(position, target).normalize()
       expect(up.dot(dir)).toBeCloseTo(0) // polar axis must be perpendicular to the view direction
     }
   })
 
-  it('coronal\'s non-orthogonal up (0,1,-1) is orthogonalized to (0,0,-1)', () => {
-    // The original up has a 0.707 component along the view direction (0,1,0) — feeding it directly to OrbitControls
+  it('a non-orthogonal up (0,1,-1) is orthogonalized to (0,0,-1)', () => {
+    // It has a 0.707 component along the view direction (0,1,0) — feeding it directly to OrbitControls
     // would give a 45° tilted polar axis. After Gram-Schmidt, we should get a clean (0,0,-1).
-    const { up } = resolveViewPose(CORONAL, pivot, dist)
+    const { up } = resolveViewPose(TILTED_UP, pivot, dist)
     expect(up.x).toBeCloseTo(0)
     expect(up.y).toBeCloseTo(0)
     expect(up.z).toBeCloseTo(-1)
   })
 
-  it('axial / sagittal\'s already-orthogonal up is unchanged (identity transformation)', () => {
-    for (const preset of [AXIAL, SAGITTAL]) {
+  it('the presets\' already-orthogonal ups are unchanged (identity transformation)', () => {
+    for (const preset of [AXIAL, SAGITTAL, CORONAL]) {
       const { up } = resolveViewPose(preset, pivot, dist)
-      expect(up.x).toBeCloseTo(0)
-      expect(up.y).toBeCloseTo(-1)
-      expect(up.z).toBeCloseTo(0)
+      expect(up.toArray()).toEqual(preset.upVector.map((v) => expect.closeTo(v)))
     }
   })
 

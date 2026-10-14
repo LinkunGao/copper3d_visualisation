@@ -86,6 +86,7 @@ import type {
   VolumeBoundingBoxOpts,
 } from "./Loader/volumeBoundingBox";
 import { DEFAULT_AXES, ensureAxisExtracted, prepareVolumeSlices } from "./Loader/copperNrrdLoader";
+import { rasDimensions } from "./Loader/rasDimensions";
 import type { NrrdAxis } from "./Loader/copperNrrdLoader";
 import {
   easeInOutCubic,
@@ -142,6 +143,24 @@ import type {
 
 import { REVISION as THREE_REVISION } from "three";
 import { checkThreeRevision } from "./Utils/threeRevisionCheck";
+import {
+  OrientationError,
+  canonicalTransform,
+  geometryFromNrrd,
+  readNrrdOrientationFields,
+  reorientVoxels,
+  reorientedGeometry,
+  viewLabels,
+} from "./Utils/orientation";
+import type {
+  NrrdOrientationFields,
+  OrientationErrorCode,
+  OrientationTransform,
+  ViewAxis,
+  ViewLabels,
+  VolumeGeometry,
+  VolumeOrientation,
+} from "./Utils/orientation";
 
 import "./css/style.css";
 
@@ -237,6 +256,7 @@ export {
   setCameraPose,
   addVolumeBoundingBox,
   VOLUME_BOUNDS_NAME,
+  rasDimensions,
   DEFAULT_AXES,
   ensureAxisExtracted,
   prepareVolumeSlices,
@@ -252,6 +272,13 @@ export {
   zoomPose,
   orbitSwingAngle,
   installFastSliceRepaint,
+  OrientationError,
+  canonicalTransform,
+  geometryFromNrrd,
+  readNrrdOrientationFields,
+  reorientVoxels,
+  reorientedGeometry,
+  viewLabels,
 };
 
 export type {
@@ -313,6 +340,13 @@ export type {
   VolumeBoundingBoxOpts,
   NrrdAxis,
   Pose,
+  NrrdOrientationFields,
+  OrientationErrorCode,
+  OrientationTransform,
+  ViewAxis,
+  ViewLabels,
+  VolumeGeometry,
+  VolumeOrientation,
 };
 
 export type { CameraViewPreset } from "./Controls/orbitFraming";

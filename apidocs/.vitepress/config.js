@@ -89,6 +89,7 @@ export default {
               text: "加载",
               items: [
                 { text: "加载进度与错误", link: "/zh/guide/load-callbacks" },
+                { text: "患者方位", link: "/zh/guide/orientation" },
                 { text: "GLB 解码器（Draco / KTX2）", link: "/zh/guide/gltf-decoders" },
               ],
             },
@@ -187,6 +188,7 @@ export default {
           text: "Loading",
           items: [
             { text: "Load Progress & Errors", link: "/guide/load-callbacks" },
+            { text: "Patient Orientation", link: "/guide/orientation" },
             { text: "GLB Decoders (Draco / KTX2)", link: "/guide/gltf-decoders" },
           ],
         },

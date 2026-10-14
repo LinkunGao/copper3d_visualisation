@@ -271,15 +271,15 @@ describe('MaskVolume â€” Slice Extraction', () => {
   describe('X-axis (sagittal)', () => {
     it('should return ImageData with correct dimensions', () => {
       const img = vol.getSliceImageData(0, 'x');
-      expect(img.width).toBe(D);
-      expect(img.height).toBe(H);
+      expect(img.width).toBe(H);
+      expect(img.height).toBe(D);
     });
 
     it('should read voxel values into the slice', () => {
       vol.setVoxel(4, 2, 1, 160);
       const img = vol.getSliceImageData(4, 'x');
-      // x-axis slice: iâ†’z, jâ†’y â†’ pixel(1, 2)
-      const px = (2 * D + 1) * 4;
+      // x-axis slice: columns run along y, rows along z -> pixel(2, 1)
+      const px = (1 * H + 2) * 4;
       expect(img.data[px]).toBe(160);
     });
 
@@ -361,6 +361,52 @@ describe('MaskVolume â€” Slice Insertion', () => {
 
     expect(vol3.getVoxel(1, 1, 0, 1)).toBe(88);
     expect(vol3.getVoxel(1, 1, 0, 0)).toBe(0); // other channel untouched
+  });
+});
+
+// =====================================================================
+//  6b. The slice layout shared with the backend
+// =====================================================================
+// A slice is (rows, columns) = (the later in-plane axis, the earlier): axial (y, x), coronal
+// (z, x), sagittal (z, y). The backend's tests/test_slice_layout.py holds stamp_slice,
+// extract_slice and the AI prompt mapping to these same cells.
+describe('MaskVolume - slice layout shared with the backend', () => {
+  const [W, H, D] = [5, 7, 6];
+  const VOXEL: [number, number, number] = [3, 1, 4];
+  // [index along the axis, row, column, slice width, slice height]
+  const CELLS = {
+    z: [4, 1, 3, 5, 7],
+    y: [1, 4, 3, 5, 6],
+    x: [3, 4, 1, 7, 6],
+  } as const;
+
+  it.each(['z', 'y', 'x'] as const)('getSliceUint8 puts the voxel at its row and column (%s)', (axis) => {
+    const [index, row, col, width, height] = CELLS[axis];
+    const vol = new MaskVolume(W, H, D);
+    vol.setVoxel(...VOXEL, 9);
+    const slice = vol.getSliceUint8(index, axis);
+    expect([slice.width, slice.height]).toEqual([width, height]);
+    expect(slice.data[row * width + col]).toBe(9);
+    expect(slice.data.reduce((s, b) => s + b, 0)).toBe(9);
+  });
+
+  it.each(['z', 'y', 'x'] as const)('setSliceUint8 writes the voxel at its row and column (%s)', (axis) => {
+    const [index, row, col, width, height] = CELLS[axis];
+    const data = new Uint8Array(width * height);
+    data[row * width + col] = 9;
+    const vol = new MaskVolume(W, H, D);
+    vol.setSliceUint8(index, data, axis);
+    expect(vol.getVoxel(...VOXEL)).toBe(9);
+    expect(vol.getRawData().reduce((s, b) => s + b, 0)).toBe(9);
+  });
+
+  it.each(['z', 'y', 'x'] as const)('an RGBA slice lands on the same voxel (%s)', (axis) => {
+    const [index, row, col, width, height] = CELLS[axis];
+    const img = createImageData(width, height);
+    img.data.set([10, 20, 30, 40], (row * width + col) * 4);
+    const vol = new MaskVolume(W, H, D, 4);
+    vol.setSliceFromImageData(index, img, axis);
+    expect([0, 1, 2, 3].map((c) => vol.getVoxel(...VOXEL, c))).toEqual([10, 20, 30, 40]);
   });
 });
 

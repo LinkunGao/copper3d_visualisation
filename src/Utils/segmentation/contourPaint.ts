@@ -19,6 +19,14 @@ export interface LabelSlice {
 export const OUTLINE_WIDTH_PX = 1.5;
 
 /**
+ * Whether a view's slice rows run up the screen. Coronal and sagittal slices store z
+ * ascending in their rows and show superior at the top, so their rows are drawn bottom-up.
+ */
+export function rowsRunUp(axis: "x" | "y" | "z"): boolean {
+  return axis !== "z";
+}
+
+/**
  * One slice's contours, in voxel coordinates. Fill and outline paths are built lazily and side
  * by side, so switching mode costs one extraction the first time and is a cache hit after.
  */
@@ -136,7 +144,7 @@ function drawPaths(
     // the image to look at the boundary — and because voxels are rarely isotropic
     // (sx !== sy), it also comes out thicker in one axis than the other.
     const matrix = new DOMMatrix();
-    if (axis === "y") {
+    if (rowsRunUp(axis)) {
       matrix.scaleSelf(1, -1);
       matrix.translateSelf(0, -scaledHeight);
     }
@@ -162,10 +170,10 @@ function drawPaths(
     return;
   }
 
-  // Coronal (axis='y') Z-flip: mirrors the flip applied by the write
+  // Coronal and sagittal Z-flip: mirrors the flip applied by the write
   // path (syncLayerSliceData). Apply BEFORE the voxel→display scale
   // so the flip operates in display coordinates.
-  if (axis === "y") {
+  if (rowsRunUp(axis)) {
     targetCtx.scale(1, -1);
     targetCtx.translate(0, -scaledHeight);
   }

@@ -16,7 +16,7 @@ const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 /** A slice's width and height for `axis`, as `getSliceUint8` lays it out. */
 export function sliceDims(dims: ArrayLike<number>, axis: Axis): [number, number] {
   const [w, h, d] = [dims[0], dims[1], dims[2]];
-  return axis === "z" ? [w, h] : axis === "y" ? [w, d] : [d, h];
+  return axis === "z" ? [w, h] : axis === "y" ? [w, d] : [h, d];
 }
 
 /** Whether `m` is the identity within `tol`. No matrix counts as the identity. */
@@ -96,8 +96,8 @@ export function mirrorSliceLabels(
     for (let v = 0; v < H; v++) {
       for (let u = 0; u < W; u++) {
         const x = axis === "x" ? index : u;
-        const y = axis === "y" ? index : v;
-        const z = axis === "z" ? index : axis === "y" ? v : u;
+        const y = axis === "y" ? index : axis === "x" ? u : v;
+        const z = axis === "z" ? index : v;
         let label = 0;
         for (let sz = rz.lo[z]; sz <= rz.hi[z] && !label; sz++) {
           for (let sy = ry.lo[y]; sy <= ry.hi[y] && !label; sy++) {
@@ -116,8 +116,8 @@ export function mirrorSliceLabels(
     for (let u = 0; u < W; u++) {
       // Slice cell (u, v) -> this viewer's voxel, per getSliceUint8's layout.
       const x = axis === "x" ? index : u;
-      const y = axis === "y" ? index : v;
-      const z = axis === "z" ? index : axis === "y" ? v : u;
+      const y = axis === "y" ? index : axis === "x" ? u : v;
+      const z = axis === "z" ? index : v;
       const sx = Math.round(mat[0] * x + mat[1] * y + mat[2] * z + mat[3]);
       const sy = Math.round(mat[4] * x + mat[5] * y + mat[6] * z + mat[7]);
       const sz = Math.round(mat[8] * x + mat[9] * y + mat[10] * z + mat[11]);

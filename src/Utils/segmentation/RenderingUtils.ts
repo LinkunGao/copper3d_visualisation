@@ -109,8 +109,8 @@ export class RenderingUtils {
                 const dims = volume.getDimensions();
                 const [w, h] = axis === 'z' ? [dims.width, dims.height]
                     : axis === 'y' ? [dims.width, dims.depth]
-                        // Sagittal: width = depth (Z), height = height (Y)
-                        : [dims.depth, dims.height];
+                        // Sagittal: width = height (Y), height = depth (Z)
+                        : [dims.height, dims.depth];
                 const imageData = new ImageData(w, h);
                 const channelVis = this.state.gui_states.layerChannel.channelVisibility[this.state.gui_states.layerChannel.layer];
                 volume.renderLabelSliceInto(sliceIndex, axis, imageData, channelVis);
@@ -135,7 +135,7 @@ export class RenderingUtils {
             const [w, h] =
                 axis === "z" ? [dims.width, dims.height] :
                     axis === "y" ? [dims.width, dims.depth] :
-                        [dims.depth, dims.height];
+                        [dims.height, dims.depth];
 
             if (
                 !this._reusableSliceBuffer ||
@@ -243,32 +243,6 @@ export class RenderingUtils {
         this._reusableBufferWidth = 0;
         this._reusableBufferHeight = 0;
         this._contourCache.clear();
-    }
-
-    /**
-     * Apply the same flip transform used by flipDisplayImageByAxis() to any
-     * canvas context.
-     */
-    applyMaskFlipForAxis(
-        ctx: CanvasRenderingContext2D,
-        width: number,
-        height: number,
-        axis: "x" | "y" | "z",
-    ): void {
-        switch (axis) {
-            case "x": // sagittal: flip both axes
-                ctx.scale(-1, -1);
-                ctx.translate(-width, -height);
-                break;
-            case "y": // coronal: flip vertically
-                ctx.scale(1, -1);
-                ctx.translate(0, -height);
-                break;
-            case "z": // axial: flip vertically
-                ctx.scale(1, -1);
-                ctx.translate(0, -height);
-                break;
-        }
     }
 
     /**

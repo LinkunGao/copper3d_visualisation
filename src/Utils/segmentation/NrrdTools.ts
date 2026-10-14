@@ -1692,11 +1692,11 @@ export class NrrdTools {
     return handleMouseZoomSliceWheelMove;
   }
 
+  /**
+   * Rebuilds the zoom/slice wheel handler for the current wheel setting. It attaches no listener:
+   * the EventRouter owns the canvas's `wheel` event and calls this handler in zoom mode only.
+   */
   updateMouseWheelEvent() {
-    this.state.protectedData.canvases.drawingCanvas.removeEventListener(
-      "wheel",
-      this.drawCore.drawingPrameters.handleMouseZoomSliceWheel
-    );
     switch (this.state.keyboardSettings.mouseWheel) {
       case "Scroll:Zoom":
         this.drawCore.drawingPrameters.handleMouseZoomSliceWheel = this.drawCore.configMouseZoomWheel();
@@ -1708,10 +1708,6 @@ export class NrrdTools {
         this.drawCore.drawingPrameters.handleMouseZoomSliceWheel = this.drawCore.configMouseZoomWheel();
         break;
     }
-    this.state.protectedData.canvases.drawingCanvas.addEventListener(
-      "wheel",
-      this.drawCore.drawingPrameters.handleMouseZoomSliceWheel
-    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

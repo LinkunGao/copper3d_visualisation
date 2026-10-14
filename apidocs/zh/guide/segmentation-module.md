@@ -879,7 +879,7 @@ bytesPerSlice = width * height * channels
 |----|---------|---------|------|
 | z (Axial) | width | height | 最常用，连续内存 |
 | y (Coronal) | width | depth | 按行提取 |
-| x (Sagittal) | depth | height | 逐像素提取，最慢 |
+| x (Sagittal) | height | depth | 列沿 `y`、行沿 `z`（4.1.0 起改变） |
 
 对应 emptyCanvas 尺寸设置: `SliceRenderPipeline.setEmptyCanvasSize()` → [tools/SliceRenderPipeline.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SliceRenderPipeline.ts)（已从 NrrdTools 提取）
 
@@ -1034,44 +1034,62 @@ cell 边也画出来，整个 mask 会被一层网格盖住。要描边请用 `e
 
 **`flipDisplayImageByAxis()`** — `SliceRenderPipeline.flipDisplayImageByAxis()` → [tools/SliceRenderPipeline.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/tools/SliceRenderPipeline.ts)（已从 NrrdTools 提取）
 
-因为 Three.js 渲染的切片不在正确的 2D 位置，需要翻转 displayCanvas：
+加载器会把每个体数据放进[标准体素序](./orientation)(`i` → 患者左、`j` → 后、`k` → 上),
+而 three 是按体素下标铺切片的,并带有固定的行反转。这个逐轴变换把那些反转撤销掉,正是它让每个视图
+成为放射显示惯例:
 
-| 轴 | 翻转方式 |
-|----|---------|
-| x (Sagittal) | `scale(-1, -1)` + `translate(-w, -h)` |
-| y (Coronal) | `scale(1, -1)` + `translate(0, -h)` |
-| z (Axial) | `scale(1, -1)` + `translate(0, -h)` |
+| 轴 | 屏幕向右 | 屏幕向下 | 变换 |
+|----|---------|---------|------|
+| z (Axial) | `+i`(患者左侧) | `+j`(后) | `scale(1, -1)` + `translate(0, -h)` |
+| y (Coronal) | `+i` | `−k`(上方在顶部) | `scale(1, -1)` + `translate(0, -h)` |
+| x (Sagittal) | `+j`(前侧在左边) | `−k` | `transform(0, h/w, -w/h, 0, w, 0)` |
+
+::: warning 矢状面是四分之一旋转，不是翻转
+three 的矢状面画布列沿 `−k`、行沿 `−j`,所以这个视图是**一次 90° 旋转外加缩放**。它绘制的矩形用的是
+**显示尺寸** —— 相对 three 的画布宽高互换 —— 也就是 `displaySizeOf(axis, canvas)` 返回的那个。
+其余所有画布(包括 mask 切片)都按同一个显示尺寸布局。
+
+4.1.0 之前矢状面是 `scale(-1, -1)` + `translate(-w, -h)`,即 180° 翻转;那只对本来就以某一特定顺序
+存储的体数据才成立。
+:::
+
+`Utils/orientation.ts` 里的 `VIEW_LAYOUT` 用同一套布局来确定方位字母,所以两者在同一次提交里一起改。
 
 调用位置: `SliceRenderPipeline.redrawDisplayCanvas()` → 内部调用 `flipDisplayImageByAxis()`
 
-### 6.2 Mask 翻转（仅冠状面）
+### 6.2 Mask 翻转（冠状面**与**矢状面） <Badge type="tip" text="4.1.0" />
 
-**重要**: `renderSliceToCanvas()`（RenderingUtils.ts）中 Mask 渲染**对冠状面（axis='y'）做垂直翻转**：
+凡是切片行在屏幕上自下而上的视图,mask 轮廓都按自下而上绘制,这由 `contourPaint.rowsRunUp(axis)`
+决定:
 
 ```ts
-// RenderingUtils.renderSliceToCanvas() — Y 轴翻转：
-if (axis === 'y') {
-  targetCtx.save();
-  targetCtx.scale(1, -1);
-  targetCtx.translate(0, -scaledHeight);
-}
-targetCtx.drawImage(emptyCanvas, 0, 0, scaledWidth, scaledHeight);
-if (axis === 'y') {
-  targetCtx.restore();
+/** 冠状面和矢状面的切片行里 z 是递增存储的，而上方要显示在顶部，
+ *  所以它们的行是自下而上绘制的。 */
+export function rowsRunUp(axis: "x" | "y" | "z"): boolean {
+  return axis !== "z";
 }
 ```
 
-| 轴 | Mask 翻转 | 说明 |
+| 轴 | Mask 翻转 | 原因 |
 |----|---------|------|
-| z (Axial) | **无翻转** | 存储坐标与 Three.js 切片一致 |
-| y (Coronal) | **垂直翻转** `scale(1,-1)` | 与写入路径（syncLayerSliceData）的翻转对消，保证跨轴显示一致 |
-| x (Sagittal) | **无翻转** | 存储坐标与 Three.js 切片一致 |
+| z (Axial) | **无** | 行本来就是自上而下 |
+| y (Coronal) | `scale(1, -1)` | 行里 `k` 递增存储;上方应当在顶部 |
+| x (Sagittal) | `scale(1, -1)` | 同理 —— 行沿 `k` |
 
-> ⚠️ 原文档描述"Mask 不翻转"已过时。冠状面引入了 Y 轴翻转以修复跨轴切片对齐 bug。
+两条绘制路径上都会应用它:outline 模式作用在 `DOMMatrix` 上,fill 模式作用在 context 上,
+并且都在体素→显示的缩放**之前**,这样翻转发生在显示坐标系里。
 
-### 6.3 applyMaskFlipForAxis（辅助方法）
+::: warning 4.1.0 的变化
+矢状面此前**没有** mask 翻转,且矢状面切片的布局是 `depth × height`。这两点是一起改的:切片现在是
+`height × depth`(列沿 `y`、行沿 `z`),同时翻转也适用了。从 4.1.0 起,对矢状轴调用
+`getSliceUint8` 的调用方拿到的是转置后的布局。
+:::
 
-`RenderingUtils.applyMaskFlipForAxis()` — 提供与 `flipDisplayImageByAxis()` 相同的翻转变换，可供需要手动对齐坐标的场景使用。目前在主渲染路径中的具体冠状面翻转已内联到 `renderSliceToCanvas()`。
+### 6.3 `applyMaskFlipForAxis` 已移除 <Badge type="warning" text="4.1.0 移除" />
+
+`RenderingUtils.applyMaskFlipForAxis()` 不再存在。它把逐轴变换又复制了第三份,而这一份会 —— 并且
+确实曾经 —— 和显示路径、轮廓路径走偏。保留下来的两份是刻意保持同步的:图像用
+`SliceRenderPipeline.flipDisplayImageByAxis`,mask 用 `contourPaint.rowsRunUp`。
 
 ---
 

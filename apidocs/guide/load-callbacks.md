@@ -37,10 +37,29 @@ Available on `copperSceneOnDemond`, `copperScene` and `copperMScene`. (
 
 ## `scene.loadNrrd`
 
+::: warning Breaking in 4.1.0: the `segmentation` argument is gone
+```ts
+scene.loadNrrd(url, loadingBar, segmentation, callback, opts);   // before
+scene.loadNrrd(url, loadingBar, callback, opts);                 // 4.1.0
+```
+
+It no longer means anything. The loader now puts every volume in the
+[canonical voxel order](./orientation) and lays slices out by voxel index, which is what the
+flag used to approximate — so it is always on, and passing it would only shift your other
+arguments by one.
+
+Two more things come with that:
+
+- **`volume.orientation`** is new on the loaded volume: how the file reached the canonical
+  order, and its canonical grid in patient space.
+- **A volume whose patient orientation cannot be established is refused**, through `onError`
+  with an `OrientationError`. It is never guessed at and never displayed.
+:::
+
 The callbacks go on the existing `opts` object:
 
 ```ts
-scene.loadNrrd(url, loadingBar, segmentation, callback, {
+scene.loadNrrd(url, loadingBar, callback, {
   openGui: false,
   onProgress: (event) => { /* ... */ },
   onError: (error) => showFailure(error),
@@ -68,7 +87,7 @@ buffer plus a geometry, a material and a canvas-backed texture that nothing
 frees.
 
 ```ts
-scene.loadNrrd(url, loadingBar, false, callback, {
+scene.loadNrrd(url, loadingBar, callback, {
   openGui: false,
   axes: ["z"],          // an axial-only viewer
 });
@@ -123,7 +142,7 @@ decompressed the same bytes to write its headers.
 ```ts
 const { min, max } = await fetch(`/files/${caseId}/headers`).then((r) => r.json());
 
-scene.loadNrrd(url, loadingBar, false, callback, {
+scene.loadNrrd(url, loadingBar, callback, {
   openGui: false,
   knownMinMax: [min, max],
 });
@@ -144,7 +163,7 @@ function loadCase(url: string) {
   inflight?.abort();               // stop the previous download
   inflight = new AbortController();
 
-  scene.loadNrrd(url, loadingBar, false, onLoaded, {
+  scene.loadNrrd(url, loadingBar, onLoaded, {
     openGui: false,
     signal: inflight.signal,
     onError: (error) => {
@@ -234,7 +253,7 @@ function armStallTimer() {
 }
 
 armStallTimer();
-scene.loadNrrd(url, loadingBar, false, (volume, meshes, slices) => {
+scene.loadNrrd(url, loadingBar, (volume, meshes, slices) => {
   clearTimeout(timer);
   /* ... */
 }, {

@@ -46,9 +46,12 @@ function buildNrrd(): ArrayBuffer {
     "NRRD0004\n" +
     "type: uint8\n" +
     "dimension: 3\n" +
+    "space: left-posterior-superior\n" +
     "sizes: 4 4 4\n" +
+    "space directions: (1,0,0) (0,1,0) (0,0,1)\n" +
     "encoding: raw\n" +
     "endian: little\n" +
+    "space origin: (0,0,0)\n" +
     "\n";
   const headerBytes = new TextEncoder().encode(header);
   const values = Array.from({ length: 64 }, (_, i) => i);
@@ -97,7 +100,7 @@ describe("onError", () => {
     const onError = vi.fn();
     fetchMock.mockRejectedValue(new Error("network down"));
 
-    copperNrrdLoader("v.nrrd", loadingBar(), false, undefined, {
+    copperNrrdLoader("v.nrrd", loadingBar(), undefined, {
       openGui: false,
       onError,
     });
@@ -111,14 +114,14 @@ describe("onError", () => {
     bar.loadingContainer.style.display = "flex";
     fetchMock.mockResolvedValue({ ok: false, status: 404, statusText: "Not Found" });
 
-    copperNrrdLoader("v.nrrd", bar, false, undefined, { openGui: false });
+    copperNrrdLoader("v.nrrd", bar, undefined, { openGui: false });
     await vi.waitFor(() => expect(bar.loadingContainer.style.display).toBe("none"));
   });
 
   it("does not require the caller to supply one", async () => {
     fetchMock.mockRejectedValue(new Error("404"));
     expect(() =>
-      copperNrrdLoader("v.nrrd", loadingBar(), false, undefined, { openGui: false })
+      copperNrrdLoader("v.nrrd", loadingBar(), undefined, { openGui: false })
     ).not.toThrow();
   });
 });
@@ -141,7 +144,6 @@ describe("opts.axes", () => {
     copperNrrdLoader(
       "v.nrrd",
       loadingBar(),
-      false,
       (volume, meshes, slices) => { received = { volume, meshes, slices }; },
       { openGui: false, ...(axes ? { axes } : {}) }
     );
@@ -202,7 +204,7 @@ describe("onProgress", () => {
       streamedResponse([new Uint8Array(50), new Uint8Array(50)])
     );
 
-    copperNrrdLoader("volume.nrrd", bar, false, undefined, {
+    copperNrrdLoader("volume.nrrd", bar, undefined, {
       openGui: false,
       onProgress,
     });
@@ -219,7 +221,7 @@ describe("onProgress", () => {
     const bar = loadingBar();
     fetchMock.mockResolvedValue(streamedResponse([new Uint8Array(buildNrrd())]));
 
-    expect(() => copperNrrdLoader("volume.nrrd", bar, false)).not.toThrow();
+    expect(() => copperNrrdLoader("volume.nrrd", bar)).not.toThrow();
     await vi.waitFor(() => expect(bar.loadingContainer.style.display).toBe("none"));
   });
 });

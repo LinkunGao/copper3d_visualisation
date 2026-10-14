@@ -50,6 +50,7 @@ import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import type { ICommXYZ } from "../core/types";
 import { CHANNEL_HEX_COLORS } from "../core";
+import { rowsRunUp } from "../contourPaint";
 import type { SphereHostDeps } from "./ToolHost";
 
 // ===== Sphere Type & Channel Mapping =====
@@ -164,8 +165,8 @@ export class SphereTool extends BaseTool {
     const nrrd = this.ctx.nrrd_states;
     switch (axis ?? this.ctx.protectedData.axis) {
       case "x":
-        this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.image.nrrd_z_mm;
-        this.ctx.protectedData.canvases.drawingSphereCanvas.height = nrrd.image.nrrd_y_mm;
+        this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.image.nrrd_y_mm;
+        this.ctx.protectedData.canvases.drawingSphereCanvas.height = nrrd.image.nrrd_z_mm;
         break;
       case "y":
         this.ctx.protectedData.canvases.drawingSphereCanvas.width = nrrd.image.nrrd_x_mm;
@@ -207,11 +208,11 @@ export class SphereTool extends BaseTool {
     // clear drawingCanvasLayerMaster
     this.ctx.protectedData.canvases.drawingCanvasLayerMaster.width =
       this.ctx.protectedData.canvases.drawingCanvasLayerMaster.width;
-    // resize sphere canvas to original size
+    // resize sphere canvas to the image's display size (sagittal turns three's canvas)
     this.ctx.protectedData.canvases.drawingSphereCanvas.width =
-      this.ctx.protectedData.canvases.originCanvas.width;
+      this.ctx.nrrd_states.image.originWidth;
     this.ctx.protectedData.canvases.drawingSphereCanvas.height =
-      this.ctx.protectedData.canvases.originCanvas.height;
+      this.ctx.nrrd_states.image.originHeight;
     return [
       this.ctx.protectedData.canvases.drawingSphereCanvas,
       this.ctx.protectedData.ctxes.drawingSphereCtx,
@@ -552,8 +553,8 @@ export class SphereTool extends BaseTool {
       case 'x':
         return {
           x: sliceIndex,
-          y: canvasY * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm,
-          z: canvasX * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm,
+          y: canvasX * nrrd.image.nrrd_y_pixel / nrrd.image.nrrd_y_mm,
+          z: (nrrd.image.nrrd_z_mm - canvasY) * nrrd.image.nrrd_z_pixel / nrrd.image.nrrd_z_mm,
         };
     }
   }
@@ -707,7 +708,7 @@ export class SphereTool extends BaseTool {
       // Get slice dimensions (voxel space)
       const [sliceW, sliceH] = axis === 'z' ? [dims.width, dims.height]
         : axis === 'y' ? [dims.width, dims.depth]
-          : [dims.depth, dims.height];
+          : [dims.height, dims.depth];
 
       const imageData = new ImageData(sliceW, sliceH);
       vol.renderLabelSliceInto(sliceIndex, axis, imageData, undefined, 1.0);
@@ -724,8 +725,9 @@ export class SphereTool extends BaseTool {
       this.ctx.protectedData.ctxes.emptyCtx.putImageData(imageData, 0, 0);
 
       sphereCtx.imageSmoothingEnabled = true;
-      // Coronal axis ('y') needs vertical flip to match display coordinate system
-      if (axis === 'y') {
+      // Coronal and sagittal need a vertical flip to match the display coordinate system
+      const flip = rowsRunUp(axis);
+      if (flip) {
         sphereCtx.save();
         sphereCtx.scale(1, -1);
         sphereCtx.translate(0, -sphereCanvas.height);
@@ -734,7 +736,7 @@ export class SphereTool extends BaseTool {
         this.ctx.protectedData.canvases.emptyCanvas,
         0, 0, sphereCanvas.width, sphereCanvas.height
       );
-      if (axis === 'y') {
+      if (flip) {
         sphereCtx.restore();
       }
     } catch {
