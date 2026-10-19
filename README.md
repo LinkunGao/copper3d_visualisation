@@ -58,10 +58,6 @@ with VitePress and deploys to GitHub Pages.
 > rather than `copperRenderer`, and nothing from the 3.x segmentation engine. Everything now
 > lives at the link above. Its sources remain in git history if you need them.
 
-### Previous versions
-
-Old: https://www.npmjs.com/package/copper3d_visualisation
-Very old: https://www.npmjs.com/package/gltfloader-plugin-test
 
 ### Examples
 
