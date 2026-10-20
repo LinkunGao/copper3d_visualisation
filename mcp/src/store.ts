@@ -6,8 +6,8 @@
  * workspace roots.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { type ApiSymbol, SymbolLookup } from "./search.js";
 
@@ -59,6 +59,25 @@ export class IndexStore {
 
   get guides(): readonly GuideEntry[] {
     return this.manifest.guides;
+  }
+
+  /** The copper3d package (or repository) the index belongs to: it sits at its `ai-index/`. */
+  get packageRoot(): string {
+    return dirname(this.dir);
+  }
+
+  /**
+   * The installed package's type declarations, when they are there. Pointed to when the index
+   * comes up short: it holds names and signatures, while the declarations are the whole API.
+   */
+  get typesEntry(): string | undefined {
+    const path = join(this.packageRoot, "dist", "types", "index.d.ts");
+    return existsSync(path) ? path : undefined;
+  }
+
+  /** Where a guide is on disk, for reading it whole with the assistant's own file tools. */
+  guidePath(entry: GuideEntry): string {
+    return join(this.dir, "guides", entry.file);
   }
 
   getGuide(id: string): GuideEntry | undefined {

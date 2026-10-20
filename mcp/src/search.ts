@@ -34,6 +34,25 @@ export interface SearchOptions {
 export interface ScoredSymbol {
   symbol: ApiSymbol;
   score: number;
+  /** How many of the query's words this symbol matched. */
+  matched: number;
+}
+
+/**
+ * The words of a query, lowercased and de-duplicated.
+ *
+ * Assistants search the way they think: several names at once
+ * (`copperRenderer createScene`), lists (`setMode, setLayer`), call syntax
+ * (`createScene()`) and search-engine habits (`+copperRenderer`). Each
+ * identifier is one word. Dots are kept, so a qualified name stays one word.
+ */
+export function queryTerms(rawQuery: string): string[] {
+  const terms = rawQuery
+    .toLowerCase()
+    .split(/[^a-z0-9_$.]+/)
+    .map((t) => t.replace(/^\.+|\.+$/g, ""))
+    .filter(Boolean);
+  return [...new Set(terms)];
 }
 
 /**
@@ -50,6 +69,9 @@ function score(symbol: ApiSymbol, query: string): number {
   const short = tail(name);
 
   if (name === query || short === query) return 1000;
+  // `copperRenderer createScene`: the class word should favour its own members
+  // over those of `copperRendererOnDemond`, which it only prefixes.
+  if (symbol.parent?.toLowerCase() === query) return 900;
   if (short.startsWith(query)) return 800;
   if (name.startsWith(query)) return 700;
   if (short.includes(query)) return 600;
@@ -65,13 +87,20 @@ function score(symbol: ApiSymbol, query: string): number {
   return best;
 }
 
+/**
+ * Symbols matching any word of the query, those matching the most words first.
+ *
+ * The whole query used to be matched as one substring, so any query of two or
+ * more words matched nothing at all -- and the server then told the assistant
+ * that APIs which existed did not.
+ */
 export function searchSymbols(
   symbols: readonly ApiSymbol[],
   rawQuery: string,
   options: SearchOptions = {}
 ): ScoredSymbol[] {
-  const query = rawQuery.trim().toLowerCase();
-  if (!query) return [];
+  const terms = queryTerms(rawQuery);
+  if (terms.length === 0) return [];
 
   const limit = Math.max(1, Math.min(options.limit ?? 20, 200));
   const kind = options.kind?.trim().toLowerCase();
@@ -79,11 +108,20 @@ export function searchSymbols(
   const hits: ScoredSymbol[] = [];
   for (const symbol of symbols) {
     if (kind && symbol.kind !== kind) continue;
-    const value = score(symbol, query);
-    if (value > 0) hits.push({ symbol, score: value });
+    let total = 0;
+    let matched = 0;
+    for (const term of terms) {
+      const value = score(symbol, term);
+      if (value > 0) {
+        matched++;
+        total += value;
+      }
+    }
+    if (matched > 0) hits.push({ symbol, score: total, matched });
   }
 
   hits.sort((a, b) => {
+    if (b.matched !== a.matched) return b.matched - a.matched;
     if (b.score !== a.score) return b.score - a.score;
     // Shorter names are the more general thing, and read better first.
     if (a.symbol.name.length !== b.symbol.name.length) {

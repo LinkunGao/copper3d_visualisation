@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { searchSymbols, SymbolLookup, type ApiSymbol } from "../search.js";
+import { queryTerms, searchSymbols, SymbolLookup, type ApiSymbol } from "../search.js";
 
 const symbols: ApiSymbol[] = [
   {
@@ -110,6 +110,87 @@ describe("searchSymbols", () => {
   it("finds symbols by parameter type", () => {
     const names = searchSymbols(symbols, "AiMaskResult").map((h) => h.symbol.name);
     expect(names).toContain("NrrdTools.aiApplyMask");
+  });
+});
+
+describe("searchSymbols with several words", () => {
+  // The whole query used to be one substring, so any two-word query matched
+  // nothing -- and the server then said the API did not exist.
+  const renderer: ApiSymbol[] = [
+    { name: "copperRenderer", kind: "class", module: "Renderer/copperRenderer" },
+    {
+      name: "copperRenderer.createScene",
+      kind: "method",
+      module: "Renderer/copperRenderer",
+      parent: "copperRenderer",
+      signature: "copperRenderer.createScene(name: string): copperScene | undefined",
+    },
+    {
+      name: "copperRenderer.setCurrentScene",
+      kind: "method",
+      module: "Renderer/copperRenderer",
+      parent: "copperRenderer",
+    },
+    {
+      name: "copperRendererOnDemond.createScene",
+      kind: "method",
+      module: "Renderer/copperRendererOnDemond",
+      parent: "copperRendererOnDemond",
+    },
+    { name: "copperScene.scene", kind: "property", module: "Scene/copperScene", parent: "copperScene" },
+    ...symbols,
+  ];
+
+  it("finds a symbol that matches every word", () => {
+    const hits = searchSymbols(renderer, "copperRenderer createScene");
+    expect(hits[0]?.symbol.name).toBe("copperRenderer.createScene");
+    expect(hits[0]?.matched).toBe(2);
+  });
+
+  it("ranks symbols matching more of the words first", () => {
+    const names = searchSymbols(renderer, "copperRenderer createScene setCurrentScene").map(
+      (h) => h.symbol.name
+    );
+    // Each matches two of the three words through its own class. The OnDemond
+    // member matches two as well, but only by prefixing its class name.
+    expect(names.slice(0, 2).sort()).toEqual([
+      "copperRenderer.createScene",
+      "copperRenderer.setCurrentScene",
+    ]);
+    expect(names).toContain("copperRendererOnDemond.createScene");
+  });
+
+  it("still returns symbols that match only some of the words", () => {
+    const hits = searchSymbols(renderer, "createScene banana");
+    expect(hits.map((h) => h.symbol.name)).toContain("copperRenderer.createScene");
+    expect(hits[0]?.matched).toBe(1);
+  });
+
+  it("ignores punctuation people type around identifiers", () => {
+    expect(searchSymbols(renderer, "+copperRenderer")[0]?.symbol.name).toBe("copperRenderer");
+    expect(searchSymbols(renderer, "createScene()")[0]?.symbol.name).toBe(
+      "copperRenderer.createScene"
+    );
+  });
+
+  it("splits on commas as well as spaces", () => {
+    expect(searchSymbols(renderer, "createScene,setCurrentScene").map((h) => h.symbol.name)).toEqual(
+      expect.arrayContaining(["copperRenderer.createScene", "copperRenderer.setCurrentScene"])
+    );
+  });
+
+  it("reports one matched word for a single-word query", () => {
+    expect(searchSymbols(symbols, "aiApplyMask")[0]?.matched).toBe(1);
+  });
+});
+
+describe("queryTerms", () => {
+  it("splits, lowercases, strips punctuation and drops duplicates", () => {
+    expect(queryTerms(" +NrrdTools  setMode, setMode() ")).toEqual(["nrrdtools", "setmode"]);
+  });
+
+  it("keeps a qualified name together", () => {
+    expect(queryTerms("NrrdTools.setMode")).toEqual(["nrrdtools.setmode"]);
   });
 });
 
