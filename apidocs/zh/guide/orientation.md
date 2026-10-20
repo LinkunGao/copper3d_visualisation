@@ -139,6 +139,13 @@ const voxels   = reorientVoxels(raw, geometry.dims, t);
 const grid     = reorientedGeometry(geometry, t);
 ```
 
+在 Node 里(转换脚本、服务端、测试),推荐从 `copper3d/orientation` 导入。它只包含上面这些函数,
+不带 three、不带 WebGL、也不带库的其余部分,ESM 和 CommonJS 都可以用。
+
+```ts
+import { canonicalTransform, geometryFromNrrd } from "copper3d/orientation";
+```
+
 ::: tip 外部 mask 必须用同样的方式重排
 你从别处拿来的 mask 处在**它自己**文件的顺序里。交给 `setMasksFromNIfTI` 之前,请先用同一对
 `canonicalTransform` / `reorientVoxels` 处理一遍,否则它会落在正确的网格上、但顺序是错的。

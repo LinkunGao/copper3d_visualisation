@@ -53,6 +53,59 @@ const threeAddonsPathPlugin = () => ({
   },
 });
 
+// dat.gui (inlined into both bundles) touches the DOM while its module evaluates: it
+// reads `window.requestAnimationFrame`, injects its stylesheet, and binds a window
+// keydown handler. That alone made `import "copper3d"` throw "window is not defined"
+// in Node. Guard those three statements; in a browser they run exactly as before.
+// dat.gui is frozen at 0.7.9, so the patterns are stable -- and if one ever stops
+// matching, the build fails instead of quietly shipping a bundle that breaks in Node.
+const DAT_GUI_PATCHES = [
+  [
+    "var requestAnimationFrame$1 = window.",
+    // `?:` binds looser than `||`, so the whole vendor-prefix chain stays in the
+    // else branch; Node gets dat.gui's own setTimeout fallback.
+    'var requestAnimationFrame$1 = typeof window === "undefined" ? requestAnimationFrame : window.',
+  ],
+  [
+    "\ncss.inject(styleSheet);",
+    '\nif (typeof document !== "undefined") css.inject(styleSheet);',
+  ],
+  [
+    "\ndom.bind(window, 'keydown', GUI._keydownHandler, false);",
+    "\nif (typeof window !== \"undefined\") dom.bind(window, 'keydown', GUI._keydownHandler, false);",
+  ],
+];
+const datGuiNodeSafePlugin = () => ({
+  name: "dat-gui-node-safe",
+  transform(code, id) {
+    if (!/[\\/]dat\.gui[\\/]build[\\/]dat\.gui\.module\.js$/.test(id)) return null;
+    for (const [from, to] of DAT_GUI_PATCHES) {
+      if (!code.includes(from)) this.error(`dat.gui patch no longer matches: ${from.trim()}`);
+      // A function, so the `$1` in `to` is not read as a replacement pattern.
+      code = code.replace(from, () => to);
+    }
+    return { code, map: null };
+  },
+});
+
+// dicom-parser's UMD build does `require("zlib")`; node-resolve keeps that as a Node
+// builtin, so the ESM bundle opened with `import zlib from "zlib"` -- which webpack 5
+// refuses to build and Vite stubs out with a warning. dicom-parser only reaches zlib
+// when it runs under Node (inflating deflated DICOM); in a browser it uses a global
+// `pako`. So: no static import, the real module from Node's own registry when there
+// is one, and an empty object in the browser.
+const ZLIB_SHIM = "\0zlib-shim";
+const zlibShimPlugin = () => ({
+  name: "zlib-shim",
+  // The shim's own id too: commonjs wraps it in a proxy that imports it by that id,
+  // and left unresolved rollup would take it for an external.
+  resolveId: (source) => (source === "zlib" || source === ZLIB_SHIM ? ZLIB_SHIM : null),
+  load: (id) =>
+    id === ZLIB_SHIM
+      ? 'export default typeof process !== "undefined" && typeof process.getBuiltinModule === "function" ? process.getBuiltinModule("zlib") : {};'
+      : null,
+});
+
 // Handle Vite-style `?worker&inline` imports: build the target as its own bundle and
 // hand back a `Worker` constructor that boots it from an inline blob URL.
 //
@@ -185,9 +238,12 @@ const commonConf = {
     }),
     rawPlugin(),
     inlineWorkerPlugin(),
+    // Ahead of node-resolve, which would otherwise claim `zlib` as a builtin.
+    zlibShimPlugin(),
     resolve({
       extensions,
     }),
+    datGuiNodeSafePlugin(),
     glslify(),
     commonjs(),
     image(),
@@ -215,12 +271,43 @@ const outputMap = [
 
 const buildConf = (options) => Object.assign({}, commonConf, options);
 
-export default outputMap.map((output) => {
-  const conf = buildConf({
-    output: {
-      ...output,
-      name: packageJSON.name,
-    },
-  });
-  return conf;
-});
+// `copper3d/orientation`: the orientation helpers as their own entry, for Node
+// scripts (converters, servers, tests) that want them without loading the whole
+// library and three with it. orientation.ts has no imports and touches no DOM, so
+// this entry needs nothing but a transpile -- keep it that way, or whatever it
+// imports is bundled in here too.
+const orientationConf = {
+  input: getPath("./src/Utils/orientation.ts"),
+  plugins: [
+    // Its own rpt2 instance and cache, for the same reason as the worker build.
+    // Declarations come from `tsc` (dist/types), as for the main entry.
+    ts({
+      tsconfig: getPath("./tsconfig.json"),
+      tsconfigOverride: {
+        extensions,
+        compilerOptions: { declaration: false, sourceMap: false },
+      },
+      include: ["*.ts", "**/*.ts", "*.tsx", "**/*.tsx"],
+      cacheRoot: getPath("./node_modules/.cache/rpt2_orientation"),
+      check: false,
+    }),
+  ],
+  output: [
+    // .mjs/.cjs for the same reason as bundle.esm.mjs: the package has no "type".
+    { file: "dist/orientation.mjs", format: "esm" },
+    { file: "dist/orientation.cjs", format: "cjs", exports: "named" },
+  ],
+};
+
+export default [
+  ...outputMap.map((output) => {
+    const conf = buildConf({
+      output: {
+        ...output,
+        name: packageJSON.name,
+      },
+    });
+    return conf;
+  }),
+  orientationConf,
+];
