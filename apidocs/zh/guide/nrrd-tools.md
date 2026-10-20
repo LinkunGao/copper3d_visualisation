@@ -376,6 +376,16 @@ const callbackId = scene.addPreRenderCallbackFunction(nrrdTools.start);
 scene.removePreRenderCallbackFunction(callbackId);
 ```
 
+::: tip on-demand 场景，以及提前注册 <Badge type="tip" text="4.1.2" />
+`copperSceneOnDemond` 上同样可以这样注册。只要有回调注册着，on-demand 场景就会跑一个
+`requestAnimationFrame` 循环，只调用这些回调；3D 场景本身仍然按需渲染。4.1.2 之前，它接受注册，
+但从不调用。
+
+`nrrdTools.start` 在实例的整个生命周期里是同一个函数，所以可以在 `draw()` 之前注册。在 `draw()`
+执行过、并且第一张切片确定了画布尺寸之前，它什么都不做。4.1.2 之前，在 `draw()` 之前注册拿到的是
+一个空函数，而且一直是空的。
+:::
+
 **手动渲染循环：**
 
 ```typescript

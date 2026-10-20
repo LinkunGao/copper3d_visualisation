@@ -415,6 +415,16 @@ const callbackId = scene.addPreRenderCallbackFunction(nrrdTools.start);
 scene.removePreRenderCallbackFunction(callbackId);
 ```
 
+::: tip On-demand scenes, and registering early <Badge type="tip" text="4.1.2" />
+This works on `copperSceneOnDemond` too. While anything is registered, an on-demand scene runs
+a `requestAnimationFrame` loop that calls the callbacks and nothing else; the 3D scene still
+renders only on demand. Before 4.1.2 it accepted the registration and never called it.
+
+`nrrdTools.start` is one function for the life of the instance, so it may be registered before
+`draw()`. It does nothing until `draw()` has run and the first slice has sized the canvases.
+Before 4.1.2, registering before `draw()` registered an empty function that stayed empty.
+:::
+
 #### Manual render loop
 
 ```typescript

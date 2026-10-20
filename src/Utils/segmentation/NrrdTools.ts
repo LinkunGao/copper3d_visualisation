@@ -1735,8 +1735,9 @@ export class NrrdTools {
   }
 
   /**
-   * Get the DrawToolCore's start() render loop callback.
-   * This is called by DragSliceTool's requestAnimationFrame loop.
+   * The per-frame callback that draws the annotation overlay; register it with the scene.
+   * The same function every time, so it may be registered before `draw()`. It does nothing
+   * until `draw()` has run and the first slice has sized the canvases.
    */
   get start() {
     return this.drawCore.start;
