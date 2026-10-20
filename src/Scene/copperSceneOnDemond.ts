@@ -19,6 +19,8 @@ export class copperSceneOnDemond extends baseScene {
   controls: OrbitControls | Copper3dTrackballControls | TrackballControls;
   renderRequested: boolean | undefined = false;
   isResize: boolean = false;
+  /** Handle of the callback loop's next frame; null while the loop is not running. */
+  private callbackFrame: number | null = null;
 
   /**
    * `opt.controls` picks the controls class, as it already did on
@@ -156,6 +158,45 @@ export class copperSceneOnDemond extends baseScene {
   };
 
   /**
+   * Registers a per-frame callback, as on `copperScene` -- `nrrdTools.start` is the usual one.
+   *
+   * This scene draws only on demand, and before 4.1.2 nothing here ran the registry:
+   * registering returned an id and the callback never ran. Now the scene runs a
+   * `requestAnimationFrame` loop of its own while anything is registered, and none while
+   * nothing is. The loop calls the callbacks and nothing else -- it does not render the WebGL
+   * scene, so a callback that changes what the scene shows still asks for a frame with
+   * `requestRenderIfNotRequested`.
+   */
+  addPreRenderCallbackFunction(callbackFunction: Function) {
+    const id = super.addPreRenderCallbackFunction(callbackFunction);
+    if (this.callbackFrame === null) {
+      this.callbackFrame = requestAnimationFrame(() => this.runCallbackFrame());
+    }
+    return id;
+  }
+
+  removePreRenderCallbackFunction(id: number) {
+    super.removePreRenderCallbackFunction(id);
+    if (this.preRenderCallbackFunctions.cache.length === 0) this.stopCallbackLoop();
+  }
+
+  private runCallbackFrame() {
+    if (this.preRenderCallbackFunctions.cache.length === 0) {
+      this.callbackFrame = null;
+      return;
+    }
+    // Next frame first, so a callback that throws costs one frame rather than the loop.
+    this.callbackFrame = requestAnimationFrame(() => this.runCallbackFrame());
+    // A copy: a callback may unregister itself, or another, while this runs.
+    [...this.preRenderCallbackFunctions.cache].forEach((fn) => fn.call(null));
+  }
+
+  private stopCallbackLoop() {
+    if (this.callbackFrame !== null) cancelAnimationFrame(this.callbackFrame);
+    this.callbackFrame = null;
+  }
+
+  /**
    * Releases what this scene attached OUTSIDE itself.
    *
    * The `resize` listener the constructor puts on `window` used to have no
@@ -188,6 +229,8 @@ export class copperSceneOnDemond extends baseScene {
     // Nothing in flight can arrive after this: `render` clears the flag, and
     // an already-scheduled frame only draws.
     this.renderRequested = false;
+    // The registered callbacks stay registered, but stop being called.
+    this.stopCallbackLoop();
   }
 
   render = () => {

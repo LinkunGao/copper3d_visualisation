@@ -123,11 +123,6 @@ export class DrawToolCore {
         this.paintSliceIndex = this.state.protectedData.mainPreSlices.index;
       }
 
-      // Suppress wheel only when starting a draw operation
-      if (this.eventRouter.getMode() === 'draw') {
-        this.activeWheelMode = 'none';
-      }
-
       if (e.button === 0) {
         // Every branch that can write into a mask is gated; the crosshair below is a
         // read-only probe and stays available, as do pan (button 2) and the wheel.
@@ -138,6 +133,11 @@ export class DrawToolCore {
         if (this.eventRouter.getMode() === 'aiAssist') {
           this.aiAssistTool.onPointerDown(e);
         } else if (this.eventRouter.getMode() === 'draw') {
+          // No wheel for the length of the stroke; the pointer-up that ends it turns it back
+          // on. Set here, where a stroke really starts, and nowhere earlier: a press that starts
+          // none -- suspended, or not the left button -- has no pointer-up that ends a stroke,
+          // so nothing would ever turn the wheel back on.
+          this.activeWheelMode = 'none';
           this.drawingTool.onPointerDown(e);
         } else if (this.eventRouter.isCrosshairEnabled()) {
           this.state.nrrd_states.interaction.cursorPageX =
@@ -226,7 +226,33 @@ export class DrawToolCore {
   private wheelModeBeforeDrag: 'Scroll:Zoom' | null = null;
 
   // need to return to parent
-  start: () => void = () => { };
+  /** The per-frame composite. `draw()` builds it (in `paintOnCanvas`); a no-op until then. */
+  private renderFrame: () => void = () => { };
+
+  private boundStart?: () => void;
+
+  /**
+   * The per-frame callback hosts register (`scene.addPreRenderCallbackFunction(nrrdTools.start)`).
+   *
+   * One function for the life of the instance. It used to BE the frame `draw()` installs, read
+   * at registration time, so a host that registered before `draw()` held the empty placeholder
+   * for good and the overlay never drew. A getter rather than a field so the prototype-built
+   * test doubles have it too.
+   */
+  get start(): () => void {
+    return (this.boundStart ??= () => this.startFrame());
+  }
+
+  /**
+   * Skips frames until the first slice has sized the canvases. Until then the master canvas is
+   * 0x0, and `drawImage` of a 0x0 source throws InvalidStateError -- every frame, from inside
+   * the scene's render, which then skips its own WebGL draw.
+   */
+  private startFrame(): void {
+    const master = this.state.protectedData.canvases.drawingCanvasLayerMaster;
+    if (master.width === 0 || master.height === 0) return;
+    this.renderFrame();
+  }
 
   constructor(container: HTMLElement, state: CanvasState) {
     this.container = container;
@@ -665,7 +691,7 @@ export class DrawToolCore {
     };
 
 
-    this.start = () => {
+    this.renderFrame = () => {
       if (this.state.gui_states.viewConfig.readyToUpdate) {
         this.state.protectedData.ctxes.drawingCtx.clearRect(
           0,
