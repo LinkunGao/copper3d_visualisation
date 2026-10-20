@@ -147,6 +147,14 @@ const voxels   = reorientVoxels(raw, geometry.dims, t);
 const grid     = reorientedGeometry(geometry, t);
 ```
 
+In Node (a converter, a server, a test), prefer `copper3d/orientation`. It is the same
+functions with nothing else attached — no three, no WebGL, no rest of the library — as ESM
+or CommonJS.
+
+```ts
+import { canonicalTransform, geometryFromNrrd } from "copper3d/orientation";
+```
+
 ::: tip Masks must be reoriented the same way
 A mask you bring in from elsewhere is in *its* file's order. Put it through the same
 `canonicalTransform` / `reorientVoxels` pair before handing it to `setMasksFromNIfTI`, or it

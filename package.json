@@ -11,6 +11,11 @@
       "import": "./dist/bundle.esm.mjs",
       "require": "./dist/bundle.umd.js"
     },
+    "./orientation": {
+      "types": "./dist/types/Utils/orientation.d.ts",
+      "import": "./dist/orientation.mjs",
+      "require": "./dist/orientation.cjs"
+    },
     "./dist/css/*": "./dist/css/*",
     "./package.json": "./package.json"
   },
