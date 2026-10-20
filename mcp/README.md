@@ -94,10 +94,14 @@ All read-only.
 
 | Tool | What it does |
 |---|---|
-| `copper3d_search_api` | Search by name, module, summary or parameter type. Members are indexed on their own, so `aiApplyMask` finds `NrrdTools.aiApplyMask`. |
-| `copper3d_get_symbol` | One symbol in full: signature, every parameter, return type, source location, related guides. |
-| `copper3d_list_guides` | Table of contents for the hand-written guides. |
-| `copper3d_get_guide` | Full markdown of one guide. |
+| `copper3d_search_api` | Search by name, module, summary or parameter type. Members are indexed on their own, so `aiApplyMask` finds `NrrdTools.aiApplyMask`. Several words are fine (`copperRenderer createScene`): symbols matching all of them rank first. `limit` (or `max_results`) caps the results. |
+| `copper3d_get_symbol` | One symbol in full: signature, every parameter, return type, source location, related guides. On a class or interface, every member with its signature. |
+| `copper3d_list_guides` | Table of contents for the hand-written guides, with their sizes. |
+| `copper3d_get_guide` | Markdown of one guide. A guide over 20K characters comes back as its outline; `section` (`"4"`, `"4.2"` or a title) reads one part. |
+
+A miss is reported as a miss, not as proof that an API is absent: the index holds names and
+signatures, so a reply with no match points on to the type declarations and guides in the
+installed package.
 
 ## Options
 
@@ -110,6 +114,10 @@ Without either, the server looks at the MCP workspace roots, then `CLAUDE_PROJEC
 then walks up from the working directory. If it finds nothing it says so and lists every
 path it tried — it never quietly returns empty results, because an assistant reading
 "no matches" would conclude the library has no API.
+
+Replies stay under 20K characters. Larger ones are refused by Claude Code, which saves them
+to a file and leaves the assistant to grep it — so a long guide is served as an outline and
+sections instead.
 
 ## Troubleshooting
 
