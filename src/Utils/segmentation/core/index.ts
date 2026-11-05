@@ -105,6 +105,7 @@ export type {
   IInternalFlags,
   INrrdStates,
   IAnnotationCallbacks,
+  IMaskHistoryChange,
   IConvertObjType,
   ICursorPage,
   IDragOpts,

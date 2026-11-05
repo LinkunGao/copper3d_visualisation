@@ -31,6 +31,27 @@ import { UndoManager } from "./core";
  *
  * Created by NrrdTools which passes in a shared CanvasState.
  */
+/**
+ * The channels a slice delta changed: every label that differs between the slice before and
+ * after, background (0) excluded, in ascending order.
+ *
+ * In a label volume a voxel's value is its channel, so this is exactly the set of channels an
+ * undo or redo of the delta touches — which is what the host needs to know, not the channel
+ * that happens to be active.
+ */
+export function changedChannels(oldSlice: Uint8Array, newSlice: Uint8Array): number[] {
+  const seen = new Set<number>();
+  const n = Math.min(oldSlice.length, newSlice.length);
+  for (let i = 0; i < n; i++) {
+    const before = oldSlice[i];
+    const after = newSlice[i];
+    if (before === after) continue;
+    if (before !== 0) seen.add(before);
+    if (after !== 0) seen.add(after);
+  }
+  return [...seen].sort((a, b) => a - b);
+}
+
 export class DrawToolCore {
   container: HTMLElement;
   mainAreaContainer: HTMLDivElement;
@@ -386,16 +407,19 @@ export class DrawToolCore {
     this.eventRouter.setKeydownHandler((ev: KeyboardEvent) => {
       if (this.state.configKeyBoard) return;
 
-      // Handle undo (Ctrl+Z)
+      // Handle undo (Ctrl+Z). Cancelled so the browser does not also run its own page-level
+      // undo, which reverts the last text typed anywhere on the page and moves focus there.
       if ((ev.ctrlKey || ev.metaKey) && ev.key === this.state.keyboardSettings.undo) {
+        ev.preventDefault();
         undoFlag = true;
         this.undoLastPainting();
       }
 
-      // Handle redo (Ctrl+<redo key> or Ctrl+Shift+<undo key>)
+      // Handle redo (Ctrl+<redo key> or Ctrl+Shift+<undo key>), cancelled for the same reason
       const redoKey = this.state.keyboardSettings.redo;
       const undoKeyUpper = this.state.keyboardSettings.undo.toUpperCase();
       if ((ev.ctrlKey || ev.metaKey) && (ev.key === redoKey || (ev.shiftKey && ev.key === undoKeyUpper))) {
+        ev.preventDefault();
         this.redoLastPainting();
       }
 
@@ -1020,7 +1044,8 @@ export class DrawToolCore {
           .getSliceUint8(delta.sliceIndex, delta.axis);
         this.state.annotationCallbacks.onMaskChanged(
           sliceData, delta.layerId, this.state.gui_states.layerChannel.activeChannel || 1,
-          delta.sliceIndex, delta.axis, width, height, false
+          delta.sliceIndex, delta.axis, width, height, false,
+          { channels: changedChannels(delta.oldSlice, delta.newSlice) }
         );
       }
     }
@@ -1061,7 +1086,8 @@ export class DrawToolCore {
           .getSliceUint8(delta.sliceIndex, delta.axis);
         this.state.annotationCallbacks.onMaskChanged(
           sliceData, delta.layerId, this.state.gui_states.layerChannel.activeChannel || 1,
-          delta.sliceIndex, delta.axis, width, height, false
+          delta.sliceIndex, delta.axis, width, height, false,
+          { channels: changedChannels(delta.oldSlice, delta.newSlice) }
         );
       }
     }
