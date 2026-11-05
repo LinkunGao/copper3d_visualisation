@@ -818,11 +818,31 @@ onMaskChanged: (
   axis: "x" | "y" | "z",   // Current axis
   width: number,            // Slice width
   height: number,           // Slice height
-  clearFlag: boolean        // Whether this is a clear operation
+  clearFlag: boolean,       // Whether this is a clear operation
+  history?: IMaskHistoryChange  // undo/redo only — see below
 ) => void
 ```
 
 **Called**: After each completed drawing stroke (mouseup), and after undo/redo.
+
+#### `history` <Badge type="tip" text="4.1.3" />
+
+```ts
+interface IMaskHistoryChange {
+  /** Channels whose voxels the undone or redone delta changed, ascending. */
+  channels: number[];
+}
+```
+
+Set **only** on undo/redo. It exists because `channelId` is the *active* channel on those
+calls, which need not be the channel that changed — undoing a channel-3 stroke while channel
+1 is selected reports `channelId === 1`. A host that syncs per channel must read
+`history.channels` when it is present and fall back to `[channelId]` when it is not.
+
+`DrawToolCore.changedChannels(oldSlice, newSlice)` computes it by comparing the slice before
+and after the delta and collecting every differing non-zero label — in a label volume a
+voxel's value *is* its channel, so that set is exactly what the delta touched. It may hold
+several channels, or none if only background changed.
 
 ### 4.2 onLayerVolumeCleared
 

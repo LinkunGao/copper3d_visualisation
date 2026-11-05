@@ -510,7 +510,8 @@ nrrdTools.draw({
     axis: 'x' | 'y' | 'z',  // Current viewing axis
     width: number,            // Slice width in voxels
     height: number,           // Slice height in voxels
-    clearFlag?: boolean        // true if the user cleared the slice
+    clearFlag?: boolean,       // true if the user cleared the slice
+    history?: IMaskHistoryChange  // set only for undo/redo — see below
   ) => {
     sendSliceToBackend({ sliceData, layerId, channelId, sliceIndex, axis, width, height, clearFlag });
   },
@@ -551,6 +552,38 @@ nrrdTools.draw({
   },
 });
 ```
+
+##### `history`: which channels an undo actually touched <Badge type="tip" text="4.1.3" />
+
+`getMaskData` fires for undo and redo as well as for strokes. On those, **`channelId` is not
+the channel that changed** — it is whatever channel happens to be active. The `history`
+argument, set only for undo/redo, names the channels the restored delta really touched:
+
+```typescript
+interface IMaskHistoryChange {
+  /** Channels whose voxels the undone or redone delta changed, ascending. */
+  channels: number[];
+}
+```
+
+::: warning This matters if you sync per channel
+A backend keyed on `channelId` attributes an undo to the active channel, which may have
+nothing to do with it — undo channel 3's stroke while channel 1 is selected and the change
+lands on channel 1. Branch on `history` instead:
+
+```typescript
+getMaskData: (sliceData, layerId, channelId, sliceIndex, axis, w, h, clearFlag, history) => {
+  const channels = history ? history.channels : [channelId];
+  sendSliceToBackend({ sliceData, layerId, channels, sliceIndex, axis, w, h, clearFlag });
+},
+```
+
+`history.channels` can hold more than one channel — a single delta may have crossed several —
+and it can be empty if the delta changed only background voxels.
+:::
+
+Because a voxel's value *is* its channel in a label volume, the set is computed by comparing
+the slice before and after the delta, with background (`0`) excluded.
 
 #### 5.3 SphereTool — 3D Sphere Placement & Distance Calculator
 
@@ -1299,6 +1332,17 @@ window.addEventListener('keydown', (e) => {
 | Scroll:Zoom shortcut | `Ctrl+1` |
 | Scroll:Slice shortcut | `Ctrl+2` |
 
+Undo and redo are taken with `Ctrl` / `Meta` held: `Ctrl+Z`, and `Ctrl+Y` or `Ctrl+Shift+Z`.
+
+::: tip Undo and redo now cancel the browser default <Badge type="tip" text="4.1.3" />
+Both call `preventDefault()`. Without it the browser also ran its own page-level undo, which
+reverts the last text typed anywhere on the page and moves focus there — so a clinician
+undoing a stroke could find a form field behind the viewer silently rolled back instead.
+
+This applies while shortcuts are active. `enterKeyboardConfig()` still suppresses the whole
+set, so a focused input keeps normal browser undo.
+:::
+
 ::: warning Sphere mode no longer has a shortcut <Badge type="warning" text="breaking in 3.11.5" />
 The `sphere: "q"` binding is **gone**, and `sphere` has been removed from
 `IKeyBoardSettings`. Sphere mode is now entered only through `setMode("sphere")` — which is
@@ -1865,7 +1909,8 @@ interface IDrawOpts {
     axis: 'x' | 'y' | 'z',
     width: number,
     height: number,
-    clearFlag?: boolean
+    clearFlag?: boolean,
+    history?: IMaskHistoryChange   // undo/redo only
   ) => void;
   onClearLayerVolume?: (layerId: string) => void;
   getSphereData?: (sphereOrigin: number[], sphereRadius: number) => void;
@@ -1901,6 +1946,12 @@ interface IKeyBoardSettings {
 }
 
 // 3D coordinate (used in sphere position callbacks)
+// What an undo or redo changed; passed as getMaskData's last argument
+interface IMaskHistoryChange {
+  /** Channels whose voxels the undone or redone delta changed, ascending. */
+  channels: number[];
+}
+
 interface ICommXYZ {
   x: number;
   y: number;

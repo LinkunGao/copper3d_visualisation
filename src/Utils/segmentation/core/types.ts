@@ -681,8 +681,19 @@ export interface INrrdStates extends IImageMetadata, IViewState, IInteractionSta
 // ── Public API Types ────────────────────────────────────────────────────────
 
 /** Callbacks for external notification of annotation data changes */
+/** What an undo or redo changed, passed with the slice it restored. */
+export interface IMaskHistoryChange {
+  /** The channels whose voxels the undone or redone delta changed, ascending. */
+  channels: number[];
+}
+
 export interface IAnnotationCallbacks {
-  onMaskChanged(sliceData: Uint8Array, layerId: string, channelId: number, sliceIndex: number, axis: "x" | "y" | "z", width: number, height: number, clearFlag: boolean): void;
+  /**
+   * A slice of a layer changed. `channelId` is the active channel, which is the one a stroke
+   * paints. `history` is set only when the change was an undo or redo: it names the channels
+   * that change actually touched, which need not include the active one.
+   */
+  onMaskChanged(sliceData: Uint8Array, layerId: string, channelId: number, sliceIndex: number, axis: "x" | "y" | "z", width: number, height: number, clearFlag: boolean, history?: IMaskHistoryChange): void;
   onSphereChanged(sphereOrigin: number[], sphereRadius: number): void;
   onCalculatorPositionsChanged(tumour: ICommXYZ | null, skin: ICommXYZ | null, rib: ICommXYZ | null, nipple: ICommXYZ | null, axis: "x" | "y" | "z"): void;
   onLayerVolumeCleared(layerId: string): void;
@@ -737,7 +748,8 @@ export interface IDrawOpts {
     axis: "x" | "y" | "z",
     width: number,
     height: number,
-    clearFlag?: boolean
+    clearFlag?: boolean,
+    history?: IMaskHistoryChange
   ) => void;
   onClearLayerVolume?: (layerId: string) => void;
   onLayerVolumeReplaced?: (layerId: string) => void;

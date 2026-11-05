@@ -491,8 +491,11 @@ nrrdTools.drag({
 
 ```typescript
 nrrdTools.draw({
-  getMaskData: (sliceData, layerId, channelId, sliceIndex, axis, width, height, clearFlag?) => {
-    sendSliceToBackend({ sliceData, layerId, channelId, sliceIndex, axis, width, height, clearFlag });
+  getMaskData: (sliceData, layerId, channelId, sliceIndex, axis, width, height, clearFlag, history) => {
+    // `history` is set only for undo/redo. On those, channelId is the *active* channel,
+    // which need not be the one that changed — history.channels is.
+    const channels = history ? history.channels : [channelId];
+    sendSliceToBackend({ sliceData, layerId, channels, sliceIndex, axis, width, height, clearFlag });
   },
   onClearLayerVolume: (layerId) => notifyBackendLayerCleared(layerId),
   getSphereData: (sphereOrigin, sphereRadius) => sendSphereToBackend({ sphereOrigin, sphereRadius }),
@@ -849,11 +852,18 @@ interface RGBAColor { r: number; g: number; b: number; a: number; } // 0-255
 
 type ChannelColorMap = Record<number, RGBAColor>; // key = channel number, 1-255
 
+// What an undo or redo changed; getMaskData's last argument, set only for undo/redo
+interface IMaskHistoryChange {
+  /** Channels whose voxels the undone or redone delta changed, ascending. */
+  channels: number[];
+}
+
 interface IDrawOpts {
   getMaskData?: (
     sliceData: Uint8Array, layerId: string, channelId: number,
     sliceIndex: number, axis: 'x' | 'y' | 'z',
-    width: number, height: number, clearFlag?: boolean
+    width: number, height: number, clearFlag?: boolean,
+    history?: IMaskHistoryChange
   ) => void;
   onClearLayerVolume?: (layerId: string) => void;
   getSphereData?: (sphereOrigin: number[], sphereRadius: number) => void;

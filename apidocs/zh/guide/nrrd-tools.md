@@ -466,7 +466,8 @@ nrrdTools.draw({
     axis: 'x' | 'y' | 'z',
     width: number,
     height: number,
-    clearFlag?: boolean
+    clearFlag?: boolean,
+    history?: IMaskHistoryChange   // 仅撤销/重做时有值，见下
   ) => {
     sendSliceToBackend({ sliceData, layerId, channelId, sliceIndex, axis, width, height, clearFlag });
   },
@@ -489,6 +490,37 @@ nrrdTools.draw({
   },
 });
 ```
+
+#### `history`：撤销实际改动了哪些通道 <Badge type="tip" text="4.1.3" />
+
+`getMaskData` 不只在笔画之后触发,撤销和重做也会触发。而在撤销/重做时,
+**`channelId` 并不是发生变化的那个通道** —— 它只是"当前恰好激活"的通道。只在撤销/重做时有值的
+`history` 参数,给出的才是这次被还原的 delta 真正改动过的通道:
+
+```typescript
+interface IMaskHistoryChange {
+  /** 该次撤销/重做的 delta 改动过体素的通道，升序 */
+  channels: number[];
+}
+```
+
+::: warning 按通道同步的话，这一点很关键
+以 `channelId` 为键的后端,会把一次撤销记到"当前激活"的通道上,而那个通道可能与此毫无关系 ——
+在激活通道 1 时撤销通道 3 的笔画,改动就被记到了通道 1 上。应当改为按 `history` 分支:
+
+```typescript
+getMaskData: (sliceData, layerId, channelId, sliceIndex, axis, w, h, clearFlag, history) => {
+  const channels = history ? history.channels : [channelId];
+  sendSliceToBackend({ sliceData, layerId, channels, sliceIndex, axis, w, h, clearFlag });
+},
+```
+
+`history.channels` 可能不止一个通道(单个 delta 可能跨了好几个),也可能是空数组
+(该 delta 只改动了背景体素)。
+:::
+
+因为在 label volume 里体素的值**就是**它的通道,这个集合是通过比较 delta 前后的切片算出来的,
+并排除了背景(`0`)。
 
 ### 5.3 SphereTool — 3D 球体放置与距离计算器
 
@@ -1090,6 +1122,17 @@ window.addEventListener('keydown', (e) => {
 | 滚轮:缩放 快捷键 | `Ctrl+1` |
 | 滚轮:切片 快捷键 | `Ctrl+2` |
 
+撤销和重做需要按住 `Ctrl` / `Meta`:`Ctrl+Z`,以及 `Ctrl+Y` 或 `Ctrl+Shift+Z`。
+
+::: tip 撤销/重做现在会取消浏览器默认行为 <Badge type="tip" text="4.1.3" />
+两者都会调用 `preventDefault()`。不调用的话,浏览器自己的页面级撤销也会同时触发 —— 它会把页面上
+任意位置最后输入的文字回退掉,并把焦点跳过去。也就是说,读片者本想撤销一笔标注,结果可能是视图后面
+某个表单字段被悄悄还原了。
+
+这只在快捷键处于激活状态时生效。`enterKeyboardConfig()` 仍然会屏蔽整套快捷键,所以输入框获得焦点时,
+浏览器的撤销行为保持正常。
+:::
+
 ::: warning 球体模式不再有快捷键 <Badge type="warning" text="3.11.5 破坏性变更" />
 `sphere: "q"` 这个绑定已经**移除**，`sphere` 也从 `IKeyBoardSettings` 中删掉了。球体模式现在只能
 通过 `setMode("sphere")` 进入 —— 距离计算器也是走这条路 —— 这样宿主始终知道当前激活的是哪个工具。
@@ -1583,7 +1626,8 @@ interface IDrawOpts {
     axis: 'x' | 'y' | 'z',
     width: number,
     height: number,
-    clearFlag?: boolean
+    clearFlag?: boolean,
+    history?: IMaskHistoryChange   // 仅撤销/重做
   ) => void;
   onClearLayerVolume?: (layerId: string) => void;
   getSphereData?: (sphereOrigin: number[], sphereRadius: number) => void;
@@ -1619,6 +1663,12 @@ interface IKeyBoardSettings {
 }
 
 // 三方立体的点轴所定位到这那一中心指向处点用来指向在那空内中某处一那位置的坐标原点结构配置（经常在会被那那于被调在球体积于回调参数那些用于参数的内位坐定标等的被传到这等结构定）
+// 撤销或重做改动了什么；作为 getMaskData 的最后一个参数传入
+interface IMaskHistoryChange {
+  /** 该次撤销/重做的 delta 改动过体素的通道，升序 */
+  channels: number[];
+}
+
 interface ICommXYZ {
   x: number;
   y: number;

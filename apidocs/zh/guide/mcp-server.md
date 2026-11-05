@@ -94,10 +94,20 @@ claude mcp add --scope user copper3d -- npx -y copper3d-mcp
 
 | 工具 | 作用 |
 |---|---|
-| `copper3d_search_api` | 按名称、模块、摘要或参数类型检索。成员是单独建索引的，所以搜 `aiApplyMask` 能直接找到 `NrrdTools.aiApplyMask` |
-| `copper3d_get_symbol` | 返回单个符号的完整信息：签名、每个参数、返回类型、源码位置、相关指南 |
-| `copper3d_list_guides` | 手写指南的目录 |
-| `copper3d_get_guide` | 某一篇指南的完整 markdown |
+| `copper3d_search_api` | 按名称、模块、摘要或参数类型检索。成员是单独建索引的，所以搜 `aiApplyMask` 能直接找到 `NrrdTools.aiApplyMask`。支持**多个词**（`copperRenderer createScene`）—— 全部命中的排在最前。`limit`（或 `max_results`）限制结果条数 |
+| `copper3d_get_symbol` | 返回单个符号的完整信息：签名、每个参数、返回类型、源码位置、相关指南。对 class 或 interface，会列出**全部成员及其签名** |
+| `copper3d_list_guides` | 手写指南的目录，并带上各篇的大小 |
+| `copper3d_get_guide` | 某一篇指南的 markdown。超过 20K 字符的指南会先返回它的**大纲**；用 `section`（`"4"`、`"4.2"` 或标题）读其中一节 |
+
+::: tip 查不到就是查不到，不等于不存在
+索引里存的是名称、签名和摘要 —— 不是行为。没有命中时,回复会如实说明,并指向已安装包里的类型
+声明和指南,而不是让助手得出"这个 API 不存在"的结论。
+:::
+
+::: warning 回复统一控制在 20K 字符以内
+超过这个长度 Claude Code 会拒收,把结果存成文件、留给助手自己去 grep。这正是长指南被拆成
+大纲加分节、而不是一次性返回的原因。
+:::
 
 ## 选项
 
