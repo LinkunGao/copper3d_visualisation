@@ -792,11 +792,29 @@ onMaskChanged: (
   axis: "x" | "y" | "z",   // 当前轴
   width: number,            // 切片宽度
   height: number,           // 切片高度
-  clearFlag: boolean        // 是否为清除操作
+  clearFlag: boolean,       // 是否为清除操作
+  history?: IMaskHistoryChange  // 仅 undo/redo，见下
 ) => void
 ```
 
 **调用时机**: 每次绘画结束（mouseup）、undo/redo 之后。
+
+#### `history` <Badge type="tip" text="4.1.3" />
+
+```ts
+interface IMaskHistoryChange {
+  /** 该次撤销/重做的 delta 改动过体素的通道，升序 */
+  channels: number[];
+}
+```
+
+**只在** undo/redo 时有值。它之所以存在,是因为在这两种调用里 `channelId` 是**当前激活**的通道,
+而那未必就是发生变化的通道 —— 在激活通道 1 时撤销通道 3 的笔画,`channelId` 仍然报 1。
+按通道同步的宿主应当:有 `history` 时读 `history.channels`,没有时退回 `[channelId]`。
+
+`DrawToolCore.changedChannels(oldSlice, newSlice)` 通过比较 delta 前后的切片、收集所有不同的
+非零 label 得出它 —— 在 label volume 里体素的值**就是**它的通道,所以这个集合正好就是该 delta
+触及的范围。它可能包含多个通道,也可能为空(只改动了背景)。
 
 ### 4.2 onLayerVolumeCleared
 

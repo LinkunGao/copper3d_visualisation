@@ -99,10 +99,22 @@ All read-only.
 
 | Tool | What it does |
 |---|---|
-| `copper3d_search_api` | Search by name, module, summary or parameter type. Members are indexed on their own, so `aiApplyMask` finds `NrrdTools.aiApplyMask` |
-| `copper3d_get_symbol` | One symbol in full: signature, every parameter, return type, source location, related guides |
-| `copper3d_list_guides` | Table of contents for the hand-written guides |
-| `copper3d_get_guide` | Full markdown of one guide |
+| `copper3d_search_api` | Search by name, module, summary or parameter type. Members are indexed on their own, so `aiApplyMask` finds `NrrdTools.aiApplyMask`. Several words are fine (`copperRenderer createScene`) — symbols matching all of them rank first. `limit` (or `max_results`) caps the results |
+| `copper3d_get_symbol` | One symbol in full: signature, every parameter, return type, source location, related guides. On a class or interface, every member with its signature |
+| `copper3d_list_guides` | Table of contents for the hand-written guides, with their sizes |
+| `copper3d_get_guide` | Markdown of one guide. A guide over 20K characters comes back as its **outline**; pass `section` (`"4"`, `"4.2"`, or a title) to read one part |
+
+::: tip A miss is a miss, not proof of absence
+The index holds names, signatures and summaries — not behaviour. When nothing matches, the
+reply says so and points on to the type declarations and guides inside the installed package,
+rather than letting an assistant conclude the API does not exist.
+:::
+
+::: warning Replies stay under 20K characters
+Claude Code refuses larger tool results, saving them to a file and leaving the assistant to
+grep it. That is why a long guide is served as an outline plus sections rather than in one
+piece.
+:::
 
 ## Options
 
