@@ -118,7 +118,8 @@ protectedData.maskData.volumes = {
 |--------|-----------|-------------|
 | `setActiveLayer` | `(layerId: string): void` | Set the active Layer; also updates fillColor/brushColor |
 | `setActiveChannel` | `(channel: ChannelValue): void` | Set the active Channel (1–`MAX_ENGINE_CHANNEL`); updates brush color |
-| `clearChannel` | `(layerId: string, channel: number): void` | Erase one label across a whole layer, undoably. Throws on an unknown layer (deliberately not via `getVolumeForLayer`, whose fallback would erase a different layer) or a channel outside [1, 255] |
+| `clearChannel` | `(layerId, channel): ChannelClear \| null` | Erase one label across a whole layer, undoably. Returns the clear as a handle for `undoChannelClear`, or `null` when the channel held nothing. Throws on an unknown layer (deliberately not via `getVolumeForLayer`, whose fallback would erase a different layer) or a channel outside [1, 255] |
+| `undoChannelClear` | `(clear: ChannelClear): boolean` | Reverse that clear on **its own** layer, whatever layer is active, and only while it is still that layer's latest operation. `false` when a later operation is stacked on it or it was already undone. Repaints every slice, since a clear spans them all |
 | `setCurrentLayer` | `(): { ctx, canvas } \| null` *(ToolHost)* | The layer canvas drawing should target. **Returns `null`** when the instance has no layers at all — `new NrrdTools(el, { layers: [] })`, a read-only reference viewer. Every caller must skip its work on `null` rather than dereference |
 | `getLayerVolume` | `(layerId: string): Uint8Array \| null` | A **copy** of the layer's voxel buffer — not the live array, which a caller could mutate with nothing invalidating the slice cache. Delegates to `DrawToolCore.getLayerVolume` |
 | `replaceLayerVolume` | `(layerId, data, opts?): void` | Replace the whole buffer. `{ undoable: true }` pushes one `VolumeSnapshot`. Does **not** fire `onLayerVolumeReplaced` itself — that fires only on a later undo/redo, when the backend holds the newer volume and must be told to fall back |
@@ -1523,6 +1524,48 @@ broke in two different ways for any other id — and `NrrdTools`'s constructor h
 `stackFor(stacks, layerId)` creates the entry on first use, which removes both. Nothing else
 needs to know which layers exist, and `clearAll()` now iterates the maps rather than a fixed
 id list.
+
+### Undoing a named entry <Badge type="tip" text="4.1.4" />
+
+`undo()` always acts on the *active* layer's top entry. Reversing one specific earlier
+operation — a channel clear the host offered an "Undo" button for — needs to address the entry
+itself, which is what these add:
+
+| Member | Does |
+|--------|------|
+| `undoOn(layerId)` | Like `undo()`, but on the layer named rather than the active one. The entry moves to that layer's redo stack just the same |
+| `peek(layerId)` | The entry an undo on that layer *would* take next, left in place |
+| `entryLayer(entry)` | The layer an entry belongs to — `entry[0].layerId` for a delta group, `entry.layerId` for a volume snapshot |
+
+```ts
+interface ChannelClear {
+  readonly layerId: string;
+  readonly channel: number;
+  /** The undo entry the clear pushed; compared by identity. */
+  readonly entry: UndoEntry;
+}
+```
+
+`DrawToolCore.undoEntry(entry)` is the guard that makes this safe:
+
+```
+undoEntry(entry)
+  ├─ layerId = entryLayer(entry)            → undefined? refuse
+  ├─ undoManager.peek(layerId) !== entry    → refuse   ◀ a later op is stacked on it
+  ├─ undoManager.undoOn(layerId)
+  └─ applyUndo(entry)                       → write "before" back, repaint, report
+```
+
+The identity comparison in `peek(layerId) !== entry` is the whole mechanism: it reverses the
+entry only while it is still the top of its layer's stack. A later edit there is newer work,
+and silently reversing underneath it would discard that edit — so it refuses and returns
+`false`, leaving `undo()` to step back through the stack in order. It is also what makes a
+second call a no-op: after the first, the entry has moved to the redo stack and is no longer
+the top of the undo stack.
+
+`applyUndo` was split out of `undoLastPainting` so both paths share one implementation: the
+write-back, the repaint and the `onMaskChanged` report are identical whichever way the entry
+was chosen.
 
 **Undo flow:**
 

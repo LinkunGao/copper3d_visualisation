@@ -919,6 +919,44 @@ nrrdTools.undo();   // 3 号 finding 回来了
 这正是要用它、而不是自己往 volume 里写 0 再强制重绘的原因 —— 从外部写入会绕过 undo 栈，
 误清除就变成不可逆的了。
 
+#### 撤销**那一次**清除 —— `undoChannelClear()` <Badge type="tip" text="4.1.4" />
+
+`undo()` 撤销的是**当前激活图层**上最近的一次操作。对于"删除某个 finding 后弹出的撤销按钮"来说,
+这是错误的工具:等用户点下去时,激活图层可能已经换了,单纯调 `undo()` 撤销的会是完全无关的东西。
+
+`clearChannel` 现在会交回一个句柄,正是为此:
+
+```typescript
+const clear = nrrdTools.clearChannel('layer1', 3);   // ChannelClear | null
+
+// ……用户切到了 layer2，然后点了 toast 上的"撤销删除"
+if (clear && nrrdTools.undoChannelClear(clear)) {
+  toast.dismiss();               // 3 号 finding 回到了 layer1 上
+}
+```
+
+| | |
+|---|---|
+| 返回 `null` | 该通道本来就是空的,没有任何东西可撤销 |
+| `undoChannelClear` → `true` | 该次清除已被撤销,作用在**它自己的**图层上,与当前激活的是哪一层无关 |
+| `undoChannelClear` → `false` | 该图层上有更晚的操作压在它上面,或者它已经被撤销过了 |
+
+::: tip 它宁可拒绝，也不会越过更新的工作
+该图层上更晚的编辑是更新的工作,在它下面把清除翻回去会悄悄丢掉那次编辑。所以
+`undoChannelClear` 只在"这次清除仍然是该图层最近一次操作"时才生效;否则它什么都不改并返回
+`false`,这时该走 `undo()` —— 它会按顺序逐步回退。
+
+**另一个图层**上的编辑不会挡住它;每个图层有各自独立的栈。
+:::
+
+它只能撤销一次,并且和 `Ctrl+Z` 一样,会把这次清除留在**可重做**状态。恢复回来的体素会通过
+`onMaskChanged` 连同其通道一起上报,和其他任何一次撤销一样。
+
+::: warning 它会重绘所有切片，而不只是当前这一张
+`undo()` 在被撤销的 delta 落在当前轴上时,只重绘屏幕上那一张切片。而一次通道清除跨越了带有该
+label 的每一张切片,所以这里会把它们全部重绘 —— 和 `clearChannel` 自己做的工作量相同。
+:::
+
 只有**确实带有该 label** 的切片才会被触碰，所以深体数据里的一个小标注，代价是一次扫描加少量
 `getMaskData` 回调，而不是每个切片一次回调。如果该通道本来就是空的，既不会入栈也不会触发回调。
 
@@ -1510,7 +1548,8 @@ function onChannelColorPicked(hex: string) {
 | **数据部分** | `reset()` | 重塑整理清除各全卷记录，重新退原回归初源, 包括所有层、球或者撤图回推所有 |
 | | `clearActiveLayer()` | 专干抹除净身指定的现正在活层的整体全方面三阶图集记录加所有重制项历史 |
 | | `clearActiveSlice()` | 止抹在视角当前那一小局部单一层的视图绘画历史内容（可进行使用推回救转挽回） |
-| | `clearChannel(id, ch)` | 跨整个图层擦除单个通道，可撤销。图层不存在或通道超出 [1, 255] 时抛错 |
+| | `clearChannel(id, ch)` | 跨整个图层擦除单个通道，可撤销。返回一个 `ChannelClear` 句柄；通道为空时返回 `null`。图层不存在或通道超出 [1, 255] 时抛错 |
+| | `undoChannelClear(clear)` | 撤销那一次指定的清除，作用在它自己的图层上，与当前激活图层无关。若有更晚的操作压在其上、或已撤销过，返回 `false` |
 | | `setAllSlices(slices)` | 传输入 NRRD 片帧并开起创办出 MaskVolume 及相关的一切后项基要 |
 | | `setMasksFromNIfTI(map, bar?)` | 接收下载取回解包裹出的所有层 NIfTI 形式的三阶位像素块存组重返到屏幕显示面上（每个 buffer 必须先经 `registerNiftiMaskGrid` 注册，否则会被拒绝） |
 | | `registerNiftiMaskGrid(data, dims)` | *（模块导出，不是实例方法）* 记录 mask buffer 的 NIfTI 体素网格，供 `setMasksFromNIfTI` 校验 |
@@ -1663,6 +1702,13 @@ interface IKeyBoardSettings {
 }
 
 // 三方立体的点轴所定位到这那一中心指向处点用来指向在那空内中某处一那位置的坐标原点结构配置（经常在会被那那于被调在球体积于回调参数那些用于参数的内位坐定标等的被传到这等结构定）
+// 一次通道清除，由 clearChannel 返回，供 undoChannelClear 使用
+interface ChannelClear {
+  readonly layerId: string;
+  readonly channel: number;
+  readonly entry: UndoEntry;   // 按引用身份比较
+}
+
 // 撤销或重做改动了什么；作为 getMaskData 的最后一个参数传入
 interface IMaskHistoryChange {
   /** 该次撤销/重做的 delta 改动过体素的通道，升序 */
