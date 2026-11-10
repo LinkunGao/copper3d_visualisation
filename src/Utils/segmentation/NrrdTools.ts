@@ -23,7 +23,7 @@ import { DrawToolCore } from "./DrawToolCore";
 import { CanvasState } from "./CanvasState";
 import { MaskVolume } from "./core";
 import { GaussianSmoother } from "./core/GaussianSmoother";
-import type { MaskDelta } from "./core/UndoManager";
+import type { ChannelClear, MaskDelta } from "./core/UndoManager";
 import type { ChannelValue, RGBAColor, ChannelColorMap } from "./core";
 import type { SphereType } from "./tools/SphereTool";
 import type { AiPromptTool, AiPromptPayload, AiMaskResult } from "./tools/AiAssistTool";
@@ -629,12 +629,13 @@ export class NrrdTools {
    *
    * @param layerId Layer whose mask to edit.
    * @param channel Label to erase, 1-255.
+   * @returns The clear, for `undoChannelClear`; null when the channel held nothing.
    * @throws {Error} If `layerId` names no layer. Deliberately NOT routed through
    *   `getVolumeForLayer`, which warns and falls back to the first layer — for a
    *   destructive call that would quietly erase a different layer's annotation.
    * @throws {RangeError} If `channel` is outside [1, 255] (from `MaskVolume`).
    */
-  clearChannel(layerId: string, channel: number): void {
+  clearChannel(layerId: string, channel: number): ChannelClear | null {
     const volume = this.state.protectedData.maskData.volumes[layerId];
     if (!volume) {
       const known = this.state.nrrd_states.image.layers.join(", ");
@@ -659,7 +660,7 @@ export class NrrdTools {
       });
     }
 
-    if (deltas.length === 0) return; // nothing drawn on this channel
+    if (deltas.length === 0) return null; // nothing drawn on this channel
 
     volume.clearChannel(channel);
 
@@ -676,6 +677,28 @@ export class NrrdTools {
     }
 
     this.reloadMasksFromVolume();
+    return { layerId, channel, entry: deltas };
+  }
+
+  /**
+   * Undo one `clearChannel`, on its own layer, whatever layer is active now.
+   *
+   * `undo()` acts on the active layer's latest operation, and by the time a caller offers to
+   * reverse a clear the active layer may have changed. This names the clear instead, and
+   * reverses it only while it is still the latest operation on its layer: a later edit there is
+   * newer work, never undone in passing -- `undo()` steps back through it in order.
+   *
+   * Reported through `onMaskChanged` with the channels it restored, exactly as `undo()` reports.
+   *
+   * @returns Whether the clear was undone. False when a later operation is stacked on it, or
+   *   it has already been undone.
+   */
+  undoChannelClear(clear: ChannelClear): boolean {
+    if (!this.drawCore.undoEntry(clear.entry)) return false;
+    // `undo()` repaints only the slice on screen when it lies on the clear's axis; a clear
+    // spans every slice of the label, so repaint them all, as the clear itself does.
+    this.reloadMasksFromVolume();
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

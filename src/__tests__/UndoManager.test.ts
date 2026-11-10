@@ -161,3 +161,46 @@ describe("UndoManager with a layer outside the built-in three", () => {
     expect(m.canUndo()).toBe(false);
   });
 });
+
+/**
+ * Undoing one known entry on a named layer, whichever layer is active: what lets the app undo
+ * exactly the clear behind a removed finding, after the panel has moved on to another layer.
+ */
+describe("UndoManager on a named layer", () => {
+  it("peek shows a layer's newest entry without taking it", () => {
+    const m = new UndoManager();
+    const older = [delta("layer1", 0)];
+    const newer = [delta("layer1", 1)];
+    m.pushGroup(older);
+    m.pushGroup(newer);
+
+    expect(m.peek("layer1")).toBe(newer);
+    expect(m.peek("layer1")).toBe(newer);
+    expect(m.peek("layer2")).toBeUndefined();
+  });
+
+  it("undoOn takes from the named layer while another is active", () => {
+    const m = new UndoManager();
+    const one = [delta("layer1")];
+    const two = [delta("layer2")];
+    m.pushGroup(one);
+    m.pushGroup(two);
+    m.setActiveLayer("layer2");
+
+    expect(m.undoOn("layer1")).toBe(one);
+    expect(m.peek("layer1")).toBeUndefined();
+    // The active layer's history is untouched, and the undone entry is layer1's to redo.
+    expect(m.peek("layer2")).toBe(two);
+    m.setActiveLayer("layer1");
+    expect(m.redo()).toBe(one);
+  });
+
+  it("undo still acts on the active layer", () => {
+    const m = new UndoManager();
+    const one = [delta("layer1")];
+    m.pushGroup(one);
+    m.pushGroup([delta("layer2")]);
+    m.setActiveLayer("layer1");
+    expect(m.undo()).toBe(one);
+  });
+});

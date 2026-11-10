@@ -37,6 +37,21 @@ export interface VolumeSnapshot {
 /** A slice-delta group or a whole-volume snapshot. `Array.isArray` discriminates. */
 export type UndoEntry = MaskDelta[] | VolumeSnapshot;
 
+/**
+ * One channel clear, as `NrrdTools.clearChannel` returns it, for `NrrdTools.undoChannelClear`.
+ * `entry` is the undo entry the clear pushed and is compared by identity.
+ */
+export interface ChannelClear {
+  readonly layerId: string;
+  readonly channel: number;
+  readonly entry: UndoEntry;
+}
+
+/** The layer an entry belongs to. */
+export function entryLayer(entry: UndoEntry): string | undefined {
+  return Array.isArray(entry) ? entry[0]?.layerId : entry.layerId;
+}
+
 const MAX_STACK_SIZE = 50;
 
 export class UndoManager {
@@ -112,12 +127,25 @@ export class UndoManager {
    * @returns The delta(s) that were undone, or undefined if nothing to undo.
    */
   undo(): UndoEntry | undefined {
-    const stack = this.stackFor(this.undoStacks, this.activeLayer);
-    const entry = stack.pop();
+    return this.undoOn(this.activeLayer);
+  }
+
+  /**
+   * Undo the last operation on `layerId`, whichever layer is active. The entry moves to that
+   * layer's redo stack, exactly as `undo` does for the active one.
+   */
+  undoOn(layerId: string): UndoEntry | undefined {
+    const entry = this.stackFor(this.undoStacks, layerId).pop();
     if (entry) {
-      this.stackFor(this.redoStacks, this.activeLayer).push(entry);
+      this.stackFor(this.redoStacks, layerId).push(entry);
     }
     return entry;
+  }
+
+  /** The entry an undo on `layerId` would take next, left in place. */
+  peek(layerId: string): UndoEntry | undefined {
+    const stack = this.undoStacks.get(layerId);
+    return stack?.[stack.length - 1];
   }
 
   /**
