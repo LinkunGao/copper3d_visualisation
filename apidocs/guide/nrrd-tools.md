@@ -1100,6 +1100,47 @@ Only slices that actually carry the label are touched, so a small annotation in 
 costs one scan and a handful of `getMaskData` callbacks rather than one callback per slice.
 If the channel is empty, nothing is pushed and nothing fires.
 
+##### Reversing *that* clear — `undoChannelClear()` <Badge type="tip" text="4.1.4" />
+
+`undo()` reverses the latest operation on the **active** layer. That is the wrong tool for an
+"Undo" affordance next to a deleted finding: by the time the user clicks it, the active layer
+may have moved on, and plain `undo()` would reverse something else entirely.
+
+`clearChannel` now hands back a handle for exactly that:
+
+```typescript
+const clear = nrrdTools.clearChannel('layer1', 3);   // ChannelClear | null
+
+// …the user switches to layer2, then clicks "Undo delete" on the toast
+if (clear && nrrdTools.undoChannelClear(clear)) {
+  toast.dismiss();               // finding 3 is back on layer1
+}
+```
+
+| | |
+|---|---|
+| Returns `null` | The channel held nothing, so there is nothing to undo |
+| `undoChannelClear` → `true` | The clear was reversed, on **its own** layer, whatever layer is active |
+| `undoChannelClear` → `false` | A later operation is stacked on it on that layer, or it was already undone |
+
+::: tip It refuses rather than reaching past newer work
+A later edit on that layer is newer work, and reversing the clear underneath it would discard
+that edit silently. So `undoChannelClear` reverses the clear only while it is still that
+layer's latest operation; otherwise it changes nothing and returns `false`, and `undo()` is
+the way back — it steps through the stack in order.
+
+Edits on a **different** layer do not block it; each layer has its own stack.
+:::
+
+It is a once-only reversal, and it leaves the clear **redoable** exactly as `Ctrl+Z` does. The
+restored voxels are reported through `onMaskChanged` with their channels, like any other undo.
+
+::: warning It repaints every slice, not just the visible one
+`undo()` repaints only the slice on screen when it lies on the undone delta's axis. A channel
+clear spans every slice carrying the label, so this repaints them all — the same work
+`clearChannel` itself does.
+:::
+
 ::: warning Errors are thrown, not swallowed
 - Unknown `layerId` → `Error` listing the known layers. It deliberately does **not** go
   through `getVolumeForLayer`, which warns and falls back to the first layer; for a
@@ -1946,6 +1987,13 @@ interface IKeyBoardSettings {
 }
 
 // 3D coordinate (used in sphere position callbacks)
+// One channel clear, as clearChannel returns it, for undoChannelClear
+interface ChannelClear {
+  readonly layerId: string;
+  readonly channel: number;
+  readonly entry: UndoEntry;   // compared by identity
+}
+
 // What an undo or redo changed; passed as getMaskData's last argument
 interface IMaskHistoryChange {
   /** Channels whose voxels the undone or redone delta changed, ascending. */
@@ -1990,7 +2038,8 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | **Data** | `reset()` | Reset all volumes, undo histories, canvases, and sphere data |
 | | `clearActiveLayer()` | Clear annotations and undo history for the *currently active layer* |
 | | `clearActiveSlice()` | Clear annotations exclusively on the *currently viewed slice* of the active layer |
-| | `clearChannel(id, ch)` | Erase one channel across a whole layer, undoably. Throws on an unknown layer or a channel outside [1, 255] |
+| | `clearChannel(id, ch)` | Erase one channel across a whole layer, undoably. Returns a `ChannelClear` handle, or `null` if the channel was empty. Throws on an unknown layer or a channel outside [1, 255] |
+| | `undoChannelClear(clear)` | Reverse that specific clear on its own layer, whatever layer is active. `false` if a later operation sits on it, or it was already undone |
 | | `setAllSlices(slices)` | Load NRRD slices, init MaskVolumes |
 | | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data (each buffer must be registered via `registerNiftiMaskGrid` first, or it is refused) |
 | | `registerNiftiMaskGrid(data, dims)` | *(module export, not a method)* Record a mask buffer's NIfTI voxel grid so `setMasksFromNIfTI` can validate it |

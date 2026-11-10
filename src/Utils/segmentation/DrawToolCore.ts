@@ -20,7 +20,8 @@ import { ImageStoreHelper } from "./tools/ImageStoreHelper";
 import { SphereBrushTool } from "./tools/SphereBrushTool";
 import { AiAssistTool } from "./tools/AiAssistTool";
 import type { ToolContext } from "./tools/BaseTool";
-import { UndoManager } from "./core";
+import { UndoManager, entryLayer } from "./core";
+import type { UndoEntry } from "./core";
 
 /**
  * DrawToolCore — Tool orchestration and event routing.
@@ -1016,8 +1017,26 @@ export class DrawToolCore {
    */
   undoLastPainting() {
     const entry = this.undoManager.undo();
-    if (!entry) return;
+    if (entry) this.applyUndo(entry);
+  }
 
+  /**
+   * Undo `entry` on its own layer if it is still that layer's latest operation, whichever
+   * layer is active; otherwise change nothing.
+   *
+   * @returns Whether it was undone. False when a later operation is stacked on top of it, or
+   *   when it has already been undone.
+   */
+  undoEntry(entry: UndoEntry): boolean {
+    const layerId = entryLayer(entry);
+    if (layerId === undefined || this.undoManager.peek(layerId) !== entry) return false;
+    this.undoManager.undoOn(layerId);
+    this.applyUndo(entry);
+    return true;
+  }
+
+  /** Write an entry's "before" state back into its volume, repaint, and report the change. */
+  private applyUndo(entry: UndoEntry) {
     this.state.protectedData.isDrawing = true;
 
     if (!Array.isArray(entry)) {

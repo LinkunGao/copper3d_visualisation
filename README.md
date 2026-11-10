@@ -756,7 +756,8 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | **Data** | `reset()` | Reset all volumes, undo histories, canvases, sphere data |
 | | `clearActiveLayer()` | Clear active layer volume + undo history |
 | | `clearActiveSlice()` | Clear current slice (undoable) |
-| | `clearChannel(id, ch)` | Erase one channel across a whole layer (undoable); throws on unknown layer or channel outside [1, 255] |
+| | `clearChannel(id, ch)` | Erase one channel across a whole layer (undoable); returns a `ChannelClear` handle, or `null` if the channel was empty; throws on unknown layer or channel outside [1, 255] |
+| | `undoChannelClear(clear)` | Reverse that specific clear on its own layer, whatever layer is active; `false` if a later operation sits on it |
 | | `setAllSlices(slices)` | Load NRRD slices, init MaskVolumes |
 | | `setMasksFromNIfTI(map, bar?)` | Load saved NIfTI voxel data (grids must be registered first) |
 | | `registerNiftiMaskGrid(data, dims)` | *(module export)* Record a mask buffer's NIfTI grid for validation |
@@ -851,6 +852,13 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 interface RGBAColor { r: number; g: number; b: number; a: number; } // 0-255
 
 type ChannelColorMap = Record<number, RGBAColor>; // key = channel number, 1-255
+
+// One channel clear, as clearChannel returns it, for undoChannelClear
+interface ChannelClear {
+  readonly layerId: string;
+  readonly channel: number;
+  readonly entry: UndoEntry;   // compared by identity
+}
 
 // What an undo or redo changed; getMaskData's last argument, set only for undo/redo
 interface IMaskHistoryChange {

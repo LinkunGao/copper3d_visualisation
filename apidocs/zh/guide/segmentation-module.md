@@ -118,7 +118,8 @@ protectedData.maskData.volumes = {
 |------|------|------|
 | `setActiveLayer` | `(layerId: string): void` | 设置当前活跃 Layer，同时更新 fillColor/brushColor |
 | `setActiveChannel` | `(channel: ChannelValue): void` | 设置当前活跃 Channel (1–`MAX_ENGINE_CHANNEL`)，更新画笔颜色 |
-| `clearChannel` | `(layerId: string, channel: number): void` | 跨整个图层擦除单个 label，可撤销。图层不存在时抛错（刻意不走 `getVolumeForLayer`，否则它的回退会擦掉另一个图层），通道超出 [1, 255] 时抛 `RangeError` |
+| `clearChannel` | `(layerId, channel): ChannelClear \| null` | 跨整个图层擦除单个 label，可撤销。返回该次清除的句柄供 `undoChannelClear` 使用；通道为空时返回 `null`。图层不存在时抛错（刻意不走 `getVolumeForLayer`，否则它的回退会擦掉另一个图层），通道超出 [1, 255] 时抛 `RangeError` |
+| `undoChannelClear` | `(clear: ChannelClear): boolean` | 在**它自己的**图层上撤销那一次清除，与当前激活图层无关；且仅在它仍是该图层最近一次操作时生效。有更晚的操作压在其上、或已撤销过时返回 `false`。会重绘所有切片，因为一次清除跨越了全部切片 |
 | `setCurrentLayer` | `(): { ctx, canvas } \| null` *(ToolHost)* | 绘制操作应当作用到的图层画布。当实例**完全没有图层**时返回 `null` —— 即 `new NrrdTools(el, { layers: [] })` 这种只读参考视图。每个调用方都必须在 `null` 时跳过自己的工作，而不是直接解引用 |
 | `getLayerVolume` | `(layerId: string): Uint8Array \| null` | 该图层体素缓冲区的一份**拷贝** —— 不是活的数组，否则调用方可以直接改动它，而没有任何东西会去让切片缓存失效。委托给 `DrawToolCore.getLayerVolume` |
 | `replaceLayerVolume` | `(layerId, data, opts?): void` | 替换整个缓冲区。`{ undoable: true }` 会压入一个 `VolumeSnapshot`。它自身**不会**触发 `onLayerVolumeReplaced` —— 该回调只在之后的 undo/redo 时触发，因为那时后端手里是更新的那一版，需要被告知回退 |
@@ -1630,6 +1631,44 @@ interface MaskDelta {
 
 `stackFor(stacks, layerId)` 在首次使用时创建条目，两个问题一并消失。其他地方都不需要知道存在
 哪些图层，`clearAll()` 现在也改为遍历 map，而不是遍历一份固定的 id 列表。
+
+### 撤销一个指定的 entry <Badge type="tip" text="4.1.4" />
+
+`undo()` 永远作用在**当前激活图层**栈顶的那一项。而要撤销某一次特定的、更早的操作 —— 比如宿主为
+一次通道清除提供了"撤销"按钮 —— 就需要直接指名那个 entry,这正是下面这几个成员做的事:
+
+| 成员 | 作用 |
+|------|------|
+| `undoOn(layerId)` | 与 `undo()` 相同，但作用在指定的图层上，而不是当前激活的。entry 同样会移到该图层的 redo 栈 |
+| `peek(layerId)` | 该图层上**下一次**撤销将取到的那个 entry，但不弹出 |
+| `entryLayer(entry)` | 该 entry 属于哪个图层 —— delta 组取 `entry[0].layerId`，volume 快照取 `entry.layerId` |
+
+```ts
+interface ChannelClear {
+  readonly layerId: string;
+  readonly channel: number;
+  /** 该次清除压入的 undo entry；按引用身份比较 */
+  readonly entry: UndoEntry;
+}
+```
+
+`DrawToolCore.undoEntry(entry)` 是保证这件事安全的那道闸门:
+
+```
+undoEntry(entry)
+  ├─ layerId = entryLayer(entry)            → undefined？拒绝
+  ├─ undoManager.peek(layerId) !== entry    → 拒绝   ◀ 有更晚的操作压在它上面
+  ├─ undoManager.undoOn(layerId)
+  └─ applyUndo(entry)                       → 写回"之前"的状态、重绘、上报
+```
+
+`peek(layerId) !== entry` 这个**按引用身份**的比较就是整个机制的关键:只有当该 entry 仍然是其
+图层栈顶时才撤销它。该图层上更晚的编辑是更新的工作,在它下面悄悄翻回去会丢掉那次编辑 —— 所以它
+选择拒绝并返回 `false`,把回退交给 `undo()` 按顺序逐步进行。这也正是"第二次调用什么都不做"的原因:
+第一次之后 entry 已经移到 redo 栈,不再是 undo 栈顶了。
+
+`applyUndo` 是从 `undoLastPainting` 里拆出来的,好让两条路径共用同一份实现:无论 entry 是怎么被
+选中的,写回、重绘和 `onMaskChanged` 上报都完全一致。
 
 ### Undo 流程
 
