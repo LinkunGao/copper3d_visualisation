@@ -46,6 +46,7 @@
  * - getSpherePosition
  */
 
+import { isHeatmapShown } from "./HeatmapOverlay";
 import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import type { ICommXYZ } from "../core/types";
@@ -227,6 +228,8 @@ export class SphereTool extends BaseTool {
    * draws the sphere canvas directly to drawingCtx for proper layering.
    */
   drawSphere(mouseX: number, mouseY: number, radius: number): void {
+    // Clearing the sphere canvas also clears the master, which holds the heatmap while shown.
+    if (isHeatmapShown(this.ctx)) return;
     const [, ctx] = this.clearSphereCanvas();
     const color = this.getColorForSphereType(this.ctx.gui_states.mode.activeSphereType);
     drawSphereCore(ctx, mouseX, mouseY, radius, color);
@@ -413,6 +416,7 @@ export class SphereTool extends BaseTool {
    * @param radius - Sphere radius to draw
    */
   drawCalculatorSphere(radius: number): void {
+    if (isHeatmapShown(this.ctx)) return;
     const [, ctx] = this.clearSphereCanvas();
     const nrrd = this.ctx.nrrd_states;
     const axis = this.ctx.protectedData.axis;

@@ -1495,6 +1495,55 @@ own tool that bakes a canvas back into a volume, it must render filled too (see 
 [architecture guide](./segmentation-module)).
 :::
 
+#### Probability heatmap <Badge type="tip" text="4.2.0" />
+
+Show a model's per-voxel probabilities over the image, coloured on a navy → blue → cyan →
+yellow → red scale:
+
+```typescript
+// Canonical uint8 probabilities (p × 255), x fastest, in the loaded image's dimensions
+nrrdTools.setHeatmap(probabilities, [w, h, d]);
+
+nrrdTools.setHeatmapVisible(true);
+nrrdTools.setHeatmapThreshold(0.35);   // below this, nothing is drawn
+nrrdTools.setHeatmapOpacity(0.6);
+
+nrrdTools.isHeatmapVisible();          // → boolean
+nrrdTools.setHeatmap(null);            // drop the volume
+nrrdTools.setHeatmapVisible(false);    // back to the mask layers
+```
+
+| | Default | |
+|---|---|---|
+| `visible` | `false` | Drawn **instead of** every mask layer, and instead of a mask mirror |
+| `threshold` | `0.1` | Clamped to 0–1; probabilities below it are not drawn |
+| `opacity` | `0.5` | Clamped to 0–1; the mask opacity does **not** dim it, it carries its own |
+
+::: warning The volume must match the image exactly
+`setHeatmap` throws if `dims` differ from `getCurrentImageDimension()`, or if
+`volume.length !== w * h * d`. It is refused rather than stretched or cropped — a heatmap on
+the wrong grid would point at the wrong voxels, which is worse than no heatmap.
+:::
+
+::: danger Nothing can write a mask while the heatmap is shown
+This is the rule the whole feature is built on: what is on screen is not a mask, so an edit
+would be applied to something the clinician cannot see. Every write path returns early —
+
+- drawing (pencil, brush, eraser, sphere brush/eraser) and sphere placement,
+- `executeAction(...)` for everything except `"resetZoom"` and `"downloadCurrentMask"`,
+- `clearActiveLayer()` and `setCalculateDistanceSphere(...)`.
+
+They are **silent no-ops**, not errors. Your UI should reflect that — disable the tools, or
+hide the heatmap first. `setHeatmapVisible(false)` restores everything immediately.
+:::
+
+Slice scrubbing, axis switching, zoom and pan all work normally and repaint the heatmap. Just
+after an axis switch the slice index is clamped to the new axis's range, so a stale index
+cannot read past the end.
+
+`HEATMAP_COLORMAP` is exported if you need to draw a matching legend — a `Uint8ClampedArray`
+of 256 RGBA entries, indexed by the probability byte.
+
 #### Canvas size scaling
 
 Set the base display size multiplier (1–8). Larger values use more GPU memory but give sharper annotations:
@@ -2096,6 +2145,12 @@ cap it below what the byte allows. Capping it lower is your product's call, not 
 | | `getOpacity()` | Read current opacity |
 | | `setMaskRenderMode(mode)` | `"fill"` or `"outline"` for every layer/channel; repaints immediately. Display only — the stored mask is unchanged |
 | | `getMaskRenderMode()` | Read the current render mode |
+| **Heatmap** | `setHeatmap(vol, dims)` | Canonical uint8 probabilities (p×255), x fastest; throws unless `dims` match the image and `vol.length === w*h*d`. `null` clears |
+| | `setHeatmapVisible(bool)` | Draw it **instead of** every mask layer. While shown, nothing can write a mask |
+| | `isHeatmapVisible()` | Query the heatmap view |
+| | `setHeatmapThreshold(t)` | Probabilities below `t` (0–1) are not drawn; default `0.1` |
+| | `setHeatmapOpacity(a)` | 0–1, default `0.5`; independent of the mask opacity |
+| | `HEATMAP_COLORMAP` | *(module export)* 256-entry RGBA `Uint8ClampedArray` for a legend |
 | | `setBrushSize(size)` | Set brush/eraser size [5, 50], updates cursor |
 | | `getBrushSize()` | Read current brush size |
 | | `setPencilColor(hex)` | Set pencil stroke color (hex string) |

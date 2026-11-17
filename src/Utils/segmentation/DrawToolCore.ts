@@ -19,6 +19,7 @@ import { DrawingTool } from "./tools/DrawingTool";
 import { ImageStoreHelper } from "./tools/ImageStoreHelper";
 import { SphereBrushTool } from "./tools/SphereBrushTool";
 import { AiAssistTool } from "./tools/AiAssistTool";
+import { isHeatmapShown } from "./tools/HeatmapOverlay";
 import type { ToolContext } from "./tools/BaseTool";
 import { UndoManager, entryLayer } from "./core";
 import type { UndoEntry } from "./core";
@@ -130,6 +131,14 @@ export class DrawToolCore {
   }
 
   /**
+   * True while a mask must not be written: annotation is suspended, or the heatmap is
+   * shown (it owns the master canvas, and what is on screen is not a mask).
+   */
+  private writesBlocked(): boolean {
+    return this.annotationSuspended || isHeatmapShown(this.state);
+  }
+
+  /**
    * Left/right button press on the drawing canvas.
    *
    * Named rather than inlined into `draw()` so the suspension gate below can be exercised
@@ -148,7 +157,7 @@ export class DrawToolCore {
       if (e.button === 0) {
         // Every branch that can write into a mask is gated; the crosshair below is a
         // read-only probe and stays available, as do pan (button 2) and the wheel.
-        if (this.annotationSuspended && !this.eventRouter.isCrosshairEnabled()) {
+        if (this.writesBlocked() && !this.eventRouter.isCrosshairEnabled()) {
           return;
         }
 
@@ -186,6 +195,12 @@ export class DrawToolCore {
       }
   }
 
+  /** Pointer move while a stroke or pan is active; a stroke can only continue where writes are allowed. */
+  private onCanvasPointerMove(e: MouseEvent): void {
+    if (this.writesBlocked()) return;
+    this.drawingTool.onPointerMove(e);
+  }
+
   /**
    * Left/right button release on the drawing canvas.
    *
@@ -201,7 +216,7 @@ export class DrawToolCore {
       if (e.button === 0) {
         if (
           this.drawingTool.painting ||
-          (this.eventRouter.getMode() === 'draw' && !this.annotationSuspended)
+          (this.eventRouter.getMode() === 'draw' && !this.writesBlocked())
         ) {
           this.drawingTool.onPointerUp(e);
           this.activeWheelMode = 'zoom';
@@ -217,7 +232,9 @@ export class DrawToolCore {
           this.state.gui_states.mode.sphere &&
           !this.eventRouter.isCrosshairEnabled()
         ) {
-          this.sphereTool.onSpherePointerUp();
+          // A placement held when the heatmap appeared is dropped, not written; the wheel
+          // is handed back either way.
+          if (!isHeatmapShown(this.state)) this.sphereTool.onSpherePointerUp();
           this.activeWheelMode = 'zoom';
           this.zoomActionAfterDrawSphere();
         } else if (this.state.gui_states.mode.sphere &&
@@ -687,10 +704,8 @@ export class DrawToolCore {
       this.drawingTool.createBrushTrackingHandler();
 
     // drawing move — delegated to DrawingTool
-    this.drawingPrameters.handleOnDrawingMouseMove = (e: MouseEvent) => {
-      if (this.annotationSuspended) return;
-      this.drawingTool.onPointerMove(e);
-    };
+    this.drawingPrameters.handleOnDrawingMouseMove = (e: MouseEvent) =>
+      this.onCanvasPointerMove(e);
     this.drawingPrameters.handleOnDrawingMouseDown = (e: MouseEvent) =>
       this.onCanvasPointerDown(e);
     // Route pointerdown through EventRouter
@@ -741,11 +756,18 @@ export class DrawToolCore {
             this.state.nrrd_states.view.changedHeight
           );
         }
+        // The heatmap carries its own opacity; the mask opacity must not dim it.
+        const heatmapShown = isHeatmapShown(this.state);
+        if (heatmapShown) this.state.protectedData.ctxes.drawingCtx.globalAlpha = 1;
         this.state.protectedData.ctxes.drawingCtx.drawImage(
           this.state.protectedData.canvases.drawingCanvasLayerMaster,
           0,
           0
         );
+        if (heatmapShown) {
+          this.state.protectedData.ctxes.drawingCtx.globalAlpha =
+            this.state.gui_states.drawing.globalAlpha;
+        }
 
         // Brush/eraser size ring is drawn AFTER the mask composite so it stays
         // visible during an active stroke (not just on hover) — e.g. while the
@@ -895,6 +917,8 @@ export class DrawToolCore {
   /****************************Sphere functions (delegated to SphereTool)****************************************************/
 
   drawCalculatorSphereOnEachViews(axis: "x" | "y" | "z") {
+    // Placing a marker clears the master canvas, which holds the heatmap while it is shown.
+    if (isHeatmapShown(this.state)) return;
     this.sphereTool.drawCalculatorSphereOnEachViews(axis);
   }
   private configMouseSphereWheel() {
@@ -902,10 +926,12 @@ export class DrawToolCore {
   }
 
   drawCalculatorSphere(radius: number) {
+    if (isHeatmapShown(this.state)) return;
     this.sphereTool.drawCalculatorSphere(radius);
   }
 
   drawSphere(mouseX: number, mouseY: number, radius: number) {
+    if (isHeatmapShown(this.state)) return;
     this.sphereTool.drawSphere(mouseX, mouseY, radius);
   }
 
@@ -952,6 +978,7 @@ export class DrawToolCore {
    * Clear the mask on the current slice canvas for the active layer ONLY.
    */
   clearActiveSlice() {
+    if (isHeatmapShown(this.state)) return;
     this.state.protectedData.isDrawing = true;
     this.state.protectedData.canvases.originCanvas.width =
       this.state.protectedData.canvases.originCanvas.width;
@@ -1016,6 +1043,7 @@ export class DrawToolCore {
    * Undo the last drawing operation on the active layer.
    */
   undoLastPainting() {
+    if (isHeatmapShown(this.state)) return;
     const entry = this.undoManager.undo();
     if (entry) this.applyUndo(entry);
   }
@@ -1076,6 +1104,7 @@ export class DrawToolCore {
    * Redo the last undone operation on the active layer.
    */
   redoLastPainting() {
+    if (isHeatmapShown(this.state)) return;
     const entry = this.undoManager.redo();
     if (!entry) return;
 

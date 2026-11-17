@@ -758,6 +758,35 @@ GuiState 将 20 个属性分组为 4 个语义子对象：
 | `channelVisibility` | `Record<string, Record<number, boolean>>` | Channel 可见性 |
 | `layerOpacity` | `Record<string, number>` | Per-layer 透明度 (0.1–1.0，默认 1.0) |
 
+#### gui_states.heatmap (IHeatmapViewState) <Badge type="tip" text="4.2.0" />
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `visible` | `boolean` | `false` | 为 true 时，热力图**取代**所有图层和镜像绘制 |
+| `threshold` | `number` | `0.1` | 0–1；低于它的概率不绘制 |
+| `opacity` | `number` | `0.5` | 0–1；与 mask 的 `globalAlpha` 相互独立 |
+
+`isHeatmapShown(state)` 是所有调用点统一使用的那个判定函数。它用防御式写法读
+`gui_states.heatmap?.visible === true`，因为测试里一些较旧的 state 假对象根本没有 `heatmap` 字段。
+
+**它同时把住了合成与所有写入。** `compositeAllLayers` 在画完热力图之后立即返回，因此不会绘制任何
+图层、也不会绘制镜像；而各条写入路径都会提前返回：
+
+| 位置 | 拦住了什么 |
+|------|-----------|
+| `DrawToolCore.writesBlocked()` | 绘制 —— 和 `annotationSuspended` 共用同一道闸门，现在是 `annotationSuspended \|\| isHeatmapShown(...)` |
+| `DrawToolCore` 的 keydown / undo / redo / clear 路径 | 六处提前返回，覆盖历史操作与清除操作 |
+| `SphereTool` 的点击与 pointer-up | 球体放置 |
+| `NrrdTools.executeAction` | 除 `"resetZoom"` 和 `"downloadCurrentMask"` 这两个只读动作之外的全部 |
+| `NrrdTools.clearActiveLayer`、`setCalculateDistanceSphere` | 两者都会写入，所以都拒绝 |
+
+理由只有一句：屏幕上显示的不是 mask，此时的编辑会落在读片者看不见的东西上。
+
+还有两个显示细节值得知道。热力图显示期间，`DrawToolCore` 在合成前会把
+`drawingCtx.globalAlpha` 设为 1，使 mask 的透明度无法让它变淡 —— 它自己带着透明度。另外
+`RenderingUtils` 会把切片索引夹取到热力图在当前轴上的范围内，因为刚切换轴之后，索引可能还属于
+上一个轴。
+
 ### 3.3 protectedData (IProtected)
 
 定义位置: [CanvasState.ts](https://github.com/LinkunGao/copper3d_visualisation/blob/main/src/Utils/segmentation/CanvasState.ts) constructor
