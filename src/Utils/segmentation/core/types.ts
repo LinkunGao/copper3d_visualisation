@@ -490,7 +490,18 @@ export interface ILayerChannelState {
   layerOpacity: Record<string, number>;
 }
 
-export interface IGUIStates extends IToolModeState, IDrawingConfig, IViewConfig, ILayerChannelState { }
+/** The probability heatmap view. While visible it is drawn instead of every mask layer. */
+export interface IHeatmapViewState {
+  visible: boolean;
+  /** Probabilities below this (0–1) are not drawn. */
+  threshold: number;
+  /** 0–1. */
+  opacity: number;
+}
+
+export interface IGUIStates extends IToolModeState, IDrawingConfig, IViewConfig, ILayerChannelState {
+  heatmap: IHeatmapViewState;
+}
 
 /** Metadata for a GUI slider/control — used by Vue components to configure slider UI */
 export interface IGuiMeta {

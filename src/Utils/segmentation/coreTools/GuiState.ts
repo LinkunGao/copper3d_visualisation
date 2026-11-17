@@ -1,11 +1,12 @@
 /**
  * GuiState — Grouped state management for GUI configuration.
  *
- * Replaces the flat IGUIStates object with 4 semantic sub-groups:
+ * Replaces the flat IGUIStates object with 5 semantic sub-groups:
  * - mode:         Tool mode flags (pencil/eraser/sphere)
  * - drawing:      Brush/pencil appearance and behavior
  * - viewConfig:   UI layout and interaction parameters
  * - layerChannel: Active layer, channel, and visibility
+ * - heatmap:      Probability heatmap view: shown, threshold, opacity
  */
 
 import type {
@@ -13,6 +14,7 @@ import type {
   IDrawingConfig,
   IViewConfig,
   ILayerChannelState,
+  IHeatmapViewState,
 } from "../core/types";
 
 export class GuiState {
@@ -20,6 +22,7 @@ export class GuiState {
   readonly drawing: IDrawingConfig;
   readonly viewConfig: IViewConfig;
   readonly layerChannel: ILayerChannelState;
+  readonly heatmap: IHeatmapViewState;
 
   constructor(options?: {
     defaultPaintCursor?: string;
@@ -71,5 +74,7 @@ export class GuiState {
       ),
       layerOpacity: Object.fromEntries(layers.map((l) => [l, 1.0])),
     };
+
+    this.heatmap = { visible: false, threshold: 0.1, opacity: 0.5 };
   }
 }

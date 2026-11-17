@@ -35,6 +35,7 @@ import { NrrdTools } from "./Utils/segmentation/NrrdTools";
 import { registerNiftiMaskGrid } from "./Utils/segmentation/tools/DataLoader";
 import type { NrrdHeaderLike } from "./Utils/segmentation/tools/DataLoader";
 import { GaussianSmoother } from "./Utils/segmentation/core/GaussianSmoother";
+import { HEATMAP_COLORMAP } from "./Utils/segmentation/tools/HeatmapOverlay";
 // Phase 7: Segmentation Module - Unified exports
 
 import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls";
@@ -231,6 +232,7 @@ export {
   rgbaToHex,
   rgbaToCss,
   GaussianSmoother,
+  HEATMAP_COLORMAP,
   SurfaceAnnotator,
   exposureExponent,
   DEFAULT_TARGET_GREY,

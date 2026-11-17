@@ -2,6 +2,7 @@ import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import type { MaskVolume } from "../core";
 import type { SliceRenderHostDeps } from "./ToolHost";
+import { isHeatmapShown } from "./HeatmapOverlay";
 
 /**
  * The size three's slice canvas is shown at. The sagittal view turns that canvas a quarter turn
@@ -223,6 +224,12 @@ export class SliceRenderPipeline extends BaseTool {
    * Replaces the old reloadMaskToLayer approach
    */
   reloadMasksFromVolume(): void {
+    // The heatmap view paints in the composite instead of any layer, whatever tool is selected.
+    if (isHeatmapShown(this.ctx)) {
+      this.callbacks.compositeAllLayers();
+      return;
+    }
+
     // When sphere mode is active, do NOT redraw layer masks.
     // Layer mask data should remain hidden until the user exits sphere mode.
     if (this.ctx.gui_states.mode.sphere) {

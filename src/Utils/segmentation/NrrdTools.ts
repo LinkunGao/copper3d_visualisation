@@ -30,6 +30,7 @@ import type { AiPromptTool, AiPromptPayload, AiMaskResult } from "./tools/AiAssi
 import { LayerChannelManager } from "./tools/LayerChannelManager";
 import { SliceRenderPipeline } from "./tools/SliceRenderPipeline";
 import { MaskMirror } from "./tools/MaskMirror";
+import { HeatmapOverlay, isHeatmapShown } from "./tools/HeatmapOverlay";
 import { DataLoader, type NrrdHeaderLike } from "./tools/DataLoader";
 import type { ToolContext } from "./tools/BaseTool";
 import { ensureAxisExtracted } from "../../Loader/copperNrrdLoader";
@@ -517,6 +518,9 @@ export class NrrdTools {
   }
 
   executeAction(action: "undo" | "redo" | "clearActiveSliceMask" | "clearActiveLayerMask" | "resetZoom" | "downloadCurrentMask" | "gaussianSmooth", opts?: { sigma?: number }): void {
+    // Every other action writes a mask, and nothing may while the heatmap is shown.
+    const readOnly = action === "resetZoom" || action === "downloadCurrentMask";
+    if (!readOnly && isHeatmapShown(this.state)) return;
     switch (action) {
       case "undo":
         this.undo();
@@ -1275,6 +1279,57 @@ export class NrrdTools {
 
   getMaskRenderMode(): MaskRenderMode { return this.state.gui_states.drawing.maskRenderMode; }
 
+  /**
+   * Canonical uint8 probabilities (p × 255), x fastest, in the loaded image's dimensions.
+   * Throws when `dims` differ from the image's or do not match the volume's length. null clears.
+   */
+  setHeatmap(volume: Uint8Array | null, dims?: [number, number, number]): void {
+    if (volume === null) {
+      this.drawCore.renderer.heatmap = null;
+    } else {
+      const image = this.getCurrentImageDimension();
+      if (!dims || image.length !== 3 || dims.length !== 3 || dims.some((n, i) => n !== image[i])) {
+        throw new Error(`setHeatmap: heatmap dimensions ${dims ?? "(none)"} differ from the image's ${image}`);
+      }
+      const [w, h, d] = dims;
+      if (volume.length !== w * h * d) {
+        throw new Error(`setHeatmap: ${volume.length} heatmap voxels for dimensions ${dims}`);
+      }
+      this.drawCore.renderer.heatmap = new HeatmapOverlay(volume, [w, h, d]);
+    }
+    if (this.isHeatmapVisible()) this.drawCore.renderer.compositeAllLayers();
+  }
+
+  /** Show the heatmap instead of every mask layer, or bring the layers back. */
+  setHeatmapVisible(visible: boolean): void {
+    this.state.gui_states.heatmap.visible = visible;
+    if (visible) {
+      this.drawCore.renderer.compositeAllLayers();
+      return;
+    }
+    // Clear first: the reload returns without compositing in sphere mode and in a viewer with
+    // no layers and no mirror, and would leave the heatmap drawn. Sphere mode keeps nothing on
+    // the master (its overlay has its own canvas), so this is what that mode shows anyway.
+    this.state.protectedData.ctxes.drawingLayerMasterCtx.clearRect(
+      0, 0, this.state.nrrd_states.view.changedWidth, this.state.nrrd_states.view.changedHeight,
+    );
+    this.reloadMasksFromVolume();
+  }
+
+  isHeatmapVisible(): boolean { return this.state.gui_states.heatmap.visible; }
+
+  /** Probabilities below `t` (clamped to 0–1) are not drawn. */
+  setHeatmapThreshold(t: number): void {
+    this.state.gui_states.heatmap.threshold = Math.min(1, Math.max(0, t));
+    if (this.isHeatmapVisible()) this.drawCore.renderer.compositeAllLayers();
+  }
+
+  /** Clamped to 0–1. */
+  setHeatmapOpacity(a: number): void {
+    this.state.gui_states.heatmap.opacity = Math.min(1, Math.max(0, a));
+    if (this.isHeatmapVisible()) this.drawCore.renderer.compositeAllLayers();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 8. Delegated — SliceRenderPipeline
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1306,6 +1361,8 @@ export class NrrdTools {
   // ═══════════════════════════════════════════════════════════════════════════
 
   setCalculateDistanceSphere(x: number, y: number, sliceIndex: number, cal_position: "tumour" | "skin" | "nipple" | "ribcage") {
+    // A marker repaints the master canvas, which holds the heatmap while it is shown.
+    if (isHeatmapShown(this.state)) return;
     this.state.nrrd_states.sphere.sphereRadius = 5;
 
     const steps = sliceIndex - this.state.nrrd_states.view.currentSliceIndex;
@@ -1568,6 +1625,7 @@ export class NrrdTools {
   // ═══════════════════════════════════════════════════════════════════════════
 
   clearActiveLayer() {
+    if (isHeatmapShown(this.state)) return;
     if (this.state.nrrd_states.image.dimensions.length === 3) {
       const [w, h, d] = this.state.nrrd_states.image.dimensions;
       const activeLayer = this.state.gui_states.layerChannel.layer;

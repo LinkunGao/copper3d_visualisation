@@ -15,6 +15,7 @@ import type { ToolContext } from "./BaseTool";
 import type { MaskDelta } from "../core";
 import type { ICommXY } from "../core/types";
 import type { DrawingHostDeps } from "./ToolHost";
+import { isHeatmapShown } from "./HeatmapOverlay";
 
 export class DrawingTool extends BaseTool {
   /** Left mouse button currently held (draw mode) */
@@ -238,11 +239,16 @@ export class DrawingTool extends BaseTool {
           handler
         );
       } else if (e.type === "mouseover") {
-        this.ctx.nrrd_states.interaction.mouseOver = true;
+        this.ctx.nrrd_states.interaction.mouseOver = !isHeatmapShown(this.ctx);
         this.ctx.protectedData.canvases.drawingCanvas.addEventListener(
           "mousemove",
           handler
         );
+      } else if (isHeatmapShown(this.ctx)) {
+        // The ring would mark a brush that cannot paint while the heatmap is shown.
+        this.ctx.nrrd_states.interaction.mouseOver = false;
+      } else {
+        this.ctx.nrrd_states.interaction.mouseOver = true;
       }
     };
     return handler;

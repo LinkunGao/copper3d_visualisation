@@ -2,6 +2,7 @@ import type { INewMaskData } from "./core/types";
 import type { MaskVolume } from "./core/index";
 import type { CanvasState } from "./CanvasState";
 import type { MaskMirror } from "./tools/MaskMirror";
+import { isHeatmapShown, type HeatmapOverlay } from "./tools/HeatmapOverlay";
 import { contourEntry, paintContours, type ContourEntry } from "./contourPaint";
 
 /**
@@ -22,6 +23,9 @@ export class RenderingUtils {
 
     /** Set while this viewer draws another viewer's masks; painted after this viewer's own layers. */
     mirror: MaskMirror | null = null;
+
+    /** The probability heatmap; painted instead of the layers while the heatmap view is on. */
+    heatmap: HeatmapOverlay | null = null;
 
     /** Called after every composite. The owner refreshes the viewers mirroring this one. */
     onComposited: (() => void) | null = null;
@@ -255,6 +259,20 @@ export class RenderingUtils {
         const height = this.state.nrrd_states.view.changedHeight;
 
         masterCtx.clearRect(0, 0, width, height);
+
+        // The heatmap view replaces every layer and the mirror; with no volume set it draws nothing.
+        if (isHeatmapShown(this.state)) {
+            if (this.heatmap) {
+                const { threshold, opacity } = this.state.gui_states.heatmap;
+                const axis = this.state.protectedData.axis;
+                // Just after an axis switch the index may still belong to the previous axis.
+                const last = this.heatmap.dims[axis === "x" ? 0 : axis === "y" ? 1 : 2] - 1;
+                const index = Math.min(last, Math.max(0, this.state.nrrd_states.view.currentSliceIndex));
+                this.heatmap.paint(masterCtx, axis, index, width, height, threshold, opacity);
+            }
+            this.onComposited?.();
+            return;
+        }
 
         for (const layerId of this.state.nrrd_states.image.layers) {
             if (!this.state.gui_states.layerChannel.layerVisibility[layerId]) continue;

@@ -13,6 +13,7 @@ import { BaseTool } from "./BaseTool";
 import type { ToolContext } from "./BaseTool";
 import type { ILayerRenderTarget } from "../core/types";
 import type { DragSliceHostDeps } from "./ToolHost";
+import { isHeatmapShown } from "./HeatmapOverlay";
 
 interface IDragEffectCanvases {
   drawingCanvasLayerMaster: HTMLCanvasElement;
@@ -148,7 +149,10 @@ export class DragSliceTool extends BaseTool {
     // Skip layer mask rendering when sphere mode is active —
     // layer masks should remain hidden until the user exits sphere mode.
     if (view.switchSliceFlag) {
-      if (!this.ctx.gui_states.mode.sphere) {
+      if (isHeatmapShown(this.ctx)) {
+        // The heatmap view paints in the composite instead of any layer, whatever tool is selected.
+        this.callbacks.compositeAllLayers();
+      } else if (!this.ctx.gui_states.mode.sphere) {
         const axis = this.ctx.protectedData.axis;
         const sliceIndex = view.currentSliceIndex;
 
