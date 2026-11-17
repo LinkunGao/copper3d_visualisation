@@ -781,6 +781,37 @@ GuiState groups 20 properties into 4 semantic sub-objects:
 | `channelVisibility` | `Record<string, Record<number, boolean>>` | Channel visibility map |
 | `layerOpacity` | `Record<string, number>` | Per-layer opacity map (0.1–1.0, default 1.0) |
 
+#### gui_states.heatmap (IHeatmapViewState) <Badge type="tip" text="4.2.0" />
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `visible` | `boolean` | `false` | While true the heatmap is drawn **instead of** every layer and the mirror |
+| `threshold` | `number` | `0.1` | 0–1; probabilities below it are not drawn |
+| `opacity` | `number` | `0.5` | 0–1; independent of the mask `globalAlpha` |
+
+`isHeatmapShown(state)` is the single predicate every call site uses. It reads
+`gui_states.heatmap?.visible === true` defensively, because older state fakes in tests carry
+no `heatmap` at all.
+
+**It gates the composite and every write.** `compositeAllLayers` returns right after painting
+the heatmap, so no layer and no mirror is drawn; and the write paths return early:
+
+| Where | What it blocks |
+|-------|----------------|
+| `DrawToolCore.writesBlocked()` | Drawing — the same gate `annotationSuspended` uses, now `annotationSuspended \|\| isHeatmapShown(...)` |
+| `DrawToolCore` keydown / undo / redo / clear paths | Six early returns covering the history and clear operations |
+| `SphereTool` click and pointer-up | Sphere placement |
+| `NrrdTools.executeAction` | Everything except `"resetZoom"` and `"downloadCurrentMask"`, which only read |
+| `NrrdTools.clearActiveLayer`, `setCalculateDistanceSphere` | Both write, so both refuse |
+
+The reason is one sentence: what is on screen is not a mask, so an edit would land on
+something the clinician cannot see.
+
+Two display details worth knowing. `DrawToolCore` sets `drawingCtx.globalAlpha = 1` before
+compositing while the heatmap is shown, so the mask opacity cannot dim it — it carries its
+own. And `RenderingUtils` clamps the slice index to the heatmap's extent for the current axis,
+because just after an axis switch the index may still belong to the previous one.
+
 ### 3.3 protectedData (IProtected)
 
 Defined in `CanvasState.ts` constructor.

@@ -818,6 +818,12 @@ yourself. It throws on an unknown layer, or a channel outside `[1, 255]`.
 | | `getPencilColor()` | Read current pencil color |
 | | `setMaskRenderMode(mode)` | `"fill"` or `"outline"` for every layer/channel; repaints immediately. Display only — the stored mask is unchanged |
 | | `getMaskRenderMode()` | Read the current render mode |
+| **Heatmap** | `setHeatmap(vol, dims)` | Canonical uint8 probabilities (p×255), x fastest; throws unless `dims` match the image and `vol.length === w*h*d`. `null` clears |
+| | `setHeatmapVisible(bool)` | Draw it **instead of** every mask layer. While shown, nothing can write a mask |
+| | `isHeatmapVisible()` | Query the heatmap view |
+| | `setHeatmapThreshold(t)` | Probabilities below `t` (0–1) are not drawn; default `0.1` |
+| | `setHeatmapOpacity(a)` | 0–1, default `0.5`; independent of the mask opacity |
+| | `HEATMAP_COLORMAP` | *(module export)* 256-entry RGBA `Uint8ClampedArray` for a legend |
 | **Contrast** | `setWindowHigh(value)` | Set window high |
 | | `setWindowLow(value)` | Set window low |
 | | `finishWindowAdjustment()` | Repaint all contrast slices after drag ends |

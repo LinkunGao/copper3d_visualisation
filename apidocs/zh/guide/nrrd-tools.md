@@ -1250,6 +1250,53 @@ outline。outline 提取的代价随**周长**而不是面积增长，所以比�
 [架构指南](./segmentation-module)）。
 :::
 
+### 概率热力图 <Badge type="tip" text="4.2.0" />
+
+把模型给出的逐体素概率叠在图像上，配色为 navy → 蓝 → 青 → 黄 → 红：
+
+```typescript
+// 标准序 uint8 概率值（p × 255），x 变化最快，维度与已加载图像一致
+nrrdTools.setHeatmap(probabilities, [w, h, d]);
+
+nrrdTools.setHeatmapVisible(true);
+nrrdTools.setHeatmapThreshold(0.35);   // 低于此值的不绘制
+nrrdTools.setHeatmapOpacity(0.6);
+
+nrrdTools.isHeatmapVisible();          // → boolean
+nrrdTools.setHeatmap(null);            // 丢弃该体数据
+nrrdTools.setHeatmapVisible(false);    // 回到 mask 图层
+```
+
+| | 默认值 | |
+|---|---|---|
+| `visible` | `false` | **取代**所有 mask 图层绘制，也取代 mask 镜像 |
+| `threshold` | `0.1` | 夹取到 0–1；低于它的概率不绘制 |
+| `opacity` | `0.5` | 夹取到 0–1；mask 的透明度**不会**让它变淡，它有自己的 |
+
+::: warning 体数据必须与图像完全一致
+`dims` 与 `getCurrentImageDimension()` 不一致、或 `volume.length !== w * h * d` 时，
+`setHeatmap` 会抛异常。它选择拒绝，而不是拉伸或裁剪 —— 网格对不上的热力图会指向错误的体素，
+那比没有热力图更糟。
+:::
+
+::: danger 热力图显示期间，任何东西都无法写入 mask
+整个特性就建立在这条规则上：屏幕上显示的不是 mask，此时的编辑会被写进读片者看不见的东西里。
+所有写入路径都会提前返回 ——
+
+- 绘制（铅笔、画笔、橡皮擦、球形画笔/橡皮擦）与球体放置，
+- `executeAction(...)` 除 `"resetZoom"` 和 `"downloadCurrentMask"` 之外的全部动作，
+- `clearActiveLayer()` 与 `setCalculateDistanceSphere(...)`。
+
+它们是**静默空操作**，不会报错。你的 UI 应当体现这一点 —— 把工具置灰，或者先关掉热力图。
+`setHeatmapVisible(false)` 会立刻恢复一切。
+:::
+
+切片浏览、切换轴、缩放和平移都照常工作并重绘热力图。刚切换轴之后，切片索引会被夹取到新轴的范围内，
+因此过期的索引不会越界读取。
+
+`HEATMAP_COLORMAP` 是导出的，需要画配套图例时可以用 —— 一个 256 项 RGBA 的
+`Uint8ClampedArray`，按概率字节索引。
+
 ### 缩放范围 —— `setMinSizeFactor()` <Badge type="tip" text="3.11.3" />
 
 二维缩放系数（`sizeFactor`）原来的下限是 `1`，也就是和图像 1:1。把这个下限降下去，图像就可以显示得
@@ -1607,6 +1654,12 @@ function onChannelColorPicked(hex: string) {
 | | `getOpacity()` | 寻要探出当前的这盖覆实透明薄薄度现在正给多少数值内 |
 | | `setMaskRenderMode(mode)` | 对所有图层/通道设置 `"fill"` 或 `"outline"`，立即重绘。仅影响显示，存储的 mask 不变 |
 | | `getMaskRenderMode()` | 读取当前渲染模式 |
+| **热力图** | `setHeatmap(vol, dims)` | 标准序 uint8 概率（p×255），x 变化最快；`dims` 与图像不符或 `vol.length !== w*h*d` 时抛异常。传 `null` 清除 |
+| | `setHeatmapVisible(bool)` | **取代**所有 mask 图层绘制。显示期间任何东西都无法写入 mask |
+| | `isHeatmapVisible()` | 查询热力图视图状态 |
+| | `setHeatmapThreshold(t)` | 低于 `t`（0–1）的概率不绘制；默认 `0.1` |
+| | `setHeatmapOpacity(a)` | 0–1，默认 `0.5`；与 mask 透明度相互独立 |
+| | `HEATMAP_COLORMAP` | *（模块导出）* 256 项 RGBA `Uint8ClampedArray`，用于画图例 |
 | | `setBrushSize(size)` | 为现在使用的涂画擦拭这些刷头物设定那 [最小5, 最大50 ]这域段面之大中小号体积 |
 | | `getBrushSize()` | 要求交探出现在这个画笔刷的大体积给现多少数值啊 |
 | | `setPencilColor(hex)` | 直接把那一串代表特定给拿做以画走着线条模式下才单独生效去展示的那股边线表线颜调换掉色吧 |
